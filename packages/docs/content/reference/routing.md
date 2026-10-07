@@ -27,8 +27,9 @@ build: {
 The build compiles all three into one host-agnostic document, writes it into
 `manifest.json`, and `build.adapter` runs a host's adapter over that document,
 turning it into a CloudFront Function, a Netlify `_redirects` file, an nginx
-config or a Cloudflare Worker ([Deploy a site](/how-to/deploy-a-site)).
-Nothing you write here names a host.
+config, a Cloudflare Worker, or a Cloudflare Pages `_redirects`/`_headers`
+pair ([Deploy a site](/how-to/deploy-a-site)). Nothing you write here names a
+host.
 
 **A site that declares no `routing` gets exactly the build it got before the
 field existed.** The document is still written, with no rules in it.

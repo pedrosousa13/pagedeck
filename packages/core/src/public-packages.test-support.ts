@@ -1,5 +1,6 @@
 /** The packages a site author installs, by directory under `packages/` (#690). */
 export const PUBLIC_PACKAGES = [
+  "adapter-cloudflare-pages",
   "adapter-cloudflare-worker",
   "adapter-cloudfront",
   "adapter-netlify",

@@ -15,6 +15,7 @@ const ADAPTERS = [
   "adapter-netlify",
   "adapter-nginx",
   "adapter-cloudflare-worker",
+  "adapter-cloudflare-pages",
 ] as const;
 
 // Tests and test support included: a suite that imports an adapter is an edge all the same.

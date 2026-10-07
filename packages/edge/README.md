@@ -12,6 +12,7 @@ host serves:
 | [`@pagedeck/adapter-netlify`](../adapter-netlify) | `netlify()` | Netlify's `_redirects` and `_headers` |
 | [`@pagedeck/adapter-nginx`](../adapter-nginx) | `nginx()` | an nginx config fragment |
 | [`@pagedeck/adapter-cloudflare-worker`](../adapter-cloudflare-worker) | `cloudflareWorker()` | a Cloudflare Worker |
+| [`@pagedeck/adapter-cloudflare-pages`](../adapter-cloudflare-pages) | `cloudflarePages()` | Cloudflare Pages' `_redirects` and `_headers` |
 
 This package holds what the adapters share and names no host: the adapter
 contract, the routing normalisation every adapter compiles from, the
@@ -128,10 +129,12 @@ A host's own bare 404, on a tree with no 404 page, is outside the claim. On
 nginx a missing path then carries the set of the prefix block that answered
 it, and a reserved deploy key, refused before any location, carries none.
 
-Two host facts this rests on are not verified, and `docs/deploy-recipe.md`
+Some host facts this rests on are not verified, and `docs/deploy-recipe.md`
 lists them: whether Netlify matches `_headers` against a `404` row's target,
-and whether CloudFront runs the viewer-response function over a custom error
-response.
+whether CloudFront runs the viewer-response function over a custom error
+response, which path Cloudflare Pages matches `_headers` against for a
+proxied (200) response, and whether a redirect response carries `_headers` on
+Cloudflare Pages at all.
 
 ### Reserved deploy keys
 
@@ -179,10 +182,10 @@ directly.
 ## Known gaps
 
 - **A split is compiled by one adapter only.** `@pagedeck/adapter-netlify`,
-  `@pagedeck/adapter-nginx` and `@pagedeck/adapter-cloudflare-worker` refuse
-  one, so a site that wants an experiment compiles with
-  `@pagedeck/adapter-cloudfront`; its README documents the pattern for the
-  others, which is not implemented.
+  `@pagedeck/adapter-nginx`, `@pagedeck/adapter-cloudflare-worker` and
+  `@pagedeck/adapter-cloudflare-pages` refuse one, so a site that wants an
+  experiment compiles with `@pagedeck/adapter-cloudfront`; its README
+  documents the pattern for the others, which is not implemented.
 - **No default header set.** A site that declares no `build.routing.headers`
   compiles an empty header table on every adapter, and `pagedeck build` warns
   about it. `SECURITY_HEADERS` from `@pagedeck/core` holds three headers to

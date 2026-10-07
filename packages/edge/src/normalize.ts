@@ -17,6 +17,8 @@ export interface CompiledRedirect extends ResolvedRedirect {
 
 export interface CompiledTree extends Omit<RoutingTree, "redirects"> {
   redirects: readonly CompiledRedirect[];
+  /** The site's policy, folded in here too: an adapter that cannot serve one reads it per tree. */
+  trailingSlash: TrailingSlash;
 }
 
 function otherSpelling(
@@ -66,5 +68,6 @@ export function compiledTree(
     redirects: [...byFrom.values()].sort((a, b) =>
       a.from === b.from ? 0 : a.from < b.from ? -1 : 1,
     ),
+    trailingSlash,
   };
 }
