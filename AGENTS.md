@@ -20,7 +20,8 @@ pnpm test        # pnpm build, then vitest run
   as a user's editor reads it. It first runs `tsc -b` on the packages the
   template imports, so it needs no `pnpm build`.
 - Every environment variable this repo reads starts `PAGEDECK_`.
-- `pnpm test` leaves out the harnesses (see "Harnesses").
+- `pnpm test` runs no harness, though it runs each `*.harness.test.ts`,
+  which tests a harness's logic (see "Harnesses").
 
 ## Agent skills
 
@@ -114,7 +115,8 @@ otherwise make `tsc -b` skip a package whose `dist` is gone.
 
 ### The published tarball
 
-Nothing is on a registry yet, but `npm pack` must produce a tarball holding
+The release workflow publishes the public set to npm on a `v*` tag (#7; see
+"Releasing"), and `npm pack` must produce a tarball holding
 the emitted `dist`, the manifest, and the README and LICENSE npm always packs,
 and nothing else (#185). Every package declares the same three fields:
 
@@ -163,6 +165,74 @@ calls at startup through `installJsxLoader` (#702);
 `create-pagedeck` itself needs less, but it takes core's range because the site
 it writes needs core's. Raise a floor when new code needs a newer API, and say
 which.
+
+### Releasing
+
+`.github/workflows/release.yml` publishes the public set to npm when a tag
+`v<version>` is pushed (#7). It installs with `--frozen-lockfile`, checks the
+tag with `pnpm check:release-tag`, runs `pnpm test:pack-harness`, and then runs
+`pnpm -r publish --access public --provenance --no-git-checks`. pnpm skips
+every `private` package. `--no-git-checks` is there because a tag checkout is a
+detached HEAD, and pnpm's branch check refuses one. `pnpm publish` applies
+`.pnpmfile.mjs` the same way `pnpm pack` does, so the registry gets the
+manifests the pack harness checked.
+
+`releaseTagFault` (`packages/core/src/release-tag.harness.ts`) refuses a tag
+that does not start with `v`, and a tag whose version is not the `version` of
+every public package. The refusal names each package that differs, with its
+manifest and the version it carries. To try a tag without publishing:
+
+```sh
+pnpm check:release-tag v0.2.0
+```
+
+To cut a release:
+
+1. Set `version` in each public package's manifest and `PUBLIC_VERSION` in
+   `packages/core/src/public-packages.test-support.ts`, and land the change on
+   `main`.
+2. On that commit, run `pnpm check:release-tag v<version>`.
+3. Tag the commit and push the tag:
+   `git tag v<version> && git push origin v<version>`.
+
+**The first publish uses a token.** npm sets up trusted publishing in a
+package's settings, so a package must exist before it can have one. For
+0.1.0 the workflow authenticates with the repo secret `NPM_TOKEN`, a
+short-lived granular token with publish rights on the `@pagedeck` scope and on
+`create-pagedeck`. The publish step passes it as `NODE_AUTH_TOKEN`, which the
+`.npmrc` that `setup-node` writes from `registry-url` reads.
+
+**Then switch to trusted publishing.** After 0.1.0 is on npm, add a trusted
+publisher to each of the ten packages on npmjs.com: GitHub Actions, repository
+`pedrosousa13/pagedeck`, workflow `release.yml`. npm matches the workflow
+filename exactly, so renaming the file breaks every publish until each package
+is updated. Then delete the token on npm and the `NPM_TOKEN` secret.
+
+The workflow needs no edit at the switch. Since pnpm 11.0.7, `pnpm publish`
+tries OIDC first for each package of a recursive publish, and a token it gets
+that way replaces any token the `.npmrc` names
+(<https://github.com/pnpm/pnpm/releases/tag/v11.0.7>). Since 11.1.3 a
+placeholder such as `${NODE_AUTH_TOKEN}` whose variable is unset counts as
+empty, not as a literal token
+(<https://github.com/pnpm/pnpm/releases/tag/v11.1.3>). With the secret deleted,
+`NODE_AUTH_TOKEN` is empty, and OIDC does the authenticating. The job already
+has `id-token: write`, which npm requires, and under trusted publishing npm
+generates provenance by itself, so `--provenance` does no harm
+(<https://docs.npmjs.com/trusted-publishers>).
+
+**When a publish stops partway**, some packages are on npm at the new version
+and the rest are not. A recursive pnpm command follows the workspace
+dependency graph unless `--sort` is off (<https://pnpm.io/cli/recursive>), and
+`pnpm -r publish` publishes only the packages whose version is not yet on the
+registry (<https://pnpm.io/cli/publish>). So:
+
+- If the cause is outside the code (an expired token, a trusted publisher
+  set up wrong, an npm outage), fix it without a new commit and use "Re-run
+  jobs" on the same tag's run. The re-run skips what is already published.
+- Never bump the version over a half-published set to get past a failure.
+- If the cause needs a code change, bump the whole public set to the next
+  patch version, land it, and tag that. The half-published version stays as
+  it is.
 
 ### Imports between packages
 
@@ -480,10 +550,24 @@ before changing it; never raise it to make the failure go away.
 
 ## Harnesses
 
-`pnpm test` runs none of these. A measurement harness records a fact a decision
+`pnpm test` runs none of these, though it runs each `*.harness.test.ts`,
+which tests a harness's logic without running the harness. A measurement harness records a fact a decision
 rests on: when it fails, argue the decision again, do not edit the assertion.
 Every other harness fails only on a real defect. A harness that launches a
 browser needs `npx playwright install chromium` once.
+
+### The release tag check
+
+```
+pnpm check:release-tag v<version>
+```
+
+`packages/core/src/release-tag.harness.ts` checks that a tag names the version
+every public package carries, so a release never publishes a mixed set. It
+reads the manifests and nothing else, so it needs no build.
+`.github/workflows/release.yml` runs it on the pushed tag before the pack
+harness, and a maintainer runs it before pushing one (see "Releasing").
+`release-tag.harness.test.ts` holds its messages in the suite.
 
 ### The pack harness
 
