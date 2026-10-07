@@ -33,7 +33,7 @@ import {
 
 export const FEATURES_ROUTE = "features";
 
-export const FEATURES_PATH = `/${FEATURES_ROUTE}`;
+export const FEATURES_PATH = `/${FEATURES_ROUTE}/`;
 
 const DOCS_ORIGIN = "https://docs.pagedeck.example";
 

@@ -8,19 +8,19 @@ const WHY =
 const ORIGIN = "https://dogfood.example";
 
 const HOME_ALTERNATES: Readonly<Record<string, string>> = {
-  de: `${ORIGIN}/de`,
-  en: `${ORIGIN}/en`,
+  de: `${ORIGIN}/de/`,
+  en: `${ORIGIN}/en/`,
 };
 
 const PAGES: readonly PageFacts[] = [
   {
-    url: "/de",
+    url: "/de/",
     status: 200,
     lang: "de",
     title: "Startseite",
     metaDescription:
       "Bau die Seite mit einem Build, der im Terminal fertig wird.",
-    canonical: `${ORIGIN}/de`,
+    canonical: `${ORIGIN}/de/`,
     alternates: HOME_ALTERNATES,
     headings: [{ level: 1, text: "Bau die Seite" }],
     // The German hero has no `cta`, so it renders no anchor.
@@ -28,13 +28,13 @@ const PAGES: readonly PageFacts[] = [
     text: "Bau die Seite",
   },
   {
-    url: "/en",
+    url: "/en/",
     status: 200,
     lang: "en",
     title: "Home",
     metaDescription:
       "Ship the site with a build that is fast and small, then see what each plan costs.",
-    canonical: `${ORIGIN}/en`,
+    canonical: `${ORIGIN}/en/`,
     alternates: HOME_ALTERNATES,
     // `<h2>`: a card sits directly under the page's `<h1>` (#296).
     headings: [
@@ -42,30 +42,30 @@ const PAGES: readonly PageFacts[] = [
       { level: 2, text: "Fast" },
       { level: 2, text: "Small" },
     ],
-    internalHrefs: ["/en/pricing"],
+    internalHrefs: ["/en/pricing/"],
     text: "Ship the site See pricing Fast Small",
   },
   {
     // Its `related` and `unset_link` fields never reach the document.
-    url: "/en/legal/terms",
+    url: "/en/legal/terms/",
     status: 200,
     lang: "en",
     title: "Terms",
     metaDescription: "The terms that apply to this site.",
-    canonical: `${ORIGIN}/en/legal/terms`,
+    canonical: `${ORIGIN}/en/legal/terms/`,
     alternates: {},
     headings: [{ level: 1, text: "Terms" }],
     internalHrefs: [],
     text: "Terms The terms.",
   },
   {
-    url: "/en/pricing",
+    url: "/en/pricing/",
     status: 200,
     lang: "en",
     title: "Pricing",
     metaDescription:
       "The two plans and their monthly prices: Starter at 0 and Team at 49, with a yearly option.",
-    canonical: `${ORIGIN}/en/pricing`,
+    canonical: `${ORIGIN}/en/pricing/`,
     alternates: {},
     headings: [{ level: 1, text: "Plans" }],
     internalHrefs: [],
@@ -73,9 +73,11 @@ const PAGES: readonly PageFacts[] = [
   },
 ];
 
+// The slashed spelling: the policy's own redirect, not the force-flagged row for
+// the bare spelling (`redirectRows` drops that one, #607).
 const REDIRECTS: readonly RedirectFact[] = [
-  { from: "/en/plans", to: "/en/pricing", status: 301 },
-  { from: "/en/terms", to: "/en/legal/terms", status: 301 },
+  { from: "/en/plans/", to: "/en/pricing/", status: 301 },
+  { from: "/en/terms/", to: "/en/legal/terms/", status: 301 },
 ];
 
 export const DECLARED_BASELINE: ParityBaseline = {

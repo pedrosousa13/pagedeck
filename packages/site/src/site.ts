@@ -47,6 +47,11 @@ const COLLECTION = "pages";
 
 const HOME = "home";
 
+// `definePages` below declares no `trailingSlash`, so it takes the package
+// default; mirrored here because `./props` mints a `LinkField`'s href from its
+// target's locale and path, outside `collectPages` (#88).
+const TRAILING_SLASH = "always";
+
 // Domain-mapping one locale also unprefixes the other, while `./props` keeps minting
 // `/en/…` hrefs (#88).
 const LOCALES: LocaleSet = defineLocales({
@@ -77,8 +82,8 @@ const ROUTING: RoutingConfig = {
 const BUDGET: Readonly<Record<string, string>> = {
   "en:/": "0b",
   "de:/": "0b",
-  "en:/legal/terms": "0b",
-  "en:/pricing": "60kb",
+  "en:/legal/terms/": "0b",
+  "en:/pricing/": "60kb",
 };
 
 // Absolute, as are `FAVICON`'s and `FONTS_DIR`'s: three files build `siteConfig` from a
@@ -166,7 +171,7 @@ const SCRIPTS: ScriptsSetting = defineScripts({
     },
   ],
   pageTypes: { "/**": { cmp: "off", analytics: "off" } },
-  pages: { "en:/pricing": { cmp: "idle", analytics: "interaction" } },
+  pages: { "en:/pricing/": { cmp: "idle", analytics: "interaction" } },
 });
 
 const SITE_VIEWPORT = "site_viewport";
@@ -233,6 +238,7 @@ function contentOf(
   return pageContentOf(entry.data, {
     images: SITE_IMAGES,
     page,
+    trailingSlash: TRAILING_SLASH,
     fold: resolveFoldStrategy(undefined),
   });
 }
@@ -278,7 +284,6 @@ export function siteConfig(): SiteConfig {
       css: [GLOBAL_CSS],
       vite: { plugins: [tailwindcss()] },
       pages: definePages({
-        trailingSlash: "never",
         locales: LOCALES,
         sources: [fromCollection(collection, { route: routeOf })],
       }),

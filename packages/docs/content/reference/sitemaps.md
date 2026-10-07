@@ -92,7 +92,7 @@ primary, and no sitemap names it.
 
 **The 404 page is not either.** A page a `build.routing.notFound` rule names
 carries `noindex`, so no sitemap lists it and no entry names it as an
-alternate. See [Routing](/reference/routing#the-404-page).
+alternate. See [Routing](/reference/routing/#the-404-page).
 
 ## What an entry does not hold
 

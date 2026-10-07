@@ -275,7 +275,7 @@ test("build.pages takes a bare list of sources, with the page set's defaults", (
   const pages = config.build?.pages;
 
   try {
-    expect(pages?.trailingSlash).toBe("never");
+    expect(pages?.trailingSlash).toBe("always");
     expect([...(pages?.locales.keys() ?? [])]).toEqual(["en"]);
     expect(
       pages === undefined ? [] : collectPages(store, pages).map((p) => p.path),

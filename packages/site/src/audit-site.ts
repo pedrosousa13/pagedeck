@@ -22,10 +22,10 @@ export const AUDIT_URLS: readonly string[] = BASELINE_URLS;
 // Transfer bytes over the uncompressed local origin, measured; derivation in
 // AGENTS.md, "The site audit harnesses".
 export const BUDGETS: Readonly<Record<string, AuditBudget>> = {
-  "/de": { scriptBytes: 0, scriptRequests: 0 },
-  "/en": { scriptBytes: 0, scriptRequests: 0 },
-  "/en/legal/terms": { scriptBytes: 0, scriptRequests: 0 },
-  "/en/pricing": { scriptBytes: 225 * 1024, scriptRequests: 3 },
+  "/de/": { scriptBytes: 0, scriptRequests: 0 },
+  "/en/": { scriptBytes: 0, scriptRequests: 0 },
+  "/en/legal/terms/": { scriptBytes: 0, scriptRequests: 0 },
+  "/en/pricing/": { scriptBytes: 225 * 1024, scriptRequests: 3 },
 };
 
 // Cited from `docs/research/2026-08-23-app-router-static-export.md`, never
@@ -40,10 +40,10 @@ export const TWIN_PAYLOAD = {
 export const TWIN_PAGE_KIND: Readonly<
   Record<string, keyof typeof TWIN_PAYLOAD>
 > = {
-  "/de": "content",
-  "/en": "content",
-  "/en/legal/terms": "content",
-  "/en/pricing": "interactive",
+  "/de/": "content",
+  "/en/": "content",
+  "/en/legal/terms/": "content",
+  "/en/pricing/": "interactive",
 };
 
 // Measured minimums on Lighthouse 13.4.1, a ratchet. `performance` is timing-derived
@@ -183,7 +183,7 @@ export function measurePayload(root: string, out: string): readonly PagePayload[
   });
 }
 
-export const RUNTIME_URL = "/en/pricing";
+export const RUNTIME_URL = "/en/pricing/";
 
 export const REACT_CHUNK = "fw-measure-react";
 

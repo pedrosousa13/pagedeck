@@ -37,6 +37,8 @@ function contextFor(entry: PageEntry): PropsContext {
   return {
     images: SITE_IMAGES,
     page: { locale: entry.locale, path: `/${entry.path}` },
+    // Matches `testSiteConfig`'s own `definePages` in `./site.test-support.ts`.
+    trailingSlash: "never",
     aboveFold: false,
   };
 }

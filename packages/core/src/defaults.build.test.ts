@@ -37,7 +37,7 @@ export default defineConfig({
   build: {
     outDir: "./site",
     pages: definePages({
-      trailingSlash: "never",
+      trailingSlash: "always",
       locales: defineLocales({ en: { label: "English", direction: "ltr" } }),
       sources: [
         fromCollection(pages, {

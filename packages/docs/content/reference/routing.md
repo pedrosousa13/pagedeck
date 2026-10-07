@@ -74,7 +74,7 @@ trips per host.
 
 **A link on your own pages that resolves through a redirect is reported**, with
 the direct target on the line, so you can point it at the page instead — see
-[Link checking](/reference/link-checking).
+[Link checking](/reference/link-checking/).
 
 ## The 404 page
 
@@ -103,8 +103,8 @@ path, but its own address answers 200 like any page. So the build writes
 `<meta name="robots" content="noindex">` into its head, whether or not you
 declared an `origin`. It gets no canonical and no `hreflang` links, no other
 page lists it as an alternate, and no sitemap lists it. See
-[Canonicals and hreflang](/reference/canonicals-and-hreflang) and
-[Sitemaps](/reference/sitemaps).
+[Canonicals and hreflang](/reference/canonicals-and-hreflang/) and
+[Sitemaps](/reference/sitemaps/).
 
 ## Headers
 
@@ -183,13 +183,13 @@ headers: [
 than a gap.** A CSP is a claim about what a page may load, and this framework
 composes a page's script layer per page: the island entry chunk, the consent
 gate, and whatever you declared in
-[`build.scripts`](/reference/third-party-scripts). No single policy is correct
+[`build.scripts`](/reference/third-party-scripts/). No single policy is correct
 for all of them, and a wrong CSP is worse than none — it breaks the page in
 production, silently, on the first request that violates it. The framework's own
 inline script loader is the sharpest case. Its text differs from page to page,
 so its hash does too, and the build records each page's hash in
 `manifest.json` for your own header to use.
-[Third-party scripts](/reference/third-party-scripts) has the recipe. Write
+[Third-party scripts](/reference/third-party-scripts/) has the recipe. Write
 yours deliberately, against the pages your build actually emits.
 
 ## Output trees

@@ -37,8 +37,8 @@ There are three pages, each with a different set of blocks:
 | Page | Route | Blocks | JavaScript |
 | --- | --- | --- | --- |
 | `home` | `/` | `hero`, `feature_grid`, `rich_text` | none |
-| `faq` | `/faq` | `hero`, `faq` | the `faq` island |
-| `signup` | `/signup` | `hero`, `signup_form` | the `signup_form` island |
+| `faq` | `/faq/` | `hero`, `faq` | the `faq` island |
+| `signup` | `/signup/` | `hero`, `signup_form` | the `signup_form` island |
 
 ## The CMS's API
 
@@ -190,8 +190,8 @@ again and give the reason. Do not raise it to make the failure go away.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `/` | `0b` | 0 B (#694) | no chunks |
-| `/faq` | `60kb` (61440 B) | 53120 B (#694) | `fw-core` 52507 B, `faq` 414 B, entry 199 B |
-| `/signup` | `60kb` (61440 B) | 53265 B (#727) | `fw-core` 52507 B, `signup_form` 551 B, entry 207 B |
+| `/faq/` | `60kb` (61440 B) | 53120 B (#694) | `fw-core` 52507 B, `faq` 414 B, entry 199 B |
+| `/signup/` | `60kb` (61440 B) | 53265 B (#727) | `fw-core` 52507 B, `signup_form` 551 B, entry 207 B |
 
 The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 54784 B
 measured on #727, each file compressed on its own.

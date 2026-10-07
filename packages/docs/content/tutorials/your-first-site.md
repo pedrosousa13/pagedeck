@@ -77,14 +77,14 @@ thought about it.
 
 A collection in the store is not yet a site. `fromCollection` makes each entry
 a page. It has no `route` here, so each entry routes at its own path, and
-`content/about.md` becomes `/about`. An entry named `index` routes at its
+`content/about.md` becomes `/about/`. An entry named `index` routes at its
 directory, so `content/index.md` is the home page at `/`. Write a `route` when
 the URL is not the path, such as a date prefix.
 
 The config leaves four settings at their defaults. The store is `./content.db`
 and the build writes to `./site`, both beside the config file. The site has one
-locale, `en`, written left to right, and its routes have no trailing slash. The
-[site config reference](/reference/site-config) lists each default and how to
+locale, `en`, written left to right, and its routes carry a trailing slash. The
+[site config reference](/reference/site-config/) lists each default and how to
 override it.
 
 `layout: "layout"` renders every entry into the component registered as
@@ -128,7 +128,7 @@ npx pagedeck dev
 ```
 
 It prints the address it serves, `http://127.0.0.1:5173`. Open it. The home
-page links to the other two, `/about` and `/counter`. The server renders each
+page links to the other two, `/about/` and `/counter/`. The server renders each
 page from the store when you request it, and runs until you stop it with
 `Ctrl-C`.
 
@@ -144,7 +144,7 @@ npx pagedeck sync --watch
 
 Open `content/about.md`, change its first line from `# About` to
 `# About this site`, and save it. `pagedeck sync --watch` reads the edit on its
-next sync, five seconds after the last one ended. Reload `/about` in the browser, and the new heading is there. The browser does
+next sync, five seconds after the last one ended. Reload `/about/` in the browser, and the new heading is there. The browser does
 not reload by itself after a content edit.
 
 ## 6. Add a page
@@ -159,7 +159,7 @@ This page was added by hand, and it ships no JavaScript either.
 [Back home](/)
 ```
 
-`pagedeck sync --watch` picks the file up on its next sync. Open `/hello`. Its route comes
+`pagedeck sync --watch` picks the file up on its next sync. Open `/hello/`. Its route comes
 from its file name, as step 3 described, and the layout renders it like the
 other pages.
 
@@ -178,14 +178,14 @@ the islands need, and writes the finished site to `site/`. It does not read
 
 The build also warns that the site declares no security headers. The warning
 does not stop the build. Before you deploy, add the headers as
-[Security headers](/reference/routing#security-headers) describes.
+[Security headers](/reference/routing/#security-headers) describes.
 
 ## What you have
 
-`site/` holds four pages. Three of them, `/`, `/about` and `/hello`, are plain
+`site/` holds four pages. Three of them, `/`, `/about/` and `/hello/`, are plain
 HTML with no `<script>` tag. Open `site/about/index.html` to check.
 
-`/counter` is the one page with a `<script>` tag. It loads the counter and the
+`/counter/` is the one page with a `<script>` tag. It loads the counter and the
 React code that runs it. Its page is `content/counter.md`:
 
 ```
@@ -206,24 +206,24 @@ Each name in the `components` list is a key of `build.components` in the
 config, and the layout renders it as a child. The counter is an island because
 `components/counter.tsx` starts with `"use client"`. The build bundles an
 island's JavaScript for the pages that name it and for no other page, which is
-why adding `/hello` cost nothing. A
-[JavaScript budget](/reference/javascript-budgets) keeps it that way, by
+why adding `/hello/` cost nothing. A
+[JavaScript budget](/reference/javascript-budgets/) keeps it that way, by
 failing the build when a page ships more than you allow.
-[Add an island and hold it to a budget](/how-to/add-an-island) sets one up.
+[Add an island and hold it to a budget](/how-to/add-an-island/) sets one up.
 
 ## What happens next
 
-- [Add an island and hold it to a budget](/how-to/add-an-island) writes an
+- [Add an island and hold it to a budget](/how-to/add-an-island/) writes an
   island of your own, chooses when it hydrates, and reads what each page ships.
-- [Site config](/reference/site-config) covers layouts, frontmatter
+- [Site config](/reference/site-config/) covers layouts, frontmatter
   components, routes and every default this page relied on.
-- [The pagedeck command](/reference/cli) lists each verb and its flags,
+- [The pagedeck command](/reference/cli/) lists each verb and its flags,
   including `pagedeck sync --incremental`, which reads only what changed.
-- [Write a loader](/how-to/write-a-loader) points the framework at a content
+- [Write a loader](/how-to/write-a-loader/) points the framework at a content
   source of your own.
-- [Connect a CMS](/how-to/connect-a-cms) walks through a site whose pages
+- [Connect a CMS](/how-to/connect-a-cms/) walks through a site whose pages
   come from a headless CMS, from the loader to the JavaScript each page ships.
-- [Deploy a site](/how-to/deploy-a-site) uploads `site/` to a host, then
+- [Deploy a site](/how-to/deploy-a-site/) uploads `site/` to a host, then
   only what changed, and keeps the content store between CI runs.
-- [Why this site ships no JavaScript](/explanation/why-this-site-ships-no-javascript)
+- [Why this site ships no JavaScript](/explanation/why-this-site-ships-no-javascript/)
   explains where a script tag comes from.

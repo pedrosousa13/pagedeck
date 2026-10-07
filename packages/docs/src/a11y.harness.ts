@@ -32,7 +32,7 @@ const PAGES = [
   "/reference/images",
   "/search",
 ] as const;
-const QUERY = { text: "loader", finds: "/how-to/write-a-loader" } as const;
+const QUERY = { text: "loader", finds: "/how-to/write-a-loader/" } as const;
 const SCHEMES = ["light", "dark"] as const;
 const WIDTHS = [390, 1280] as const;
 

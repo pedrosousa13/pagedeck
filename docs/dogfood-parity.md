@@ -135,13 +135,13 @@ sampled, because it is the set the framework's claims differ on:
 
 | URL | What it is |
 | --- | --- |
-| `/en` | tree-driven front page, hero and feature grid, one call to action |
-| `/de` | the second locale — the URL prefix and the `lang` attribute |
-| `/en/legal/terms` | content-only template, and the nested slug (#161's guard) |
-| `/en/pricing` | the one page with an island |
+| `/en/` | tree-driven front page, hero and feature grid, one call to action |
+| `/de/` | the second locale — the URL prefix and the `lang` attribute |
+| `/en/legal/terms/` | content-only template, and the nested slug (#161's guard) |
+| `/en/pricing/` | the one page with an island |
 
-Plus the two redirects the site declares: `/en/plans → /en/pricing` and
-`/en/terms → /en/legal/terms`, both 301. Those are read back out of the
+Plus the two redirects the site declares: `/en/plans/ → /en/pricing/` and
+`/en/terms/ → /en/legal/terms/`, both 301. Those are read back out of the
 **compiled** `@pagedeck/adapter-netlify` artifact rather than out of the site config object,
 because the artifact is what a host is given — a rule that is in the config and
 not in the artifact is a rule nobody serves.

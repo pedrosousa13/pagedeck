@@ -464,7 +464,7 @@ describe("/features, driven in the browser (#551)", () => {
   test("the search box fetches nothing before focus, and a query returns a result", () => {
     const { search } = seen();
     expect(search.fetchedBeforeFocus).toBe(0);
-    expect(search.hrefs).toContain("/interactive");
+    expect(search.hrefs).toContain("/interactive/");
   });
 
   test("the embed stays unloaded until consent, and loads after it", () => {

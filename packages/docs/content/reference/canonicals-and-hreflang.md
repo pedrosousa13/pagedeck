@@ -109,7 +109,7 @@ It carries `<meta name="robots" content="noindex">` in their place, and no other
 page lists it as an alternate. A canonical names the address a page is to be
 indexed at, and a 404 page is not to be indexed at any. The `noindex` is
 written whether or not you declared an `origin`, because the page's own address
-answers 200 on every host. See [Routing](/reference/routing#the-404-page).
+answers 200 on every host. See [Routing](/reference/routing/#the-404-page).
 
 A page at the same path in another locale that no rule names is an ordinary
 page. It keeps its canonical, and the 404 pages are not in its `hreflang` set.

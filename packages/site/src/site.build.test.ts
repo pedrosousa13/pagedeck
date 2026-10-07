@@ -35,8 +35,8 @@ const RETAINED = join(SITE, RETENTION_DIR);
 
 const EN_HOME = { locale: "en", path: "/" };
 const DE_HOME = { locale: "de", path: "/" };
-const TERMS = { locale: "en", path: "/legal/terms" };
-const PRICING = { locale: "en", path: "/pricing" };
+const TERMS = { locale: "en", path: "/legal/terms/" };
+const PRICING = { locale: "en", path: "/pricing/" };
 
 const CONTENT_PAGES = [EN_HOME, DE_HOME, TERMS];
 
@@ -224,15 +224,15 @@ test("the site is the published entries, at the URLs their entry ids imply", () 
   // Listed, not walked: a fifth page would mean the sync started selecting drafts.
   expect(
     manifest.pages.map((row) => `${row.locale} ${row.path}`).sort(),
-  ).toEqual(["de /", "en /", "en /legal/terms", "en /pricing"]);
+  ).toEqual(["de /", "en /", "en /legal/terms/", "en /pricing/"]);
 
-  expect(page(EN_HOME).output).toBe("/en");
-  expect(page(DE_HOME).output).toBe("/de");
-  expect(page(PRICING).output).toBe("/en/pricing");
+  expect(page(EN_HOME).output).toBe("/en/");
+  expect(page(DE_HOME).output).toBe("/de/");
+  expect(page(PRICING).output).toBe("/en/pricing/");
   expect(manifest.pages.every((row) => row.domain === undefined)).toBe(true);
 
   // #161: `route: (entry) => [entry.path]` ships `/en/legal%2Fterms` with a green build.
-  expect(page(TERMS).output).toBe("/en/legal/terms");
+  expect(page(TERMS).output).toBe("/en/legal/terms/");
   expect(manifest.pages.some((row) => row.output.includes("%"))).toBe(false);
   expect(existsSync(join(OUT, "en", "legal", "terms", "index.html"))).toBe(
     true,
@@ -296,7 +296,7 @@ test("the island's cost is confined to the page that asked for it", () => {
     manifest.pages
       .filter((row) => row.entryChunk !== undefined)
       .map((row) => `${row.locale} ${row.path}`),
-  ).toEqual(["en /pricing"]);
+  ).toEqual(["en /pricing/"]);
 
   expect(jsClosure(deployKey(pricing.entryChunk as string))).toEqual(
     jsFiles().sort(),
@@ -363,7 +363,7 @@ test("the pricing page carries the script layer, and the gated script waits for 
 
 test("the entries' fields reach the components as the components spell them", () => {
   const home = document(page(EN_HOME).output);
-  expect(home).toContain('href="/en/pricing"');
+  expect(home).toContain('href="/en/pricing/"');
   expect(home).toContain(">See pricing</a>");
   expect(existsSync(join(OUT, "en", "pricing", "index.html"))).toBe(true);
 
@@ -402,8 +402,8 @@ test("the site's declared redirects and headers reach the compiled edge artifact
 
   const redirects = netlify.artifacts.find((one) => one.path === "/_redirects");
   expect(redirects?.role).toBe("tree-file");
-  expect(redirects?.contents).toContain("/en/plans /en/pricing 301");
-  expect(redirects?.contents).toContain("/en/terms /en/legal/terms 301");
+  expect(redirects?.contents).toContain("/en/plans/ /en/pricing/ 301");
+  expect(redirects?.contents).toContain("/en/terms/ /en/legal/terms/ 301");
   expect(existsSync(join(OUT, "en", "pricing", "index.html"))).toBe(true);
   expect(existsSync(join(OUT, "en", "legal", "terms", "index.html"))).toBe(true);
 
@@ -510,16 +510,16 @@ const HEAD_LINKS: readonly {
 }[] = [
   {
     id: DE_HOME,
-    canonical: `${ORIGIN}/de`,
-    alternates: [`de ${ORIGIN}/de`, `en ${ORIGIN}/en`],
+    canonical: `${ORIGIN}/de/`,
+    alternates: [`de ${ORIGIN}/de/`, `en ${ORIGIN}/en/`],
   },
   {
     id: EN_HOME,
-    canonical: `${ORIGIN}/en`,
-    alternates: [`de ${ORIGIN}/de`, `en ${ORIGIN}/en`],
+    canonical: `${ORIGIN}/en/`,
+    alternates: [`de ${ORIGIN}/de/`, `en ${ORIGIN}/en/`],
   },
-  { id: TERMS, canonical: `${ORIGIN}/en/legal/terms`, alternates: [] },
-  { id: PRICING, canonical: `${ORIGIN}/en/pricing`, alternates: [] },
+  { id: TERMS, canonical: `${ORIGIN}/en/legal/terms/`, alternates: [] },
+  { id: PRICING, canonical: `${ORIGIN}/en/pricing/`, alternates: [] },
 ];
 
 function alternateLinks(html: string): string[] {

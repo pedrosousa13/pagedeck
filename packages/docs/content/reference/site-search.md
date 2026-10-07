@@ -42,7 +42,7 @@ For each page, three fields:
 
 - **The title**: the `title` the site's `head` callback returns for the page.
   A page with no title is indexed without one. See
-  [Page head](/reference/page-head).
+  [Page head](/reference/page-head/).
 - **The headings**: the text of each `<h1>` to `<h6>` in the page.
 - **The body**: the rest of the page's text.
 
@@ -51,7 +51,7 @@ inside `<main>`. The document around it is not read: not the `<head>`, not the
 script tags, and not the chrome a site declares with `build.chrome`, which the
 build writes before and after `<main>`. A header or footer declared as chrome is
 therefore never indexed. See
-[Page body](/reference/page-body#chrome-markup-beside-the-landmark).
+[Page body](/reference/page-body/#chrome-markup-beside-the-landmark).
 
 Inside the page's tree, the index leaves out:
 
@@ -194,7 +194,7 @@ browser console and shows `emptyLabel`. The message names the file and the
 status.
 
 Fold strategy does not change an `idle` island. See
-[Fold strategy](/reference/fold-strategy).
+[Fold strategy](/reference/fold-strategy/).
 
 ## Loading on focus
 

@@ -45,7 +45,7 @@ const pages = defineCollection({
 });
 ```
 
-The loader lives in `src/loader.ts`. [Write a loader](/how-to/write-a-loader)
+The loader lives in `src/loader.ts`. [Write a loader](/how-to/write-a-loader/)
 gives the contract it implements: `syncAll`, `syncSince`, and the writer each
 one is handed. The sections below show how the example fills it in.
 
@@ -67,7 +67,7 @@ below, and change the requests and the fields they read.
 
 ## Fetch everything with `syncAll`
 
-`syncAll` reads every page. [Write `syncAll`](/how-to/write-a-loader#write-syncall)
+`syncAll` reads every page. [Write `syncAll`](/how-to/write-a-loader/#write-syncall)
 gives its contract. In `src/loader.ts`:
 
 ```ts
@@ -116,7 +116,7 @@ Five things in it carry over to any CMS:
   if your CMS is slower or its responses are larger.
 - **It returns `authoritative: true`.** The list names every page, so the
   framework removes each stored entry the sync did not report.
-  [Report deletions](/how-to/write-a-loader#report-deletions) explains why only
+  [Report deletions](/how-to/write-a-loader/#report-deletions) explains why only
   `syncAll` may say this.
 - **It fails when the revision moves during the walk.** A removal between two
   requests can shift a page into a response the loader has already read. The
@@ -127,7 +127,7 @@ Five things in it carry over to any CMS:
 ## Fetch changes with `syncSince`
 
 `pagedeck sync --incremental` calls `syncSince` with the cursor the last sync
-stored. [Write `syncSince`](/how-to/write-a-loader#write-syncsince) gives its
+stored. [Write `syncSince`](/how-to/write-a-loader/#write-syncsince) gives its
 contract. In `src/loader.ts`:
 
 ```ts
@@ -173,7 +173,7 @@ An entry id is a `locale` and a `path`, and the store files an entry under it.
 A sync that writes one page under a new id stores a second entry, and the old
 one stays until a full sync prunes it. So build the id from the field your CMS
 never changes, its own page id, and not from a slug an editor can rename.
-[Entry ids are identifiers, not paths](/how-to/write-a-loader#entry-ids-are-identifiers-not-paths)
+[Entry ids are identifiers, not paths](/how-to/write-a-loader/#entry-ids-are-identifiers-not-paths)
 lists the ids a sync refuses.
 
 The id is not the URL. The site decides the route from the entry, in
@@ -184,7 +184,7 @@ The id is not the URL. The site decides the route from the entry, in
 ```
 
 A site whose CMS holds a slug reads it from the entry's data in `route`.
-[The route of an entry](/reference/site-config#the-route-of-an-entry) covers
+[The route of an entry](/reference/site-config/#the-route-of-an-entry) covers
 the default.
 
 ## Map block types to components
@@ -243,8 +243,8 @@ example's three pages hold different blocks:
 | Page | Route | Blocks |
 | --- | --- | --- |
 | `home` | `/` | `hero`, `feature_grid`, `rich_text` |
-| `faq` | `/faq` | `hero`, `faq` |
-| `signup` | `/signup` | `hero`, `signup_form` |
+| `faq` | `/faq/` | `hero`, `faq` |
+| `signup` | `/signup/` | `hero`, `signup_form` |
 
 The example sets a budget for each page, so every build writes a report. These
 are its three rows, trimmed to the route, the Brotli bytes the page transfers
@@ -254,7 +254,7 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
 [
   { "path": "/", "actual": 0, "chunks": [] },
   {
-    "path": "/faq",
+    "path": "/faq/",
     "actual": 53120,
     "chunks": [
       { "path": "/assets/fw-core-tlOnvz1B.js", "bytes": 52507 },
@@ -263,7 +263,7 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
     ]
   },
   {
-    "path": "/signup",
+    "path": "/signup/",
     "actual": 53265,
     "chunks": [
       { "path": "/assets/fw-core-tlOnvz1B.js", "bytes": 52507 },
@@ -274,11 +274,11 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
 ]
 ```
 
-`/` holds no island and ships nothing. `/faq` ships the `faq` chunk and not
-`signup_form`'s, and `/signup` ships the reverse. Both pay for `fw-core`, which
+`/` holds no island and ships nothing. `/faq/` ships the `faq` chunk and not
+`signup_form`'s, and `/signup/` ships the reverse. Both pay for `fw-core`, which
 holds React and the island runtime. Change a page's blocks in the CMS, and the
 next build changes that page's chunks to match.
-[JavaScript budgets](/reference/javascript-budgets) covers the report and how
+[JavaScript budgets](/reference/javascript-budgets/) covers the report and how
 to set a limit per page.
 
 ## Declare a schema, or `false`
@@ -299,7 +299,7 @@ a bad block fails the sync, and the failure names the page and the field.
 `false` to store what the loader hands over unchecked. For content an editor
 types into a CMS, declare a schema. With `false`, nothing checks a block before
 a component renders it.
-[Declare a schema](/how-to/write-a-loader#declare-a-schema) covers the types on
+[Declare a schema](/how-to/write-a-loader/#declare-a-schema) covers the types on
 each side.
 
 ## Drafts and published content
@@ -320,10 +320,10 @@ Two features of the framework touch drafts:
 - **Publication window.** A collection can name the fields that hold when an
   entry is published and unpublished, which makes it a scheduled collection.
   A build then makes a page only of the entries inside that window. See
-  [Publication window](/reference/publication-window).
+  [Publication window](/reference/publication-window/).
 - **Previewing a draft.** `build.preview` emits an app that renders a draft
   your CMS's editor posts to it, through the site's components. It
-  authenticates nothing, so read [Preview app](/reference/preview) before you
+  authenticates nothing, so read [Preview app](/reference/preview/) before you
   declare it.
 
 ## Keep credentials out of the repo and the logs
@@ -418,5 +418,5 @@ The rules:
 - **Never on the command line.** A process's arguments are readable by other
   users on a shared machine, and CI echoes the line it runs. Read the variable
   inside the loader rather than passing its value as an argument.
-  [Rule 6 of the error-message standard](/error-messages#6-redact-anything-that-could-be-a-credential)
+  [Rule 6 of the error-message standard](/error-messages/#6-redact-anything-that-could-be-a-credential)
   gives the reasoning.

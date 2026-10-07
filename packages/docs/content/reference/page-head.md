@@ -66,7 +66,7 @@ draws no cards, and in preview. It works only in a component the page renders
 on the server: an island that calls it fails the build, because the browser
 re-renders an island without it. An island that needs the card takes it as a
 prop.
-The landing site's `/features` page shows its card this way.
+The landing site's `/features/` page shows its card this way.
 
 Drawing first has one consequence you can see: your `head`, `inputs` and
 renderer run before your `content` and `chrome` callbacks, so a renderer that
@@ -192,7 +192,7 @@ of the head's children is fixed: adding a field here never moves one of them.
 
 The page a `build.routing.notFound` rule names gets neither link. It gets
 `<meta name="robots" content="noindex">` in their place, with or without an
-origin. See [Routing](/reference/routing#the-404-page).
+origin. See [Routing](/reference/routing/#the-404-page).
 
 ## Code that has to run before the paint
 

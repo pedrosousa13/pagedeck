@@ -562,11 +562,12 @@ export function paginate<TOut>(options: {
  */
 export function definePages<T extends readonly unknown[]>(options: {
   sources: { [K in keyof T]: PageSource<T[K]> };
+  /** Defaults to `"always"`. */
   trailingSlash?: TrailingSlash;
   locales?: LocaleSet;
 }): PageSet<TemplatesOf<T>> {
   const site: SiteAddressing = {
-    trailingSlash: options.trailingSlash ?? "never",
+    trailingSlash: options.trailingSlash ?? "always",
     locales:
       options.locales ??
       defineLocales({ en: { label: "English", direction: "ltr" } }),

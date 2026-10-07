@@ -38,9 +38,9 @@ const STORE = join(SITE, "content.db");
 const RETAINED = join(SITE, RETENTION_DIR);
 
 const CONTENT = "/";
-const INTERACTIVE = "/interactive";
-const FEATURES = "/features";
-const SERVER_DATA = "/server-data";
+const INTERACTIVE = "/interactive/";
+const FEATURES = "/features/";
+const SERVER_DATA = "/server-data/";
 
 // Only a proxied instance writes a census row, which tells a proxy from a tree
 // child. A scratch directory, because the file is appended to.
