@@ -105,7 +105,7 @@ async function install(
     `${JSON.stringify({ overrides, allowBuilds: { esbuild: true }, hoist: false }, null, 2)}\n`,
   );
   // Without it, a range resolves to the newest version in pnpm's metadata cache,
-  // not the version this workspace locked, which the store may not hold.
+  // not the version this workspace locked.
   await copyFile(join(REPO, "pnpm-lock.yaml"), join(dir, "pnpm-lock.yaml"));
   // Unfrozen: the copy only seeds resolution. Not offline: a fresh runner's cache lacks
   // metadata for entries outside its own install (#14).
