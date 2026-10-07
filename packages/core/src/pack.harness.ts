@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   packedBesideDist,
   PUBLIC_PACKAGES,
@@ -488,3 +488,97 @@ test("the site create-pagedeck writes builds from installed packages, and only i
   );
   expect(counter).toHaveLength(1);
 }, 600_000);
+
+interface HostCase {
+  readonly host: "vercel" | "cloudflare-pages" | "netlify";
+  readonly dependency: string;
+  readonly adapterCall: string;
+  readonly files: readonly string[];
+}
+
+const HOST_CASES: readonly HostCase[] = [
+  { host: "vercel", dependency: "@pagedeck/adapter-vercel", adapterCall: "vercel()", files: ["vercel.json"] },
+  {
+    host: "cloudflare-pages",
+    dependency: "@pagedeck/adapter-cloudflare-pages",
+    adapterCall: "cloudflarePages()",
+    files: ["_redirects", "_headers"],
+  },
+  {
+    host: "netlify",
+    dependency: "@pagedeck/adapter-netlify",
+    adapterCall: "netlify()",
+    files: ["_redirects", "_headers"],
+  },
+];
+
+describe("a site created with --host", () => {
+  let hostsRoot = "";
+
+  // One shared install for all three scaffolded sites — a workspace over them — so dependency
+  // resolution and download happen once rather than three times.
+  beforeAll(async () => {
+    const create = await installCreatePagedeck(join(root, "create-hosts"));
+    hostsRoot = join(root, "hosts");
+    await mkdir(hostsRoot);
+    for (const { host } of HOST_CASES) {
+      await spawn(create, [`site-${host}`, "--host", host], hostsRoot);
+    }
+    await writeFile(
+      join(hostsRoot, "package.json"),
+      `${JSON.stringify({ name: "pagedeck-hosts", private: true }, null, 2)}\n`,
+    );
+    const overrides = Object.fromEntries(
+      packed.map(({ manifest, tarball }) => [manifest.name, `file:${tarball}`]),
+    );
+    await writeFile(
+      join(hostsRoot, "pnpm-workspace.yaml"),
+      `${JSON.stringify(
+        {
+          packages: HOST_CASES.map(({ host }) => `site-${host}`),
+          overrides,
+          allowBuilds: { esbuild: true },
+          hoist: false,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await copyFile(join(REPO, "pnpm-lock.yaml"), join(hostsRoot, "pnpm-lock.yaml"));
+    await spawn("pnpm", ["install", "--prefer-offline", "--no-frozen-lockfile"], hostsRoot);
+  }, 600_000);
+
+  for (const { host, dependency, adapterCall, files } of HOST_CASES) {
+    test(`--host ${host} depends on ${dependency} and writes ${files.join(", ")}`, async () => {
+      const site = join(hostsRoot, `site-${host}`);
+      const manifest = JSON.parse(await readFile(join(site, "package.json"), "utf8")) as Manifest;
+      expect(manifest.dependencies?.[dependency]).toBe(PUBLIC_VERSION);
+
+      // The template declares no header rule, so `_headers` (and `vercel.json`'s own
+      // "headers" field) has nothing to compile; inject one here (#17 gives it a default).
+      const config = join(site, "pagedeck.config.ts");
+      const withoutHeaders = await readFile(config, "utf8");
+      const withHeaders = withoutHeaders
+        .replace(
+          'import { defineConfig, fromCollection } from "@pagedeck/core";',
+          'import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";',
+        )
+        .replace(
+          `    adapter: ${adapterCall},`,
+          `    adapter: ${adapterCall},\n    routing: { headers: [{ prefix: "/", set: SECURITY_HEADERS }] },`,
+        );
+      expect(withHeaders, `pagedeck.config.ts has an "adapter:" field to add routing beside`).not.toBe(
+        withoutHeaders,
+      );
+      await writeFile(config, withHeaders);
+
+      const bin = join(site, "node_modules", ".bin", "pagedeck");
+      await spawn(bin, ["sync"], site);
+      await spawn(bin, ["build"], site);
+
+      for (const file of files) {
+        expect(existsSync(join(site, "site", file)), `site/${file}`).toBe(true);
+      }
+    }, 600_000);
+  }
+});

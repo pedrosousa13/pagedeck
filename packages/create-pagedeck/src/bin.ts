@@ -2,7 +2,7 @@
 import { ArgumentError, create } from "./index.js";
 
 try {
-  process.stdout.write(`${create(process.argv.slice(2), process.cwd())}\n`);
+  process.stdout.write(`${await create(process.argv.slice(2), process.cwd())}\n`);
 } catch (error) {
   const messages: string[] = [];
   for (let current: unknown = error; current instanceof Error; current = current.cause) {
