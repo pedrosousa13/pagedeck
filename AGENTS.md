@@ -164,6 +164,56 @@ calls at startup through `installJsxLoader` (#702);
 it writes needs core's. Raise a floor when new code needs a newer API, and say
 which.
 
+### Releasing
+
+`.github/workflows/release.yml` publishes the public set to npm when a tag
+`v<version>` is pushed (#7). It installs with `--frozen-lockfile`, checks the
+tag with `pnpm check:release-tag`, runs `pnpm test:pack-harness`, and then runs
+`pnpm -r publish --access public --provenance --no-git-checks`. pnpm skips
+every `private` package. `--no-git-checks` is there because a tag checkout is a
+detached HEAD, and pnpm's branch check refuses one. `pnpm publish` applies
+`.pnpmfile.mjs` the same way `pnpm pack` does, so the registry gets the
+manifests the pack harness checked.
+
+`releaseTagFault` (`packages/core/src/release-tag.harness.ts`) refuses a tag
+that does not start with `v`, and a tag whose version is not the `version` of
+every public package. The refusal names each package that differs, with its
+manifest and the version it carries. To try a tag without publishing:
+
+```sh
+pnpm check:release-tag v0.2.0
+```
+
+To cut a release:
+
+1. Set `version` in each public package's manifest and `PUBLIC_VERSION` in
+   `packages/core/src/public-packages.test-support.ts`, and land the change on
+   `main`.
+2. On that commit, run `pnpm check:release-tag v<version>`.
+3. Tag the commit and push the tag:
+   `git tag v<version> && git push origin v<version>`.
+
+**The first publish uses a token.** npm sets up trusted publishing in a
+package's settings, so a package must exist before it can have one. For
+0.1.0 the workflow authenticates with the repo secret `NPM_TOKEN`, a
+short-lived granular token with publish rights on the `@pagedeck` scope and on
+`create-pagedeck`. The publish step passes it as `NODE_AUTH_TOKEN`, which the
+`.npmrc` that `setup-node` writes from `registry-url` reads.
+
+**Then switch to trusted publishing.** After 0.1.0 is on npm, add a trusted
+publisher to each of the ten packages on npmjs.com: GitHub Actions, repository
+`pedrosousa13/pagedeck`, workflow `release.yml`. npm matches the workflow
+filename exactly, so renaming the file breaks every publish until each package
+is updated. Then delete the token on npm and the `NPM_TOKEN` secret.
+
+The workflow needs no edit at the switch. Since pnpm 11.0.7, `pnpm publish`
+tries OIDC first for each package of a recursive publish, and a token it gets
+that way replaces any token the `.npmrc` names. Since 11.1.3 a placeholder
+such as `${NODE_AUTH_TOKEN}` whose variable is unset counts as empty, not as a
+literal token. With the secret deleted, `NODE_AUTH_TOKEN` is empty, and OIDC
+does the authenticating. The job already has `id-token: write`. Under trusted publishing
+npm generates provenance by itself, and `--provenance` does no harm.
+
 ### Imports between packages
 
 Anything emitted reaches another package through its `exports`. A test or a
