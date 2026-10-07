@@ -588,13 +588,15 @@ and on a packed manifest that still says
 `workspace:`, names a private package, or exports a file the tarball lacks.
 `.pnpmfile.mjs` drops `devDependencies` and every `source` condition from a
 manifest as `pnpm pack` writes it, so pack with pnpm, not npm. The install is
-`pnpm install --offline --no-frozen-lockfile` with `hoist: false`, so a package
-that imports an undeclared dependency fails; it copies in this repository's
-`pnpm-lock.yaml` so each range resolves to a version already in the pnpm store.
-The copy is a seed the install rewrites, not the project's lockfile, so the
-install says `--no-frozen-lockfile` rather than take pnpm's frozen default
-where `CI` is set. A missing tarball in the store fails the install loudly: run
-`pnpm install` here first.
+`pnpm install --prefer-offline --no-frozen-lockfile` with `hoist: false`, so a
+package that imports an undeclared dependency fails; it copies in this
+repository's `pnpm-lock.yaml` so each range resolves to the version this
+workspace locked. The copy is a seed the install rewrites, not the project's
+lockfile, so the install says `--no-frozen-lockfile` rather than take pnpm's
+frozen default where `CI` is set. It is not `--offline`: resolving the seed
+needs registry metadata for entries this workspace's own install never
+fetched, which a fresh runner's cache lacks, so pnpm reads its cache first and
+fetches the rest from the npm registry.
 
 The tutorial run reads the page in order. It runs each shell line it knows
 (`npm create pagedeck`, `cd`, `npm install` and `npx pagedeck`) and refuses any
