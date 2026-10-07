@@ -66,7 +66,7 @@ draws no cards, and in preview. It works only in a component the page renders
 on the server: an island that calls it fails the build, because the browser
 re-renders an island without it. An island that needs the card takes it as a
 prop.
-The landing site's `/features` page shows its card this way.
+The landing site's `/features/` page shows its card this way.
 
 Drawing first has one consequence you can see: your `head`, `inputs` and
 renderer run before your `content` and `chrome` callbacks, so a renderer that

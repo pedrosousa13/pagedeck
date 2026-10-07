@@ -142,7 +142,7 @@ preloads, whether the face is scoped or not.
 
 By default a face is linked on every page. `pages` limits a face to the pages
 that match one of its patterns. The landing site scopes its one face to its
-features page, `/features`, which is the only page that sets text in it.
+features page, `/features/`, which is the only page that sets text in it.
 
 The patterns are the page patterns that
 [critical CSS](/reference/critical-css/) uses: a path glob that starts with

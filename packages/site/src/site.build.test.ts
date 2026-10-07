@@ -402,8 +402,8 @@ test("the site's declared redirects and headers reach the compiled edge artifact
 
   const redirects = netlify.artifacts.find((one) => one.path === "/_redirects");
   expect(redirects?.role).toBe("tree-file");
-  expect(redirects?.contents).toContain("/en/plans /en/pricing/ 301");
-  expect(redirects?.contents).toContain("/en/terms /en/legal/terms/ 301");
+  expect(redirects?.contents).toContain("/en/plans/ /en/pricing/ 301");
+  expect(redirects?.contents).toContain("/en/terms/ /en/legal/terms/ 301");
   expect(existsSync(join(OUT, "en", "pricing", "index.html"))).toBe(true);
   expect(existsSync(join(OUT, "en", "legal", "terms", "index.html"))).toBe(true);
 
