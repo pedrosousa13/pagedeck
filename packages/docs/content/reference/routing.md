@@ -91,6 +91,13 @@ route table, so a wrong one fails the build.
 One per output tree. A site with locales on their own hosts declares one per
 `domain`.
 
+**The build also writes the page's document at the tree's root, as
+`404.html`.** `site/404.html` for the default tree, `site/en/404.html` for a
+tree mounted at `domain: "en"`: most static hosts, Cloudflare Pages among them,
+walk up from a missing path looking for `404.html` and serve the nearest one.
+The bytes are the same document — the page still renders, and still answers,
+at its own address too.
+
 **The page a rule names is not indexable.** A host serves it at every missing
 path, but its own address answers 200 like any page. So the build writes
 `<meta name="robots" content="noindex">` into its head, whether or not you

@@ -22,6 +22,7 @@ const BARE_SITE = join(SITES, ".pagedeck-not-found-bare-test");
 const INCREMENTAL_SITE = join(SITES, ".pagedeck-not-found-incremental-test");
 const ADDED_SITE = join(SITES, ".pagedeck-not-found-added-test");
 const REMOVED_SITE = join(SITES, ".pagedeck-not-found-removed-test");
+const DEFAULT_ONLY_SITE = join(SITES, ".pagedeck-not-found-default-only-test");
 
 const CONTENT: Record<string, readonly string[]> = {
   en: ["home", "about", "missing"],
@@ -36,6 +37,10 @@ const RULES = `routing: {
         { locale: "en", path: "/404" },
         { domain: "example.de", locale: "de", path: "/404" },
       ],
+    },`;
+
+const RULES_DEFAULT_ONLY = `routing: {
+      notFound: [{ locale: "en", path: "/404" }],
     },`;
 
 const NOT_FOUND = ["en /404", "de /404"];
@@ -180,12 +185,21 @@ afterAll(() => {
     INCREMENTAL_SITE,
     ADDED_SITE,
     REMOVED_SITE,
+    DEFAULT_ONLY_SITE,
     `${ADDED_SITE}-after`,
     `${REMOVED_SITE}-after`,
   ]) {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+function read404(dist: string, domain?: string): string | undefined {
+  try {
+    return readFileSync(join(dist, domain ?? "", "404.html"), "utf8");
+  } catch {
+    return undefined;
+  }
+}
 
 function addressLines(html: string): readonly string[] {
   return html
@@ -281,6 +295,28 @@ test("no sitemap lists a not-found page, and every other row is unchanged", asyn
   );
 }, 240_000);
 
+test("each output tree with a not-found rule also gets 404.html at its root, byte-identical to the page's document", async () => {
+  const ruled = await build(RULED_SITE, `${ORIGIN}\n    ${RULES}`);
+  const dist = join(RULED_SITE, "dist");
+  expect(read404(dist)).toBe(ruled.documents.get("en /404"));
+  expect(read404(dist, "example.de")).toBe(ruled.documents.get("de /404"));
+}, 120_000);
+
+test("a tree with no not-found rule gets no 404.html, even when another tree of the same site has one", async () => {
+  const baseline = await build(BASELINE_SITE, ORIGIN);
+  const baselineDist = join(BASELINE_SITE, "dist");
+  expect(read404(baselineDist)).toBeUndefined();
+  expect(read404(baselineDist, "example.de")).toBeUndefined();
+
+  const defaultOnly = await build(
+    DEFAULT_ONLY_SITE,
+    `${ORIGIN}\n    ${RULES_DEFAULT_ONLY}`,
+  );
+  const dist = join(DEFAULT_ONLY_SITE, "dist");
+  expect(read404(dist)).toBe(defaultOnly.documents.get("en /404"));
+  expect(read404(dist, "example.de")).toBeUndefined();
+}, 120_000);
+
 test("an incremental build that re-renders a not-found page writes what a full build wrote", async () => {
   const full = await build(INCREMENTAL_SITE, `${ORIGIN}\n    ${RULES}`);
   for (const [locale, path] of [
@@ -306,6 +342,10 @@ test("an incremental build that re-renders a not-found page writes what a full b
     expect(`${key}: ${html}`).toBe(`${key}: ${full.documents.get(key) ?? ""}`);
   }
   expect(robotsCount(second.documents.get("en /404") ?? "")).toBe(1);
+
+  const dist = join(INCREMENTAL_SITE, "dist");
+  expect(read404(dist)).toBe(second.documents.get("en /404"));
+  expect(read404(dist, "example.de")).toBe(second.documents.get("de /404"));
 }, 240_000);
 
 // A copy of the site: Node's ESM cache would hand back the config it already imported.
@@ -341,6 +381,10 @@ test("an incremental build after a not-found rule is added writes what a full bu
   );
   expectSameTree(second, await build(RULED_SITE, `${ORIGIN}\n    ${RULES}`));
   expect(out).toContain("incremental: 3 of 9 pages rendered, 6 reused, 0 removed");
+
+  const after = join(`${ADDED_SITE}-after`, "dist");
+  expect(read404(after)).toBe(second.documents.get("en /404"));
+  expect(read404(after, "example.de")).toBe(second.documents.get("de /404"));
 }, 360_000);
 
 test("an incremental build after a not-found rule is removed writes what a full build without it writes", async () => {
@@ -351,4 +395,8 @@ test("an incremental build after a not-found rule is removed writes what a full 
   );
   expectSameTree(second, await build(BASELINE_SITE, ORIGIN));
   expect(out).toContain("incremental: 3 of 9 pages rendered, 6 reused, 0 removed");
+
+  const after = join(`${REMOVED_SITE}-after`, "dist");
+  expect(read404(after)).toBeUndefined();
+  expect(read404(after, "example.de")).toBeUndefined();
 }, 360_000);

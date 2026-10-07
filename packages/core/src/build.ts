@@ -1160,6 +1160,9 @@ async function stageSite(input: {
       pages,
     }),
     ...documents.map(({ file }) => file),
+    ...documents
+      .filter(({ page }) => notFound(page))
+      .map(({ file }) => notFoundFile(file)),
     ...(fonts?.files ?? []),
     ...(socialImages?.files ?? []),
   ];
@@ -2253,6 +2256,17 @@ function documentFile(input: DocumentInput): EmittedFile {
     kind: "html",
     page: { locale: input.page.locale, path: input.page.path },
     contents: documentHtml(input),
+  };
+}
+
+// Untagged: a host reads this at every missing path, but it is not this page's
+// one HTML file, so tagging it would contest `documentFile`'s own claim (#21).
+function notFoundFile(document: EmittedFile): EmittedFile {
+  return {
+    ...(document.domain === undefined ? {} : { domain: document.domain }),
+    path: "/404.html",
+    kind: "html",
+    contents: document.contents,
   };
 }
 
