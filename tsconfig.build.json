@@ -20,6 +20,7 @@
 {
   "files": [],
   "references": [
+    { "path": "./packages/adapter-cloudflare-pages/tsconfig.build.json" },
     { "path": "./packages/adapter-cloudflare-worker/tsconfig.build.json" },
     { "path": "./packages/adapter-cloudfront/tsconfig.build.json" },
     { "path": "./packages/adapter-netlify/tsconfig.build.json" },

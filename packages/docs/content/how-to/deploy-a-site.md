@@ -227,6 +227,10 @@ in place of `netlify()`:
   `worker.js` into `edge/`, published as a Worker with the site's R2 bucket
   bound to it. This adapter has not yet served a site in production: test it
   on a staging deploy before you rely on it.
+- `cloudflarePages()` from `@pagedeck/adapter-cloudflare-pages` writes
+  `_redirects`, and `_headers` when the site declares header rules, the same
+  as Netlify's. Both are tree files. It refuses `trailingSlash: "never"`; see
+  "Cloudflare Pages" below for its build settings.
 
 Outside `pagedeck build` — against a manifest from another build, or to try an
 adapter without building — call it directly over a routing document:
@@ -245,3 +249,63 @@ for (const artifact of netlify().compile(manifest.routing).artifacts) {
 Every adapter's edge artifacts answer `/manifest.json` and `/.pagedeck/` with a
 404, even for a site that declares no routing. Install them, and the manifest
 you uploaded to the origin stays private.
+
+## Cloudflare Pages
+
+[Cloudflare Pages](https://developers.cloudflare.com/pages/) builds from a
+connected git repository, or takes a build you upload yourself with
+`wrangler` (below). Set these in the project's build settings:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npx pagedeck sync && npx pagedeck build` |
+| Build output directory | `site` |
+| `NODE_VERSION` (environment variable) | a version meeting `@pagedeck/core`'s `engines.node`, `22.18.0` or later |
+
+Cloudflare's build image otherwise runs an older Node that cannot load
+`pagedeck.config.ts`, so `NODE_VERSION` has to be set explicitly; it is not
+read from a file in the repository.
+
+Install `@pagedeck/adapter-cloudflare-pages` and name its factory in
+`build.adapter`: `adapter: cloudflarePages()`, imported with
+`import { cloudflarePages } from "@pagedeck/adapter-cloudflare-pages"`. It
+refuses `trailingSlash: "never"` — Cloudflare Pages redirects a directory's
+`index.html` to its slashed address on its own, which the adapter cannot
+override — with the fix `set trailingSlash: "always"`, the default since
+pagedeck 0.1.
+
+### Direct upload with `wrangler`
+
+To publish a build without connecting a git repository, build it and upload
+the output directory yourself:
+
+```sh
+npx pagedeck sync
+npx pagedeck build
+npx wrangler pages deploy site
+```
+
+### Full builds, or keeping the content store
+
+Cloudflare Pages is a directory-sync host: it reads no manifest and
+republishes whatever `site/` holds, so the raced-deploy refusal "Upload only
+what changed" above describes never applies to a Pages build. A build that
+starts with no `content.db` syncs every entry, so a plain `npx pagedeck sync
+&& npx pagedeck build` on every push, as the build command above runs, is the
+normal case for this host.
+
+If a full sync is too slow for your content source, keep `content.db` between
+builds the way "Keep the content store and `.pagedeck/` between CI runs" above
+describes, by setting the build command to:
+
+```sh
+npx pagedeck store pull
+npx pagedeck sync --incremental
+npx pagedeck build
+npx pagedeck store push
+```
+
+with `PAGEDECK_SNAPSHOT_URL` set as an environment variable on the project. On
+the first run there is no snapshot to pull and no cursor for `--incremental`
+to start from: run `pagedeck sync` and `pagedeck store push` once first, the
+same as that section describes for any CI runner.

@@ -11,7 +11,8 @@ export interface Fault {
     | "offsite"
     | "header-name"
     | "header-value"
-    | "oversize";
+    | "oversize"
+    | "trailing-slash";
   line: string;
 }
 
@@ -27,6 +28,7 @@ const OFFSITE_FIX =
   'write a tree-relative path like "/pricing"; a target off this site compiles to an open redirect at the edge';
 const OVERSIZE_FIX =
   "reduce the rule set, or raise the limit if the host's is higher";
+const TRAILING_SLASH_FIX = 'set trailingSlash: "always"';
 
 function paragraph(
   target: string,
@@ -64,6 +66,9 @@ export function throwIfAny(
     .map((fault) => fault.line);
   const oversize = faults
     .filter((fault) => fault.kind === "oversize")
+    .map((fault) => fault.line);
+  const trailingSlash = faults
+    .filter((fault) => fault.kind === "trailing-slash")
     .map((fault) => fault.line);
   const sections: string[] = [];
   if (unsupported.length > 0) {
@@ -141,6 +146,19 @@ export function throwIfAny(
           : "artifacts exceed their size limit",
         OVERSIZE_FIX,
         oversize,
+      ),
+    );
+  }
+  if (trailingSlash.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        trailingSlash.length,
+        trailingSlash.length === 1
+          ? "tree cannot serve the site's trailingSlash policy"
+          : "trees cannot serve the site's trailingSlash policy",
+        TRAILING_SLASH_FIX,
+        trailingSlash,
       ),
     );
   }

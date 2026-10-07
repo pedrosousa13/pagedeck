@@ -1003,9 +1003,22 @@ repository has not observed, and the equivalence check assumes it:
   response. If it does not, the 404 page goes out with no header from the
   routing document. A redirect does not depend on it: the viewer-request
   function writes the set into the redirect it returns.
+- **Cloudflare Pages**: `@pagedeck/adapter-cloudflare-pages` has no rewrite
+  with a status other than 200, so a reserved deploy key (`/manifest.json`,
+  `/.pagedeck/`) is proxied (200, in place) to the tree's 404 page instead,
+  and `_headers` is assumed to match the *original* request's path rather than
+  the proxied page's — the opposite assumption from Netlify's and CloudFront's
+  above. If Cloudflare matches the proxied page's path instead, a reserved key
+  carries the 404 page's own header set rather than whatever (if anything)
+  matches the key itself. Whether a redirect response carries `_headers` at
+  all is also unconfirmed. A missing page that is not a reserved deploy key is
+  outside this adapter's files entirely: Cloudflare's own nearest-`404.html`
+  lookup serves it (not `_redirects` or `_headers`), and whether that response
+  carries the 404 page's header set or none is a third open question.
 
-Check both on a staging deploy before relying on them, by requesting a missing
-path and a redirect source and reading the response headers.
+Check all of these on a staging deploy before relying on them, by requesting a
+missing path, a redirect source and a reserved deploy key, and reading the
+response headers and status.
 
 Nothing in this repository applies the second group, and that is the standing
 decision "edge artifacts are emitted, not provisioned" rather than an unfinished

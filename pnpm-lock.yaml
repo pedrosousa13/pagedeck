@@ -23,6 +23,15 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/adapter-cloudflare-pages:
+    dependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      '@pagedeck/edge':
+        specifier: workspace:*
+        version: link:../edge
+
   packages/adapter-cloudflare-worker:
     dependencies:
       '@pagedeck/core':
