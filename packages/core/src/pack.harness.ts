@@ -491,9 +491,11 @@ test("the site create-pagedeck writes builds from installed packages, and only i
 
 test("a site created with --host cloudflare-pages installs, builds, and writes the host's edge files", async () => {
   const create = await installCreatePagedeck(join(root, "create-cloudflare-pages"));
-  await spawn(create, ["my-site", "--host", "cloudflare-pages"], root);
+  const scaffold = join(root, "cloudflare-pages-site");
+  await mkdir(scaffold);
+  await spawn(create, ["my-site", "--host", "cloudflare-pages"], scaffold);
 
-  const site = join(root, "my-site");
+  const site = join(scaffold, "my-site");
   const manifest = JSON.parse(await readFile(join(site, "package.json"), "utf8")) as Manifest;
   expect(manifest.dependencies?.["@pagedeck/adapter-cloudflare-pages"]).toBe(PUBLIC_VERSION);
   await install(site, manifest as unknown as Record<string, unknown>);
