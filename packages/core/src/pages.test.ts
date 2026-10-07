@@ -456,16 +456,16 @@ test("declared locales win over the default, which adds none beside them", () =>
   expect(pages.locales).toBe(TWO_FOLDER_LOCALES);
 });
 
-test('a page set declaring no trailingSlash spells its routes "never"', () => {
+test('a page set declaring no trailingSlash spells its routes "always"', () => {
   const { store, collection } = siteWith("pages", [
     { locale: "en", path: "docs/guide" },
   ]);
 
   const pages = definePages({ sources: [fromCollection(collection)] });
 
-  expect(pages.trailingSlash).toBe("never");
+  expect(pages.trailingSlash).toBe("always");
   expect(collectPages(store, pages).map((page) => page.path)).toEqual([
-    "/docs/guide",
+    "/docs/guide/",
   ]);
 });
 
@@ -476,11 +476,11 @@ test("a declared trailingSlash wins over the default", () => {
 
   const pages = definePages({
     sources: [fromCollection(collection)],
-    trailingSlash: "always",
+    trailingSlash: "never",
   });
 
   expect(collectPages(store, pages).map((page) => page.path)).toEqual([
-    "/docs/guide/",
+    "/docs/guide",
   ]);
 });
 
@@ -3091,7 +3091,7 @@ test("a page from a source naming a layout carries it, and a page from one namin
 
   expect(pages.map((page) => [page.path, page.layout])).toEqual([
     ["/", "layout"],
-    ["/notes/one", undefined],
+    ["/notes/one/", undefined],
   ]);
   expect(Object.hasOwn(pages[1] ?? {}, "layout")).toBe(false);
 });
@@ -3109,7 +3109,7 @@ test("a fallback page keeps the layout of the page it falls back to", () => {
     }),
   );
 
-  expect(suppliers(pages)).toEqual(["de /about ← en", "en /about"]);
+  expect(suppliers(pages)).toEqual(["de /about/ ← en", "en /about/"]);
   expect(pages.map((page) => page.layout)).toEqual(["layout", "layout"]);
 });
 

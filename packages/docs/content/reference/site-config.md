@@ -27,7 +27,7 @@ gets exactly the value it declares, and the default plays no part.
 | `store` | `"./content.db"` |
 | `build.outDir` | `"./site"` |
 | `locales` in `definePages` | one locale, `en`, labelled `English`, `direction: "ltr"` |
-| `trailingSlash` in `definePages` | `"never"` |
+| `trailingSlash` in `definePages` | `"always"` |
 | `route` in `fromCollection` | the entry's path, with a last `index` segment dropped |
 
 ## The store and the output directory
@@ -58,7 +58,7 @@ with its `href`:
 
 ```ts
 const site = definePages({
-  trailingSlash: "always",
+  trailingSlash: "never",
   locales: defineLocales({
     en: { label: "English", direction: "ltr" },
     de: { label: "Deutsch", direction: "ltr" },
@@ -68,7 +68,7 @@ const site = definePages({
 ```
 
 The two settings default independently. A page set that declares `locales`
-and no `trailingSlash` spells its routes `"never"`, and one that declares
+and no `trailingSlash` spells its routes `"always"`, and one that declares
 `trailingSlash` alone has the single `en` locale.
 
 The markdown loader's `locale` has no default. It says which locale the
