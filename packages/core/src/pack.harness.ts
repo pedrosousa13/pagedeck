@@ -458,7 +458,8 @@ test("the site create-pagedeck writes builds from installed packages, and only i
 
   const bin = join(site, "node_modules", ".bin", "pagedeck");
   await spawn(bin, ["sync"], site);
-  await spawn(bin, ["build"], site);
+  const built = await spawn(bin, ["build"], site);
+  expect(built.stderr, "the first build's stderr").not.toContain("Security headers");
 
   // The template declares no budget, and a build writes no budget report without one.
   const config = join(site, "pagedeck.config.ts");
@@ -492,22 +493,19 @@ test("the site create-pagedeck writes builds from installed packages, and only i
 interface HostCase {
   readonly host: "vercel" | "cloudflare-pages" | "netlify";
   readonly dependency: string;
-  readonly adapterCall: string;
   readonly files: readonly string[];
 }
 
 const HOST_CASES: readonly HostCase[] = [
-  { host: "vercel", dependency: "@pagedeck/adapter-vercel", adapterCall: "vercel()", files: ["vercel.json"] },
+  { host: "vercel", dependency: "@pagedeck/adapter-vercel", files: ["vercel.json"] },
   {
     host: "cloudflare-pages",
     dependency: "@pagedeck/adapter-cloudflare-pages",
-    adapterCall: "cloudflarePages()",
     files: ["_redirects", "_headers"],
   },
   {
     host: "netlify",
     dependency: "@pagedeck/adapter-netlify",
-    adapterCall: "netlify()",
     files: ["_redirects", "_headers"],
   },
 ];
@@ -548,33 +546,16 @@ describe("a site created with --host", () => {
     await spawn("pnpm", ["install", "--prefer-offline", "--no-frozen-lockfile"], hostsRoot);
   }, 600_000);
 
-  for (const { host, dependency, adapterCall, files } of HOST_CASES) {
+  for (const { host, dependency, files } of HOST_CASES) {
     test(`--host ${host} depends on ${dependency} and writes ${files.join(", ")}`, async () => {
       const site = join(hostsRoot, `site-${host}`);
       const manifest = JSON.parse(await readFile(join(site, "package.json"), "utf8")) as Manifest;
       expect(manifest.dependencies?.[dependency]).toBe(PUBLIC_VERSION);
 
-      // The template declares no header rule, so `_headers` (and `vercel.json`'s own
-      // "headers" field) has nothing to compile; inject one here (#17 gives it a default).
-      const config = join(site, "pagedeck.config.ts");
-      const withoutHeaders = await readFile(config, "utf8");
-      const withHeaders = withoutHeaders
-        .replace(
-          'import { defineConfig, fromCollection } from "@pagedeck/core";',
-          'import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";',
-        )
-        .replace(
-          `    adapter: ${adapterCall},`,
-          `    adapter: ${adapterCall},\n    routing: { headers: [{ prefix: "/", set: SECURITY_HEADERS }] },`,
-        );
-      expect(withHeaders, `pagedeck.config.ts has an "adapter:" field to add routing beside`).not.toBe(
-        withoutHeaders,
-      );
-      await writeFile(config, withHeaders);
-
       const bin = join(site, "node_modules", ".bin", "pagedeck");
       await spawn(bin, ["sync"], site);
-      await spawn(bin, ["build"], site);
+      const built = await spawn(bin, ["build"], site);
+      expect(built.stderr, "the first build's stderr").not.toContain("Security headers");
 
       for (const file of files) {
         expect(existsSync(join(site, "site", file)), `site/${file}`).toBe(true);

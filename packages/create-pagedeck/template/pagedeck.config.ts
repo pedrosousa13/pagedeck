@@ -1,6 +1,6 @@
 import { defineCollection } from "@pagedeck/content";
 import { defineMarkdownLoader } from "@pagedeck/markdown-loader";
-import { defineConfig, fromCollection } from "@pagedeck/core";
+import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";
 
 const pages = defineCollection({
   name: "pages",
@@ -16,5 +16,6 @@ export default defineConfig({
       layout: "./components/layout.tsx",
       counter: "./components/counter.tsx",
     },
+    routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },
   },
 });

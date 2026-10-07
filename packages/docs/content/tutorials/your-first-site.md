@@ -51,7 +51,7 @@ The starter's config is `pagedeck.config.ts`:
 ```ts
 import { defineCollection } from "@pagedeck/content";
 import { defineMarkdownLoader } from "@pagedeck/markdown-loader";
-import { defineConfig, fromCollection } from "@pagedeck/core";
+import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";
 
 const pages = defineCollection({
   name: "pages",
@@ -67,6 +67,7 @@ export default defineConfig({
       layout: "./components/layout.tsx",
       counter: "./components/counter.tsx",
     },
+    routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },
   },
 });
 ```
@@ -127,6 +128,9 @@ or else from its first `#` heading. It renders the rest of the body as `html`.
 The layout gets both as props. `children` holds the components a page names in
 its frontmatter, which the last section comes back to.
 
+`routing.headers` spreads `SECURITY_HEADERS` into a rule over `/`, so every
+page this site builds ships those three headers.
+
 ## 4. Start the dev server
 
 ```sh
@@ -181,10 +185,6 @@ npx pagedeck build
 `pagedeck build` reads the store, renders every page, bundles the JavaScript
 the islands need, and writes the finished site to `site/`. It does not read
 `content/`, so a build never depends on your content source being reachable. That is why sync and build are separate verbs.
-
-The build also warns that the site declares no security headers. The warning
-does not stop the build. Before you deploy, add the headers as
-[Security headers](/reference/routing/#security-headers) describes.
 
 ## What you have
 
