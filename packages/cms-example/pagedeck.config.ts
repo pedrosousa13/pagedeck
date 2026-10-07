@@ -59,7 +59,7 @@ export default defineConfig({
       signup_form: "./src/components/signup_form.tsx",
     },
     // Measured, not chosen: re-measure rather than raise a limit (README.md, "Budgets").
-    budget: { "/": "0b", "/faq": "60kb", "/signup": "60kb" },
+    budget: { "/": "0b", "/faq/": "60kb", "/signup/": "60kb" },
     head: (page, store) => ({ title: pageOf(page, store).title }),
     // A block's type is the name of the component that renders it, and the schema admits
     // only the five registered here.

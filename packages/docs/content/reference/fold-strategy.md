@@ -153,7 +153,7 @@ Every decision is recorded per page in `manifest.json`, under `foldTuning`:
 ```json
 {
   "locale": "en",
-  "path": "/pricing",
+  "path": "/pricing/",
   "foldTuning": [
     {
       "component": "PlanPicker",
@@ -180,7 +180,7 @@ says so, rather than leaving you to work out which component appeared:
 
 ```
 JavaScript budget: 1 page transfers more JavaScript for first render than its budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
-  en /pricing — "/pricing" allows 15360 B, the page transfers 70813 B over 3 chunks:
+  en /pricing/ — "/pricing/" allows 15360 B, the page transfers 70813 B over 3 chunks:
     /assets/fw-core-DO-Blg1p.js — 52397 B
     /assets/PlanPicker-9f31.js — 18004 B
     /assets/en_pricing-1a2b.js — 412 B

@@ -80,6 +80,8 @@ function contentOf(
     return pageContentOf(entry.data, {
       images: SITE_IMAGES,
       page,
+      // Matches this file's own `definePages` call below.
+      trailingSlash: "never",
       fold: resolveFoldStrategy(undefined),
     });
   }

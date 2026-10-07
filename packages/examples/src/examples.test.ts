@@ -117,7 +117,7 @@ test("the defaults example routes index entries at their directories, in one en 
 
   expect(
     pages.map((page) => `${page.locale} ${page.path} -> ${page.output}`),
-  ).toEqual(["en / -> /", "en /about -> /about", "en /docs -> /docs"]);
+  ).toEqual(["en / -> /", "en /about/ -> /about/", "en /docs/ -> /docs/"]);
 });
 
 test("the loader example applies a full sync, then only the delta", async () => {

@@ -56,7 +56,7 @@ const TEMPLATE = "landing_page";
 
 const ISLAND_ROUTE = "interactive";
 
-const ISLAND_PATH = `/${ISLAND_ROUTE}`;
+const ISLAND_PATH = `/${ISLAND_ROUTE}/`;
 
 const COPY = {
   title: "One island, and the bill for it",
@@ -254,7 +254,6 @@ export function landingSiteConfig(): SiteConfig {
       favicon: FAVICON,
       vite: { plugins: [tailwindcss()] },
       pages: definePages({
-        trailingSlash: "never",
         locales: defineLocales({ en: { label: "English", direction: "ltr" } }),
         sources: [
           fromCollection(collection, { route: documentRoute }),

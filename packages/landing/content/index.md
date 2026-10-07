@@ -30,7 +30,7 @@ rulerTitle: JavaScript on a page with nothing interactive
 
 **67.1 kB** read → **2.3 kB** sent
 
-[See it on /server-data](/server-data)
+[See it on /server-data](/server-data/)
 
 ### `server_data_page.tsx`
 
@@ -50,7 +50,7 @@ const [cart, setCart] = useState<readonly string[]>([]);
 
 ## Early, not on npm yet.
 
-Build it from a clone, or [see every feature running](/features).
+Build it from a clone, or [see every feature running](/features/).
 
 [Build your first site](https://docs.pagedeck.example/tutorials/your-first-site)
 
@@ -71,5 +71,5 @@ Build it from a clone, or [see every feature running](/features).
    the pages an edit touched (`docs/specs/2026-08-23-framework-design.md`,
    section 11); a one-page edit's incremental deploy published 1 file
    (`docs/success-criteria.md`, criterion 4).
-6. 67.1 kB and 2.3 kB: measured on [/server-data](/server-data), whose entry
+6. 67.1 kB and 2.3 kB: measured on [/server-data](/server-data/), whose entry
    is generated in code in the shape of a CMS entry.

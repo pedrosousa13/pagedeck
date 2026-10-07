@@ -11,14 +11,14 @@ You upload it to your origin, the bucket or directory your host serves, with
 the host's own tools. This page covers what to upload, how to upload only the
 files that changed, how to put an earlier build back, what to keep between CI
 runs, and how to give your host the site's redirects and headers.
-[The pagedeck command](/reference/cli) lists every verb, flag and exit code
+[The pagedeck command](/reference/cli/) lists every verb, flag and exit code
 used here.
 
 The commands run in the site's directory, the one holding
 `pagedeck.config.ts`. The paths are the defaults of the site
 `npm create pagedeck` writes: the site goes to `site/`, and the content store
 is `content.db`. If you have no site yet,
-[Your first site](/tutorials/your-first-site) makes one.
+[Your first site](/tutorials/your-first-site/) makes one.
 
 ## 1. Upload the output directory
 
@@ -67,7 +67,7 @@ aws s3 cp s3://my-bucket/manifest.json live-manifest.json
 ```
 
 Or keep the `site/manifest.json` of each deploy as a CI artifact, and download
-the last one. The [deploy recipe](/deploy-recipe#deploying-to-a-presigned-origin)
+the last one. The [deploy recipe](/deploy-recipe/#deploying-to-a-presigned-origin)
 reads it from a bucket with a presigned GET. On a first deploy there is no live
 manifest: upload the whole of `site/` as section 1 does.
 
@@ -101,7 +101,7 @@ that starts with an empty `.pagedeck/`. Section 4 keeps it.
 
 `--force` deploys the build anyway. Pass it by hand, for one deploy you have
 checked. A pipeline that always passes it has turned the check off.
-[Deploy serialization and rollback](/reference/deploy-serialization) explains
+[Deploy serialization and rollback](/reference/deploy-serialization/) explains
 the record and how to keep two deploys from running at once.
 
 ## 3. Roll back
@@ -127,7 +127,7 @@ a CI artifact, or build that commit again.
 
 The build keeps the 20 newest manifests, and `build.retention.keep` changes
 that number.
-[Deploy serialization and rollback](/reference/deploy-serialization#rolling-back)
+[Deploy serialization and rollback](/reference/deploy-serialization/#rolling-back)
 covers how far back a rollback reaches.
 
 ## 4. Keep the content store and `.pagedeck/` between CI runs
@@ -140,7 +140,7 @@ refuses every deploy.
 **Keep the content store as a snapshot.** `pagedeck store pull` downloads
 `content.db` and `pagedeck store push` uploads it. Give the target in
 `PAGEDECK_SNAPSHOT_URL` and none on the command line, as
-[PAGEDECK_SNAPSHOT_URL](/reference/cli#pagedeck-snapshot-url) explains:
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedeck-snapshot-url) explains:
 
 ```
 - run: npx pagedeck store pull
@@ -169,8 +169,8 @@ not.
 ## 5. Give your host the redirects and headers
 
 `build.routing` declares the site's redirects, its 404 page and the response
-headers for each path prefix. [Routing](/reference/routing) covers the fields,
-and [Security headers](/reference/routing#security-headers) the headers to set
+headers for each path prefix. [Routing](/reference/routing/) covers the fields,
+and [Security headers](/reference/routing/#security-headers) the headers to set
 before a deploy. The build writes them into `site/manifest.json` in a form that
 names no host.
 

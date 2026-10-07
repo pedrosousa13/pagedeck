@@ -30,7 +30,7 @@ const CAPTURED = join(SITE, "captured.json");
 const FW = join(import.meta.dirname, "..", "..", "core", "dist", "bin.js");
 const PARITY = join(import.meta.dirname, "..", "dist", "parity.bin.js");
 
-const URLS = ["/de", "/en", "/en/legal/terms", "/en/pricing"];
+const URLS = ["/de/", "/en/", "/en/legal/terms/", "/en/pricing/"];
 
 function writeSite(): void {
   mkdirSync(SITE, { recursive: true });
@@ -156,8 +156,8 @@ test("a capture over real HTTP reads the same facts the disk reader reads", asyn
   expect(report.coverage.compared).toBe(URLS.length);
 
   expect(baseline.redirects).toEqual([
-    { from: "/en/plans", to: "/en/pricing", status: 301 },
-    { from: "/en/terms", to: "/en/legal/terms", status: 301 },
+    { from: "/en/plans/", to: "/en/pricing/", status: 301 },
+    { from: "/en/terms/", to: "/en/legal/terms/", status: 301 },
   ]);
 }, 60_000);
 
@@ -192,10 +192,10 @@ test("a page removed from the built tree is missing from the build, and fails th
     rules: EXPECTATION_RULES,
   });
 
-  expect(report.coverage.missingFromBuild).toEqual(["/en/pricing"]);
+  expect(report.coverage.missingFromBuild).toEqual(["/en/pricing/"]);
   expect(report.coverage.compared).toBe(URLS.length - 1);
   expect(report.defects).toContainEqual({
-    url: "/en/pricing",
+    url: "/en/pricing/",
     field: "status",
     baseline: "200",
     built: "absent",

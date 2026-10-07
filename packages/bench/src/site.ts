@@ -105,7 +105,6 @@ export function syntheticSiteConfig(directory: string): SiteConfig {
       // A header set, so the build writes nothing of its own on stderr (#318).
       routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },
       pages: definePages({
-        trailingSlash: "never",
         locales: defineLocales(
           Object.fromEntries(
             localesOf(content).map((one) => [

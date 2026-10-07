@@ -129,7 +129,7 @@ export async function collectDefaultedPages(
   await syncCollection(store, site);
 
   // No `route`: `index` routes at `/` and `docs/index` at `/docs`. No `locales` or
-  // `trailingSlash`: one locale, `en`, and no trailing slash.
+  // `trailingSlash`: one locale, `en`, and a trailing slash on every route but `/`.
   const pages = definePages({ sources: [fromCollection(site)] });
 
   return { store, pages: collectPages(store, pages) };

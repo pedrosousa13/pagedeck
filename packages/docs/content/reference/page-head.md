@@ -192,7 +192,7 @@ of the head's children is fixed: adding a field here never moves one of them.
 
 The page a `build.routing.notFound` rule names gets neither link. It gets
 `<meta name="robots" content="noindex">` in their place, with or without an
-origin. See [Routing](/reference/routing#the-404-page).
+origin. See [Routing](/reference/routing/#the-404-page).
 
 ## Code that has to run before the paint
 

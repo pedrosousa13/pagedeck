@@ -115,7 +115,7 @@ flattened, so it is what the href could say instead. Changing it saves the
 visitor a round trip; leaving it costs one.
 
 The redirects it looks in are the ones your site declared in `build.routing`,
-and nothing else — see [Routing](/reference/routing). Until that field existed
+and nothing else — see [Routing](/reference/routing/). Until that field existed
 the table was always empty, so every unresolved reference was reported as
 broken and this warning could not be produced by any build:
 

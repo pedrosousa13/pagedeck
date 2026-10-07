@@ -41,7 +41,13 @@ const PUBLISHED = ["adr", "deploy-recipe.md", "error-messages.md"];
 const EXCLUDED_ROUTE =
   /^\/(?:agents|specs|research)(?:\/|$)|^\/dogfood-|^\/scaling-verification$|^\/success-criteria$/;
 
-const SEARCH = "/search";
+const SEARCH = "/search/";
+
+// The site's default policy, trailing-slashed, so a route built from a file
+// path matches what the build actually emits.
+function addressed(route: string): string {
+  return route === "/" ? route : `${route}/`;
+}
 
 const LOCALE = "en";
 
@@ -211,9 +217,9 @@ test("every guide and every published repository document becomes a page, and no
   );
   const expected = [
     ...documentPaths(ROOTS[0] as string).map((path) =>
-      path === "index" ? "/" : `/${path}`,
+      addressed(path === "index" ? "/" : `/${path}`),
     ),
-    ...repository.map((path) => `/${path}`),
+    ...repository.map((path) => addressed(`/${path}`)),
     SEARCH,
   ].sort();
 
@@ -226,7 +232,7 @@ test("every guide and every published repository document becomes a page, and no
       .filter((path) => EXCLUDED_ROUTE.test(path)),
   ).toEqual([]);
   expect(page(manifest, "/").output).toBe("/");
-  expect(page(manifest, "/error-messages").output).toBe("/error-messages");
+  expect(page(manifest, "/error-messages/").output).toBe("/error-messages/");
   expect(manifest.pages.every((row) => row.domain === undefined)).toBe(true);
 });
 
@@ -313,7 +319,7 @@ test("every page carries the whole navigation, grouped into sections", () => {
   ]) {
     expect(html).toContain(`<h2>${label}</h2>`);
   }
-  expect(html).toContain('href="/error-messages" aria-current="page"');
+  expect(html).toContain('href="/error-messages/" aria-current="page"');
   expect([...html.matchAll(/aria-current="page"/g)]).toHaveLength(1);
 });
 
@@ -544,16 +550,16 @@ test("a document's index entry holds no other document's title", () => {
     .find(([term]) => term === "favicon")?.[1];
 
   const title = documents.find(({ title }) => title === "Favicon");
-  expect(title?.path).toBe("/reference/favicon");
+  expect(title?.path).toBe("/reference/favicon/");
   const source = (path: string): string => {
-    const file = path === "/" ? "index" : path.slice(1);
+    const file = path === "/" ? "index" : path.slice(1, -1);
     const found = ROOTS.map((root) => join(root, `${file}.md`)).find(existsSync);
     return found === undefined ? "" : readFileSync(found, "utf8");
   };
   const spelling = documents
     .filter(({ path }) => /favicon/i.test(source(path)))
     .map(({ path }) => path);
-  expect(spelling).toContain("/reference/favicon");
+  expect(spelling).toContain("/reference/favicon/");
   expect(spelling.length).toBeLessThan(documents.length / 2);
 
   expect(

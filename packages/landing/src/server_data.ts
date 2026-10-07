@@ -4,7 +4,7 @@ import { SERVER_DATA_PAGE } from "./catalog.js";
 
 export const SERVER_DATA_ROUTE = "server-data";
 
-export const SERVER_DATA_PATH = `/${SERVER_DATA_ROUTE}`;
+export const SERVER_DATA_PATH = `/${SERVER_DATA_ROUTE}/`;
 
 const COPY = {
   title: "A large CMS entry, and the few bytes of it that ship",

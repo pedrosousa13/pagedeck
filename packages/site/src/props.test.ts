@@ -11,6 +11,7 @@ function renderContext(entry: PageEntry): PageRenderContext {
   return {
     images: SITE_IMAGES,
     page: { locale: entry.locale, path: `/${entry.path}` },
+    trailingSlash: "always",
     fold: resolveFoldStrategy(undefined),
   };
 }
@@ -19,8 +20,8 @@ function nodeContext(
   entry: PageEntry,
   aboveFold: boolean,
 ): PropsContext {
-  const { images, page } = renderContext(entry);
-  return { images, page, aboveFold };
+  const { images, page, trailingSlash } = renderContext(entry);
+  return { images, page, trailingSlash, aboveFold };
 }
 
 function entry(locale: string, path: string): PageEntry {
@@ -49,7 +50,7 @@ test("a link field becomes the href the component reads, spelled by the framewor
   expect(button?.props).not.toHaveProperty("href");
 
   const props = propsOf(button as Block, nodeContext(entry("en", "home"), false));
-  expect(props["href"]).toBe("/en/pricing");
+  expect(props["href"]).toBe("/en/pricing/");
   expect(props).not.toHaveProperty("link");
   expect(props["label"]).toBe("See pricing");
 });
@@ -141,7 +142,7 @@ test("an unset link becomes no prop at all, so no anchor is rendered", () => {
   }
   const fields = content.props?.["fields"] as Record<string, unknown>;
   expect(fields).not.toHaveProperty("unset_link");
-  expect(fields["related"]).toBe("/en/pricing");
+  expect(fields["related"]).toBe("/en/pricing/");
 });
 
 test("no prop the step produces still holds a link field, in either entry set", () => {

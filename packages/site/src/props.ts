@@ -1,8 +1,8 @@
 import {
-  canonicalizePath,
   foldPositions,
   imageAttributes,
   isAboveFold,
+  normalizeOutputPath,
 } from "@pagedeck/core";
 import type {
   EntryNode,
@@ -10,6 +10,7 @@ import type {
   FoldStrategy,
   ImagesSetting,
   PageContent,
+  TrailingSlash,
 } from "@pagedeck/core";
 import type { PageContext } from "@pagedeck/islands";
 import type {
@@ -23,6 +24,7 @@ import type {
 export interface PropsContext {
   readonly images: ImagesSetting;
   readonly page: PageContext;
+  readonly trailingSlash: TrailingSlash;
   readonly aboveFold: boolean;
 }
 
@@ -72,8 +74,9 @@ function fieldsOf(
       case "link":
         // An unset link becomes no prop, so no anchor renders.
         if (value.to === null) break;
-        props[PROP_NAMES[field] ?? field] = canonicalizePath(
-          `/${value.to.locale}/${value.to.path}`,
+        props[PROP_NAMES[field] ?? field] = normalizeOutputPath(
+          `${value.to.locale}/${value.to.path}`,
+          context.trailingSlash,
         );
         break;
       default: {
@@ -101,6 +104,7 @@ function entryNodesOf(
     props: propsOf(node, {
       images: context.images,
       page: context.page,
+      trailingSlash: context.trailingSlash,
       aboveFold:
         context.fold !== undefined &&
         isAboveFold({ position, treeSize, strategy: context.fold }),

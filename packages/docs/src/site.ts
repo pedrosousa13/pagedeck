@@ -20,6 +20,7 @@ import {
   defineLocales,
   definePages,
   fromCollection,
+  normalizeOutputPath,
   SECURITY_HEADERS,
 } from "@pagedeck/core";
 import type {
@@ -56,7 +57,12 @@ const TEMPLATE = "doc_page";
 
 const SEARCH_ROUTE = "search";
 
-const SEARCH_PATH = `/${SEARCH_ROUTE}`;
+// `definePages` below declares no `trailingSlash`, so it takes the package
+// default; mirrored here because `navDocuments` spells a document's address
+// from its route without going through `collectPages`.
+const TRAILING_SLASH = "always";
+
+const SEARCH_PATH = normalizeOutputPath(SEARCH_ROUTE, TRAILING_SLASH);
 
 const SEARCH_COPY = {
   title: "Search",
@@ -297,7 +303,10 @@ function navDocuments(
     for (const entry of listEntries(store, collection)) {
       const segments = route(entry);
       documents.push({
-        href: segments === "/" ? "/" : `/${[...segments].join("/")}`,
+        href: normalizeOutputPath(
+          segments === "/" ? "/" : [...segments].join("/"),
+          TRAILING_SLASH,
+        ),
         entry,
       });
     }
@@ -473,7 +482,6 @@ export function docsSiteConfig(): SiteConfig {
       favicon: FAVICON,
       vite: { plugins: [tailwindcss()] },
       pages: definePages({
-        trailingSlash: "never",
         locales: defineLocales({ en: { label: "English", direction: "ltr" } }),
         sources: [
           documentSource(built.guides, guideRoute, built),

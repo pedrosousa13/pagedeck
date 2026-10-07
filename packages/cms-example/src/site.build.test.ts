@@ -19,7 +19,7 @@ const BIN = join(SITE, "..", "core", "dist", "bin.js");
 const ISLANDS = ["faq", "signup_form"] as const;
 
 // Spelled again rather than imported, so a limit raised in the config fails here.
-const LIMITS = { "/": "0b", "/faq": "60kb", "/signup": "60kb" };
+const LIMITS = { "/": "0b", "/faq/": "60kb", "/signup/": "60kb" };
 
 // Every emitted `js` byte, Brotli, each file on its own: no budget row charges a lazy chunk.
 const BUILD_CEILING = 62 * 1024;
@@ -109,11 +109,11 @@ test("each page is held to the limit measured for it, and the whole build to its
 });
 
 test("the FAQ page ships the faq island and not the sign-up form's", () => {
-  expect(islandsOf(firstReport.get("/faq"))).toEqual(["faq"]);
+  expect(islandsOf(firstReport.get("/faq/"))).toEqual(["faq"]);
 });
 
 test("the sign-up page ships the sign-up form's island and not the faq's", () => {
-  expect(islandsOf(firstReport.get("/signup"))).toEqual(["signup_form"]);
+  expect(islandsOf(firstReport.get("/signup/"))).toEqual(["signup_form"]);
 });
 
 test("the sign-up form names no address to post to", () => {
@@ -164,9 +164,9 @@ test("a page edited in the CMS is the only page an incremental sync and build wr
   expect(changedDocuments()).toEqual([join("faq", "index.html")]);
   expect(readFileSync(join(OUT, "faq", "index.html"), "utf8")).toContain("Edited in the CMS.");
   const second = report();
-  expect(islandsOf(second.get("/faq"))).toEqual(["faq"]);
+  expect(islandsOf(second.get("/faq/"))).toEqual(["faq"]);
   expect(second.get("/")).toEqual(firstReport.get("/"));
-  expect(second.get("/signup")).toEqual(firstReport.get("/signup"));
+  expect(second.get("/signup/")).toEqual(firstReport.get("/signup/"));
 }, 180_000);
 
 test("a page whose faq block becomes a sign-up form switches islands in an incremental build", async () => {
@@ -190,8 +190,8 @@ test("a page whose faq block becomes a sign-up form switches islands in an incre
 
   expect(changedDocuments()).toEqual([join("faq", "index.html")]);
   const third = report();
-  expect(islandsOf(third.get("/faq"))).toEqual(["signup_form"]);
-  expect(islandsOf(third.get("/signup"))).toEqual(["signup_form"]);
+  expect(islandsOf(third.get("/faq/"))).toEqual(["signup_form"]);
+  expect(islandsOf(third.get("/signup/"))).toEqual(["signup_form"]);
   expect(third.get("/")).toEqual(firstReport.get("/"));
-  expect(third.get("/signup")).toEqual(firstReport.get("/signup"));
+  expect(third.get("/signup/")).toEqual(firstReport.get("/signup/"));
 }, 180_000);
