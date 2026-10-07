@@ -1,6 +1,5 @@
 name: Release
 
-# Publishes the public packages to npm when a `v*` tag is pushed; see "Releasing" in AGENTS.md.
 on:
   push:
     tags: ["v*"]

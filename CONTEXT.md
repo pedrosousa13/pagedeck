@@ -1206,9 +1206,10 @@ _Avoid_: edge bundle, deploy artifact
 A workspace package whose `npm pack` produces a tarball a consumer could
 install: its emitted `dist` and its `package.json`, with every entry point the
 manifest names resolving to a file inside it. The adjective is a claim about
-what packing produces and **not** about a registry. No package is on a
-registry, and every package outside the public set of #690 is `private: true`,
-which is why the standing decision below binds packages nobody has written yet.
+what packing produces and **not** about a registry. The public set of #690 is
+published to npm by the release workflow on a `v*` tag (#7); every package
+outside it is `private: true`, which is why the standing decision below binds
+packages nobody has written yet.
 
 Written as the compound, because *publish* is spoken for twice above and
 neither sense is this one: an **origin** is what a built site's files are
@@ -1217,9 +1218,9 @@ distribution. Both are a site's output reaching a host; this is the repository's
 own source reaching a tarball. The bare adjective is safe only in `AGENTS.md`'s
 "The published tarball" section and in the test it names, where nothing else is
 under discussion.
-_Avoid_: published package (nothing here is published, and the difference is
-the point), publishing (the registry act, which this repo does not do),
-distributable, npm package (every package here is an npm package; only some of
+_Avoid_: published package (a private package is publishable and never
+published, and the difference is the point), publishing (the registry act,
+which only the release workflow does, #7), distributable, npm package (every package here is an npm package; only some of
 what one could ship belongs in the tarball)
 
 **Example site**:
@@ -1462,6 +1463,13 @@ the trailing comment together. The comment is the only human-readable record of
 which version is pinned, and nothing derives it from the SHA or checks it,
 which is why **Comments say only what the code cannot** keeps it. Ruled on
 #121.
+
+**`release.yml` holds more than `contents: read`.** It also holds
+`id-token: write`, which can publish every public package once trusted
+publishing is on, and runs two third-party actions (`pnpm/action-setup` and
+`actions/setup-node`) in that job. A moved tag there could publish to npm, which
+is worse than anywhere else. What limits it is the same SHA pin, and a trigger
+that only a pushed `v*` tag fires, which needs repo write access. Ruled on #7.
 
 ### No workflow interpolates a `${{ }}` expression into a `run:` block
 
