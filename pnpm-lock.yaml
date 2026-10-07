@@ -320,12 +320,27 @@ importers:
 
   packages/examples:
     dependencies:
+      '@pagedeck/adapter-cloudflare-worker':
+        specifier: workspace:*
+        version: link:../adapter-cloudflare-worker
+      '@pagedeck/adapter-cloudfront':
+        specifier: workspace:*
+        version: link:../adapter-cloudfront
+      '@pagedeck/adapter-netlify':
+        specifier: workspace:*
+        version: link:../adapter-netlify
+      '@pagedeck/adapter-nginx':
+        specifier: workspace:*
+        version: link:../adapter-nginx
       '@pagedeck/content':
         specifier: workspace:*
         version: link:../content
       '@pagedeck/core':
         specifier: workspace:*
         version: link:../core
+      '@pagedeck/edge':
+        specifier: workspace:*
+        version: link:../edge
       '@pagedeck/fixtures':
         specifier: workspace:*
         version: link:../fixtures

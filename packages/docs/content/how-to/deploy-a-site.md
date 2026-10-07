@@ -171,61 +171,76 @@ not.
 `build.routing` declares the site's redirects, its 404 page and the response
 headers for each path prefix. [Routing](/reference/routing/) covers the fields,
 and [Security headers](/reference/routing/#security-headers) the headers to set
-before a deploy. The build writes them into `site/manifest.json` in a form that
-names no host.
+before a deploy. The build compiles them into one host-agnostic routing
+document first, writing it into `site/manifest.json` in a form that names no
+host.
 
-An adapter compiles them into edge artifacts, the files one host reads. Each
-host has its own adapter package. Install the one for your host, here Netlify:
+An adapter compiles that document into edge artifacts, the files one host
+reads. Each host has its own adapter package. Install the one for your host,
+here Netlify, and name it in `build.adapter`:
 
 ```sh
 npm install @pagedeck/adapter-netlify
 ```
 
-Save this as `compile-edge.ts`:
+```ts
+import { defineConfig } from "@pagedeck/core";
+import { netlify } from "@pagedeck/adapter-netlify";
+
+export default defineConfig({
+  collections: [],
+  build: {
+    pages: [],
+    components: {},
+    adapter: netlify(),
+  },
+});
+```
+
+`pagedeck build` runs the adapter after it plans the routing document and
+before it reports success. Each edge artifact has a `role`, and the role says
+where the build writes it: a `tree-file` into `site/<tree>/`, where it rides
+`site/manifest.json` and `pagedeck diff` like any other file, and every other
+artifact into `edge/<tree>/`, beside `site/`, which you install on the host
+yourself (`<tree>` is empty for a site with one output tree). An incremental
+build writes the same files a full build does, and an artifact an earlier
+build wrote that this one does not is removed from wherever it was written,
+the way a full build removes a retracted page from `site/`. `pagedeck dev`
+runs no adapter: it renders pages from the store on request and writes
+neither `site/` nor `edge/`.
+
+For another host, install its adapter and name its factory in `build.adapter`
+in place of `netlify()`:
+
+- `netlify()` from `@pagedeck/adapter-netlify` writes `_redirects`, and
+  `_headers` when the site declares header rules. Both are tree files, so
+  `pagedeck diff` uploads them with the rest of the site, after the site's own
+  files, so no redirect goes live before its target.
+- `nginx()` from `@pagedeck/adapter-nginx` writes `routing.conf` into `edge/`.
+  `include` it in the `server` block that serves `site/`.
+- `cloudfront()` from `@pagedeck/adapter-cloudfront` writes a viewer-request
+  and a viewer-response CloudFront Function, and configuration fragments when
+  the routing needs them, into `edge/`. Publish each function and associate it
+  with the distribution. A function left in `edge/` does nothing until you
+  publish it.
+- `cloudflareWorker()` from `@pagedeck/adapter-cloudflare-worker` writes
+  `worker.js` into `edge/`, published as a Worker with the site's R2 bucket
+  bound to it. This adapter has not yet served a site in production: test it
+  on a staging deploy before you rely on it.
+
+Outside `pagedeck build` — against a manifest from another build, or to try an
+adapter without building — call it directly over a routing document:
 
 ```ts
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
 import { readManifest } from "@pagedeck/core";
 import { netlify } from "@pagedeck/adapter-netlify";
 
 const manifest = readManifest(readFileSync("site/manifest.json", "utf8"), "site/manifest.json");
 for (const artifact of netlify().compile(manifest.routing).artifacts) {
-  const tree = artifact.domain ?? "";
-  const file =
-    artifact.role === "tree-file" ? join("site", tree, artifact.path) : join("edge", tree, artifact.path);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, artifact.contents);
-  console.log(`${artifact.role} ${file}`);
+  console.log(artifact.role, artifact.path);
 }
 ```
-
-Run it after each build:
-
-```sh
-node compile-edge.ts
-```
-
-Each edge artifact has a `role`, and the role says where it goes. The script
-writes a `tree-file` into `site/`, to be uploaded to the origin with the site,
-and every other edge artifact into `edge/`, which you install on the host
-yourself. For another host, install its adapter and call its function in place
-of `netlify()`:
-
-- `netlify()` from `@pagedeck/adapter-netlify` writes `_redirects`, and
-  `_headers` when the site declares header rules. Both are tree files. Upload
-  them after the site's own files, so no redirect goes live before its target.
-  If you upload only what changed, upload them too: they are not in the plan.
-- `nginx()` from `@pagedeck/adapter-nginx` writes `routing.conf`. `include` it
-  in the `server` block that serves `site/`.
-- `cloudfront()` from `@pagedeck/adapter-cloudfront` writes a viewer-request
-  and a viewer-response CloudFront Function, and configuration fragments when
-  the routing needs them. Publish each function and associate it with the
-  distribution. A function uploaded to the bucket does nothing.
-- `cloudflareWorker()` from `@pagedeck/adapter-cloudflare-worker` writes
-  `worker.js`, published as a Worker with the site's R2 bucket bound to it.
-  This adapter has not yet served a site in production: test it on a staging
-  deploy before you rely on it.
 
 Every adapter's edge artifacts answer `/manifest.json` and `/.pagedeck/` with a
 404, even for a site that declares no routing. Install them, and the manifest

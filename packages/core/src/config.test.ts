@@ -950,6 +950,53 @@ test("a build section carries a declared search adapter through to the loaded co
   expect(config.build?.search?.name).toBe("lunr");
 });
 
+test("a build section reports a build adapter it cannot compile through beside its other faults", async () => {
+  const dir = tempSiteDir();
+  writeConfig(
+    dir,
+    "pagedeck.config.ts",
+    buildSectionSource(
+      `{ ${MINIMAL_BUILD}, driftThreshold: "5", adapter: { name: "" } }`,
+    ),
+  );
+
+  const error: unknown = await loadConfig(dir).catch(
+    (thrown: unknown) => thrown,
+  );
+
+  expect(error).toBeInstanceOf(ConfigError);
+  const message = (error as Error).message;
+  expect(message).toContain(
+    `"build.adapter" declares 2 fields this build cannot compile through`,
+  );
+  expect(message).toContain(`"build.driftThreshold" is not a count`);
+});
+
+test("a build section carries a declared build adapter through to the loaded config", async () => {
+  const dir = tempSiteDir();
+  writeConfig(
+    dir,
+    "pagedeck.config.ts",
+    buildSectionSource(
+      `{ ${MINIMAL_BUILD}, adapter: { name: "fake-host", compile: (routing) => ` +
+        `({ artifacts: [{ role: "tree-file", path: "/_redirects", contents: String(routing.version) }] }) } }`,
+    ),
+  );
+
+  const config = await loadConfig(dir);
+
+  expect(config.build?.adapter?.name).toBe("fake-host");
+  expect(
+    config.build?.adapter?.compile({
+      version: 1,
+      site: { trailingSlash: "never" },
+      trees: [],
+    }),
+  ).toEqual({
+    artifacts: [{ role: "tree-file", path: "/_redirects", contents: "1" }],
+  });
+});
+
 test("a build section reports a font adapter it cannot subset through beside its other faults", async () => {
   const dir = tempSiteDir();
   writeConfig(

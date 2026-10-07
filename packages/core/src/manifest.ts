@@ -101,6 +101,12 @@ export interface FullRebuildRequest {
   threshold: number;
 }
 
+/** A `build.adapter` artifact written outside the output tree, into `edge/` (#20). */
+export interface EdgeManifestFile {
+  domain?: string;
+  path: string;
+}
+
 export interface Manifest {
   version: number;
   build: BuildStamp;
@@ -112,6 +118,7 @@ export interface Manifest {
   tiers: TierPlan;
   classes: readonly string[];
   fullRebuild?: FullRebuildRequest;
+  edge?: { target: string; files: readonly EdgeManifestFile[] };
 }
 
 export interface EmittedFile {
@@ -142,6 +149,7 @@ export interface ManifestInput {
   inlineScriptHashes?: ReadonlyMap<string, readonly string[]>;
   noindex?: ReadonlySet<string>;
   search?: { adapter: string; files: ReadonlySet<string> };
+  edge?: { target: string; files: readonly EdgeManifestFile[] };
 }
 
 export function fileKey(domain: string | undefined, path: string): string {
@@ -160,6 +168,19 @@ export function deployKeyFault(key: string): string | undefined {
     !/[\\\u0000-\u001F\u007F-\u009F]/.test(key) &&
     rest.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
   return plain ? undefined : `a deploy key ${DEPLOY_KEY_RULE}`;
+}
+
+const EDGE_PATH_RULE =
+  'holds no leading "/", ".", ".." or empty segment, no backslash and no control character';
+
+// An `edge.files` row names a bare resource under `edge/`, not a deploy key: `@pagedeck/edge`
+// artifacts outside the "tree-file" role carry no leading "/" (`EdgeArtifact.path`).
+export function edgePathFault(path: string): string | undefined {
+  const plain =
+    !path.startsWith("/") &&
+    !/[\\\u0000-\u001F\u007F-\u009F]/.test(path) &&
+    path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+  return plain ? undefined : `an edge path ${EDGE_PATH_RULE}`;
 }
 
 export function deployKeyReport(
@@ -578,6 +599,7 @@ export function buildManifest(input: ManifestInput): Manifest {
     ...(input.fullRebuild === undefined
       ? {}
       : { fullRebuild: input.fullRebuild }),
+    ...(input.edge === undefined ? {} : { edge: input.edge }),
   };
 }
 
@@ -668,6 +690,18 @@ function ordered(manifest: Manifest): unknown {
             reason: manifest.fullRebuild.reason,
             drifted: manifest.fullRebuild.drifted,
             threshold: manifest.fullRebuild.threshold,
+          },
+    ),
+    ...optional(
+      "edge",
+      manifest.edge === undefined
+        ? undefined
+        : {
+            target: manifest.edge.target,
+            files: manifest.edge.files.map((file) => ({
+              ...optional("domain", file.domain),
+              path: file.path,
+            })),
           },
     ),
   };
@@ -905,6 +939,15 @@ const MANIFEST_SHAPE = record<Manifest>({
     }),
     "an object",
   ),
+  edge: optional(
+    record<NonNullable<Manifest["edge"]>>({
+      target: STRING,
+      files: list(
+        record<EdgeManifestFile>({ domain: OPTIONAL_STRING, path: STRING }),
+      ),
+    }),
+    "an object",
+  ),
 });
 
 /**
@@ -953,6 +996,24 @@ export function readManifest(text: string, source: string): Manifest {
       if (deployKeyFault(key) !== undefined) {
         faults.push(
           `routing.trees[${String(index)}].domain: expected a tree key whose deploy key ${DEPLOY_KEY_RULE}, found ${quoteIdentifier(key)}`,
+        );
+      }
+    }
+    for (const [index, file] of (
+      (parsed as Manifest).edge?.files ?? []
+    ).entries()) {
+      if (file.domain !== undefined) {
+        const key = `//${file.domain}`;
+        if (deployKeyFault(key) !== undefined) {
+          faults.push(
+            `edge.files[${String(index)}].domain: expected a tree key whose deploy key ${DEPLOY_KEY_RULE}, found ${quoteIdentifier(key)}`,
+          );
+        }
+      }
+      const reason = edgePathFault(file.path);
+      if (reason !== undefined) {
+        faults.push(
+          `edge.files[${String(index)}].path: expected ${reason}, found ${quoteIdentifier(file.path)}`,
         );
       }
     }

@@ -132,27 +132,29 @@ test("every flag the page names on its own is in the CLI's help", async () => {
   expect(flags.filter((flag) => !usage.includes(flag))).toEqual([]);
 });
 
-test("the edge sample compiles in a site", () => {
+test("every edge sample compiles in a site", () => {
   const samples = fences(markdown()).filter(({ lang }) => lang === "ts");
-  expect(samples).toHaveLength(1);
+  expect(samples).toHaveLength(2);
   const { options, errors } = ts.convertCompilerOptionsFromJson(
     (JSON.parse(readFileSync(BASE_CONFIG, "utf8")) as { compilerOptions: object }).compilerOptions,
     DOCS,
   );
   expect(errors).toEqual([]);
-  // Inside the docs package, so `@pagedeck/core` and the adapter resolve as a site's would.
-  const name = join(DOCS, samples[0]?.file ?? "compile-edge.ts");
-  const host = ts.createCompilerHost(options);
-  const { fileExists, getSourceFile, readFile } = host;
-  host.fileExists = (path) => path === name || fileExists(path);
-  host.readFile = (path) => (path === name ? samples[0]?.code : readFile(path));
-  host.getSourceFile = (path, language, ...rest) =>
-    path === name
-      ? ts.createSourceFile(path, samples[0]?.code ?? "", language)
-      : getSourceFile(path, language, ...rest);
-  const program = ts.createProgram({ rootNames: [name], options: { ...options, noEmit: true }, host });
-  const faults = ts
-    .getPreEmitDiagnostics(program)
-    .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
-  expect(faults).toEqual([]);
+  for (const [index, sample] of samples.entries()) {
+    // Inside the docs package, so `@pagedeck/core` and the adapter resolve as a site's would.
+    const name = join(DOCS, sample.file ?? `compile-edge-${String(index)}.ts`);
+    const host = ts.createCompilerHost(options);
+    const { fileExists, getSourceFile, readFile } = host;
+    host.fileExists = (path) => path === name || fileExists(path);
+    host.readFile = (path) => (path === name ? sample.code : readFile(path));
+    host.getSourceFile = (path, language, ...rest) =>
+      path === name
+        ? ts.createSourceFile(path, sample.code, language)
+        : getSourceFile(path, language, ...rest);
+    const program = ts.createProgram({ rootNames: [name], options: { ...options, noEmit: true }, host });
+    const faults = ts
+      .getPreEmitDiagnostics(program)
+      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+    expect(faults).toEqual([]);
+  }
 }, 60_000);

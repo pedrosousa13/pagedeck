@@ -473,6 +473,10 @@ function everyColumn(): Record<string, unknown> {
   } & Record<string, unknown>;
   doc.build.parent = "build-2026-08-24-01";
   doc.fullRebuild = { reason: "class-drift", drifted: 3, threshold: 2 };
+  doc.edge = {
+    target: "netlify",
+    files: [{ domain: "de.example", path: "worker.js" }],
+  };
   doc.routing.trees.push({
     domain: "de.example",
     redirects: [],
@@ -588,6 +592,9 @@ test.each<[string, readonly (string | number)[], unknown, string]>([
   ["classes", ["classes"], ABSENT, "classes: expected a list, found nothing"],
   ["a class", ["classes", 0], 1, "classes[0]: expected a string, found a number"],
   ["fullRebuild.drifted", ["fullRebuild", "drifted"], "3", "fullRebuild.drifted: expected a number, found a string"],
+  ["edge.target", ["edge", "target"], ABSENT, "edge.target: expected a string, found nothing"],
+  ["an edge file's path", ["edge", "files", 0, "path"], ABSENT, "edge.files[0].path: expected a string, found nothing"],
+  ["an edge file's domain", ["edge", "files", 0, "domain"], 1, "edge.files[0].domain: expected a string or nothing, found a number"],
 ])(
   "a manifest of this version whose %s is not what pagedeck build writes is refused, naming the field",
   (_, path, value, line) => {
@@ -808,6 +815,42 @@ test("a file the search adapter returned is recorded with the adapter's name, an
       `    }`,
     ].join("\n"),
   );
+});
+
+test("a build with an edge adapter records its target and the files it wrote outside the output tree", () => {
+  const manifest = buildManifest(
+    input({
+      edge: {
+        target: "cloudflare-worker",
+        files: [{ domain: "shop.example", path: "worker.js" }],
+      },
+    }),
+  );
+
+  expect(manifest.edge).toEqual({
+    target: "cloudflare-worker",
+    files: [{ domain: "shop.example", path: "worker.js" }],
+  });
+  expect(manifestJson(manifest)).toContain(
+    [
+      `  "edge": {`,
+      `    "target": "cloudflare-worker",`,
+      `    "files": [`,
+      `      {`,
+      `        "domain": "shop.example",`,
+      `        "path": "worker.js"`,
+      `      }`,
+      `    ]`,
+      `  }`,
+    ].join("\n"),
+  );
+});
+
+test("a build with no edge adapter writes no edge key, keeping a site without one on its old bytes", () => {
+  const manifest = buildManifest(input());
+
+  expect(manifest.edge).toBeUndefined();
+  expect(manifestJson(manifest)).not.toContain(`"edge"`);
 });
 
 test("a file emitted as hashed is recorded as hashed, and no other file gains a key", () => {
@@ -1348,6 +1391,35 @@ test("a manifest whose file row names a key that resolves elsewhere is refused w
   expect(() => readManifest(text, "/origin/.pagedeck/manifests/b0.json")).toThrow(
     new ConfigError(
       `Manifest "/origin/.pagedeck/manifests/b0.json": 2 fields do not hold what pagedeck build writes there (files[${String(first)}]: expected a deploy key that starts with "/" and holds no ".", ".." or empty segment, no backslash and no control character, found "/assets/../index.html"; files[${String(first + 1)}]: expected a deploy key that starts with "/" and holds no ".", ".." or empty segment, no backslash and no control character, found "//../index.html"), which pagedeck build never writes — run pagedeck build, and read the manifest it writes in place of this one`,
+    ),
+  );
+});
+
+test("a manifest whose edge file names a path that resolves elsewhere is refused where it is read (#20)", () => {
+  const manifest = buildManifest(input());
+  const text = JSON.stringify({
+    ...manifest,
+    edge: { target: "cloudfront-function", files: [{ path: "../worker.js" }] },
+  });
+  expect(() => readManifest(text, "/origin/.pagedeck/manifests/b0.json")).toThrow(
+    new ConfigError(
+      `Manifest "/origin/.pagedeck/manifests/b0.json": 1 field does not hold what pagedeck build writes there (edge.files[0].path: expected an edge path holds no leading "/", ".", ".." or empty segment, no backslash and no control character, found "../worker.js"), which pagedeck build never writes — run pagedeck build, and read the manifest it writes in place of this one`,
+    ),
+  );
+});
+
+test("a manifest whose edge file names a domain that resolves elsewhere is refused where it is read (#20)", () => {
+  const manifest = buildManifest(input());
+  const text = JSON.stringify({
+    ...manifest,
+    edge: {
+      target: "cloudfront-function",
+      files: [{ domain: "../../x", path: "worker.js" }],
+    },
+  });
+  expect(() => readManifest(text, "/origin/.pagedeck/manifests/b0.json")).toThrow(
+    new ConfigError(
+      `Manifest "/origin/.pagedeck/manifests/b0.json": 1 field does not hold what pagedeck build writes there (edge.files[0].domain: expected a tree key whose deploy key starts with "/" and holds no ".", ".." or empty segment, no backslash and no control character, found "//../../x"), which pagedeck build never writes — run pagedeck build, and read the manifest it writes in place of this one`,
     ),
   );
 });

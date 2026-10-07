@@ -42,6 +42,8 @@ import { scriptsFaultReport } from "./scripts.js";
 import type { ScriptsSetting } from "./scripts.js";
 import { beaconFaultReport } from "./beacon.js";
 import type { BeaconSetting } from "./beacon.js";
+import { adapterFaultReport } from "./build-adapter.js";
+import type { BuildAdapter } from "./build-adapter.js";
 import { linksFaultReport } from "./links.js";
 import type { LinkCheckSetting } from "./links.js";
 import { retentionFaultReport } from "./retention.js";
@@ -145,6 +147,7 @@ export interface BuildSection {
   readonly scripts?: ScriptsSetting;
   readonly beacon?: BeaconSetting;
   readonly search?: SearchAdapter;
+  readonly adapter?: BuildAdapter;
   readonly fonts?: FontsSetting;
   readonly socialImages?: SocialImagesSetting;
   readonly routing?: RoutingConfig;
@@ -538,6 +541,11 @@ function assertBuildSection(
   const search = Object.hasOwn(record, "search") ? record["search"] : undefined;
   if (search !== undefined) {
     const report = searchFaultReport(search, where);
+    if (report !== undefined) sections.push(report);
+  }
+  const adapter = Object.hasOwn(record, "adapter") ? record["adapter"] : undefined;
+  if (adapter !== undefined) {
+    const report = adapterFaultReport(adapter, where);
     if (report !== undefined) sections.push(report);
   }
   const fonts = Object.hasOwn(record, "fonts") ? record["fonts"] : undefined;

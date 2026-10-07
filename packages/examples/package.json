@@ -23,8 +23,13 @@
     "prepack": "tsc -b tsconfig.build.json"
   },
   "dependencies": {
+    "@pagedeck/adapter-cloudflare-worker": "workspace:*",
+    "@pagedeck/adapter-cloudfront": "workspace:*",
+    "@pagedeck/adapter-netlify": "workspace:*",
+    "@pagedeck/adapter-nginx": "workspace:*",
     "@pagedeck/content": "workspace:*",
     "@pagedeck/core": "workspace:*",
+    "@pagedeck/edge": "workspace:*",
     "@pagedeck/fixtures": "workspace:*",
     "@pagedeck/islands": "workspace:*",
     "react": "^19.2.0",
