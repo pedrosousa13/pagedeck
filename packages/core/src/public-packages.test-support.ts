@@ -5,6 +5,7 @@ export const PUBLIC_PACKAGES = [
   "adapter-cloudfront",
   "adapter-netlify",
   "adapter-nginx",
+  "adapter-vercel",
   "content",
   "core",
   "create-pagedeck",

@@ -13,6 +13,7 @@ host serves:
 | [`@pagedeck/adapter-nginx`](../adapter-nginx) | `nginx()` | an nginx config fragment |
 | [`@pagedeck/adapter-cloudflare-worker`](../adapter-cloudflare-worker) | `cloudflareWorker()` | a Cloudflare Worker |
 | [`@pagedeck/adapter-cloudflare-pages`](../adapter-cloudflare-pages) | `cloudflarePages()` | Cloudflare Pages' `_redirects` and `_headers` |
+| [`@pagedeck/adapter-vercel`](../adapter-vercel) | `vercel()` | `vercel.json` |
 
 This package holds what the adapters share and names no host: the adapter
 contract, the routing normalisation every adapter compiles from, the
@@ -134,7 +135,9 @@ lists them: whether Netlify matches `_headers` against a `404` row's target,
 whether CloudFront runs the viewer-response function over a custom error
 response, which path Cloudflare Pages matches `_headers` against for a
 proxied (200) response, and whether a redirect response carries `_headers` on
-Cloudflare Pages at all.
+Cloudflare Pages at all. The same shape holds for Vercel: whether a `routes`
+entry ahead of `{"handle": "filesystem"}` masks a real file the way
+`@pagedeck/adapter-vercel`'s README assumes.
 
 ### Reserved deploy keys
 
@@ -182,10 +185,11 @@ directly.
 ## Known gaps
 
 - **A split is compiled by one adapter only.** `@pagedeck/adapter-netlify`,
-  `@pagedeck/adapter-nginx`, `@pagedeck/adapter-cloudflare-worker` and
-  `@pagedeck/adapter-cloudflare-pages` refuse one, so a site that wants an
-  experiment compiles with `@pagedeck/adapter-cloudfront`; its README
-  documents the pattern for the others, which is not implemented.
+  `@pagedeck/adapter-nginx`, `@pagedeck/adapter-cloudflare-worker`,
+  `@pagedeck/adapter-cloudflare-pages` and `@pagedeck/adapter-vercel` refuse
+  one, so a site that wants an experiment compiles with
+  `@pagedeck/adapter-cloudfront`; its README documents the pattern for the
+  others, which is not implemented.
 - **No default header set.** A site that declares no `build.routing.headers`
   compiles an empty header table on every adapter, and `pagedeck build` warns
   about it. `SECURITY_HEADERS` from `@pagedeck/core` holds three headers to
