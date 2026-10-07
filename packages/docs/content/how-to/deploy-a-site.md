@@ -368,3 +368,51 @@ sync no longer re-fetches every entry from the content source. On the first
 run there is no snapshot to pull and no cursor for `--incremental` to start
 from: run `pagedeck sync` and `pagedeck store push` once first, the same as
 that section describes for any CI runner.
+
+## Netlify
+
+A `netlify.toml` at the repository root, beside `pagedeck.config.ts`, builds
+and publishes the site on every push:
+
+`netlify.toml`:
+
+```toml
+[build]
+  command = """
+    npx pagedeck sync &&
+    npx pagedeck build
+  """
+  publish = "site"
+
+[build.environment]
+  NODE_VERSION = "22.18.0"
+
+[build.processing.html]
+  pretty_urls = false
+```
+
+`publish = "site"` is the directory `pagedeck build` writes. `netlify()`'s
+`_redirects` and `_headers` are tree files, so they are already inside it by
+the time the build command exits; Netlify uploads them with the rest of the
+site, no separate step. `NODE_VERSION` must meet the adapter's own
+`engines.node`, `^22.18.0 || >=23.7.0`.
+
+[Pretty URLs](https://docs.netlify.com/build/post-processing/overview/) is a
+Netlify post-processing option that rewrites `/about` to `/about/` on its own,
+ahead of the site's own `trailingSlash` policy and the rows `netlify()`
+compiles for it. Set `pretty_urls = false` so Netlify serves exactly the
+paths the routing document names, under either policy.
+
+Each tree's 404 page is written at the tree's root as `404.html` too (see
+[the 404 page](/reference/routing/#the-404-page)), and
+[Netlify picks it up](https://docs.netlify.com/manage/routing/redirects/redirect-options/)
+for any path `_redirects` does not already answer with its own 404 row.
+
+A Netlify build starts from a clean checkout: nothing survives between builds
+unless a [build plugin](https://docs.netlify.com/extend/install-and-use/build-plugins/)
+restores it first, so `command` above runs a full `pagedeck sync`, not
+`--incremental`, on every build. Keeping `content.db` and `.pagedeck/` between
+builds, to sync and build incrementally instead, takes the same two pieces
+this page's section on CI already covers — a snapshot for the store, a cache
+for `.pagedeck/` — wired into that plugin or into `command` here, rather than
+into a plain CI job's own steps.

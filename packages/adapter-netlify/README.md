@@ -37,6 +37,16 @@ prefix or a 404 page holding one is refused rather than emitted. An experiment
 split is refused too, naming every page it was declared on:
 `@pagedeck/adapter-cloudfront` is the only adapter that compiles one.
 
+[Netlify's redirect options](https://docs.netlify.com/manage/routing/redirects/redirect-options/)
+document only 301, 302, 200 and 404 for a redirect, and name 307 directly:
+"Use this status code [302] instead of 307, which is currently unsupported."
+An authored `status: 307` is refused. 308 is not named on that page at all —
+neither supported nor refused there — and this adapter still emits it, because
+`trailingSlash`'s own canonical-spelling redirect is 308 by default
+(`@pagedeck/core`'s `DEFAULT_STATUS`) and refusing it would refuse the common
+case. Community reports of 308 behaving inconsistently on Netlify exist; watch
+a deploy's actual redirects if this matters to you.
+
 ## Reserved deploy keys
 
 The first three rows of `_redirects` are forced with `404!`, so they
@@ -47,5 +57,11 @@ CI cannot run.
 ## Trailing slashes
 
 The rows that send a non-canonical spelling to the canonical one are forced
-(`301!`), because an unforced rule loses to the file the origin holds, which
+(`308!`), because an unforced rule loses to the file the origin holds, which
 is the file being redirected away from.
+
+[Netlify's Pretty URLs](https://docs.netlify.com/build/post-processing/overview/)
+post-processing option forwards `/about` to `/about/` on its own, independent
+of this adapter's rows and of the site's own `trailingSlash` policy. Set
+`pretty_urls = false` under `[build.processing.html]` in `netlify.toml` so
+Netlify serves exactly the paths the routing document names.

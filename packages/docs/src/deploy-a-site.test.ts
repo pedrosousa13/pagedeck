@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse as parseToml } from "smol-toml";
 import ts from "typescript";
 import { afterAll, expect, test } from "vitest";
 import { runCli } from "@pagedeck/core";
@@ -9,6 +10,7 @@ import { fences } from "./tutorial.test-support.js";
 const HOW_TO = join(import.meta.dirname, "..", "content", "how-to", "deploy-a-site.md");
 const DOCS = join(import.meta.dirname, "..");
 const BASE_CONFIG = join(DOCS, "..", "..", "tsconfig.base.json");
+const ADAPTER_NETLIFY_PACKAGE = join(DOCS, "..", "adapter-netlify", "package.json");
 
 // Empty, so every verb stops at loading the config: nothing is built, synced or sent.
 const NOWHERE = mkdtempSync(join(tmpdir(), "pagedeck-deploy-how-to-"));
@@ -158,3 +160,28 @@ test("every edge sample compiles in a site", () => {
     expect(faults).toEqual([]);
   }
 }, 60_000);
+
+test("the netlify.toml sample parses and names a Node version the adapter's engines accept", () => {
+  const samples = fences(markdown()).filter(({ lang }) => lang === "toml");
+  expect(samples).toHaveLength(1);
+  const parsed = parseToml(samples[0]?.code as string) as {
+    build: {
+      command: string;
+      publish: string;
+      environment: { NODE_VERSION: string };
+      processing: { html: { pretty_urls: boolean } };
+    };
+  };
+  expect(parsed.build.command).toContain("npx pagedeck sync");
+  expect(parsed.build.command).toContain("npx pagedeck build");
+  expect(parsed.build.publish).toBe("site");
+  expect(parsed.build.processing.html.pretty_urls).toBe(false);
+
+  // The sample names a concrete version; the lowest `engines.node` this repo asks of a site
+  // naming it (`^22.18.0`'s own floor) so a reader who pins it is never under the adapter's
+  // own floor.
+  const engines = (
+    JSON.parse(readFileSync(ADAPTER_NETLIFY_PACKAGE, "utf8")) as { engines: { node: string } }
+  ).engines.node;
+  expect(engines).toContain(parsed.build.environment.NODE_VERSION);
+});
