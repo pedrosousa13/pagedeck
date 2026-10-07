@@ -25,6 +25,12 @@ component and a counter component in `components/`, and a `package.json` that
 depends on the Pagedeck packages and React. `npm create pagedeck` then prints
 the next steps, which the rest of this page follows.
 
+Pass `--host vercel`, `--host cloudflare-pages` or `--host netlify` to also set
+the site up to deploy there — [Deploy a site](/how-to/deploy-a-site/) covers
+each host's build settings. This tutorial leaves it at the default,
+`--host none`. On a terminal, leaving out the directory or the host prompts
+for it instead of failing or defaulting silently.
+
 ## 2. Install and sync
 
 ```sh

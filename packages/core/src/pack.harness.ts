@@ -488,3 +488,39 @@ test("the site create-pagedeck writes builds from installed packages, and only i
   );
   expect(counter).toHaveLength(1);
 }, 600_000);
+
+test("a site created with --host cloudflare-pages installs, builds, and writes the host's edge files", async () => {
+  const create = await installCreatePagedeck(join(root, "create-cloudflare-pages"));
+  await spawn(create, ["my-site", "--host", "cloudflare-pages"], root);
+
+  const site = join(root, "my-site");
+  const manifest = JSON.parse(await readFile(join(site, "package.json"), "utf8")) as Manifest;
+  expect(manifest.dependencies?.["@pagedeck/adapter-cloudflare-pages"]).toBe(PUBLIC_VERSION);
+  await install(site, manifest as unknown as Record<string, unknown>);
+
+  // The template declares no header rule, and with none declared `_headers` is never emitted
+  // (routing.ts's own warning: "with the field absent no _headers file ... is emitted at all").
+  // Give it one so the build has something real to compile into `_headers`.
+  const config = join(site, "pagedeck.config.ts");
+  const withoutHeaders = await readFile(config, "utf8");
+  const withHeaders = withoutHeaders
+    .replace(
+      'import { defineConfig, fromCollection } from "@pagedeck/core";',
+      'import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";',
+    )
+    .replace(
+      "    adapter: cloudflarePages(),",
+      '    adapter: cloudflarePages(),\n    routing: { headers: [{ prefix: "/", set: SECURITY_HEADERS }] },',
+    );
+  expect(withHeaders, `pagedeck.config.ts has an "adapter:" field to add routing beside`).not.toBe(
+    withoutHeaders,
+  );
+  await writeFile(config, withHeaders);
+
+  const bin = join(site, "node_modules", ".bin", "pagedeck");
+  await spawn(bin, ["sync"], site);
+  await spawn(bin, ["build"], site);
+
+  expect(existsSync(join(site, "site", "_redirects"))).toBe(true);
+  expect(existsSync(join(site, "site", "_headers"))).toBe(true);
+}, 600_000);

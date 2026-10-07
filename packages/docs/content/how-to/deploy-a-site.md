@@ -197,6 +197,11 @@ export default defineConfig({
 });
 ```
 
+A new site can skip this step: `npm create pagedeck@latest my-site --host netlify`
+installs the adapter and writes both of these for a fresh site, and
+`--host vercel` or `--host cloudflare-pages` do the same for those hosts. The
+above is what to do by hand, or to a site that already exists.
+
 `pagedeck build` runs the adapter after it plans the routing document and
 before it reports success. Each edge artifact has a `role`, and the role says
 where the build writes it: a `tree-file` into `site/<tree>/`, where it rides
