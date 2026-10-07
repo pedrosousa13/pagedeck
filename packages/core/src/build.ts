@@ -611,7 +611,7 @@ export async function buildSite(input: BuildSiteInput): Promise<SiteBuild> {
       },
       staged.manifest,
     );
-    // Beside `outDir`, not inside it (AGENTS.md, "Where each role lands"): a
+    // Beside `outDir`, not inside it (#20): a
     // build without `build.adapter` reads neither side of this.
     await writeEdgeOutput(
       outDir,
