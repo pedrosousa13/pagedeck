@@ -13,13 +13,13 @@ import {
   SECURITY_HEADERS,
 } from "@pagedeck/core";
 import type { Manifest, ManifestPage } from "@pagedeck/core";
-import { compileRouting } from "@pagedeck/edge";
-import {
-  comparable,
-  interpretCloudFront,
-  interpretNetlify,
-  interpretNginx,
-} from "../../edge/src/interpret.test-support.js";
+import { cloudfront } from "@pagedeck/adapter-cloudfront";
+import { netlify } from "@pagedeck/adapter-netlify";
+import { nginx } from "@pagedeck/adapter-nginx";
+import { interpretCloudFront } from "../../adapter-cloudfront/src/interpret.test-support.js";
+import { interpretNetlify } from "../../adapter-netlify/src/interpret.test-support.js";
+import { interpretNginx } from "../../adapter-nginx/src/interpret.test-support.js";
+import { comparable } from "../../edge/src/interpret.test-support.js";
 import { resolveRequest } from "../../edge/src/oracle.test-support.js";
 import { colourFaults, pairFaults, readThemes } from "@pagedeck/brand";
 import { createMarkdownRenderer, parseFrontmatter } from "@pagedeck/markdown-loader";
@@ -27,6 +27,8 @@ import { TWIN_PAYLOAD } from "@pagedeck/site/audit-site";
 import { formatBytes, parseBytes, utf8Bytes } from "./bytes.js";
 import { CONTENT_SECURITY_POLICY } from "./csp.js";
 import { PRODUCT } from "./product.js";
+
+const ADAPTERS = { "cloudfront-function": cloudfront(), netlify: netlify(), nginx: nginx() };
 
 const execFileAsync = promisify(execFile);
 
@@ -1055,9 +1057,9 @@ const SERVED_HEADERS = [
   { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
 ];
 
-function edgeText(target: string, path: string): string {
+function edgeText(target: keyof typeof ADAPTERS, path: string): string {
   return (
-    compileRouting(manifest.routing, { target }).artifacts.find(
+    ADAPTERS[target].compile(manifest.routing).artifacts.find(
       (artifact) => artifact.path === path,
     )?.contents ?? ""
   );
@@ -1075,7 +1077,7 @@ test("the security headers and the policy are in the edge artifacts for every ho
 });
 
 test("every host sends the whole policy and the three security headers with every page", async () => {
-  const compiled = (target: string) => compileRouting(manifest.routing, { target }).artifacts;
+  const compiled = (target: keyof typeof ADAPTERS) => ADAPTERS[target].compile(manifest.routing).artifacts;
   const cloudfront = compiled("cloudfront-function");
   const netlify = compiled("netlify");
   const nginx = compiled("nginx");

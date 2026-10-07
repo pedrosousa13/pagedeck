@@ -14,7 +14,7 @@ import { join, normalize as normalizePath } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { readManifest } from "@pagedeck/core";
-import { compileRouting } from "@pagedeck/edge";
+import { netlify } from "@pagedeck/adapter-netlify";
 import { compareParity } from "./parity.js";
 import type { ParityBaseline } from "./parity.js";
 import { readBuiltSite, redirectRows } from "./parity-read.js";
@@ -103,7 +103,7 @@ beforeAll(async () => {
 
   const file = join(OUT, "manifest.json");
   const manifest = readManifest(readFileSync(file, "utf8"), file);
-  const compiled = compileRouting(manifest.routing, { target: "netlify" });
+  const compiled = netlify().compile(manifest.routing);
   served = await serve(OUT, redirectRows(compiled));
 }, 180_000);
 

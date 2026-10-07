@@ -142,7 +142,7 @@ sampled, because it is the set the framework's claims differ on:
 
 Plus the two redirects the site declares: `/en/plans → /en/pricing` and
 `/en/terms → /en/legal/terms`, both 301. Those are read back out of the
-**compiled** `@pagedeck/edge` artifact rather than out of the site config object,
+**compiled** `@pagedeck/adapter-netlify` artifact rather than out of the site config object,
 because the artifact is what a host is given — a rule that is in the config and
 not in the artifact is a rule nobody serves.
 
@@ -227,12 +227,12 @@ has one.
 - **The normalizing redirect rows.** The compiled table also holds the
   trailing-slash rows core derives, and the reader drops them: a baseline full
   of rows nobody wrote is a baseline nobody reads.
-  `packages/edge/src/normalizing.test.ts` is where those are checked, against
-  the emitter that mints them.
-- **The other two edge targets.** Redirects are read back through the
+  `packages/edge/src/conformance.test-support.ts` is where those are checked,
+  against the emitter that mints them, for every adapter.
+- **The other edge adapters.** Redirects are read back through the
   Netlify-style table because it is text rather than code.
-  `packages/edge/src/equivalence.test.ts` is where the three targets are held to
-  one behaviour.
+  `packages/edge/src/conformance.test-support.ts` is where every adapter is held
+  to one behaviour.
 - **A production twin's own descriptions.** Every page of this site carries a
   `<meta name="description">` since #405, written by hand in
   `packages/site/src/site.ts`'s `DESCRIPTIONS` and spelled again in the

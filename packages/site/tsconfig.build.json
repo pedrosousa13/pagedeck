@@ -19,6 +19,10 @@
     "src/**/*.harness.tsx"
   ],
   "references": [
+    { "path": "../adapter-cloudflare-worker/tsconfig.build.json" },
+    { "path": "../adapter-cloudfront/tsconfig.build.json" },
+    { "path": "../adapter-netlify/tsconfig.build.json" },
+    { "path": "../adapter-nginx/tsconfig.build.json" },
     { "path": "../content/tsconfig.build.json" },
     { "path": "../core/tsconfig.build.json" },
     { "path": "../design-system/tsconfig.build.json" },

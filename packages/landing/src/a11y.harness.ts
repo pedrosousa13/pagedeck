@@ -7,11 +7,11 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { chromium } from "playwright";
 import type { Browser, BrowserContext, Page } from "playwright";
 import { budgetReportPath, readManifest, RETENTION_DIR } from "@pagedeck/core";
-import { compileRouting } from "@pagedeck/edge";
+import { cloudfront } from "@pagedeck/adapter-cloudfront";
 import type { EdgeArtifact } from "@pagedeck/edge";
 import { serveBuild } from "@pagedeck/site/audit-site";
 import type { ServedOrigin } from "@pagedeck/site/audit-site";
-import { interpretCloudFront } from "../../edge/src/interpret.test-support.js";
+import { interpretCloudFront } from "../../adapter-cloudfront/src/interpret.test-support.js";
 import { CONTENT_SECURITY_POLICY } from "./csp.js";
 
 const execFileAsync = promisify(execFile);
@@ -119,7 +119,7 @@ beforeAll(async () => {
     readFileSync(join(OUT, "manifest.json"), "utf8"),
     "manifest.json",
   );
-  edge = compileRouting(manifest.routing, { target: "cloudfront-function" }).artifacts;
+  edge = cloudfront().compile(manifest.routing).artifacts;
 
   served = await serveBuild(OUT);
   const origin = served.origin;

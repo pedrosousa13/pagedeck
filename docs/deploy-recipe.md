@@ -177,9 +177,10 @@ person should be able to read the plan before anyone authorizes step 4.
 **`--edge <target>` is what compiles the routing document**, and omitting it is
 what leaves the plan with no edge group at all. It is a flag rather than a
 config field because the host is not a property of the site: `build.routing` is
-one declaration and `@pagedeck/edge` compiles it for whichever host is serving it.
-The targets are `cloudfront-function`, `netlify`, `nginx` and
-`cloudflare-worker`; an unknown one is refused with the list in the message.
+one declaration and an edge adapter compiles it for whichever host is serving it.
+The targets are the names of the four adapters the deploy depends on,
+`cloudfront-function`, `netlify`, `nginx` and `cloudflare-worker`; an unknown
+one is refused with the list in the message.
 
 **Which build is live is read off the origin.** `applyPlan` publishes
 `manifest.json` with the site, last of all the keys it puts, so
@@ -814,8 +815,8 @@ Four things about it are worth knowing before changing any of them:
   anyone every address the site has ever had — a post set to draft since
   included — with the time each build went up. Nothing in a browser reads
   either file: the deploy reads the origin directly, through the file system
-  or a signed GET, and never through the edge. So every target `@pagedeck/edge`
-  compiles answers `/manifest.json` and everything under `/.pagedeck/` with the
+  or a signed GET, and never through the edge. So every edge adapter's
+  output answers `/manifest.json` and everything under `/.pagedeck/` with the
   site's 404, the response a missing page gets, or a bare 404 on a site with
   none. That is a framework default, in every tree, and no rule a site writes
   can undo it: the planner refuses a page or a redirect at these paths, and a
@@ -928,7 +929,7 @@ another build is refused before any request.
 
 ## The edge artifacts
 
-`@pagedeck/edge` compiles the site's `build.routing` into a host's files, and a deploy
+An edge adapter compiles the site's `build.routing` into a host's files, and a deploy
 treats them as two groups because a host does:
 
 - **`tree-file`** — `/_redirects` and `/_headers` on Netlify, for instance.

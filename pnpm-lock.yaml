@@ -23,6 +23,42 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/adapter-cloudflare-worker:
+    dependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      '@pagedeck/edge':
+        specifier: workspace:*
+        version: link:../edge
+
+  packages/adapter-cloudfront:
+    dependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      '@pagedeck/edge':
+        specifier: workspace:*
+        version: link:../edge
+
+  packages/adapter-netlify:
+    dependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      '@pagedeck/edge':
+        specifier: workspace:*
+        version: link:../edge
+
+  packages/adapter-nginx:
+    dependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      '@pagedeck/edge':
+        specifier: workspace:*
+        version: link:../edge
+
   packages/bench:
     dependencies:
       '@pagedeck/content':
@@ -239,9 +275,15 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@pagedeck/edge':
+      '@pagedeck/adapter-cloudfront':
         specifier: workspace:*
-        version: link:../edge
+        version: link:../adapter-cloudfront
+      '@pagedeck/adapter-netlify':
+        specifier: workspace:*
+        version: link:../adapter-netlify
+      '@pagedeck/adapter-nginx':
+        specifier: workspace:*
+        version: link:../adapter-nginx
       '@pagedeck/preview':
         specifier: workspace:*
         version: link:../preview
@@ -406,6 +448,15 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@pagedeck/adapter-cloudfront':
+        specifier: workspace:*
+        version: link:../adapter-cloudfront
+      '@pagedeck/adapter-netlify':
+        specifier: workspace:*
+        version: link:../adapter-netlify
+      '@pagedeck/adapter-nginx':
+        specifier: workspace:*
+        version: link:../adapter-nginx
       '@pagedeck/edge':
         specifier: workspace:*
         version: link:../edge
@@ -501,6 +552,18 @@ importers:
 
   packages/site:
     dependencies:
+      '@pagedeck/adapter-cloudflare-worker':
+        specifier: workspace:*
+        version: link:../adapter-cloudflare-worker
+      '@pagedeck/adapter-cloudfront':
+        specifier: workspace:*
+        version: link:../adapter-cloudfront
+      '@pagedeck/adapter-netlify':
+        specifier: workspace:*
+        version: link:../adapter-netlify
+      '@pagedeck/adapter-nginx':
+        specifier: workspace:*
+        version: link:../adapter-nginx
       '@pagedeck/brand':
         specifier: workspace:*
         version: link:../brand

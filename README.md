@@ -63,7 +63,11 @@ other two pages ship no JavaScript.
 | [`@pagedeck/search`](packages/search) | A search index written at build time, and a search box island that reads it |
 | [`@pagedeck/social-image`](packages/social-image) | Draws a social card for each page at build time |
 | [`@pagedeck/font-subset`](packages/font-subset) | Subsets each font to the characters you list, as WOFF2 |
-| [`@pagedeck/edge`](packages/edge) | Compiles the site's redirects and headers for CloudFront, Netlify, nginx or a Cloudflare Worker |
+| [`@pagedeck/adapter-cloudfront`](packages/adapter-cloudfront) | Compiles the site's redirects, headers and experiment splits into CloudFront Functions |
+| [`@pagedeck/adapter-netlify`](packages/adapter-netlify) | Compiles the site's redirects and headers into Netlify's `_redirects` and `_headers` |
+| [`@pagedeck/adapter-nginx`](packages/adapter-nginx) | Compiles the site's redirects and headers into an nginx config fragment |
+| [`@pagedeck/adapter-cloudflare-worker`](packages/adapter-cloudflare-worker) | Compiles the site's redirects and headers into a Cloudflare Worker |
+| [`@pagedeck/edge`](packages/edge) | What the four adapters share, for writing another |
 | [`@pagedeck/preview`](packages/preview) | The preview app a build can emit, which renders drafts from an editor |
 
 A site created with `npm create pagedeck` installs `core`, `content`, `islands`

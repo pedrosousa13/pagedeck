@@ -1101,7 +1101,7 @@ other file in a tree: the bytes reach a reader having had nothing done to them �
 not subset, not hashed, not rewritten — and a name for the mechanism goes stale
 the day the copy becomes a hard link, where "passed through untouched" does not.
 The bare word is nearly free here. The hyphenated adjective is live twice —
-`packages/edge/src/cloudfront.ts`'s one pass-through exit, and the
+`packages/adapter-cloudfront/src/cloudfront.ts`'s one pass-through exit, and the
 `useStoreCallback`, which cannot be a pass-through of Jotai's
 `useAtomCallback` because that hook falls back to a default store nothing on
 the page uses — but both are a path a value takes inside one module and neither
@@ -1198,8 +1198,17 @@ images), content reference (taken in code rather than in this glossary —
 `resolves` in `packages/core/src/links.ts` reads one as a route), asset
 reference (taken, and this is one of them rather than a rival to them)
 
+**Edge adapter**:
+The compiler for one host, published as `@pagedeck/adapter-<host>`: its factory
+returns an `EdgeAdapter`, a name and a `compile` over the routing document,
+built on the contract in `@pagedeck/edge`, which names no host. Ruled on #19;
+`docs/adr/0009-one-package-per-edge-adapter.md` holds the alternatives.
+_Avoid_: edge target (the string `compileRouting` took before #19, which survives
+only as an adapter's `name` and the `--edge` value of the site port's deploy)
+
 **Edge artifact**:
-A file a compiler in `@pagedeck/edge` emits for a host to serve routing from.
+A file an edge adapter (`@pagedeck/adapter-<host>`, built on `@pagedeck/edge`)
+emits for a host to serve routing from.
 _Avoid_: edge bundle, deploy artifact
 
 **Publishable package**:
@@ -1568,7 +1577,7 @@ otherwise give no protection the string form does not. A route written as a
 
 ### Edge artifacts are emitted, not provisioned
 
-A compiler in `@pagedeck/edge` emits the files a host needs and records what the
+An edge adapter emits the files a host needs and records what the
 host must be given. It does not create host resources, so what it emits is
 inert until an operator installs it. What that installation requires is
 recorded in the artifacts themselves, so a deploy verb reads it rather than
@@ -3050,8 +3059,8 @@ design, belongs here.
   build now does: `stageSite` hands `IncrementalPlan.redirects` to
   `planRouting` as `RoutingInput.removals`, the only path those records take,
   so the routing document in the manifest holds a `deleted-page` row from the
-  removed page's output to its nearest live ancestor, and `@pagedeck/edge`'s
-  `compileRouting` compiles it like any other. A full build has no removals, so
+  removed page's output to its nearest live ancestor, and every edge adapter
+  compiles it like any other. A full build has no removals, so
   its document is unchanged. Criterion 3 therefore reads: an incremental
   build's manifest equals a full build's of the same store, excepting the
   `build` stamp, the pinned tier plan, and the routing document's redirect rows

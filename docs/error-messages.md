@@ -52,10 +52,11 @@ copy below. And a citation naming no path, or naming a property rather than a
 binding, is skipped rather than checked.
 
 **The catalogue is scoped, and the scope is a boundary rather than a backlog.**
-Quoted below are `@pagedeck/core`, `@pagedeck/content`, `@pagedeck/islands`, `@pagedeck/edge`,
-`@pagedeck/search`, the docs site's refusal of an unlisted `docs/` entry from
-`@pagedeck/docs` (#576), the deploy's refusal of an origin that lost its manifest from
-`@pagedeck/site` (#561), its refusals of a file of presigned URLs (#652) and the
+Quoted below are `@pagedeck/core`, `@pagedeck/content`, `@pagedeck/islands`, `@pagedeck/edge`
+and its adapters (#19), `@pagedeck/search`, the docs site's refusal of an unlisted
+`docs/` entry from `@pagedeck/docs` (#576), the deploy's refusal of an origin that lost
+its manifest from `@pagedeck/site` (#561), its refusal of an `--edge` target no adapter
+names (#19), its refusals of a file of presigned URLs (#652) and the
 signing step's refusals (#665), and the `@pagedeck/fixtures` and `@pagedeck/examples` scaffolding the
 messages are asserted against. No other package is. The premise above is a soundness claim, that every message here is
 one this codebase produces; it was never a completeness one, that every message
@@ -128,9 +129,9 @@ Routing manifest: version 2 is newer than this compiler reads (1) — upgrade @p
 ```
 
 The edge target names the supported list rather than describing it, because the
-list is `EDGE_TARGETS` interpolated (`packages/edge/src/target.ts`): prose
-naming three hosts is prose that drifts from the compiler table the first time
-a fourth lands.
+list is the deploy's adapters' names interpolated (`EDGE_ADAPTERS` in
+`packages/site/src/deploy.bin.ts`): prose naming four hosts is prose that
+drifts from that list the first time a fifth lands.
 
 The two store lines for `pagedeck dev` share one fix, written once as
 `UNREADABLE_STORE_FIX` (`packages/core/src/dev.ts`): the first is the refusal at
@@ -650,8 +651,9 @@ instrument, and `collection.ts` rethrows on the first one
 `cause`). Collect the failures a run can meaningfully enumerate; stop on the
 ones that invalidate the run itself.
 
-`compileRouting` (`packages/edge/src/index.ts`) collects across a whole
-compile and reports once through `throwIfAny` (`packages/edge/src/faults.ts`),
+An edge adapter's `compile` (`defineAdapter`, `packages/edge/src/adapter.ts`)
+collects across a whole compile and reports once through `throwIfAny`
+(`packages/edge/src/faults.ts`),
 one paragraph per kind of fault so each keeps its own count and its own fix:
 
 ```
@@ -668,10 +670,10 @@ The second is `planRouting`'s own refusal of an off-site target, made again by
 the Worker's compiler (#665): a compiler is handed a document, not necessarily
 one `planRouting` wrote.
 
-Every target makes `planRouting`'s header checks again, for the same reason
-(#671). `compileRouting` runs them before any target's own grammar, with
+Every adapter makes `planRouting`'s header checks again, for the same reason
+(#671). `defineAdapter` runs them before any adapter's own grammar, with
 `unusableHeaderName` and `unusableHeaderValue` from
-`packages/core/src/routing.ts`, so all four targets refuse a field alike. Both
+`packages/core/src/routing.ts`, so all four adapters refuse a field alike. Both
 fixes are `planRouting`'s own, so each rule has one wording. A value is named
 by the code point that broke it and never quoted:
 
@@ -2179,7 +2181,7 @@ Rollback to build "b9": 2 things stopped this run — each line names its own fi
 ```
 
 A site with no build section is thrown on the spot rather than collected, on the
-boundary argument `compileRouting`'s unknown target is: `outDir` defaults to
+boundary argument the deploy's unknown `--edge` target is: `outDir` defaults to
 `./site` only inside a build section, so without one there is no `outDir` and
 no manifest to have failed to read, and the collection would have nothing to
 collect.
@@ -2971,7 +2973,7 @@ Route table: 1 route is not a usable path — return a path like "/pricing", or 
 
 A header value is cut the same way and named rather than quoted. A header set
 is authored config, and a value is exactly the field that can hold a token, so
-`packages/edge/src/nginx.ts` locates one by its field name and the prefix it
+`packages/adapter-nginx/src/nginx.ts` locates one by its field name and the prefix it
 sits under and names the character that broke, never the value. A path or a
 prefix in the same report *is* quoted: it has already been through
 `canonicalizePath`, so it holds no query and no fragment, and it is what the

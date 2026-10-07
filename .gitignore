@@ -218,26 +218,28 @@ packages/bench/.pagedeck-scaling/
 # able to load a `pagedeck.config.ts` Node will strip types from.
 packages/bench/.pagedeck-site-build-test/
 
-# The one fixture site `packages/edge/src/site.build.test.ts` writes (#270),
-# for the reason every entry above exists: the test removes it after the run,
-# and this is so that a run interrupted before its cleanup cannot be committed.
+# The one fixture site `packages/adapter-netlify/src/site.build.test.ts` writes
+# (#270), for the reason every entry above exists: the test removes it after the
+# run, and this is so that a run interrupted before its cleanup cannot be
+# committed.
 #
-# `packages/edge` rather than `packages/core`, because the claim that file makes
-# is that a redirect a site declared survives a build *and* a compile, and the
-# compilers are this package's. Outside its `node_modules` because a spawned
-# `pagedeck` loads the site's `pagedeck.config.ts` in a plain Node process, which refuses to
-# strip types under a `node_modules`.
-packages/edge/.pagedeck-site-build-test/
+# `packages/adapter-netlify` rather than `packages/core`, because the claim that
+# file makes is that a redirect a site declared survives a build *and* a
+# compile, and the compiler it reads is this package's (#19). Outside its
+# `node_modules` because a spawned `pagedeck` loads the site's `pagedeck.config.ts` in a
+# plain Node process, which refuses to strip types under a `node_modules`.
+packages/adapter-netlify/.pagedeck-site-build-test/
 
-# The fixture site `packages/edge/src/removal.build.test.ts` writes (#304), for
-# the reason every entry above exists: the test removes it after the run, and
-# this is so that a run interrupted before its cleanup cannot be committed.
+# The fixture site `packages/adapter-netlify/src/removal.build.test.ts` writes
+# (#304), for the reason every entry above exists: the test removes it after the
+# run, and this is so that a run interrupted before its cleanup cannot be
+# committed.
 #
-# `packages/edge` for `site.build.test.ts`' reason one entry up: the claim is
-# that a redirect an incremental build wrote for a page it removed survives a
-# compile, and the compilers are this package's. Outside its `node_modules`
-# because a spawned `pagedeck` refuses to strip types from a `pagedeck.config.ts` there.
-packages/edge/.pagedeck-removal-build-test/
+# `packages/adapter-netlify` for `site.build.test.ts`' reason one entry up: the
+# claim is that a redirect an incremental build wrote for a page it removed
+# survives a compile. Outside its `node_modules` because a spawned `pagedeck` refuses to
+# strip types from a `pagedeck.config.ts` there.
+packages/adapter-netlify/.pagedeck-removal-build-test/
 
 # The site port's own build output, store and retention store: `packages/site`
 # is a site as well as a package (#56), and `pagedeck build` writes all three into it.

@@ -91,6 +91,14 @@ test("neither --origin nor PAGEDECK_DEPLOY_URLS is a usage error naming both", a
   expect(run.stderr).toContain("No --origin given, and PAGEDECK_DEPLOY_URLS is not set.");
 }, 30_000);
 
+test("an --edge target no adapter names is refused, naming every one there is", async () => {
+  const run = await deploy(["--origin", join(dir, "origin"), "--edge", "fastly"]);
+  expect(run.code).toBe(EXIT_CODES.configError);
+  expect(run.stderr).toContain(
+    'Edge target "fastly" is not supported — use one of: cloudfront-function, netlify, nginx, cloudflare-worker',
+  );
+}, 30_000);
+
 test("--prune against a presigned origin is taken, and the run goes on to read the origin (#659)", async () => {
   const file = urlsFile("prune.json", { get: { "/manifest.json": signed("/manifest.json") } });
   const run = await deploy(["--apply", "--prune"], file);

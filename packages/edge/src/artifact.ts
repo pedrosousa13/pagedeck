@@ -1,5 +1,3 @@
-import type { EdgeTarget } from "./target.js";
-
 /**
  * What a deployer does with it, not `ManifestFile.kind`: a function uploaded as `js` would
  * publish nothing and report green.
@@ -44,7 +42,8 @@ export interface EdgeArtifact {
 }
 
 export interface EdgeOutput {
-  target: EdgeTarget;
+  /** The `EdgeAdapter.name` that compiled it. */
+  target: string;
   /** In `RoutingManifest.trees` order, then each compiler's; nothing is re-sorted. */
   artifacts: readonly EdgeArtifact[];
 }

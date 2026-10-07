@@ -140,7 +140,7 @@ test("the edge sample compiles in a site", () => {
     DOCS,
   );
   expect(errors).toEqual([]);
-  // Inside the docs package, so `@pagedeck/core` and `@pagedeck/edge` resolve as a site's would.
+  // Inside the docs package, so `@pagedeck/core` and the adapter resolve as a site's would.
   const name = join(DOCS, samples[0]?.file ?? "compile-edge.ts");
   const host = ts.createCompilerHost(options);
   const { fileExists, getSourceFile, readFile } = host;

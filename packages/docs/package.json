@@ -38,7 +38,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@pagedeck/edge": "workspace:*",
+    "@pagedeck/adapter-cloudfront": "workspace:*",
+    "@pagedeck/adapter-netlify": "workspace:*",
+    "@pagedeck/adapter-nginx": "workspace:*",
     "@pagedeck/preview": "workspace:*",
     "@pagedeck/site": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
