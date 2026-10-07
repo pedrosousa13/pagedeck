@@ -50,6 +50,9 @@ contract gets an example or joins this list:
 - `@pagedeck/search`: `defineSearch`, `QUERY_CAP` (#457), `createSearchClient`
   and the search island (#62).
 - `@pagedeck/font-subset`: `defineFontSubset`.
+- `@pagedeck/edge`: `defineAdapter`, `EdgeAdapter`, `AdapterDefinition` and the
+  artifact types, and each adapter package's factory (#19). `build.adapter`
+  (#20) is where a config first calls one.
 - `create-pagedeck`: `create` and `ArgumentError`, which its bin calls (#691).
 - `@pagedeck/bench`: every export. Its `./components/*` subpath is not a
   contract.

@@ -21,7 +21,9 @@ import {
   readRetainedManifest,
 } from "@pagedeck/core";
 import type { Manifest } from "@pagedeck/core";
-import { compileRouting } from "@pagedeck/edge";
+import { cloudflareWorker } from "@pagedeck/adapter-cloudflare-worker";
+import { cloudfront } from "@pagedeck/adapter-cloudfront";
+import { netlify } from "@pagedeck/adapter-netlify";
 import { planDeploy, planRollback } from "./deploy.js";
 import { applyPlan, filesystemTarget } from "./deploy-target.js";
 import { runDeploy } from "./deploy-run.js";
@@ -360,7 +362,7 @@ test("the dry run publishes nothing, and says what it would have published", asy
 });
 
 test("the compiled netlify artifact carries the declared redirect and header (an artifact, not a live distribution)", () => {
-  const output = compileRouting(second.routing, { target: "netlify" });
+  const output = netlify().compile(second.routing);
 
   const redirects = output.artifacts.find((one) => one.path === "/_redirects");
   expect(redirects?.role).toBe("tree-file");
@@ -372,20 +374,20 @@ test("the compiled netlify artifact carries the declared redirect and header (an
 });
 
 test("the compiled cloudfront artifacts are staged out of band, never uploaded (an artifact, not a live distribution)", () => {
-  const output = compileRouting(second.routing, { target: "cloudfront-function" });
+  const output = cloudfront().compile(second.routing);
   const plan = planDeploy({ from: first, to: second, edge: output });
 
   expect(plan.edge?.treeFiles).toEqual([]);
   expect(plan.edge?.outOfBand.map((one) => one.role)).toContain("function");
   expect(uploads(plan)).toEqual(["/index.html"]);
 
-  const viewer = plan.edge?.outOfBand.find((one) => one.slot === "viewer-request");
+  const viewer = plan.edge?.outOfBand.find((one) => one.path === "routing.request.js");
   expect(viewer?.contents).toContain(MOVED);
   expect(viewer?.contents).toContain(TARGET);
 });
 
 test("the compiled worker is staged out of band, never uploaded to the bucket it serves", () => {
-  const output = compileRouting(second.routing, { target: "cloudflare-worker" });
+  const output = cloudflareWorker().compile(second.routing);
   const plan = planDeploy({ from: first, to: second, edge: output });
 
   expect(plan.edge?.treeFiles).toEqual([]);

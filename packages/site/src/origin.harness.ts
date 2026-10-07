@@ -4,9 +4,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { EXIT_CODES, fileKey, readManifest, runCli } from "@pagedeck/core";
-import { compileRouting } from "@pagedeck/edge";
-import { runWorker } from "../../edge/src/worker.test-support.js";
-import type { OriginBinding } from "../../edge/src/worker.test-support.js";
+import { cloudflareWorker } from "@pagedeck/adapter-cloudflare-worker";
+import { runWorker } from "../../adapter-cloudflare-worker/src/worker.test-support.js";
+import type { OriginBinding } from "../../adapter-cloudflare-worker/src/worker.test-support.js";
 import type { Manifest } from "@pagedeck/core";
 import { deployInstantKey, HISTORY_INDEX_KEY, MANIFEST_KEY, presignedTarget, retainedKey } from "./deploy-target.js";
 import type { DeployTarget } from "./deploy-target.js";
@@ -449,7 +449,7 @@ describe.skipIf(unavailable !== undefined)(
       }
 
       const worker = readFileSync(join(staging, "worker.js"), "utf8");
-      const compiled = compileRouting(built.routing, { target: "cloudflare-worker" }).artifacts;
+      const compiled = cloudflareWorker().compile(built.routing).artifacts;
       expect(worker).toBe(compiled.find((artifact) => artifact.domain === undefined)?.contents);
       const binding: OriginBinding = {
         async get(key) {

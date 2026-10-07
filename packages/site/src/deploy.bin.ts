@@ -13,8 +13,11 @@ import {
   RETENTION_DIR,
 } from "@pagedeck/core";
 import type { Manifest } from "@pagedeck/core";
-import { compileRouting } from "@pagedeck/edge";
-import type { EdgeOutput } from "@pagedeck/edge";
+import { cloudflareWorker } from "@pagedeck/adapter-cloudflare-worker";
+import { cloudfront } from "@pagedeck/adapter-cloudfront";
+import { netlify } from "@pagedeck/adapter-netlify";
+import { nginx } from "@pagedeck/adapter-nginx";
+import type { EdgeAdapter, EdgeOutput } from "@pagedeck/edge";
 import { APPLY_FLAG, FORCE_FLAG, PRUNE_FLAG, runDeploy, runRollback } from "./deploy-run.js";
 import type { UnreadableDeployInstant } from "./deploy-run.js";
 import {
@@ -208,10 +211,19 @@ async function deployInstantsAt(
   return { deployedAt, unreadableDeployInstants: unreadable };
 }
 
+const EDGE_ADAPTERS: readonly EdgeAdapter[] = [cloudfront(), netlify(), nginx(), cloudflareWorker()];
+
 // The build that ends up live: after a rollback, the host serves the restored
 // build's redirects.
 function edgeOf(manifest: Manifest, target: string | undefined): EdgeOutput | undefined {
-  return target === undefined ? undefined : compileRouting(manifest.routing, { target });
+  if (target === undefined) return undefined;
+  const adapter = EDGE_ADAPTERS.find((one) => one.name === target);
+  if (adapter === undefined) {
+    throw new ConfigError(
+      `Edge target "${target}" is not supported — use one of: ${EDGE_ADAPTERS.map((one) => one.name).join(", ")}`,
+    );
+  }
+  return adapter.compile(manifest.routing);
 }
 
 async function signedManifest(urls: DeployUrls, key: string): Promise<Manifest | undefined> {

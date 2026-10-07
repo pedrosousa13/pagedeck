@@ -20,7 +20,7 @@ export function treeOf(domain: string | undefined): string {
 }
 
 const UNSUPPORTED_FIX =
-  "drop the experiment, or compile cloudfront-function, the only target that compiles a split";
+  "drop the experiment, or compile with an adapter that compiles a split";
 const UNEXPRESSIBLE_FIX =
   "remove the character, or compile a target that can express it";
 const OFFSITE_FIX =
@@ -42,7 +42,11 @@ function paragraph(
 
 // Cause before consequence: a size measured over output with faults left out measures
 // nothing that ships.
-export function throwIfAny(target: string, faults: readonly Fault[]): void {
+export function throwIfAny(
+  target: string,
+  faults: readonly Fault[],
+  unsupportedFix: string = UNSUPPORTED_FIX,
+): void {
   const unsupported = faults
     .filter((fault) => fault.kind === "unsupported")
     .map((fault) => fault.line);
@@ -70,7 +74,7 @@ export function throwIfAny(target: string, faults: readonly Fault[]): void {
         unsupported.length === 1
           ? "tree declares an experiment this target cannot compile"
           : "trees declare experiments this target cannot compile",
-        UNSUPPORTED_FIX,
+        unsupportedFix,
         unsupported,
       ),
     );

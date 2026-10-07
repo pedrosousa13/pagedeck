@@ -150,8 +150,9 @@ versions**, because a patch release may change the bytes they emit. Core pins
 `.jsx` (#702): rolldown marks it experimental, and core reads a compile error's
 position from a field its types do not declare.
 
-**The public set** is the nine packages a site author installs (#690) and
-`create-pagedeck`, which writes a new site (#691), listed in
+**The public set** is the thirteen packages a site author installs (#690),
+the four edge adapters among them (#19), and `create-pagedeck`, which writes a
+new site (#691), listed in
 `packages/core/src/public-packages.test-support.ts`. Each is `0.1.0`, MIT,
 with `repository`, `engines.node` and `publishConfig.access`; every other
 package stays `private` (#689).
@@ -203,7 +204,7 @@ short-lived granular token with publish rights on the `@pagedeck` scope and on
 `.npmrc` that `setup-node` writes from `registry-url` reads.
 
 **Then switch to trusted publishing.** After 0.1.0 is on npm, add a trusted
-publisher to each of the ten packages on npmjs.com: GitHub Actions, repository
+publisher to each of the fourteen packages on npmjs.com: GitHub Actions, repository
 `pedrosousa13/pagedeck`, workflow `release.yml`. npm matches the workflow
 filename exactly, so renaming the file breaks every publish until each package
 is updated. Then delete the token on npm and the `NPM_TOKEN` secret.

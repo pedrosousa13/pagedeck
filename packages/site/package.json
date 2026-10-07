@@ -73,6 +73,10 @@
     "prepack": "tsc -b tsconfig.build.json"
   },
   "dependencies": {
+    "@pagedeck/adapter-cloudflare-worker": "workspace:*",
+    "@pagedeck/adapter-cloudfront": "workspace:*",
+    "@pagedeck/adapter-netlify": "workspace:*",
+    "@pagedeck/adapter-nginx": "workspace:*",
     "@pagedeck/brand": "workspace:*",
     "@pagedeck/content": "workspace:*",
     "@pagedeck/core": "workspace:*",

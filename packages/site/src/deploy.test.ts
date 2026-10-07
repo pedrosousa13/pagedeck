@@ -14,7 +14,8 @@ import {
 } from "@pagedeck/core";
 import type { EmittedFile, Manifest, Page } from "@pagedeck/core";
 import { isReservedDeployKey } from "@pagedeck/core/routing";
-import { compileRouting } from "@pagedeck/edge";
+import { cloudflareWorker } from "@pagedeck/adapter-cloudflare-worker";
+import { cloudfront } from "@pagedeck/adapter-cloudfront";
 import type { EdgeOutput } from "@pagedeck/edge";
 import {
   describePlan,
@@ -40,6 +41,8 @@ import type { DeployTarget } from "./deploy-target.js";
 import { documentMetadata, fileMetadata } from "./deploy-metadata.js";
 import type { ObjectMetadata } from "./deploy-metadata.js";
 import { APPLY_FLAG, FORCE_FLAG, PRUNE_FLAG, runDeploy, runRollback } from "./deploy-run.js";
+
+const ADAPTERS = { "cloudfront-function": cloudfront(), "cloudflare-worker": cloudflareWorker() };
 
 const HOME: Page = { locale: "en", path: "/", output: "/", dependencies: [] };
 
@@ -290,9 +293,9 @@ function treesManifest(
 }
 
 // A re-deploy of the live build, so the plan uploads nothing and only the staging runs.
-async function stage(manifest: Manifest, target: string): Promise<string> {
+async function stage(manifest: Manifest, target: keyof typeof ADAPTERS): Promise<string> {
   const staging = scratch();
-  const edge = compileRouting(manifest.routing, { target });
+  const edge = ADAPTERS[target].compile(manifest.routing);
   await applyPlan(planDeploy({ from: manifest, to: manifest, edge }), {
     source: writeTree(scratch(), [], manifest),
     target: filesystemTarget(scratch()),
@@ -304,14 +307,14 @@ async function stage(manifest: Manifest, target: string): Promise<string> {
 test.each([
   ["cloudfront-function", ["/routing.request.js", "/shop.example/routing.request.js"]],
   ["cloudflare-worker", ["/shop.example/worker.js", "/worker.js"]],
-])(
+] as const)(
   "a site with two trees stages each domain tree's %s artifacts under its tree key (#669)",
   async (target, staged) => {
     const manifest = treesManifest([HOME, SHOP]);
     const staging = await stage(manifest, target);
 
     expect(walk(staging)).toEqual(staged);
-    for (const one of compileRouting(manifest.routing, { target }).artifacts) {
+    for (const one of ADAPTERS[target].compile(manifest.routing).artifacts) {
       const at = join(staging, one.domain ?? "", one.path);
       expect(readFileSync(at, "utf8"), at).toBe(one.contents);
     }
@@ -331,7 +334,7 @@ test("the plan names the domain tree each staged artifact belongs to (#669)", ()
   const manifest = treesManifest([HOME, SHOP]);
   const plan = planDeploy({
     to: manifest,
-    edge: compileRouting(manifest.routing, { target: "cloudflare-worker" }),
+    edge: ADAPTERS["cloudflare-worker"].compile(manifest.routing),
   });
 
   expect(describePlan(plan).filter((line) => line.includes("stage"))).toEqual([
@@ -347,7 +350,7 @@ test("an applying run reports each staged artifact with the tree it belongs to (
     {
       from: manifest,
       to: manifest,
-      edge: compileRouting(manifest.routing, { target: "cloudflare-worker" }),
+      edge: ADAPTERS["cloudflare-worker"].compile(manifest.routing),
       source: writeTree(scratch(), [], manifest),
       origin: scratch(),
       staging: scratch(),

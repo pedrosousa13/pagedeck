@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigError, quoteIdentifier, readManifest } from "@pagedeck/core";
+import { netlify } from "@pagedeck/adapter-netlify";
 import type { EdgeOutput } from "@pagedeck/edge";
-import { compileRouting } from "@pagedeck/edge";
 import { pageFacts, redactOrigin } from "./parity.js";
 import type { BuiltSite, PageFacts, ParityBaseline, RedirectFact } from "./parity.js";
 
@@ -10,8 +10,6 @@ const MANIFEST_FILE = "manifest.json";
 
 // `netlify`: its `/_redirects` table is text, so reading it back is a split rather
 // than an interpreter.
-const REDIRECT_TARGET = "netlify";
-
 const REDIRECTS_FILE = "/_redirects";
 
 // Core's derived `!` rows and the `/*` 404 row are dropped: neither is a move the
@@ -63,9 +61,7 @@ export async function readBuiltSite(outDir: string): Promise<BuiltSite> {
 
   return {
     pages,
-    redirects: redirectRows(
-      compileRouting(manifest.routing, { target: REDIRECT_TARGET }),
-    ),
+    redirects: redirectRows(netlify().compile(manifest.routing)),
   };
 }
 

@@ -1,5 +1,5 @@
-// Exact rows per address, not a site-wide pattern: `_redirects` cannot express one, and the
-// three targets must agree. The 404 page is left out, since nginx serves it only internally.
+// Exact rows per address, not a site-wide pattern: not every host's format can express one, and
+// every adapter must agree. The 404 page is left out, since a host may serve it only internally.
 import type {
   RedirectStatus,
   ResolvedRedirect,
