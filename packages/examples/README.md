@@ -33,6 +33,7 @@ contract gets an example or joins this list:
   publication window (`publicationChanges`, `ScheduledCollection`, #36), the
   font seam (`FontAdapter` and its four shapes), and the `BuildSection` fields
   `head`, `chrome`, `driftThreshold`, `driftSupplement`, `safelist`, `search`,
+  `adapter` (`BuildAdapter`, #20),
   `links`, `retention`, `routing`, `sitemap`, `feed`, `favicon`, `robots`,
   `preview`, `passthrough`, `speculation`, `viewTransitions` and `fonts`, with
   the setting types each is written in (#40, #42), and `fromCollection`'s
@@ -52,7 +53,9 @@ contract gets an example or joins this list:
 - `@pagedeck/font-subset`: `defineFontSubset`.
 - `@pagedeck/edge`: `defineAdapter`, `EdgeAdapter`, `AdapterDefinition` and the
   artifact types, and each adapter package's factory (#19). `build.adapter`
-  (#20) is where a config first calls one.
+  (#20) is where a config first calls one, and runs it on every
+  `pagedeck build`; the example also calls an adapter directly, as
+  `deploy-a-site.md`'s short note does.
 - `create-pagedeck`: `create` and `ArgumentError`, which its bin calls (#691).
 - `@pagedeck/bench`: every export. Its `./components/*` subpath is not a
   contract.

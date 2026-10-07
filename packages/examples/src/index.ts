@@ -21,3 +21,5 @@ export type { RenderedImages } from "./rendering-images.js";
 export { SITE_IMAGES } from "./site-images.js";
 export { planDeployFromManifests } from "./diffing-two-manifests.js";
 export type { DeployPlan } from "./diffing-two-manifests.js";
+export { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
+export type { CompiledEdge } from "./compiling-edge-artifacts.js";

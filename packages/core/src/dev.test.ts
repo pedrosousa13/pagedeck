@@ -174,6 +174,13 @@ export default defineConfig({
       }
       return { title: ${JSON.stringify(marker)} };
     },
+    // pagedeck dev runs no adapter (#20): one that threw would fail every request below.
+    adapter: {
+      name: "fake-host",
+      compile: () => {
+        throw new Error("pagedeck dev ran the adapter");
+      },
+    },
   },
 });
 `,
@@ -598,6 +605,10 @@ test("a config that will not load leaves the last good one serving", async () =>
 
 test("a dev run wrote no site tree", () => {
   expect(existsSync(join(SITE, "dist"))).toBe(false);
+});
+
+test("a dev run with build.adapter configured ran no adapter and wrote no edge tree", () => {
+  expect(existsSync(join(SITE, "edge"))).toBe(false);
 });
 
 function writeUnsyncedSite(): void {

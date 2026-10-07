@@ -7,6 +7,11 @@ export function workspaceVersions(): { core: string; content: string } {
 }
 
 export { budgetReportPath } from "./budgets.js";
+export type {
+  BuildAdapter,
+  BuildAdapterArtifact,
+  BuildAdapterOutput,
+} from "./build-adapter.js";
 export { runCli } from "./cli.js";
 export type { CliIo } from "./cli.js";
 export { defineConfig, loadConfig } from "./config.js";
@@ -200,6 +205,7 @@ export {
 } from "./manifest.js";
 export type {
   BuildStamp,
+  EdgeManifestFile,
   EmittedFile,
   FileKind,
   FullRebuildRequest,

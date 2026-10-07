@@ -4,6 +4,11 @@ import { join } from "node:path";
 import { afterEach, expect, expectTypeOf, test } from "vitest";
 import { openStoreReadOnly } from "@pagedeck/content";
 import type { ContentStoreReader, Entry } from "@pagedeck/content";
+import type { BuildSection } from "@pagedeck/core";
+import { cloudflareWorker } from "@pagedeck/adapter-cloudflare-worker";
+import { cloudfront } from "@pagedeck/adapter-cloudfront";
+import { netlify } from "@pagedeck/adapter-netlify";
+import { nginx } from "@pagedeck/adapter-nginx";
 import { defineFixturePages } from "./defining-a-collection.js";
 import { collectDefaultedPages, collectSitePages } from "./defining-pages.js";
 import { syncHandWrittenLoader } from "./implementing-a-loader.js";
@@ -14,6 +19,7 @@ import { renderExamplePage } from "./rendering-a-page.js";
 import { islandNestedClientComponent } from "./islanding-a-nested-client-component.js";
 import { planDeployFromManifests } from "./diffing-two-manifests.js";
 import { renderSiteImages } from "./rendering-images.js";
+import { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
 
 const tempDirs: string[] = [];
 const openStores: ContentStoreReader[] = [];
@@ -345,4 +351,27 @@ test("the image example renders a responsive img and refuses an unmeasured asset
       "  width — undefined — not a number\n" +
       "  height — undefined — not a number",
   );
+});
+
+test("the edge example compiles a routing document into one host's artifacts, called directly", () => {
+  const { routing, artifacts } = compileEdgeArtifacts();
+
+  expect(routing.trees).toHaveLength(1);
+  expect(artifacts).toEqual([
+    {
+      role: "tree-file",
+      path: "/_redirects",
+      contents: expect.stringContaining("404!"),
+    },
+  ]);
+});
+
+// `build.adapter` is core's own structural type (docs/adr/0009); each adapter
+// package's factory return value must be assignable to it with no cast, so a
+// site's config typechecks with no import from `@pagedeck/edge` at all.
+test("every adapter package's factory satisfies build.adapter's type", () => {
+  expectTypeOf(netlify()).toExtend<NonNullable<BuildSection["adapter"]>>();
+  expectTypeOf(nginx()).toExtend<NonNullable<BuildSection["adapter"]>>();
+  expectTypeOf(cloudfront()).toExtend<NonNullable<BuildSection["adapter"]>>();
+  expectTypeOf(cloudflareWorker()).toExtend<NonNullable<BuildSection["adapter"]>>();
 });

@@ -55,6 +55,11 @@ interface SiteOptions {
   markets?: "domains" | "sharedDomain";
   unparsable?: "copy" | "both";
   missingImport?: boolean;
+  adapter?: "toggle" | "refuse";
+}
+
+function adapterFlagPath(root: string): string {
+  return join(root, "adapter-flag.json");
 }
 
 interface Market {
@@ -245,10 +250,36 @@ export default function Wrap() {
     options.workerScripts === true
       ? `\n    scripts: defineScripts({ scripts: [{ name: "analytics", src: "https://example.com/a.js" }, { name: "pixel", src: "https://example.com/p.js", strategy: "idle" }], pageTypes: { "/**": { pixel: "worker" } } }),`
       : "";
+  const adapterImports =
+    options.adapter === "refuse"
+      ? `import { ConfigError } from ${JSON.stringify(join(CORE, "exit.ts"))};\n`
+      : options.adapter === "toggle"
+        ? `import { readFileSync } from "node:fs";\n`
+        : "";
+  const adapterKey =
+    options.adapter === "refuse"
+      ? `\n    adapter: {
+      name: "fake-host",
+      compile: () => {
+        throw new ConfigError('Edge target "fake-host": 2 faults:\\n  first fault\\n  second fault');
+      },
+    },`
+      : options.adapter === "toggle"
+        ? `\n    adapter: {
+      name: "fake-host",
+      compile: (routing) => {
+        const flag = JSON.parse(readFileSync(${JSON.stringify(adapterFlagPath(ROOT))}, "utf8"));
+        const artifacts = [];
+        if (flag.includeTree) artifacts.push({ role: "tree-file", path: "/_redirects", contents: "tree\\n" });
+        if (flag.includeEdge) artifacts.push({ role: "function", path: "worker.js", contents: "edge\\n" });
+        return { artifacts };
+      },
+    },`
+        : "";
   writeFileSync(
     join(ROOT, "pagedeck.config.ts"),
     `
-import { defineConfig } from ${JSON.stringify(join(CORE, "config.ts"))};
+${adapterImports}import { defineConfig } from ${JSON.stringify(join(CORE, "config.ts"))};
 import { definePages, fromCollection } from ${JSON.stringify(join(CORE, "pages.ts"))};
 import { defineLocales } from ${JSON.stringify(join(CORE, "locales.ts"))};
 import { defineScripts } from ${JSON.stringify(join(CORE, "scripts.ts"))};
@@ -265,7 +296,7 @@ export default defineConfig({
   store: "./content.db",
   collections: [pages],
   build: {
-    outDir: "./dist",${routingKey}${globalCssKey}${scriptsKey}
+    outDir: "./dist",${routingKey}${globalCssKey}${scriptsKey}${adapterKey}
     pages: definePages({
       trailingSlash: "never",
       locales: defineLocales({ ${markets
@@ -389,6 +420,9 @@ test("pagedeck build writes a site, a manifest and a routing document from a sto
     manifest.files.every((file) => existsSync(join(dist, file.path))),
   ).toBe(true);
   expect(manifest.files.some((file) => file.kind === "js")).toBe(true);
+  // A site with no build.adapter writes exactly what it wrote before #20.
+  expect(manifest.edge).toBeUndefined();
+  expect(existsSync(join(dir, "edge"))).toBe(false);
 }, 120_000);
 
 test("every URL the emitted HTML references is a file the build wrote", async () => {
@@ -1115,6 +1149,90 @@ function unprunedTree(dist: string, ...lines: readonly string[]): string {
     ...lines.map((line) => `  ${line}`),
   ].join("\n");
 }
+
+test("build.adapter's tree-file artifacts land in the output tree and its other artifacts land in edge/, beside it", async () => {
+  const dir = site({ adapter: "toggle" });
+  const dist = join(dir, "dist");
+  writeFileSync(
+    adapterFlagPath(dir),
+    JSON.stringify({ includeTree: true, includeEdge: true }),
+  );
+  await run(dir, "sync");
+
+  const result = await run(dir, "build");
+
+  expect(result.err).toBe("");
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(readFileSync(join(dist, "_redirects"), "utf8")).toBe("tree\n");
+  expect(readFileSync(join(dir, "edge", "worker.js"), "utf8")).toBe("edge\n");
+
+  const manifest = readManifest(
+    readFileSync(join(dist, MANIFEST_FILE), "utf8"),
+    MANIFEST_FILE,
+  );
+  expect(manifest.files.some((file) => file.path === "/_redirects")).toBe(true);
+  expect(manifest.edge).toEqual({
+    target: "fake-host",
+    files: [{ path: "worker.js" }],
+  });
+}, 120_000);
+
+test("a refusing adapter fails pagedeck build with every fault and the config error exit code", async () => {
+  const dir = site({ adapter: "refuse" });
+  await run(dir, "sync");
+
+  const result = await run(dir, "build");
+
+  expect(result.code).toBe(EXIT_CODES.configError);
+  expect(result.err).toContain('Edge target "fake-host"');
+  expect(result.err).toContain("first fault");
+  expect(result.err).toContain("second fault");
+}, 120_000);
+
+test("an incremental build runs the adapter again and writes the same edge files", async () => {
+  const dir = site({ adapter: "toggle" });
+  const dist = join(dir, "dist");
+  writeFileSync(
+    adapterFlagPath(dir),
+    JSON.stringify({ includeTree: true, includeEdge: true }),
+  );
+  await run(dir, "sync");
+  expect((await run(dir, "build")).code).toBe(EXIT_CODES.success);
+
+  writeFileSync(
+    join(dir, "content", "en", "about.json"),
+    `${JSON.stringify({ rev: 2, data: { title: "About, again" } })}\n`,
+  );
+  await run(dir, "sync");
+  const result = await run(dir, "build", "--incremental");
+
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(readFileSync(join(dist, "_redirects"), "utf8")).toBe("tree\n");
+  expect(readFileSync(join(dir, "edge", "worker.js"), "utf8")).toBe("edge\n");
+}, 120_000);
+
+test("a build whose adapter stops writing an artifact removes it from the output tree and from edge/", async () => {
+  const dir = site({ adapter: "toggle" });
+  const dist = join(dir, "dist");
+  const flag = adapterFlagPath(dir);
+  writeFileSync(flag, JSON.stringify({ includeTree: true, includeEdge: true }));
+  await run(dir, "sync");
+  expect((await run(dir, "build")).code).toBe(EXIT_CODES.success);
+  expect(existsSync(join(dist, "_redirects"))).toBe(true);
+  expect(existsSync(join(dir, "edge", "worker.js"))).toBe(true);
+
+  writeFileSync(flag, JSON.stringify({ includeTree: false, includeEdge: false }));
+  const result = await run(dir, "build");
+
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(existsSync(join(dist, "_redirects"))).toBe(false);
+  expect(existsSync(join(dir, "edge", "worker.js"))).toBe(false);
+  const manifest = readManifest(
+    readFileSync(join(dist, MANIFEST_FILE), "utf8"),
+    MANIFEST_FILE,
+  );
+  expect(manifest.edge).toEqual({ target: "fake-host", files: [] });
+}, 120_000);
 
 test("a full build removes what the previous build wrote and this one did not, and keeps a file placed by hand", async () => {
   const dir = site();

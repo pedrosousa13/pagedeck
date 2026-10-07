@@ -22,6 +22,8 @@ import {
   planBudgets,
   weighIslandProps,
 } from "./budgets.js";
+import { adapterEdgeArtifacts, adapterTreeFiles } from "./build-adapter.js";
+import type { BuildAdapterArtifact } from "./build-adapter.js";
 import type { BudgetChunk, BudgetReport, BudgetStylesheet } from "./budgets.js";
 import { outputDir } from "./config.js";
 import type { LoadedBuildSection, LoadedConfig } from "./config.js";
@@ -99,6 +101,7 @@ import {
 } from "./manifest.js";
 import type {
   BuildStamp,
+  EdgeManifestFile,
   EmittedFile,
   Manifest,
   ManifestChunk,
@@ -183,6 +186,8 @@ export interface SiteBuild {
   manifest: Manifest;
   patch?: SitePatch;
   warnings: readonly string[];
+  /** What `build.adapter` wrote outside the output tree, written into `edge/` (#20). */
+  edgeArtifacts?: readonly BuildAdapterArtifact[];
 }
 
 const MISSING_BUILD_FIX =
@@ -605,6 +610,13 @@ export async function buildSite(input: BuildSiteInput): Promise<SiteBuild> {
         redirects: [],
       },
       staged.manifest,
+    );
+    // Beside `outDir`, not inside it (#20): a
+    // build without `build.adapter` reads neither side of this.
+    await writeEdgeOutput(
+      outDir,
+      staged.edgeArtifacts ?? [],
+      (previous ?? earlier.previous)?.edge,
     );
     // After the write, beside the tree and never inside `outDir` (spec §11,
     // #32).
@@ -1340,6 +1352,14 @@ async function stageSite(input: {
       ? {}
       : { removals: incremental.redirects }),
   });
+  // After routing is planned and before the build reports success (#20): the
+  // adapter reads the full document, incremental or not, and a refusal throws
+  // the `ConfigError` `defineAdapter` built, with every fault.
+  const edge =
+    section.adapter === undefined
+      ? undefined
+      : { name: section.adapter.name, output: section.adapter.compile(routing) };
+  if (edge !== undefined) files.push(...adapterTreeFiles(edge.output));
   // Read off the routing document, not `section.routing`, so the tree and the
   // manifest agree.
   const splits = new Map<string, readonly { name: string }[]>();
@@ -1450,6 +1470,17 @@ async function stageSite(input: {
     ...(section.search === undefined
       ? {}
       : { search: { adapter: section.search.name, files: searchKeys } }),
+    ...(edge === undefined
+      ? {}
+      : {
+          edge: {
+            target: edge.name,
+            files: adapterEdgeArtifacts(edge.output).map((artifact) => ({
+              ...(artifact.domain === undefined ? {} : { domain: artifact.domain }),
+              path: artifact.path,
+            })),
+          },
+        }),
     outputs: files,
   });
 
@@ -1462,6 +1493,9 @@ async function stageSite(input: {
       tiers,
       files,
       manifest,
+      ...(edge === undefined
+        ? {}
+        : { edgeArtifacts: adapterEdgeArtifacts(edge.output) }),
       ...(incremental === undefined || input.previous === undefined
         ? {}
         : {
@@ -2614,5 +2648,37 @@ async function writeSite(
   await writeFile(join(outDir, MANIFEST_FILE), manifestJson(manifest));
   for (const file of patch.pruned) {
     await rm(join(outDir, file.domain ?? "", file.path), { force: true });
+  }
+}
+
+/** Beside `outDir`, as `deploy-a-site.md` names it: `edge/<tree>/<path>` (#20). */
+function edgeDir(outDir: string): string {
+  return join(dirname(outDir), "edge");
+}
+
+/**
+ * Every artifact `build.adapter` placed outside the output tree, written fresh on
+ * every build since `compile` reads the whole routing document, not a delta; a
+ * path the previous build wrote and this one did not is removed, the way
+ * `writeSite` prunes the output tree.
+ */
+async function writeEdgeOutput(
+  outDir: string,
+  artifacts: readonly BuildAdapterArtifact[],
+  previous: { files: readonly EdgeManifestFile[] } | undefined,
+): Promise<void> {
+  if (artifacts.length === 0 && previous === undefined) return;
+  const dir = edgeDir(outDir);
+  const byKey = new Map(
+    artifacts.map((artifact) => [fileKey(artifact.domain, artifact.path), artifact]),
+  );
+  for (const artifact of artifacts) {
+    const target = join(dir, artifact.domain ?? "", artifact.path);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, artifact.contents);
+  }
+  for (const file of previous?.files ?? []) {
+    if (byKey.has(fileKey(file.domain, file.path))) continue;
+    await rm(join(dir, file.domain ?? "", file.path), { force: true });
   }
 }
