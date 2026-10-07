@@ -476,13 +476,13 @@ test("the site create-pagedeck writes builds from installed packages, and only i
   const report = JSON.parse(
     await readFile(join(site, ".pagedeck", "budget-report.json"), "utf8"),
   ) as { pages: BudgetRow[] };
-  const content = report.pages.filter(({ path }) => path !== "/counter");
-  expect(content.map(({ path }) => path).sort()).toEqual(["/", "/about"]);
+  const content = report.pages.filter(({ path }) => path !== "/counter/");
+  expect(content.map(({ path }) => path).sort()).toEqual(["/", "/about/"]);
   expect(content.map(({ path, actual }) => ({ path, actual }))).toEqual(
     content.map(({ path }) => ({ path, actual: 0 })),
   );
 
-  const island = report.pages.find(({ path }) => path === "/counter");
+  const island = report.pages.find(({ path }) => path === "/counter/");
   const counter = (island?.chunks ?? []).filter(({ path }) =>
     readFileSync(join(site, "site", path), "utf8").includes("Clicked "),
   );
