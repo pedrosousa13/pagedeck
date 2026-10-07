@@ -67,34 +67,41 @@ const ADAPTERS: Record<Exclude<Host, "none">, Adapter> = {
 const DEPLOY_DOC =
   "https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/how-to/deploy-a-site.md";
 
-const DEPLOY_SECTIONS: Record<Exclude<Host, "none">, string> = {
-  vercel: `## Deploy to Vercel
+// `node` is this package's own `engines.node`, the exact range `deploy-a-site.md` states —
+// looser wording such as "22.18.0 or later" would admit 23.0–23.6, which the range excludes.
+function deploySection(host: Exclude<Host, "none">, node: string): string {
+  switch (host) {
+    case "vercel":
+      return `## Deploy to Vercel
 
 - Build command: \`npx pagedeck sync && npx pagedeck build\`
 - Output directory: \`site\`
-- Node.js version: \`22.x\` or \`24.x\`
+- Node.js version: \`22.x\` or \`24.x\` (\`engines.node\` is \`${node}\`)
 
 [Deploy a site](${DEPLOY_DOC}#vercel) covers the rest, including Vercel's
 project settings.
-`,
-  "cloudflare-pages": `## Deploy to Cloudflare Pages
+`;
+    case "cloudflare-pages":
+      return `## Deploy to Cloudflare Pages
 
 - Build command: \`npx pagedeck sync && npx pagedeck build\`
 - Build output directory: \`site\`
-- \`NODE_VERSION\` environment variable: \`22.18.0\` or later
+- \`NODE_VERSION\` environment variable: \`22.18.0\` (\`engines.node\` is \`${node}\`)
 
 [Deploy a site](${DEPLOY_DOC}#cloudflare-pages) covers the rest, including why
 \`NODE_VERSION\` has to be set explicitly.
-`,
-  netlify: `## Deploy to Netlify
+`;
+    case "netlify":
+      return `## Deploy to Netlify
 
 - Build command: \`npx pagedeck sync && npx pagedeck build\`
 - Publish directory: \`site\`
-- Node.js version: \`22.18.0\` or later, set in \`netlify.toml\`
+- Node.js version: \`22.18.0\`, set in \`netlify.toml\` (\`engines.node\` is \`${node}\`)
 
 [Deploy a site](${DEPLOY_DOC}#netlify) covers the rest.
-`,
-};
+`;
+  }
+}
 
 const CORE_IMPORT = 'import { defineConfig, fromCollection } from "@pagedeck/core";';
 
@@ -241,9 +248,8 @@ async function prompted(
   if (directory !== undefined && host !== undefined) {
     return { directory, host: host as Host };
   }
-  // `terminal: false`: readline's own terminal mode expects a real TTY (raw mode, keypress
-  // events), which an injected stream does not provide, and this CLI needs none of it —
-  // just one line of input per question.
+  // `terminal: false`: readline's raw-mode features need a real TTY, which an injected
+  // stream does not have, and this CLI only reads one line per question.
   const rl = createInterface({ input: io.stdin, output: io.stdout, terminal: false });
   try {
     let resolvedDirectory = directory;
@@ -320,10 +326,9 @@ export async function create(
   const name = checkName(target);
   checkEmpty(target);
 
-  const { version, files } = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8")) as {
-    version: string;
-    files: string[];
-  };
+  const { version, files, engines } = JSON.parse(
+    readFileSync(join(PACKAGE, "package.json"), "utf8"),
+  ) as { version: string; files: string[]; engines: { node: string } };
   const adapter = host === "none" ? undefined : ADAPTERS[host];
   const manifest = {
     name,
@@ -352,7 +357,7 @@ export async function create(
       const readmePath = join(target, "README.md");
       writeFileSync(
         readmePath,
-        `${readFileSync(readmePath, "utf8")}\n${DEPLOY_SECTIONS[host as Exclude<Host, "none">]}`,
+        `${readFileSync(readmePath, "utf8")}\n${deploySection(host as Exclude<Host, "none">, engines.node)}`,
       );
     }
     writeFileSync(join(target, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);

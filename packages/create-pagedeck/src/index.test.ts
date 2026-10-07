@@ -83,9 +83,8 @@ function listedTemplate(): string[] {
   );
 }
 
-// A fake terminal: an injected stream pair with `isTTY` set, since node:readline needs no real
-// TTY to read lines from. Each queued answer is written as soon as a prompt reaches `stdout`, so
-// the two questions `create` asks (directory, then host) each get the line meant for it.
+// A fake terminal: `isTTY` is set on an injected stream pair, and each queued answer is
+// written as soon as its prompt reaches `stdout`, so the two questions land in order.
 function tty(answers: readonly string[]): { io: CreateIO; prompts: () => string } {
   const stdin = new PassThrough() as unknown as CreateIO["stdin"] & PassThrough;
   const stdout = new PassThrough() as unknown as CreateIO["stdout"] & PassThrough;
@@ -353,13 +352,15 @@ for (const [host, dependency, factory, importPath] of [
     expect(config).toContain(`adapter: ${factory}(),`);
   });
 
-  test(`--host ${host} appends that host's deploy steps to README.md`, async () => {
+  test(`--host ${host} appends that host's deploy steps to README.md, with the exact engines.node range`, async () => {
     await create(["my-site", "--host", host], cwd, notTTY());
 
     const readme = readFileSync(join(cwd, "my-site", "README.md"), "utf8");
+    const own = manifestOf(PACKAGE) as unknown as { engines: { node: string } };
     expect(readme).toContain("npx pagedeck sync && npx pagedeck build");
     expect(readme).toContain("site");
     expect(readme).toMatch(/deploy-a-site\.md/);
+    expect(readme).toContain(own.engines.node);
   });
 
   test(`--host ${host} names the host in the closing message`, async () => {
