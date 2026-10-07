@@ -21,6 +21,8 @@ jobs:
       - run: pnpm test
       # Its own `pnpm build`: the check spawns `dist/bin.js` and must not lean on `pnpm test`'s.
       - run: pnpm build && pnpm check:build-twice
+      # The release runs it before publishing; here a break shows on the push, not the tag.
+      - run: pnpm test:pack-harness
       # Its own sync and build, rather than whatever tree `site.build.test.ts` left behind.
       - name: Site parity against the declared baseline
         working-directory: packages/site

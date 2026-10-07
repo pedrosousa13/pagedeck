@@ -107,7 +107,10 @@ async function install(
   // Without it, a range resolves to the newest version in pnpm's metadata cache,
   // which the store may not hold, and an offline install fails.
   await copyFile(join(REPO, "pnpm-lock.yaml"), join(dir, "pnpm-lock.yaml"));
-  await spawn("pnpm", ["install", "--offline"], dir);
+  // The copied lockfile only seeds resolution: its importers, overrides and pnpmfile
+  // checksum are this workspace's, so the install must rewrite it. Where `CI` is set,
+  // pnpm defaults to a frozen install, which refuses to.
+  await spawn("pnpm", ["install", "--offline", "--no-frozen-lockfile"], dir);
 }
 
 beforeAll(async () => {
