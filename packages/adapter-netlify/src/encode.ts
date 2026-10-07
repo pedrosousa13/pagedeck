@@ -2,6 +2,8 @@
 // #49's sweep reads one file per adapter. Encoding only: nothing here changes which address a
 // value names.
 
+import type { RedirectStatus } from "@pagedeck/core/routing";
+
 // Netlify gives `*` and a leading `:` meaning with no escape, and `%2A` is another address.
 export function unexpressibleInNetlifyPattern(
   value: string,
@@ -23,4 +25,12 @@ export function netlifyPattern(value: string): string {
 // Identity: a header value is checked before any adapter's own grammar runs (#671).
 export function netlifyHeaderValue(value: string): string {
   return value;
+}
+
+// https://docs.netlify.com/manage/routing/redirects/redirect-options/ supports only 301, 302,
+// 200 and 404; mapped rather than refused (#10), to the status of the same permanence.
+export function netlifyStatus(status: RedirectStatus): RedirectStatus {
+  if (status === 308) return 301;
+  if (status === 307) return 302;
+  return status;
 }

@@ -49,10 +49,11 @@ function canonicalize(path: string, trailingSlash: TrailingSlash): string {
 }
 
 // Redirects before the origin; `planRouting` refuses a redirect from a routed page, so one
-// oracle holds for three hosts.
+// oracle holds for every host; `servedStatus` is where one narrows what the document declares.
 export function resolveRequest(
   manifest: RoutingManifest,
   request: EdgeRequest,
+  servedStatus: (status: RedirectStatus) => RedirectStatus = (status) => status,
 ): Resolution {
   const tree = treeFor(manifest, request.domain);
   if (tree === undefined) return { kind: "pass", headers: [] };
@@ -65,7 +66,7 @@ export function resolveRequest(
     return {
       kind: "redirect",
       to: redirect.to,
-      status: redirect.status,
+      status: servedStatus(redirect.status),
       headers: headersFor(tree, request.path),
     };
   }
@@ -78,7 +79,7 @@ export function resolveRequest(
       return {
         kind: "redirect",
         to: aliased.to,
-        status: aliased.status,
+        status: servedStatus(aliased.status),
         headers: headersFor(tree, request.path),
       };
     }
@@ -90,7 +91,7 @@ export function resolveRequest(
       return {
         kind: "redirect",
         to: canonical,
-        status: 308,
+        status: servedStatus(308),
         headers: headersFor(tree, request.path),
       };
     }

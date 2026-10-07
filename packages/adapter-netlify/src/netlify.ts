@@ -7,6 +7,7 @@ import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 import {
   netlifyHeaderValue,
   netlifyPattern,
+  netlifyStatus,
   unexpressibleInNetlifyPattern,
 } from "./encode.js";
 
@@ -63,7 +64,7 @@ export function compileNetlify(
     // must beat. An authored `from` is never a page of this build.
     const forced = rule.normalizing ? "!" : "";
     rows.push(
-      `${netlifyPattern(rule.from)} ${netlifyPattern(rule.to)} ${String(rule.status)}${forced}`,
+      `${netlifyPattern(rule.from)} ${netlifyPattern(rule.to)} ${String(netlifyStatus(rule.status))}${forced}`,
     );
   }
   if (tree.notFound !== undefined) {
