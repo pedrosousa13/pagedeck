@@ -27,10 +27,8 @@ export function netlifyHeaderValue(value: string): string {
   return value;
 }
 
-// https://docs.netlify.com/manage/routing/redirects/redirect-options/ documents only 301, 302,
-// 200 and 404 for a redirect; it names 307 directly as "currently unsupported" and does not name
-// 308 at all. Mapped rather than refused (#10): 308 (permanent) to 301, the permanent code
-// Netlify does serve, and 307 (temporary) to 302, its serving equivalent.
+// https://docs.netlify.com/manage/routing/redirects/redirect-options/ supports only 301, 302,
+// 200 and 404; mapped rather than refused (#10), to the status of the same permanence.
 export function netlifyStatus(status: RedirectStatus): RedirectStatus {
   if (status === 308) return 301;
   if (status === 307) return 302;

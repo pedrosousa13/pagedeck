@@ -32,6 +32,8 @@ describe("compile refusals", () => {
     );
   });
 
+  // https://docs.netlify.com/manage/routing/redirects/redirect-options/ : "*" is a splat,
+  // valid only at a path's end, and a ":"-led segment is a placeholder; neither has an escape.
   it("refuses a path Netlify would read as a splat", () => {
     const splat: RoutingManifest = {
       ...FIXTURE,

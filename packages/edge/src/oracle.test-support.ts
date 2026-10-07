@@ -49,9 +49,7 @@ function canonicalize(path: string, trailingSlash: TrailingSlash): string {
 }
 
 // Redirects before the origin; `planRouting` refuses a redirect from a routed page, so one
-// oracle holds for every host. `servedStatus` is the one place a host may answer to narrow a
-// status the document declares, such as Netlify mapping 308 to 301 (#10); it defaults to the
-// identity map, so a host that serves every status the document can hold needs no override.
+// oracle holds for every host; `servedStatus` is where one narrows what the document declares.
 export function resolveRequest(
   manifest: RoutingManifest,
   request: EdgeRequest,

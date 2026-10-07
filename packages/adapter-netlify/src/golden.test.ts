@@ -19,6 +19,8 @@ function contentsOf(path: string): string {
 }
 
 describe("netlify", () => {
+  // https://docs.netlify.com/manage/routing/redirects/redirect-options/ : a 404-status row
+  // with no earlier match is Netlify's own documented way to serve a custom 404.
   it("emits the redirect table with the 404 catch-all last", () => {
     expect(contentsOf("/_redirects")).toBe(`/manifest.json /en/404 404!
 /.pagedeck /en/404 404!
@@ -34,9 +36,7 @@ describe("netlify", () => {
   });
 
   it("maps 308 and 307 to the status Netlify documents (#10)", () => {
-    // https://docs.netlify.com/manage/routing/redirects/redirect-options/ documents only
-    // 301, 302, 200 and 404 for a redirect, names 307 "currently unsupported", and does not
-    // name 308 at all: mapped rather than refused, to the status of the same permanence.
+    // https://docs.netlify.com/manage/routing/redirects/redirect-options/
     const manifest: RoutingManifest = {
       ...FIXTURE,
       trees: [
@@ -68,6 +68,8 @@ describe("netlify", () => {
     expect(file?.contents).toContain("/old-temporary /new 302");
   });
 
+  // https://docs.netlify.com/manage/routing/headers/ gives the pattern syntax but not how two
+  // matching blocks take precedence; longest-prefix-first below is this adapter's own choice.
   it("emits one block per prefix, longest first, each set complete", () => {
     expect(contentsOf("/_headers")).toBe(`/en/docs/*
   X-Frame-Options: DENY
