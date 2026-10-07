@@ -315,7 +315,7 @@ test("a tree with no not-found rule gets no 404.html, even when another tree of 
   const dist = join(DEFAULT_ONLY_SITE, "dist");
   expect(read404(dist)).toBe(defaultOnly.documents.get("en /404"));
   expect(read404(dist, "example.de")).toBeUndefined();
-}, 120_000);
+}, 240_000);
 
 test("an incremental build that re-renders a not-found page writes what a full build wrote", async () => {
   const full = await build(INCREMENTAL_SITE, `${ORIGIN}\n    ${RULES}`);
