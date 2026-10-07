@@ -579,18 +579,24 @@ pnpm test:pack-harness
 installs the tarballs in a temporary directory outside the repository, imports
 every subpath from there, and follows
 `packages/docs/content/tutorials/your-first-site.md` from `create-pagedeck`'s
-tarball to a built site. It fails on a tarball file outside
+tarball to a built site. `ci.yml` runs it on every push, and `release.yml`
+before publishing. It fails on a tarball file outside
 `package.json`, `README*`, `LICENSE`, `dist` and, for `create-pagedeck` alone,
 the `template/` files its `files` names one by one, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
 and on a packed manifest that still says
 `workspace:`, names a private package, or exports a file the tarball lacks.
 `.pnpmfile.mjs` drops `devDependencies` and every `source` condition from a
-manifest as `pnpm pack` writes it, so pack with pnpm, not npm. The install is `pnpm install --offline` with
-`hoist: false`, so a package that imports an undeclared dependency fails; it
-copies in this repository's `pnpm-lock.yaml` so each range resolves to a
-version already in the pnpm store. A missing tarball in the store fails the
-install loudly: run `pnpm install` here first.
+manifest as `pnpm pack` writes it, so pack with pnpm, not npm. The install is
+`pnpm install --prefer-offline --no-frozen-lockfile` with `hoist: false`, so a
+package that imports an undeclared dependency fails; it copies in this
+repository's `pnpm-lock.yaml` so each range resolves to the version this
+workspace locked. The copy is a seed the install rewrites, not the project's
+lockfile, so the install says `--no-frozen-lockfile` rather than take pnpm's
+frozen default where `CI` is set. It is not `--offline`: resolving the seed
+needs registry metadata for entries this workspace's own install never
+fetched, which a fresh runner's cache lacks, so pnpm reads its cache first and
+fetches the rest from the npm registry.
 
 The tutorial run reads the page in order. It runs each shell line it knows
 (`npm create pagedeck`, `cd`, `npm install` and `npx pagedeck`) and refuses any
