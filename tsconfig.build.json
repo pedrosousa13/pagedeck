@@ -1,0 +1,43 @@
+// The whole workspace as one `tsc` invocation (#191).
+//
+// `files: []` plus a `references` entry per package is TypeScript's
+// solution-style config: it compiles nothing itself, and `tsc -b` on it builds
+// every project listed, each exactly once, in the order the graph implies.
+// That is what the root `build` script runs, and it replaces the twelve
+// separate `tsc -p` invocations that preceded it — twelve processes that each
+// re-read lib.d.ts, React's types and every upstream package's source from
+// scratch.
+//
+// **Listing a package here is what gets it built.** The per-package
+// `references` say what must be built *before* a package, so between them they
+// reach only the packages something else imports. A leaf that nothing imports
+// is reached from this list and nowhere else — which is most of the workspace,
+// and naming which ones would be a list to restate every time the graph moves.
+// `packages/core/src/workspace-packages.test.ts` states
+// the rule that every package with a `package.json` is emitted; a package
+// missing from here has no `dist`, and that file's second test is what catches
+// it, by importing every subpath in a real Node process.
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/bench/tsconfig.build.json" },
+    { "path": "./packages/brand/tsconfig.build.json" },
+    { "path": "./packages/cms-example/tsconfig.build.json" },
+    { "path": "./packages/content/tsconfig.build.json" },
+    { "path": "./packages/core/tsconfig.build.json" },
+    { "path": "./packages/create-pagedeck/tsconfig.build.json" },
+    { "path": "./packages/design-system/tsconfig.build.json" },
+    { "path": "./packages/docs/tsconfig.build.json" },
+    { "path": "./packages/edge/tsconfig.build.json" },
+    { "path": "./packages/examples/tsconfig.build.json" },
+    { "path": "./packages/fixtures/tsconfig.build.json" },
+    { "path": "./packages/font-subset/tsconfig.build.json" },
+    { "path": "./packages/islands/tsconfig.build.json" },
+    { "path": "./packages/landing/tsconfig.build.json" },
+    { "path": "./packages/markdown-loader/tsconfig.build.json" },
+    { "path": "./packages/preview/tsconfig.build.json" },
+    { "path": "./packages/search/tsconfig.build.json" },
+    { "path": "./packages/site/tsconfig.build.json" },
+    { "path": "./packages/social-image/tsconfig.build.json" }
+  ]
+}

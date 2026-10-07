@@ -1,0 +1,16 @@
+{
+  "title": "Sign up",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Sign up",
+      "text": "Leave an address to hear when the next example lands."
+    },
+    {
+      "type": "signup_form",
+      "label": "Email address",
+      "button": "Sign up",
+      "confirmation": "Thanks. This example sends nothing, so no email will arrive."
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "name": "@pagedeck/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./render-worker": {
+      "source": "./src/render-worker.tsx",
+      "types": "./dist/render-worker.d.ts",
+      "default": "./dist/render-worker.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@pagedeck/content": "workspace:*"
+  },
+  "devDependencies": {
+    "@pagedeck/core": "workspace:*",
+    "@pagedeck/islands": "workspace:*",
+    "@types/react": "^19.2.0",
+    "react": "^19.2.0"
+  }
+}

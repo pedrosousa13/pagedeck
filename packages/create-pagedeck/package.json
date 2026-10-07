@@ -1,0 +1,54 @@
+{
+  "name": "create-pagedeck",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/create-pagedeck"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=23.7.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "create-pagedeck": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "template/README.md",
+    "template/_gitignore",
+    "template/components/counter.tsx",
+    "template/components/layout.tsx",
+    "template/content/about.md",
+    "template/content/counter.md",
+    "template/content/index.md",
+    "template/pagedeck.config.ts",
+    "template/tsconfig.json"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@pagedeck/content": "workspace:*",
+    "@pagedeck/core": "workspace:*",
+    "@pagedeck/islands": "workspace:*",
+    "@pagedeck/markdown-loader": "workspace:*",
+    "@types/react": "^19.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

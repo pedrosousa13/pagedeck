@@ -1,0 +1,28 @@
+// `references` names `@pagedeck/core`, whose declarations this package's emitted
+// source reads: the contract it satisfies — `FontAdapter`, `FontSubsetRequest`,
+// `FontSubsetResult`, `FontMetrics`. Not a cycle: core reads `build.fonts` as a
+// type it declares and never imports this package, which is what keeps a font
+// dependency off the CLI's import graph (`fonts.ts`'s own "Why this is a
+// site-supplied adapter and not a bundled subsetter").
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  // Tests, their support modules and the harnesses run under Vitest, which
+  // reaches them as source. Nothing in `dist` imports them.
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-support.ts",
+    "src/**/*.harness.ts",
+    "src/**/*.harness.tsx"
+  ],
+  "references": [{ "path": "../core/tsconfig.build.json" }]
+}

@@ -1,0 +1,50 @@
+// What `pnpm typecheck` reads: every package's source at once, plus the files
+// outside a `src` tree that are named here one by one.
+//
+// `customConditions: ["source"]` is what keeps this project reading source
+// (#191). Since declarations are emitted, each package's `types` condition
+// points at `dist`, and without this option a typecheck from a wiped set of
+// output directories would fail on declaration files no one has built yet —
+// or, worse, pass against a stale `dist` and report on the last build instead
+// of the working tree. Asking for `source` resolves every `@pagedeck/*` specifier
+// back to the package's own `src`, which is the tree this project already
+// compiles. `moduleResolution` is `"bundler"` in `tsconfig.base.json`, one of
+// the three modes that support the option.
+//
+// Order matters in the `exports` objects this reads, not just membership:
+// conditions match in declaration order, `types` is always on for `tsc`, and
+// `source` is only reached first because every package lists it first. Put
+// `types` back in front and a wiped `dist` still typechecks — `tsc` falls
+// through a `types` target that is not on disk — but a `dist` that *is* there
+// wins, and this project silently reports on the last build. Measured with
+// `tsc --noEmit --traceResolution`: `types` first resolves `@pagedeck/content` to
+// `packages/content/dist/index.d.ts`, `source` first to
+// `packages/content/src/index.ts`. So the failure this ordering prevents is the
+// quiet one, and no green run proves it is still right. `vitest.config.ts`
+// reads the same condition by name, for the same reason.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "customConditions": ["source"]
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx",
+    "vitest.config.ts",
+    "packages/islands/vitest.harness.config.ts",
+    "packages/islands/vitest.aria-engine.config.ts",
+    "packages/core/vitest.crash-harness.config.ts",
+    "packages/core/vitest.singleton-harness.config.ts",
+    "packages/core/vitest.consent-facade-harness.config.ts",
+    "packages/core/vitest.pack-harness.config.ts",
+    "packages/site/vitest.a11y.config.ts",
+    "packages/landing/vitest.a11y.config.ts",
+    "packages/docs/vitest.a11y.config.ts",
+    "packages/site/vitest.lighthouse.config.ts",
+    "packages/site/vitest.origin.config.ts",
+    "packages/cms-example/pagedeck.config.ts",
+    "packages/docs/pagedeck.config.ts",
+    "packages/landing/pagedeck.config.ts",
+    "packages/site/pagedeck.config.ts"
+  ]
+}

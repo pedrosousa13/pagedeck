@@ -1,0 +1,151 @@
+@layer theme {
+  :root {
+    color-scheme: light dark;
+
+    --fw-bg: #f2f4f1;
+    --fw-bg-raised: #ffffff;
+    --fw-bg-subtle: #e4e9e4;
+    --fw-bg-mark: #dcf3a0;
+    --fw-fg: #121a16;
+    --fw-fg-muted: #4b5a52;
+    --fw-fg-accent: #0a6b4d;
+    --fw-bg-accent: var(--fw-fg-accent);
+    --fw-fg-on-accent: #ffffff;
+    --fw-ring: var(--fw-fg-accent);
+    --fw-rule: #cbd3cd;
+
+    /* Neither stack names Helvetica or Arial: the dogfood site's font stage
+       redeclares both local names with Fira Sans' metrics. */
+    --fw-font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+      Ubuntu, Cantarell, sans-serif;
+    --fw-font-display: Bahnschrift, "DIN Alternate", "Roboto Condensed",
+      "Nimbus Sans Narrow", sans-serif-condensed, system-ui, sans-serif;
+    --fw-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono",
+      Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+
+    --fw-text-sm: 0.875rem;
+    --fw-text-base: 1rem;
+    --fw-text-lg: 1.25rem;
+    --fw-text-xl: 1.5625rem;
+    --fw-text-2xl: 1.953rem;
+    --fw-text-3xl: 2.441rem;
+    --fw-text-4xl: clamp(2.441rem, 1.8rem + 2.6vw, 3.815rem);
+    --fw-leading-body: 1.6;
+    --fw-leading-tight: 1.15;
+
+    --fw-space-2xs: 0.25rem;
+    --fw-space-xs: 0.5rem;
+    --fw-space-sm: 0.75rem;
+    --fw-space-md: 1rem;
+    --fw-space-lg: 1.5rem;
+    --fw-space-xl: 2rem;
+    --fw-space-2xl: 3rem;
+    --fw-space-3xl: 4.5rem;
+    --fw-space-4xl: 6.75rem;
+
+    --fw-radius-sm: 2px;
+    --fw-radius-md: 4px;
+    --fw-radius-lg: 8px;
+
+    --fw-ring-width: 2px;
+    --fw-ring-offset: 2px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fw-bg: #0d1210;
+      --fw-bg-raised: #151c18;
+      --fw-bg-subtle: #1f2a24;
+      --fw-bg-mark: #2a3a12;
+      --fw-fg: #e3eae5;
+      --fw-fg-muted: #9caaa2;
+      --fw-fg-accent: #5fd4a4;
+      --fw-fg-on-accent: #07140e;
+      --fw-rule: #2b3731;
+    }
+  }
+}
+
+/* Below `body`, only links, marks and inline code set a colour, so an element
+   a site paints inverted (#550) keeps the ink it was given. */
+@layer base {
+  body {
+    background-color: var(--fw-bg);
+    color: var(--fw-fg);
+    font-family: var(--fw-font-body);
+    font-size: var(--fw-text-base);
+    line-height: var(--fw-leading-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--fw-font-display);
+    font-weight: 600;
+    line-height: var(--fw-leading-tight);
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: var(--fw-text-3xl);
+  }
+
+  h2 {
+    font-size: var(--fw-text-2xl);
+  }
+
+  h3 {
+    font-size: var(--fw-text-xl);
+  }
+
+  h4 {
+    font-size: var(--fw-text-lg);
+  }
+
+  small {
+    font-size: var(--fw-text-sm);
+  }
+
+  a {
+    color: var(--fw-fg-accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+
+  a:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  /* The browser's monospace default is 13 px against a 16 px body; an explicit
+     family is what lets `font-size` mean what it says. */
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--fw-font-mono);
+    font-size: 0.9em;
+  }
+
+  :not(pre) > code {
+    background-color: var(--fw-bg-subtle);
+    border-radius: var(--fw-radius-sm);
+    padding: 0.1em 0.3em;
+  }
+
+  mark,
+  ::selection {
+    background-color: var(--fw-bg-mark);
+    color: var(--fw-fg);
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--fw-rule);
+  }
+
+  :focus-visible {
+    outline: var(--fw-ring-width) solid var(--fw-ring);
+    outline-offset: var(--fw-ring-offset);
+  }
+}

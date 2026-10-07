@@ -1,0 +1,85 @@
+{
+  "name": "@pagedeck/islands",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/islands"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./runtime": {
+      "source": "./src/runtime.ts",
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./hmr": {
+      "source": "./src/hmr.ts",
+      "types": "./dist/hmr.d.ts",
+      "default": "./dist/hmr.js"
+    },
+    "./browser-report": {
+      "source": "./src/browser-report.ts",
+      "types": "./dist/browser-report.d.ts",
+      "default": "./dist/browser-report.js"
+    },
+    "./root-provider-check": {
+      "source": "./src/root-provider-check.ts",
+      "types": "./dist/root-provider-check.d.ts",
+      "default": "./dist/root-provider-check.js"
+    },
+    "./root-provider-probe": {
+      "source": "./src/root-provider-probe.ts",
+      "types": "./dist/root-provider-probe.d.ts",
+      "default": "./dist/root-provider-probe.js"
+    },
+    "./store": {
+      "source": "./src/store.ts",
+      "types": "./dist/store.d.ts",
+      "default": "./dist/store.js"
+    },
+    "./store-stamp": {
+      "source": "./src/store-stamp.ts",
+      "types": "./dist/store-stamp.d.ts",
+      "default": "./dist/store-stamp.js"
+    },
+    "./slot": {
+      "source": "./src/slot.ts",
+      "types": "./dist/slot.d.ts",
+      "default": "./dist/slot.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "jotai": "2.20.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "jsdom": "^30.0.1",
+    "playwright": "^1.62.1",
+    "vite": "^8.2.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

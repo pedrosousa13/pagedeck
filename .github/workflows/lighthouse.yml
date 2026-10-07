@@ -1,0 +1,49 @@
+name: Lighthouse and axe
+
+# The paths are `packages/site`'s `@pagedeck/*` dependencies, the lockfile, and the files that
+# invoke this job; keep them in step with `packages/site/package.json`.
+on:
+  pull_request:
+    paths:
+      - "packages/site/**"
+      - "packages/content/**"
+      - "packages/core/**"
+      - "packages/design-system/**"
+      - "packages/edge/**"
+      - "packages/islands/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - "tsconfig*.json"
+      - ".github/workflows/lighthouse.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `pnpm --filter @pagedeck/site exec`, never `npx`: there is no root `playwright` binary, so `npx`
+      # would fetch the latest and install browsers for a version the lockfile does not pin.
+      - run: pnpm --filter @pagedeck/site exec playwright install --with-deps chromium
+      - run: pnpm build
+      # `!cancelled()`, so a failed Lighthouse assertion still reports this commit's axe results.
+      - run: pnpm test:lighthouse-harness
+      - run: pnpm test:a11y-harness
+        if: ${{ !cancelled() }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: lighthouse-report
+          path: packages/site/.pagedeck-site-audit/lighthouse-report.json
+          include-hidden-files: true
+          retention-days: 90

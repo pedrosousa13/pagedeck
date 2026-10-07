@@ -1,0 +1,6 @@
+/* `source(none)`: detection would root at `styles/`, which holds no source.
+   Tests stay outside both sources so their assertions cannot supply classes. */
+@import "tailwindcss" source(none);
+@import "../../brand/brand.css";
+@source "../src/components";
+@source "../src/styling.ts";

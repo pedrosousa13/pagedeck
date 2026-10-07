@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "declaration": true,
+    // In `dist` so `pnpm build`'s `rm -rf packages/*/dist` wipes it too; kept
+    // elsewhere, `tsc -b` would skip a package whose `dist` is gone.
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-support.ts",
+    "src/**/*.harness.ts",
+    "src/**/*.harness.tsx"
+  ],
+  "references": [
+    { "path": "../core/tsconfig.build.json" }
+  ]
+}

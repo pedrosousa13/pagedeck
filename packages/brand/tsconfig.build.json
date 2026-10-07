@@ -1,0 +1,22 @@
+// No `references`: the emitted source reads no other workspace package.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  // Tests, their support modules and the harnesses run under Vitest, which
+  // reaches them as source. Nothing in `dist` imports them.
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-support.ts",
+    "src/**/*.harness.ts",
+    "src/**/*.harness.tsx"
+  ]
+}

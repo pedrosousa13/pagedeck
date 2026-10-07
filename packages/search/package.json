@@ -1,0 +1,54 @@
+{
+  "name": "@pagedeck/search",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/search"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=23.7.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./query": {
+      "source": "./src/query.ts",
+      "types": "./dist/query.d.ts",
+      "default": "./dist/query.js"
+    },
+    "./island": {
+      "source": "./src/island.tsx",
+      "types": "./dist/island.d.ts",
+      "default": "./dist/island.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@pagedeck/core": "workspace:*",
+    "@pagedeck/islands": "workspace:*",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "jsdom": "^30.0.1",
+    "react-dom": "^19.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

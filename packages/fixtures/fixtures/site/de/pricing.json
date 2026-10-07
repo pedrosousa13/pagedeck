@@ -1,0 +1,32 @@
+{
+  "rev": 4,
+  "data": {
+    "mode": "template",
+    "title": "Preise",
+    "template": "PricingPage",
+    "fields": {
+      "intro": "Zwei Tarife. Keine Platzrechnerei.",
+      "currency": "EUR",
+      "plans": [
+        {
+          "id": "starter",
+          "name": "Starter",
+          "price": 0,
+          "features": ["1 Website", "Community-Support"]
+        },
+        {
+          "id": "team",
+          "name": "Team",
+          "price": 49,
+          "features": ["Unbegrenzte Websites", "Preview-Deploys", "Priorisierter Support"]
+        }
+      ],
+      "faq": [
+        {
+          "question": "Kann ich den Tarif später wechseln?",
+          "answer": "Ja, jederzeit."
+        }
+      ]
+    }
+  }
+}

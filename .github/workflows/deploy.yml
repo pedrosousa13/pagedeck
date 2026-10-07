@@ -1,0 +1,200 @@
+name: Deploy
+
+# Writes only with the `PAGEDECK_SNAPSHOT_URL` secret set and `apply: true`; see
+# `docs/deploy-recipe.md`.
+on:
+  # Reads no `apply` from the payload, so a webhook run is always a dry run.
+  repository_dispatch:
+    types: [content-published]
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Upload. Off is a dry run that prints the plan and writes nothing."
+        required: false
+        default: false
+        type: boolean
+      from_manifest:
+        description: "manifest.json the live build wrote, relative to packages/site (blank = first deploy)"
+        required: false
+        type: string
+      edge_target:
+        description: "Host to compile build.routing for; none skips the edge compile"
+        required: false
+        default: cloudfront-function
+        type: choice
+        options: [cloudfront-function, netlify, nginx, cloudflare-worker, none]
+      rollback:
+        description: "A retained build id to restore. Set this and the deploy path is skipped."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# A run that can write is never cancelled: a cancel mid-apply leaves pages pointing at
+# chunks that were never uploaded.
+concurrency:
+  group: deploy-dogfood-site-${{ (github.event_name == 'workflow_dispatch' && inputs.apply) && 'apply' || 'dry-run' }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.apply) }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/site
+    env:
+      # `PAGEDECK_SNAPSHOT_URL` is not here: a job-level `env:` reaches every action and lifecycle script.
+      PAGEDECK_DEPLOY_ORIGIN: ${{ github.workspace }}/.deploy/origin
+      PAGEDECK_DEPLOY_STAGING: ${{ github.workspace }}/.deploy/staging
+      EDGE_TARGET: ${{ inputs.edge_target || 'cloudfront-function' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - run: pnpm build
+        working-directory: .
+
+      - name: Decide what this run may do
+        id: gate
+        env:
+          PAGEDECK_SNAPSHOT_URL: ${{ secrets.PAGEDECK_SNAPSHOT_URL }}
+        run: |
+          if [ -n "${PAGEDECK_SNAPSHOT_URL}" ]; then
+            echo "secret=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "secret=false" >> "$GITHUB_OUTPUT"
+            echo "No PAGEDECK_SNAPSHOT_URL is configured: this run will build from the site's own entries, print the plan and publish nothing."
+          fi
+
+      - name: Pull the store snapshot
+        if: steps.gate.outputs.secret == 'true'
+        env:
+          PAGEDECK_SNAPSHOT_URL: ${{ secrets.PAGEDECK_SNAPSHOT_URL }}
+        # No URL argument: `pagedeck store` reads the variable, and an argument would sit in argv.
+        run: node ../core/dist/bin.js store pull
+
+      - name: Sync the site's own entries
+        if: steps.gate.outputs.secret != 'true'
+        run: node ../core/dist/bin.js sync
+
+      - name: Build the site
+        run: node ../core/dist/bin.js build
+
+      # `deploy.bin.js` takes no `--grace-seconds`, so passing it to the diff would give one deploy
+      # two prune windows.
+      - name: Diff the live manifest against this build
+        if: inputs.rollback == ''
+        env:
+          FROM_MANIFEST: ${{ inputs.from_manifest }}
+        run: |
+          set -o pipefail
+          from="${FROM_MANIFEST:-$PAGEDECK_DEPLOY_ORIGIN/manifest.json}"
+          if [ ! -f "$from" ]; then
+            echo "No manifest at $from: this is a first deploy, and there is nothing to diff against."
+            exit 0
+          fi
+          node ../core/dist/bin.js diff "$from" site/manifest.json \
+            | tee "$GITHUB_WORKSPACE/deploy-diff.json"
+
+      - name: Plan the deploy
+        if: inputs.rollback == ''
+        # No `mkdir`: a plan that created the origin would have written to it.
+        env:
+          FROM_MANIFEST: ${{ inputs.from_manifest }}
+        run: |
+          # `pipefail`, or the step's status is `tee`'s rather than the runnable's.
+          set -o pipefail
+          # Arrays: an empty one passes no flag, and a path is never split or left quoted.
+          from=()
+          if [ -n "$FROM_MANIFEST" ]; then from=(--from "$FROM_MANIFEST"); fi
+          edge=()
+          if [ "$EDGE_TARGET" != "none" ]; then edge=(--edge "$EDGE_TARGET"); fi
+          node dist/deploy.bin.js \
+            --origin "$PAGEDECK_DEPLOY_ORIGIN" \
+            --staging "$PAGEDECK_DEPLOY_STAGING" \
+            "${from[@]}" "${edge[@]}" \
+            | tee "$GITHUB_WORKSPACE/deploy-plan.txt"
+
+      # No input for `--force`: an override a CI file can set is one nobody reads.
+      - name: Apply the deploy
+        if: >-
+          github.event_name == 'workflow_dispatch'
+          && inputs.apply
+          && inputs.rollback == ''
+          && steps.gate.outputs.secret == 'true'
+        env:
+          FROM_MANIFEST: ${{ inputs.from_manifest }}
+        run: |
+          set -o pipefail
+          from=()
+          if [ -n "$FROM_MANIFEST" ]; then from=(--from "$FROM_MANIFEST"); fi
+          edge=()
+          if [ "$EDGE_TARGET" != "none" ]; then edge=(--edge "$EDGE_TARGET"); fi
+          node dist/deploy.bin.js \
+            --origin "$PAGEDECK_DEPLOY_ORIGIN" \
+            --staging "$PAGEDECK_DEPLOY_STAGING" \
+            "${from[@]}" "${edge[@]}" \
+            --apply --prune | tee -a "$GITHUB_WORKSPACE/deploy-plan.txt"
+
+      - name: Push the store snapshot
+        if: >-
+          github.event_name == 'workflow_dispatch'
+          && inputs.apply
+          && inputs.rollback == ''
+          && steps.gate.outputs.secret == 'true'
+        env:
+          PAGEDECK_SNAPSHOT_URL: ${{ secrets.PAGEDECK_SNAPSHOT_URL }}
+        run: node ../core/dist/bin.js store push
+
+      - name: Plan the rollback
+        if: inputs.rollback != ''
+        env:
+          ROLLBACK_ID: ${{ inputs.rollback }}
+        run: |
+          set -o pipefail
+          node ../core/dist/bin.js rollback "$ROLLBACK_ID" \
+            | tee "$GITHUB_WORKSPACE/deploy-diff.json"
+          edge=()
+          if [ "$EDGE_TARGET" != "none" ]; then edge=(--edge "$EDGE_TARGET"); fi
+          node dist/deploy.bin.js \
+            --origin "$PAGEDECK_DEPLOY_ORIGIN" \
+            --staging "$PAGEDECK_DEPLOY_STAGING" \
+            --rollback "$ROLLBACK_ID" "${edge[@]}" \
+            | tee "$GITHUB_WORKSPACE/deploy-plan.txt"
+
+      - name: Apply the rollback
+        if: >-
+          github.event_name == 'workflow_dispatch'
+          && inputs.apply
+          && inputs.rollback != ''
+          && steps.gate.outputs.secret == 'true'
+        env:
+          ROLLBACK_ID: ${{ inputs.rollback }}
+        run: |
+          set -o pipefail
+          edge=()
+          if [ "$EDGE_TARGET" != "none" ]; then edge=(--edge "$EDGE_TARGET"); fi
+          node dist/deploy.bin.js \
+            --origin "$PAGEDECK_DEPLOY_ORIGIN" \
+            --staging "$PAGEDECK_DEPLOY_STAGING" \
+            --rollback "$ROLLBACK_ID" "${edge[@]}" \
+            --apply | tee -a "$GITHUB_WORKSPACE/deploy-plan.txt"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: deploy-plan
+          path: |
+            deploy-plan.txt
+            deploy-diff.json
+            .deploy/staging
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30

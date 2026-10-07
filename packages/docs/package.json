@@ -1,0 +1,52 @@
+{
+  "name": "@pagedeck/docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./components/*": {
+      "source": "./src/components/*.tsx",
+      "types": "./dist/components/*.d.ts",
+      "default": "./dist/components/*.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@pagedeck/brand": "workspace:*",
+    "@pagedeck/content": "workspace:*",
+    "@pagedeck/core": "workspace:*",
+    "@pagedeck/islands": "workspace:*",
+    "@pagedeck/markdown-loader": "workspace:*",
+    "@pagedeck/search": "workspace:*",
+    "react": "^19.2.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@pagedeck/edge": "workspace:*",
+    "@pagedeck/preview": "workspace:*",
+    "@pagedeck/site": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "^19.2.0",
+    "axe-core": "^4.13.0",
+    "playwright": "^1.62.1",
+    "react-dom": "^19.2.0",
+    "tailwindcss": "4.3.3",
+    "vite": "^8.2.2"
+  }
+}

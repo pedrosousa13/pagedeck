@@ -1,0 +1,31 @@
+{
+  "name": "pagedeck-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc -b packages/core/tsconfig.build.json packages/markdown-loader/tsconfig.build.json && tsc -p packages/create-pagedeck/template --noEmit",
+    "build": "rm -rf packages/*/dist && tsc -b tsconfig.build.json",
+    "test": "pnpm build && vitest run",
+    "check:build-twice": "node packages/design-system/src/site.build-twice.harness.ts",
+    "bench:scaling": "pnpm build && node packages/bench/src/scaling.harness.ts",
+    "bench:island-scan": "pnpm build && node packages/design-system/src/island-scan.harness.ts",
+    "test:slot-harness": "vitest run --config packages/islands/vitest.harness.config.ts",
+    "test:aria-harness": "vitest run --config packages/islands/vitest.aria-engine.config.ts",
+    "test:a11y-harness": "vitest run --config packages/site/vitest.a11y.config.ts",
+    "test:landing-a11y-harness": "vitest run --config packages/landing/vitest.a11y.config.ts",
+    "test:docs-a11y-harness": "vitest run --config packages/docs/vitest.a11y.config.ts",
+    "test:lighthouse-harness": "vitest run --config packages/site/vitest.lighthouse.config.ts",
+    "test:origin-harness": "pnpm build && vitest run --config packages/site/vitest.origin.config.ts",
+    "test:compiler-crash-harness": "vitest run --config packages/core/vitest.crash-harness.config.ts",
+    "test:singleton-harness": "vitest run --config packages/core/vitest.singleton-harness.config.ts",
+    "test:consent-facade-harness": "vitest run --config packages/core/vitest.consent-facade-harness.config.ts",
+    "test:pack-harness": "pnpm build && vitest run --config packages/core/vitest.pack-harness.config.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "zod": "^4.4.3"
+  },
+  "packageManager": "pnpm@11.20.0"
+}

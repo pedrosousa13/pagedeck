@@ -1,0 +1,375 @@
+.scratch/
+node_modules/
+# Build output. `pnpm build` emits every package as real JavaScript, because
+# Node can execute neither their `.tsx` nor the `.js` specifiers their `.ts`
+# carries — see `packages/core/src/bin.ts` and AGENTS.md's "The build step". It
+# is derived from the source beside it, and `pnpm test` rebuilds it, so it never
+# belongs in a commit.
+packages/*/dist/
+# Throwaway prototype fixtures. These mock the design system, so they must
+# never reach the remote — ignored rather than merely untracked, so a stray
+# `git add -A` cannot pick them up.
+prototypes/
+.factory/run.lock
+.factory/journal.json
+# Agent worktrees. Each is a full checkout of this repo that a session working
+# another issue created and locked, so committing one would nest the repo inside
+# itself. The path rather than `.claude/`, because a project's own agent config
+# — settings, subagents, skills — belongs in that directory and is meant to be
+# committed.
+.claude/worktrees/
+
+# Fixture sites that three test files write here, for two different reasons.
+# All three remove them after each run — this entry is so that a run interrupted
+# before its cleanup cannot be committed.
+#
+# `build.test.ts`, for #20's build-twice check: every other site in that file
+# goes under `node_modules`, which is ignored already, and this one has to sit
+# outside it so that the test runner reloads the site's own modules for the
+# second build.
+#
+# `bin.test.ts`, for #177: Node refuses to strip types from a file under
+# `node_modules`, so a site with a `pagedeck.config.ts` that a spawned `pagedeck` must load
+# cannot go there at all.
+#
+# `rollback.build.test.ts`, for #32, on `bin.test.ts`' reason: it builds one
+# site twice through the spawned executable and rolls the second build back to
+# the first. It writes two directories under this glob — the site, and build 1's
+# saved output tree, which is kept beside the site rather than inside it so that
+# a rollback cannot restore a copy of itself.
+#
+# `packages/core` is the nearest directory outside `node_modules` from which
+# `@pagedeck/islands` and `react` still resolve, which is what puts all of them here.
+# Moving or renaming this entry breaks those files' docblocks.
+packages/core/.pagedeck-build-test-*/
+
+# The fixture site `packages/core/src/dev.test.ts` writes (#50), removed after
+# the run and ignored so that an interrupted run cannot commit it. Same
+# placement and the same reason as the entry above, plus one of its own: Vite's
+# watcher ignores `**/node_modules/**`, so an island component module written
+# there would never raise the hot update that file is about.
+#
+# Moving or renaming this entry breaks that file's `SITE` docblock.
+packages/core/.pagedeck-dev-test/
+
+# The second fixture site that file writes: a site nothing ever synced, which is
+# what a dev server's missing-store failure is asserted against. Its own
+# directory rather than a state of the one above, because that site is served by
+# a process the whole file shares and deleting its store mid-run would be a
+# fixture two tests disagree about.
+packages/core/.pagedeck-dev-unsynced/
+
+# The third: a site whose pages render into a layout (#712), served by a dev
+# server of its own because the shared one's config declares a content callback.
+packages/core/.pagedeck-dev-layout/
+
+# Another: a site whose config imports its root provider by value (#703).
+packages/core/.pagedeck-dev-framed/
+
+# The fixture site `packages/core/src/site-modules.test.ts` writes (#703).
+packages/core/.pagedeck-site-modules-test/
+
+# The fixture sites `packages/core/src/watch.test.ts` writes (#51) — one per
+# spawned watch, since each holds a store whose cursor is what its test is
+# about. Removed after each run, and ignored so that a run interrupted before
+# its cleanup cannot be committed.
+#
+# Same placement and the same reason as the two entries above: those tests spawn
+# the shipped `dist/bin.js`, and a plain Node process resolves `@pagedeck/core` from
+# this repo's `node_modules` while refusing to strip types from a config under
+# one.
+packages/core/.pagedeck-watch-*/
+
+# The one fixture site `packages/design-system/src/site.build.test.ts` writes
+# (#162), for the same reason the entry above exists: the test removes it after
+# the run, and this is so that a run interrupted before its cleanup cannot be
+# committed.
+#
+# `packages/design-system` rather than `packages/core`, because the site's config
+# reaches `@pagedeck/design-system/components/*` — bare self-referencing subpaths that
+# resolve only from inside this package, and only from outside its
+# `node_modules`, where Vitest would hand the config to Node and Node cannot
+# transform JSX.
+#
+# Moving or renaming this entry breaks that file's `SITE` docblock, which argues
+# the placement.
+packages/design-system/.pagedeck-site-build-test/
+
+# The fixture site `packages/design-system/src/consent-banner.build.test.ts`
+# writes (#47), for the reason the entry above exists: the test removes it after
+# the run, and this is so that a run interrupted before its cleanup cannot be
+# committed. A name of its own rather than a share of the entry above, because
+# the two sites are different sites — that one renders the dogfood site's
+# entries, and this one renders the reference consent banner and nothing else,
+# so that the emitted bytes its test reads are the banner's.
+#
+# Same placement and the same two reasons as that entry — the site's config
+# reaches `@pagedeck/design-system/components/*`, and a spawned `pagedeck` has to be able to
+# load a `pagedeck.config.ts` Node will strip types from.
+packages/design-system/.pagedeck-consent-banner-test/
+
+# The fixture site `packages/design-system/src/dev.test.ts` writes (#50), for
+# the reason the entry above exists: the test removes it after the run, and this
+# is so that a run interrupted before its cleanup cannot be committed. A name of
+# its own rather than a share of the one above, so that two files of one suite
+# can never be writing one directory.
+#
+# Same placement and the same two reasons as that entry — the site's config
+# reaches `@pagedeck/design-system/components/*`, and a spawned `pagedeck` has to be able to
+# load a `pagedeck.config.ts` Node will strip types from.
+packages/design-system/.pagedeck-dev-test/
+
+# Everything `pnpm check:build-twice` writes
+# (`packages/design-system/src/site.build-twice.harness.ts`, #220): the site it
+# builds, under `site/`, and the two trees it compares, under `trees/`. Same
+# placement and the same reasons as the entry above, and a distinct name so
+# that a suite running beside the check does not build into the directory the
+# check is comparing. The trees are siblings of the site rather than files left
+# inside it, so that build 2 reads exactly the directory build 1 read. That
+# harness removes all of it on a green run and **keeps it on a red one**,
+# because its report names both trees by path for a reader to open — so this
+# entry is also what stops a real determinism failure from being committed as
+# two output trees.
+packages/design-system/.pagedeck-build-twice-check/
+
+# Everything `pnpm bench:island-scan` writes
+# (`packages/design-system/src/island-scan.harness.ts`, #385): the generated
+# site it syncs and builds, under `site/`, the probe's timing log, and the
+# report. Same placement and the same reasons as the two entries above — the
+# site's module map is this package's own catalog, whose specifiers are bare
+# self-referencing subpaths that resolve only from inside this package and only
+# from outside its `node_modules`. A distinct name so that a run of it beside
+# the build-twice check does not sync into the site that check is building. The
+# harness clears this whole directory at the start of a run rather than at the
+# end — the site and store with the report and the scan log taken on them — so
+# what a run leaves behind stays readable until somebody takes a new
+# measurement; this entry is what stops any of it from being committed.
+packages/design-system/.pagedeck-island-scan/
+
+# The docs site's own build output and store: `packages/docs` is a site as
+# well as a package, and `pagedeck build` writes into it. `outDir` is `./site` rather
+# than `./dist` precisely so the two trees stay distinguishable — `dist` above
+# is what `pnpm build` emits from `src`.
+packages/docs/site/
+packages/docs/content.db
+
+# The retention store the same builds write (#32, `packages/core/src/retention.ts`):
+# every `pagedeck build` keeps its manifest under `<site root>/.pagedeck/manifests/` so that
+# a later run can roll back to it. Deliberately outside `outDir` — a store
+# inside it would be uploaded to the CDN with the site — which is what puts it
+# beside the two entries above rather than under either. `packages/docs`,
+# `packages/landing` and `packages/site` are the sites in this repo that are not
+# themselves ignored already; every other one a test builds is written under
+# `node_modules` or under a `.pagedeck-*` directory this file already names.
+packages/docs/.pagedeck/
+
+# The starter copy `add-an-island.build.test.ts` follows the island how-to in
+# (#696). The test removes it after each run.
+packages/docs/.pagedeck-how-to-island-test-*/
+
+# The landing site's own build output, store and retention store: `packages/landing`
+# is a site as well as a package (#189), and `pagedeck build` writes all three into it.
+# Three entries rather than a share of the docs site's, because they are two
+# different sites — same reasoning as the three above, applied a second time:
+# `outDir` is `./site` so the emitted pages stay distinguishable from the `dist`
+# that `pnpm build` writes from `src`, and the retention store sits outside
+# `outDir` so it is never uploaded with the site.
+#
+# The `.pagedeck/` entry covers a second file since #336: this site declares
+# `build.budget`, and the budget report is now written to `.pagedeck/budget-report.json`
+# rather than into `outDir`, for the retention store's reason one clause up — it
+# is a CI artifact, and a directory-sync host publishes everything in the output
+# tree. No entry of its own, which is the whole argument for the dot-directory:
+# one ignored `.pagedeck/` absorbs the next thing a build wants to keep beside a site.
+#
+# `packages/landing/src/site.build.test.ts` removes all four before and after
+# its run — the output tree, the store, the retention store, and the report,
+# which became a fourth thing to clean up when #336 moved it out of `outDir`:
+# removing the output tree no longer removes it. Four artifacts under three
+# entries, because two of them share `.pagedeck/`. The docs site's test removes three
+# and not four, since that site declares no budget and so writes no report.
+# These entries are so that a run interrupted before its cleanup cannot be
+# committed.
+packages/landing/site/
+packages/landing/content.db
+packages/landing/.pagedeck/
+
+# Everything `pnpm bench:scaling` writes
+# (`packages/bench/src/scaling.harness.ts`, #60): one generated site per rung of
+# the ladder, each with its own store and output tree, plus the report the run
+# leaves for a reader. Placed under this package for the reason the entries
+# above give — a spawned `pagedeck` loads the site's `pagedeck.config.ts` in a plain Node
+# process, which refuses to strip types under a `node_modules`, and the config
+# reaches `@pagedeck/bench/components/*`, bare self-referencing subpaths that resolve
+# only from inside this package. A synthetic site at the top of the ladder is
+# tens of thousands of generated files, so this entry is also what stops one
+# from being committed.
+packages/bench/.pagedeck-scaling/
+
+# The one generated site `packages/bench/src/site.build.test.ts` builds (#60),
+# for the reason the entries above exist: the test removes it after the run, and
+# this is so that a run interrupted before its cleanup cannot be committed. A
+# name of its own rather than a share of the harness's directory below, so that
+# a suite running beside `pnpm bench:scaling` can never be building the site the
+# ladder is timing.
+#
+# Same placement and the same two reasons as the design-system entries — the
+# site's config reaches `@pagedeck/bench/components/*`, and a spawned `pagedeck` has to be
+# able to load a `pagedeck.config.ts` Node will strip types from.
+packages/bench/.pagedeck-site-build-test/
+
+# The one fixture site `packages/edge/src/site.build.test.ts` writes (#270),
+# for the reason every entry above exists: the test removes it after the run,
+# and this is so that a run interrupted before its cleanup cannot be committed.
+#
+# `packages/edge` rather than `packages/core`, because the claim that file makes
+# is that a redirect a site declared survives a build *and* a compile, and the
+# compilers are this package's. Outside its `node_modules` because a spawned
+# `pagedeck` loads the site's `pagedeck.config.ts` in a plain Node process, which refuses to
+# strip types under a `node_modules`.
+packages/edge/.pagedeck-site-build-test/
+
+# The fixture site `packages/edge/src/removal.build.test.ts` writes (#304), for
+# the reason every entry above exists: the test removes it after the run, and
+# this is so that a run interrupted before its cleanup cannot be committed.
+#
+# `packages/edge` for `site.build.test.ts`' reason one entry up: the claim is
+# that a redirect an incremental build wrote for a page it removed survives a
+# compile, and the compilers are this package's. Outside its `node_modules`
+# because a spawned `pagedeck` refuses to strip types from a `pagedeck.config.ts` there.
+packages/edge/.pagedeck-removal-build-test/
+
+# The site port's own build output, store and retention store: `packages/site`
+# is a site as well as a package (#56), and `pagedeck build` writes all three into it.
+# Three entries rather than a share of the two sites above, because they are
+# three different sites — same reasoning applied a third time: `outDir` is
+# `./site` so the emitted pages stay distinguishable from the `dist` that `pnpm
+# build` writes from `src`, and the retention store sits outside `outDir` so it
+# is never uploaded with the site.
+#
+# The `.pagedeck/` entry covers a second file since #336, exactly as the landing site's
+# does: this site declares `build.budget`, and the budget report is written to
+# `.pagedeck/budget-report.json` rather than into `outDir`.
+#
+# `packages/site/src/site.build.test.ts` removes all four before and after its
+# run — the output tree, the store, the retention store, and the report, a
+# fourth artifact since #336 for the reason the landing site's entry gives —
+# which is four artifacts under three entries, two of them sharing `.pagedeck/`. The
+# docs test removes three, having no budget and so no report. These entries are
+# so that a run interrupted before its cleanup cannot be committed.
+packages/site/site/
+packages/site/content.db
+packages/site/.pagedeck/
+
+# Everything `packages/site/src/deploy.build.test.ts` writes (#57), for the
+# reason every entry above exists: the test removes all of it after the run, and
+# this is so that a run interrupted before its cleanup cannot be committed. Seven
+# directories, because a deploy has seven places and they must not be one — the
+# fixture site, build 1's saved output tree, the local origin the deploy writes
+# into, a copy of that origin the spawned incremental deploy reads a published
+# manifest back from, the origin a dry run is pointed at so that "nothing was
+# written" is a claim about a path of its own, the staging directory the
+# out-of-band edge artifacts are left in, and the origin the spawned *applying*
+# run files its own build into (#287), which is its own path so that "this is
+# what a first apply leaves, and it is one document" is a claim about a
+# directory the other deploys never touched.
+#
+# The origin is a sibling of the site rather than a directory inside it, on
+# `rollback.build.test.ts`' reasoning: inside would put the deployed copy under
+# a directory `pagedeck build` walks, and the second build would then be building the
+# first deploy back into itself.
+#
+# `packages/site` rather than `packages/core`, because the site being deployed is
+# this package's, and outside its `node_modules` because a spawned `pagedeck` loads
+# the site's `pagedeck.config.ts` in a plain Node process, which refuses to strip types
+# under a `node_modules`.
+packages/site/.pagedeck-deploy-build-test/
+packages/site/.pagedeck-deploy-build-test-tree/
+packages/site/.pagedeck-deploy-build-test-origin/
+packages/site/.pagedeck-deploy-build-test-origin-2/
+packages/site/.pagedeck-deploy-build-test-dry-origin/
+packages/site/.pagedeck-deploy-build-test-staging/
+packages/site/.pagedeck-deploy-build-test-publish-origin/
+
+# The scratch site `parity.build.test.ts` builds, and the copy of its output
+# tree that file mutilates to prove the harness can fail (#58). Removed before
+# and after each run; the entry is so that an interrupted run cannot be
+# committed.
+#
+# A scratch directory rather than `packages/site` itself, which
+# `site.build.test.ts` already builds: Vitest runs test files in parallel, so
+# two files syncing one store and building one output tree would race. Its
+# `pagedeck.config.ts` re-exports `siteConfig()`, so what is built is this site's own
+# declaration at another path — and it sits inside `packages/site` and outside
+# its `node_modules` for the reason the deploy fixtures above do.
+packages/site/.pagedeck-parity-build-test/
+packages/site/.pagedeck-parity-build-test-broken/
+
+# The scratch site `fonts.build.test.ts` builds (#45), removed before and
+# after each run for the reason every entry above exists: an interrupted run
+# must not be committed. Same placement, same `pagedeck.config.ts` that re-exports
+# `siteConfig()`, and the same reason as the parity scratch directory above —
+# a second file building `packages/site` itself would race
+# `site.build.test.ts`.
+packages/site/.pagedeck-fonts-build-test/
+
+# The parity report `parity compare --report` writes (#58): the CI job keeps it
+# as a build artifact and `docs/dogfood-parity.md` names the same path for a
+# local run, so it is a file a reader is invited to produce here. It is derived
+# from the build beside it and says nothing a rerun would not say again.
+packages/site/parity-report.json
+
+# The scratch site the two audit harnesses build, and the Lighthouse report one
+# of them writes (#59). Removed before each run; the entries are so that an
+# interrupted run cannot be committed. Two directories rather than one, because
+# `pnpm test:a11y-harness` and `pnpm test:lighthouse-harness` are separate commands and
+# either may be running while the other is — the same reasoning the parity and
+# deploy fixtures above are split on.
+#
+# The report is derived from the build beside it and says nothing a rerun would
+# not say again; `.github/workflows/lighthouse.yml` keeps it as a build artifact
+# and `docs/success-criteria.md` names the same path for a local run, so it is a
+# file a reader is invited to produce here.
+packages/site/.pagedeck-a11y-harness/
+packages/site/.pagedeck-site-audit/
+
+# The scratch site `packages/site/src/runtime.build.test.ts` builds (#292), with
+# React in a chunk of its own so the framework's own bytes can be read off a
+# file. Removed before and after the run; ignored so that an interrupted run
+# cannot be committed. A name of its own, for the parity scratch directory's
+# reason: a second file building one directory would race the first.
+packages/site/.pagedeck-runtime-build-test/
+
+# The fixture site `packages/search/src/multi-shard.build.test.ts` builds (#456)
+# — six pages naming 3,840 identifiers, which is a corpus whose index splits
+# across shards. Removed before and after each run, for the reason every entry
+# above exists: a run interrupted before its cleanup must not be committed, and
+# a generated corpus of that size is the last thing to commit by accident.
+#
+# Inside this package and outside its `node_modules` because a spawned `pagedeck`
+# loads the site's `pagedeck.config.ts` in a plain Node process, which refuses to strip
+# types under a `node_modules`.
+packages/search/.pagedeck-multi-shard-test/
+
+# The fixture site `packages/search/src/site.build.test.ts` builds. Named here
+# for the same reason as the entry above, which is the whole of why it is named
+# at all: it was the one fixture directory in this repository that no line
+# covered, so an interrupted run left it committable while every sibling was
+# safe.
+packages/search/.pagedeck-locale-index-test/
+
+# The fixture sites `packages/search/src/incremental.build.test.ts` builds, one
+# per case, on the entry above's reason: a spawned `pagedeck` has to load their
+# configs, and an interrupted run must not leave them committable.
+packages/search/.pagedeck-incremental-index-*/
+
+# The CMS example's own build output, store and retention store (#694):
+# `packages/cms-example` is a site as well as a package, and its
+# `site.build.test.ts` builds it in place.
+packages/cms-example/site/
+packages/cms-example/content.db
+packages/cms-example/.pagedeck/
+
+# The copy of the CMS example `packages/docs/src/connect-a-cms.build.test.ts` builds
+# (#697). The test removes it after each run.
+packages/cms-example/.pagedeck-how-to-cms-test-*/

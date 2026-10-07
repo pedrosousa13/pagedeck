@@ -1,0 +1,118 @@
+{
+  "name": "@pagedeck/core",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/core"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=23.7.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./build": {
+      "source": "./src/build.ts",
+      "types": "./dist/build.d.ts",
+      "default": "./dist/build.js"
+    },
+    "./consent": {
+      "source": "./src/consent.ts",
+      "types": "./dist/consent.d.ts",
+      "default": "./dist/consent.js"
+    },
+    "./client-build": {
+      "source": "./src/client-build.ts",
+      "types": "./dist/client-build.d.ts",
+      "default": "./dist/client-build.js"
+    },
+    "./dev": {
+      "source": "./src/dev.ts",
+      "types": "./dist/dev.d.ts",
+      "default": "./dist/dev.js"
+    },
+    "./determinism": {
+      "source": "./src/determinism.ts",
+      "types": "./dist/determinism.d.ts",
+      "default": "./dist/determinism.js"
+    },
+    "./directive-scan": {
+      "source": "./src/directive-scan.ts",
+      "types": "./dist/directive-scan.d.ts",
+      "default": "./dist/directive-scan.js"
+    },
+    "./entry-modules": {
+      "source": "./src/entry-modules.ts",
+      "types": "./dist/entry-modules.d.ts",
+      "default": "./dist/entry-modules.js"
+    },
+    "./exit": {
+      "source": "./src/exit.ts",
+      "types": "./dist/exit.d.ts",
+      "default": "./dist/exit.js"
+    },
+    "./images": {
+      "source": "./src/images.ts",
+      "types": "./dist/images.d.ts",
+      "default": "./dist/images.js"
+    },
+    "./routing": {
+      "source": "./src/routing.ts",
+      "types": "./dist/routing.d.ts",
+      "default": "./dist/routing.js"
+    },
+    "./tree": {
+      "source": "./src/tree.tsx",
+      "types": "./dist/tree.d.ts",
+      "default": "./dist/tree.js"
+    },
+    "./react-compiler": {
+      "source": "./src/react-compiler.ts",
+      "types": "./dist/react-compiler.d.ts",
+      "default": "./dist/react-compiler.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@babel/core": "^7.29.7",
+    "@pagedeck/content": "workspace:*",
+    "@pagedeck/islands": "workspace:*",
+    "babel-plugin-react-compiler": "1.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "rolldown": "1.2.5",
+    "vite": "^8.2.2"
+  },
+  "bin": {
+    "pagedeck": "./dist/bin.js"
+  },
+  "devDependencies": {
+    "@pagedeck/fixtures": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/babel__core": "^7.20.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "6.1.0",
+    "jsdom": "^30.0.1",
+    "playwright": "^1.62.1",
+    "tailwindcss": "4.3.3",
+    "zod": "^4.4.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

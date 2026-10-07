@@ -1,0 +1,27 @@
+{
+  "title": "Questions",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Questions",
+      "text": "What this example shows, and what it leaves out."
+    },
+    {
+      "type": "faq",
+      "questions": [
+        {
+          "question": "Where does the content come from?",
+          "answer": "From a small HTTP server in this package. It reads the pages from JSON files and serves a paged list and a list of changes."
+        },
+        {
+          "question": "Can I use my own CMS?",
+          "answer": "Yes. Copy the loader and change the two requests it makes to the ones your CMS answers."
+        },
+        {
+          "question": "Why does this page ship JavaScript?",
+          "answer": "The accordion you are reading is interactive, so the page loads its code. The home page does not."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+name: Scaling
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "Ladder rungs, comma-separated page counts (blank = the harness default)"
+        required: false
+        type: string
+      locales:
+        description: "Locales the synthetic site declares"
+        required: false
+        default: "2"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ladder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Climb the scaling ladder
+        env:
+          PAGES: ${{ inputs.pages }}
+          LOCALES: ${{ inputs.locales }}
+        run: |
+          # `pipefail`, or the step's status is `tee`'s rather than the harness's.
+          set -o pipefail
+          # Arrays: an empty one passes no flag, and a value is never split or left quoted.
+          pages=()
+          if [ -n "$PAGES" ]; then pages=(--pages "$PAGES"); fi
+          locales=()
+          if [ -n "$LOCALES" ]; then locales=(--locales "$LOCALES"); fi
+          # A red run means the harness did not complete, never that a number moved (#380).
+          pnpm bench:scaling "${pages[@]}" "${locales[@]}" | tee scaling-report.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: scaling-report
+          path: |
+            scaling-report.txt
+            packages/bench/.pagedeck-scaling/scaling-report.json
+          include-hidden-files: true
+          retention-days: 90

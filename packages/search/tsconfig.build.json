@@ -1,0 +1,37 @@
+// `references` names `@pagedeck/core`, whose declarations this package's emitted
+// source reads: the contract it satisfies — `SearchAdapter`, `SearchDocument`,
+// `EmittedFile` — and `ConfigError`, the class its one refusal throws. That is
+// not a cycle: core reads `build.search` as a type it declares and never
+// imports this package, which is what keeps a search index off the CLI's
+// import graph.
+//
+// It names `@pagedeck/islands` for one function, `reportBrowserFault` — the single
+// place these packages write a diagnostic to a browser console
+// (`docs/error-messages.md` rule 8). The edge is `src/island.tsx`'s alone and
+// costs a page nothing: an island is hydrated by `@pagedeck/islands`, so that package
+// is already on the bundle graph of every page this component ships to.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  // Tests, their support modules and the harnesses run under Vitest, which
+  // reaches them as source. Nothing in `dist` imports them.
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-support.ts",
+    "src/**/*.harness.ts",
+    "src/**/*.harness.tsx"
+  ],
+  "references": [
+    { "path": "../core/tsconfig.build.json" },
+    { "path": "../islands/tsconfig.build.json" }
+  ]
+}

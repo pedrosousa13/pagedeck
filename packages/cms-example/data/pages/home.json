@@ -1,0 +1,34 @@
+{
+  "title": "A site built from a headless CMS",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "A site built from a headless CMS",
+      "text": "Every page here is a list of typed blocks that a small CMS serves over HTTP."
+    },
+    {
+      "type": "feature_grid",
+      "features": [
+        {
+          "title": "Typed blocks",
+          "text": "Each block names its type, and the site maps that type to a component."
+        },
+        {
+          "title": "Incremental syncs",
+          "text": "The loader asks the CMS what changed since the last sync and rebuilds only those pages."
+        },
+        {
+          "title": "JavaScript per block",
+          "text": "Only an interactive block ships JavaScript, and only to the page that holds it."
+        }
+      ]
+    },
+    {
+      "type": "rich_text",
+      "paragraphs": [
+        "This page holds no interactive block, so it ships no JavaScript.",
+        "The FAQ page holds an accordion and the sign-up page holds a form. Each of those pages loads the code for its own block and no other."
+      ]
+    }
+  ]
+}

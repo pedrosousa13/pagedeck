@@ -1,0 +1,303 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "../../brand/brand.css";
+@source "../../design-system/src/components";
+@source "../../design-system/src/styling.ts";
+
+@layer theme {
+  :root {
+    --fw-font-body: "Fira Sans", Helvetica, Arial, sans-serif;
+  }
+}
+
+@layer base {
+  /* Preflight's border-box only: browser defaults keep the template pages legible. */
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    border-top: 4px solid var(--fw-fg-accent);
+  }
+
+  main {
+    max-width: 72rem;
+    margin-inline: auto;
+    padding: var(--fw-space-lg) var(--fw-space-md) var(--fw-space-3xl);
+  }
+
+  @media (min-width: 40rem) {
+    main {
+      padding-inline: var(--fw-space-xl);
+    }
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* A plate of the page ground, so the ring keeps its 3:1 on any fill an editor chose. */
+  :focus-visible {
+    box-shadow: 0 0 0 6px var(--fw-bg);
+  }
+
+  /* Focus scrolls clear of the open banner (WCAG 2.4.11). */
+  :root {
+    --banner-reach: min(50vh, 22rem);
+  }
+
+  :root:has(.consent-banner:not(.consent-banner--settled)) {
+    scroll-padding-bottom: calc(var(--banner-reach) + 2 * var(--fw-space-md));
+  }
+}
+
+@layer components {
+  /* Rules on a class an editor paints use only `currentColor`, and sit in `components`
+     so a utility always wins (#550). */
+  .hero {
+    display: grid;
+    gap: var(--fw-space-lg);
+    margin-block: var(--fw-space-md) var(--fw-space-2xl);
+    padding: var(--fw-space-lg);
+    border-top: 3px solid currentColor;
+    border-radius: 0 0 var(--fw-radius-md) var(--fw-radius-md);
+  }
+
+  @media (min-width: 48rem) {
+    .hero {
+      grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+      grid-template-rows: 1fr auto;
+      column-gap: var(--fw-space-2xl);
+      padding: var(--fw-space-2xl) var(--fw-space-xl);
+    }
+
+    .hero > * {
+      grid-column: 1;
+    }
+
+    .hero > img {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      align-self: center;
+    }
+
+    .hero > h1 {
+      align-self: end;
+    }
+  }
+
+  .hero > img {
+    display: block;
+    width: 100%;
+    border-radius: var(--fw-radius-sm);
+  }
+
+  .hero > h1 {
+    max-width: 16ch;
+    margin: 0;
+    font-size: var(--fw-text-4xl);
+    letter-spacing: -0.02em;
+  }
+
+  .hero > .button {
+    justify-self: start;
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: var(--fw-space-xs) var(--fw-space-lg);
+    border-radius: var(--fw-radius-md);
+    font-weight: 600;
+    line-height: 1.25;
+    text-decoration-line: none;
+  }
+
+  .button:hover {
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
+  }
+
+  .grid {
+    gap: var(--fw-space-lg) var(--fw-space-xl);
+    margin-block: var(--fw-space-2xl);
+  }
+
+  .card {
+    padding-top: var(--fw-space-sm);
+    border-top: 2px solid currentColor;
+  }
+
+  .card > h2 {
+    margin: 0;
+    font-size: var(--fw-text-xl);
+  }
+
+  .card > p {
+    margin: var(--fw-space-xs) 0 0;
+    max-width: 50ch;
+  }
+
+  /* One grouped selector: Lightning CSS merges identical rule bodies anyway, and
+     `site.build.test.ts` reads the list. */
+  .legal,
+  .pricing,
+  .landing {
+    max-width: 42rem;
+    margin-inline: auto;
+    padding-block: var(--fw-space-xl);
+  }
+
+  .legal > h1,
+  .pricing > h1,
+  .landing > h1 {
+    margin: 0 0 var(--fw-space-lg);
+    padding-bottom: var(--fw-space-md);
+    border-bottom: 2px solid currentColor;
+    font-size: var(--fw-text-4xl);
+    letter-spacing: -0.02em;
+  }
+
+  .legal > p {
+    max-width: 65ch;
+    margin: 0 0 var(--fw-space-md);
+  }
+
+  .pricing__toggle,
+  .landing button,
+  .consent-banner__manage {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: var(--fw-space-xs) var(--fw-space-md);
+    border: 1px solid var(--fw-fg-muted);
+    border-radius: var(--fw-radius-md);
+    background-color: var(--fw-bg-raised);
+    color: var(--fw-fg);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .pricing__toggle:hover,
+  .landing button:hover,
+  .consent-banner__manage:hover {
+    border-color: var(--fw-fg);
+  }
+
+  .pricing table {
+    width: 100%;
+    margin-top: var(--fw-space-lg);
+    border-top: 2px solid currentColor;
+    border-collapse: collapse;
+  }
+
+  .pricing td {
+    padding: var(--fw-space-sm) 0;
+    border-bottom: 1px solid var(--fw-rule);
+  }
+
+  .pricing td:last-child {
+    font-family: var(--fw-font-mono);
+    font-size: var(--fw-text-lg);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+
+  .landing__signup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fw-space-sm);
+    margin-top: var(--fw-space-lg);
+  }
+
+  .landing__signup input {
+    flex: 1 1 14rem;
+    min-height: 2.75rem;
+    padding: var(--fw-space-xs) var(--fw-space-sm);
+    border: 1px solid var(--fw-fg-muted);
+    border-radius: var(--fw-radius-md);
+    background-color: var(--fw-bg-raised);
+    color: var(--fw-fg);
+    font: inherit;
+  }
+
+  /* Sticky, not fixed, so it never covers the last of the page. Both answers are drawn
+     alike: making one louder would be a nudge. */
+  .consent-banner {
+    position: sticky;
+    bottom: var(--fw-space-md);
+    z-index: 1;
+    width: min(40rem, 100% - 2 * var(--fw-space-md));
+    max-height: var(--banner-reach);
+    overflow-y: auto;
+    margin: var(--fw-space-xl) auto var(--fw-space-md);
+    padding: var(--fw-space-lg);
+    border: 1px solid var(--fw-rule);
+    border-top: 3px solid var(--fw-fg);
+    border-radius: 0 0 var(--fw-radius-md) var(--fw-radius-md);
+    background-color: var(--fw-bg-raised);
+    color: var(--fw-fg);
+  }
+
+  .consent-banner--settled {
+    position: static;
+    width: auto;
+    max-width: 72rem;
+    max-height: none;
+    margin: 0 auto;
+    padding: 0 var(--fw-space-md) var(--fw-space-xl);
+    border: 0;
+    background-color: transparent;
+  }
+
+  @media (min-width: 40rem) {
+    .consent-banner--settled {
+      padding-inline: var(--fw-space-xl);
+    }
+  }
+
+  .consent-banner__heading {
+    margin: 0;
+    font-size: var(--fw-text-lg);
+  }
+
+  .consent-banner__body {
+    max-width: 60ch;
+    margin: var(--fw-space-xs) 0 0;
+  }
+
+  .consent-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fw-space-sm);
+    margin: var(--fw-space-md) 0 0;
+  }
+
+  .consent-banner__accept,
+  .consent-banner__reject {
+    flex: 1 1 10rem;
+    min-height: 2.75rem;
+    padding: var(--fw-space-xs) var(--fw-space-md);
+    border: 1px solid var(--fw-fg);
+    border-radius: var(--fw-radius-md);
+    background-color: var(--fw-fg);
+    color: var(--fw-bg);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .consent-banner__accept:hover,
+  .consent-banner__reject:hover {
+    background-color: var(--fw-bg-raised);
+    color: var(--fw-fg);
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "rev": 3,
+  "data": {
+    "mode": "template",
+    "title": "Pricing",
+    "template": "PricingPage",
+    "fields": {
+      "intro": "Two plans. No seat maths.",
+      "currency": "EUR",
+      "plans": [
+        {
+          "id": "starter",
+          "name": "Starter",
+          "price": 0,
+          "features": ["1 site", "Community support"]
+        },
+        {
+          "id": "team",
+          "name": "Team",
+          "price": 49,
+          "features": ["Unlimited sites", "Preview deploys", "Priority support"]
+        }
+      ],
+      "faq": [
+        {
+          "question": "Can I change plan later?",
+          "answer": "Yes, at any time."
+        }
+      ]
+    }
+  }
+}

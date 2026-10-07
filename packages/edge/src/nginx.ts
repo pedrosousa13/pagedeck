@@ -1,0 +1,166 @@
+// The emitted directive subset is closed, so `equivalence.test.ts`' interpreter stays close to
+// a transcription: CI cannot run nginx. `add_header` does not inherit into a block with its own.
+import { DEPLOY_DIRECTORY, DEPLOY_MANIFEST_PATH } from "@pagedeck/core/routing";
+import type { HeaderField, RoutingTree } from "@pagedeck/core/routing";
+
+import type { EdgeArtifact } from "./artifact.js";
+import {
+  nginxLiteral,
+  nginxLocation,
+  unexpressibleInNginx,
+  unexpressibleInNginxLocation,
+} from "./encode.js";
+import type { Fault } from "./faults.js";
+import { treeOf } from "./faults.js";
+import type { CompiledTree } from "./normalize.js";
+
+function check(
+  tree: RoutingTree,
+  what: string,
+  value: string,
+  faults: Fault[],
+  reason: (value: string) => string | undefined = unexpressibleInNginx,
+): void {
+  const why = reason(value);
+  if (why !== undefined) {
+    faults.push({
+      kind: "unexpressible",
+      line: `${treeOf(tree.domain)}'s ${what} — ${why}`,
+    });
+  }
+}
+
+// `always`: without it nginx adds the header only on 2xx and 3xx, and the 404 page is a 404.
+function addHeader(field: HeaderField): string {
+  return `    add_header ${nginxLiteral(field.name)} ${nginxLiteral(field.value)} always;`;
+}
+
+function addHeadersFor(tree: CompiledTree, path: string): string[] {
+  const rule = tree.headers.find((candidate) =>
+    path.startsWith(candidate.prefix),
+  );
+  return (rule?.set ?? []).map(addHeader);
+}
+
+// The `internal` location keeps the 404 document from answering 200 at its own URL.
+export function compileNginx(
+  tree: CompiledTree,
+  _limit: number | undefined,
+  faults: Fault[],
+): readonly EdgeArtifact[] {
+  const sections: string[][] = [];
+
+  // Refused, not dropped: compiling the rest would ship the primary with no word that the split
+  // is gone.
+  if (tree.experiments !== undefined) {
+    const pages = tree.experiments.map((split) => `"${split.path}"`).join(", ");
+    faults.push({
+      kind: "unsupported",
+      line: `${treeOf(tree.domain)}'s ${
+        tree.experiments.length === 1 ? "experiment" : "experiments"
+      } on ${pages} (build.routing.experiments)`,
+    });
+  }
+
+  // At server level: rewrite directives run before location selection, where a `^~` header
+  // rule under `/.pagedeck/` would win (#556). `$uri` is already decoded and dot-resolved.
+  sections.push([
+    `if ($uri = ${nginxLiteral(DEPLOY_MANIFEST_PATH)}) { return 404; }`,
+    `if ($uri ~ "^${DEPLOY_DIRECTORY.replaceAll(".", "\\.")}(/|$)") { return 404; }`,
+  ]);
+
+  if (tree.redirects.length > 0) {
+    sections.push(
+      tree.redirects.map((rule) => {
+        if (!rule.normalizing) {
+          check(
+            tree,
+            `redirect from "${rule.from}"`,
+            rule.from,
+            faults,
+            unexpressibleInNginxLocation,
+          );
+          // `to` keeps its escaped spelling: it is a URI in a `Location` header, not a location.
+          check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
+        }
+        const returned = `return ${String(rule.status)} ${nginxLiteral(rule.to)};`;
+        const lines = addHeadersFor(tree, rule.from);
+        return lines.length === 0
+          ? `location = ${nginxLocation(rule.from)} { ${returned} }`
+          : [
+              `location = ${nginxLocation(rule.from)} {`,
+              ...lines,
+              `    ${returned}`,
+              `}`,
+            ].join("\n");
+      }),
+    );
+  }
+
+  for (const rule of tree.headers) {
+    check(
+      tree,
+      `header prefix "${rule.prefix}"`,
+      rule.prefix,
+      faults,
+      unexpressibleInNginxLocation,
+    );
+    sections.push([
+      `location ^~ ${nginxLocation(rule.prefix)} {`,
+      ...rule.set.map((field) => {
+        // Checked again: a compiler is handed a document, not necessarily one this `planRouting` wrote.
+        check(
+          tree,
+          `header name "${field.name}" under prefix "${rule.prefix}"`,
+          field.name,
+          faults,
+        );
+        check(
+          tree,
+          `header "${field.name}" under prefix "${rule.prefix}"`,
+          field.value,
+          faults,
+        );
+        return addHeader(field);
+      }),
+      `}`,
+    ]);
+  }
+
+  if (tree.notFound !== undefined) {
+    check(
+      tree,
+      "404 page",
+      tree.notFound,
+      faults,
+      unexpressibleInNginxLocation,
+    );
+    // Both decoded: `error_page` sets the URI as written, and the location match does not decode it.
+    const lines = addHeadersFor(tree, tree.notFound);
+    sections.push([
+      `error_page 404 ${nginxLocation(tree.notFound)};`,
+      lines.length === 0
+        ? `location = ${nginxLocation(tree.notFound)} { internal; }`
+        : [
+            `location = ${nginxLocation(tree.notFound)} {`,
+            `    internal;`,
+            ...lines,
+            `}`,
+          ].join("\n"),
+    ]);
+  }
+
+  const contents = [
+    `# Generated by @pagedeck/edge from the routing document. Do not edit.\n# Include inside the server block serving ${treeOf(tree.domain)}.`,
+    ...sections.map((section) => section.join("\n")),
+  ].join("\n\n");
+
+  return [
+    {
+      ...(tree.domain === undefined ? {} : { domain: tree.domain }),
+      role: "server-config",
+      path: "routing.conf",
+      contents: `${contents}\n`,
+    },
+  ];
+}

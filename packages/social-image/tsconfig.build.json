@@ -1,0 +1,29 @@
+// `references` names `@pagedeck/core`, whose declarations this package's emitted
+// source reads: the contract it satisfies — `SocialImageAdapter`,
+// `SocialImageRequest`, `SocialImageResult` — and `ConfigError`, the class its
+// refusals throw. Not a cycle: core reads `build.socialImages` as a type it
+// declares and never imports this package, which is what keeps a rasteriser
+// off the CLI's import graph (`social-image.ts`'s own "Core ships no
+// renderer").
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  // Tests, their support modules and the harnesses run under Vitest, which
+  // reaches them as source. Nothing in `dist` imports them.
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-support.ts",
+    "src/**/*.harness.ts",
+    "src/**/*.harness.tsx"
+  ],
+  "references": [{ "path": "../core/tsconfig.build.json" }]
+}

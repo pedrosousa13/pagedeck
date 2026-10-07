@@ -1,0 +1,43 @@
+{
+  "rev": 2,
+  "data": {
+    "mode": "tree",
+    "title": "Schneller ausliefern",
+    "tree": [
+      {
+        "component": "Hero",
+        "props": { "background": "solid", "priority": true },
+        "children": [
+          {
+            "component": "Heading",
+            "props": { "level": 1, "text": "Schneller ausliefern" }
+          },
+          {
+            "component": "CtaButton",
+            "props": { "label": "Kostenlos starten", "href": "/de/pricing" }
+          }
+        ]
+      },
+      {
+        "component": "FeatureGrid",
+        "props": { "columns": 2 },
+        "children": [
+          {
+            "component": "FeatureCard",
+            "props": { "title": "Keine Laufzeit", "body": "Inhaltsseiten liefern 0 kB JS." },
+            "children": [{ "component": "Icon", "props": { "name": "bolt" } }]
+          },
+          {
+            "component": "FeatureCard",
+            "props": { "title": "Inkrementell", "body": "Eine Inhaltsänderung baut eine Seite neu." },
+            "children": [{ "component": "Icon", "props": { "name": "clock" } }]
+          }
+        ]
+      },
+      {
+        "component": "NewsletterSignup",
+        "props": { "island": true, "list": "produkt-updates" }
+      }
+    ]
+  }
+}

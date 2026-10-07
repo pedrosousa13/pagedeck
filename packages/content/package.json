@@ -1,0 +1,41 @@
+{
+  "name": "@pagedeck/content",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/content"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=23.4.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./escape": {
+      "source": "./src/escape.ts",
+      "types": "./dist/escape.d.ts",
+      "default": "./dist/escape.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "^1.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
