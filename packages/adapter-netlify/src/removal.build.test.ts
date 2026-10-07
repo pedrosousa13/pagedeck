@@ -146,9 +146,9 @@ test("the incremental build wrote the removed page's redirect into the routing d
   ]);
 });
 
-test("the netlify compiler turns the removed page's redirect into a _redirects row", () => {
+test("the netlify compiler turns the removed page's redirect into a _redirects row, status 301 for the document's 308 (#10)", () => {
   const output = netlify().compile(routing);
 
   const file = output.artifacts.find((one) => one.path === "/_redirects");
-  expect(file?.contents).toContain("/docs/old /docs 308");
+  expect(file?.contents).toContain("/docs/old /docs 301");
 });

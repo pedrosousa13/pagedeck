@@ -7,6 +7,7 @@ import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 import {
   netlifyHeaderValue,
   netlifyPattern,
+  netlifyStatus,
   unexpressibleInNetlifyPattern,
 } from "./encode.js";
 
@@ -58,22 +59,12 @@ export function compileNetlify(
     if (!rule.normalizing) {
       check(tree, `redirect from "${rule.from}"`, rule.from, faults);
       check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
-      // https://docs.netlify.com/manage/routing/redirects/redirect-options/ documents only
-      // 301, 302, 200 and 404 for a redirect, and names 307 directly as "currently unsupported".
-      // A derived row's status only ever echoes the authored one above, so it is never checked
-      // again here.
-      if (rule.status === 307) {
-        faults.push({
-          kind: "redirect-status",
-          line: `${treeOf(tree.domain)}'s redirect from "${rule.from}" — status 307, and Netlify documents only 301, 302, 200 and 404 for a redirect`,
-        });
-      }
     }
     // Forced on derived rows only: the origin's document at the other spelling is what the row
     // must beat. An authored `from` is never a page of this build.
     const forced = rule.normalizing ? "!" : "";
     rows.push(
-      `${netlifyPattern(rule.from)} ${netlifyPattern(rule.to)} ${String(rule.status)}${forced}`,
+      `${netlifyPattern(rule.from)} ${netlifyPattern(rule.to)} ${String(netlifyStatus(rule.status))}${forced}`,
     );
   }
   if (tree.notFound !== undefined) {

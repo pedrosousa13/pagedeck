@@ -58,35 +58,6 @@ describe("compile refusals", () => {
     );
   });
 
-  it("refuses a redirect status Netlify does not serve", () => {
-    // https://docs.netlify.com/manage/routing/redirects/redirect-options/ documents only
-    // 200, 301, 302 and 404 for a redirect, and names 307 directly: "Use this status code
-    // [302] instead of 307, which is currently unsupported."
-    const unserved: RoutingManifest = {
-      ...FIXTURE,
-      trees: [
-        {
-          redirects: [
-            {
-              from: "/old",
-              to: "/new",
-              status: 307,
-              source: "config",
-              via: [],
-            },
-          ],
-          headers: [],
-        },
-      ],
-    };
-    expect(() => netlify().compile(unserved)).toThrow(
-      new ConfigError(
-        `Edge target "netlify": 1 redirect declares a status this target does not serve — use a status this target serves, such as 301 or 302:
-  the default tree's redirect from "/old" — status 307, and Netlify documents only 301, 302, 200 and 404 for a redirect`,
-      ),
-    );
-  });
-
   it("refuses a declared experiment on netlify", () => {
     const split: RoutingManifest = {
       ...FIXTURE,

@@ -6,7 +6,11 @@ import {
   ROUTING_VERSION,
   SECURITY_HEADERS,
 } from "@pagedeck/core/routing";
-import type { RoutingManifest, TrailingSlash } from "@pagedeck/core/routing";
+import type {
+  RedirectStatus,
+  RoutingManifest,
+  TrailingSlash,
+} from "@pagedeck/core/routing";
 
 import type { EdgeAdapter } from "./adapter.js";
 import type { EdgeArtifact } from "./artifact.js";
@@ -22,6 +26,8 @@ export interface AdapterUnderTest {
     artifacts: readonly EdgeArtifact[],
     request: EdgeRequest,
   ): Resolution | Promise<Resolution>;
+  /** The status a host serves for one the document declares, where it narrows it (#10). */
+  servedStatus?(status: RedirectStatus): RedirectStatus;
 }
 
 export function textOf(adapter: EdgeAdapter, manifest: RoutingManifest): string {
@@ -379,6 +385,7 @@ const HARDENED_REQUESTS: readonly (EdgeRequest & { what: string })[] = [
 export function describeConformance({
   adapter,
   interpret,
+  servedStatus = (status) => status,
 }: AdapterUnderTest): void {
   const { name } = adapter;
   const answer = async (
@@ -386,12 +393,15 @@ export function describeConformance({
     request: EdgeRequest,
   ): Promise<Resolution> =>
     comparable(await interpret(adapter.compile(manifest).artifacts, request));
+  // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
+  const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
+    resolveRequest(manifest, request, servedStatus);
 
   describe("one document, every target, one behavior", () => {
     for (const request of REQUESTS) {
       it(`${name} answers ${request.what} the way the document says`, async () => {
         expect(await answer(FIXTURE, request)).toEqual(
-          comparable(resolveRequest(FIXTURE, request)),
+          comparable(claimFor(FIXTURE, request)),
         );
       });
     }
@@ -409,7 +419,7 @@ export function describeConformance({
     for (const request of ESCAPED_REQUESTS) {
       it(`${name} answers ${request.what}`, async () => {
         expect(await answer(ESCAPED, request)).toEqual(
-          comparable(resolveRequest(ESCAPED, request)),
+          comparable(claimFor(ESCAPED, request)),
         );
       });
     }
@@ -436,7 +446,7 @@ export function describeConformance({
     for (const request of SPELLING_REQUESTS) {
       it(`${name} answers ${request.what}`, async () => {
         expect(await answer(NEVER, request)).toEqual(
-          comparable(resolveRequest(NEVER, request)),
+          comparable(claimFor(NEVER, request)),
         );
       });
     }
@@ -449,7 +459,7 @@ export function describeConformance({
 
     it(`${name} answers the slashed file as the claim does`, async () => {
       expect(await answer(FILE, SLASHED_FILE)).toEqual(
-        comparable(resolveRequest(FILE, SLASHED_FILE)),
+        comparable(claimFor(FILE, SLASHED_FILE)),
       );
     });
   });
@@ -475,7 +485,7 @@ export function describeConformance({
         const request = { path, found: ALWAYS_FILE_HELD.has(path) };
         const resolution = await resolve(request);
         expect(comparable(resolution)).toEqual(
-          comparable(resolveRequest(ALWAYS_FILE, request)),
+          comparable(claimFor(ALWAYS_FILE, request)),
         );
         if (resolution.kind === "redirect") expect(resolution.to).not.toBe(path);
       }
@@ -488,7 +498,7 @@ export function describeConformance({
   describe("every target answers a reserved deploy key with the site's 404", () => {
     for (const request of KEYS) {
       it(`${name}, for ${request.what}`, async () => {
-        const claim = resolveRequest(FIXTURE, request);
+        const claim = claimFor(FIXTURE, request);
         expect(claim.kind).toBe("not-found");
         expect(await answer(FIXTURE, request)).toEqual(comparable(claim));
       });
@@ -496,7 +506,7 @@ export function describeConformance({
 
     for (const request of NEIGHBOURS) {
       it(`${name}, and serves ${request.what} as the site file it is`, async () => {
-        const claim = resolveRequest(FIXTURE, request);
+        const claim = claimFor(FIXTURE, request);
         expect(claim.kind).toBe("pass");
         expect(await answer(FIXTURE, request)).toEqual(comparable(claim));
       });
@@ -506,7 +516,7 @@ export function describeConformance({
   describe("a site with no 404 page", () => {
     for (const request of KEYS.filter((key) => key.domain === undefined)) {
       it(`gets a bare 404 from ${name} for ${request.what}, whatever header rule covers it`, async () => {
-        expect(resolveRequest(BARE, request)).toEqual({ kind: "not-found" });
+        expect(claimFor(BARE, request)).toEqual({ kind: "not-found" });
         expect(await answer(BARE, request)).toEqual(
           comparable({ kind: "not-found" }),
         );
@@ -516,7 +526,7 @@ export function describeConformance({
     it(`still gets its headers on a page from ${name}`, async () => {
       const request = { path: "/about", found: true };
       expect(await answer(BARE, request)).toEqual(
-        comparable(resolveRequest(BARE, request)),
+        comparable(claimFor(BARE, request)),
       );
     });
   });
@@ -535,7 +545,7 @@ export function describeConformance({
   describe("a site's whole security set, HSTS and CSP included, on every target", () => {
     for (const request of HARDENED_REQUESTS) {
       it(`answers ${request.what} on ${name} with all five fields, as the document says`, async () => {
-        const claim = comparable(resolveRequest(HARDENED, request));
+        const claim = comparable(claimFor(HARDENED, request));
         expect(
           (("headers" in claim ? claim.headers : undefined) ?? []).map(
             (field) => field.name,
