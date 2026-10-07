@@ -168,9 +168,9 @@ test("an island a frontmatter list places ships to its own page and to no other"
   const spend = Object.fromEntries(
     report.pages.map((page) => [page.path, page]),
   );
-  expect(Object.keys(spend).sort()).toEqual(["/", "/about", "/counter"]);
-  expect([spend["/"]?.actual, spend["/about"]?.actual]).toEqual([0, 0]);
-  const counter = (spend["/counter"]?.chunks ?? []).filter(({ path }) =>
+  expect(Object.keys(spend).sort()).toEqual(["/", "/about/", "/counter/"]);
+  expect([spend["/"]?.actual, spend["/about/"]?.actual]).toEqual([0, 0]);
+  const counter = (spend["/counter/"]?.chunks ?? []).filter(({ path }) =>
     readFileSync(join(BY_LAYOUT, "site", path), "utf8").includes(COUNTER_MARKER),
   );
   expect(counter).toHaveLength(1);
@@ -216,7 +216,7 @@ test("a content callback beside a layout renders only the pages whose source nam
       .__pagedeckLayoutCalls;
   }
 
-  expect(calls).toEqual(["/list"]);
+  expect(calls).toEqual(["/list/"]);
   const page = (path: string): string =>
     readFileSync(join(MIXED, "site", path, "index.html"), "utf8");
   expect(page("list")).toContain("<p>from the callback</p>");
