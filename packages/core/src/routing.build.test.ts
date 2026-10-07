@@ -194,7 +194,7 @@ test("a site declaring redirects, a 404 page and headers has them in its manifes
   });
 }, 120_000);
 
-test("a site that declares no routing writes an empty routing document, and the field costs it the manifest bytes and the not-found page's document, and nothing else", async () => {
+test("a site that declares no routing writes an empty routing document, and the field costs it the manifest bytes, the not-found page's document and its tree-root 404.html, and nothing else", async () => {
   const plain = at("plain", "", ["/about"]);
   const declared = at("declared", FULL_ROUTING, ["/about"]);
 
@@ -207,6 +207,7 @@ test("a site that declares no routing writes an empty routing document, and the 
     trees: [{ redirects: [], headers: [] }],
   });
   expect(diffOutputTrees(join(plain, "dist"), join(declared, "dist"))).toEqual([
+    { path: "404.html", difference: "second-only" },
     { path: "404/index.html", difference: "bytes" },
     { path: MANIFEST_FILE, difference: "bytes" },
   ]);
