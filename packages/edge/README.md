@@ -16,7 +16,7 @@ host serves:
 This package holds what the adapters share and names no host: the adapter
 contract, the routing normalisation every adapter compiles from, the
 JavaScript string encoder, the faults and the refusal they are reported in,
-the artifact types and the reserved keys.
+the host-free artifact type and the reserved keys.
 
 ```sh
 npm install @pagedeck/adapter-nginx @pagedeck/core
@@ -52,7 +52,9 @@ that names every fault the document holds for that host, never the first
 alone. Each refusal starts `Edge target "<name>"`.
 
 `defineAdapter` builds one from a per-tree compiler, and is what each adapter
-package calls:
+package calls. An adapter whose artifacts carry more fields extends
+`EdgeArtifact` and passes `describe`, which names an oversized artifact in the
+refusal; `unsupportedFix` replaces the fix an `unsupported` fault names.
 
 ```ts
 import { defineAdapter, treeOf } from "@pagedeck/edge";
@@ -99,7 +101,7 @@ deploy reported success.
 | `role`                | Where it goes                                                                                         |
 | --------------------- | ----------------------------------------------------------------------------------------------------- |
 | `tree-file`           | Into the output tree, uploaded with the site (`/_redirects`, `/_headers`)                             |
-| `function`            | Published as a CloudFront Function on the runtime named by `runtime`, and associated with a cache behaviour on the event named by `slot` |
+| `function`            | Published as a CloudFront Function, and associated with a cache behaviour; `@pagedeck/adapter-cloudfront`'s artifacts name the runtime and the event |
 | `dataset`             | Imported into the CloudFront KeyValueStore the function reads                                         |
 | `function-config`     | A `FunctionConfig` fragment applied to the function beside it, not to the distribution                 |
 | `distribution-config` | A `DistributionConfig` fragment CI applies to the distribution                                        |

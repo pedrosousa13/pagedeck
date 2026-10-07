@@ -30,8 +30,13 @@ core calls has to be a shape core can declare on its own.
 **The base.** `@pagedeck/edge` keeps what every host shares and names no host:
 the adapter contract, the routing normalisation (`compiledTree`), the
 JavaScript string encoder (`jsLiteral`), the faults and the one refusal they
-are reported in (`throwIfAny`), the artifact types and the reserved key
-(`UNSERVED_KEY`). Nothing in it imports an adapter.
+are reported in (`throwIfAny`), the host-free artifact type and the reserved
+key (`UNSERVED_KEY`). Nothing in it imports an adapter, and
+`packages/edge/src/packages.test.ts` refuses a host's name anywhere in its
+shipped source. A host-only concept lives in that host's adapter: CloudFront's
+event slot and function runtime are fields of `CloudFrontArtifact`, and the
+fix naming the one adapter that compiles a split is passed by each adapter
+that refuses one, as `unsupportedFix`.
 
 **The contract.** An adapter is a value:
 
@@ -48,7 +53,8 @@ quotes, `Edge target "<name>"`, and what `EdgeOutput.target` carries. Core
 declares that shape for #20 without importing this package, because both
 halves are core's own types: `RoutingManifest` and `ConfigError`.
 
-`defineAdapter({ name, limits, compileTree })` builds one. `compileTree` is
+`defineAdapter({ name, limits, compileTree, describe?, unsupportedFix? })`
+builds one. `compileTree` is
 handed one tree at a time, already normalised, and a `faults` array it pushes
 to. `defineAdapter` checks the routing version and every header name and value
 first, measures each artifact against the limit for its role, and reports

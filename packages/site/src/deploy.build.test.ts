@@ -381,7 +381,7 @@ test("the compiled cloudfront artifacts are staged out of band, never uploaded (
   expect(plan.edge?.outOfBand.map((one) => one.role)).toContain("function");
   expect(uploads(plan)).toEqual(["/index.html"]);
 
-  const viewer = plan.edge?.outOfBand.find((one) => one.slot === "viewer-request");
+  const viewer = plan.edge?.outOfBand.find((one) => one.path === "routing.request.js");
   expect(viewer?.contents).toContain(MOVED);
   expect(viewer?.contents).toContain(TARGET);
 });

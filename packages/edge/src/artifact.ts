@@ -18,32 +18,20 @@ export type ArtifactRole =
   /** An ES module published to run in front of the origin, which it reads through `binding`. */
   | "edge-module";
 
-/**
- * CloudFront needs two functions: viewer-request cannot decorate an origin response, and
- * viewer-response cannot stop a request.
- */
-export type EventSlot = "viewer-request" | "viewer-response";
-
-/** The dataset form imports `cloudfront` and awaits, which only `cloudfront-js-2.0` runs. */
-export type FunctionRuntime = "cloudfront-js-1.0" | "cloudfront-js-2.0";
-
 export interface EdgeArtifact {
   /** The output tree this serves; absent = default tree. */
   domain?: string;
   role: ArtifactRole;
-  slot?: EventSlot;
-  runtime?: FunctionRuntime;
   /** The name an `edge-module` reads the origin's bucket by; bind the bucket under it. */
   binding?: string;
-  /** Tree-relative for `"tree-file"` (`/_redirects`); a bare resource name otherwise. */
+  /** Tree-relative for `"tree-file"`; a bare resource name otherwise. */
   path: string;
   /** Text only, with no sourcemap or `sourceMappingURL` (ADR-0002). */
   contents: string;
 }
 
-export interface EdgeOutput {
-  /** The `EdgeAdapter.name` that compiled it. */
+export interface EdgeOutput<A extends EdgeArtifact = EdgeArtifact> {
   target: string;
   /** In `RoutingManifest.trees` order, then each compiler's; nothing is re-sorted. */
-  artifacts: readonly EdgeArtifact[];
+  artifacts: readonly A[];
 }

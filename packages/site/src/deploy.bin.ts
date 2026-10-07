@@ -211,7 +211,6 @@ async function deployInstantsAt(
   return { deployedAt, unreadableDeployInstants: unreadable };
 }
 
-// Each `--edge` value is the name its adapter reports.
 const EDGE_ADAPTERS: readonly EdgeAdapter[] = [cloudfront(), netlify(), nginx(), cloudflareWorker()];
 
 // The build that ends up live: after a rollback, the host serves the restored

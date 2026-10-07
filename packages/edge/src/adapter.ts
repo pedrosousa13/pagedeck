@@ -12,32 +12,33 @@ import { throwIfAny, treeOf } from "./faults.js";
 import { compiledTree } from "./normalize.js";
 import type { CompiledTree } from "./normalize.js";
 
-/**
- * One host's compiler over the whole routing document: what a deploy script calls, and the
- * shape `pagedeck build` will call without importing this package (#20).
- */
-export interface EdgeAdapter {
-  /** Names the host in every refusal, as `Edge target "<name>"`, and in `EdgeOutput.target`. */
+export interface EdgeAdapter<A extends EdgeArtifact = EdgeArtifact> {
+  /** Quoted in every refusal, as `Edge target "<name>"`, and carried in `EdgeOutput.target`. */
   readonly name: string;
   /** Throws one `ConfigError` naming every fault the document holds for this host. */
-  compile(routing: RoutingManifest): EdgeOutput;
+  compile(routing: RoutingManifest): EdgeOutput<A>;
 }
 
-export interface AdapterDefinition {
+export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   name: string;
   /** Byte ceiling per role; a role with no limit here is not measured. */
   limits: Readonly<Partial<Record<ArtifactRole, number>>>;
   /** Pushes each fault rather than throwing it, so one run reports every fault (rule 5). */
-  compileTree(tree: CompiledTree, faults: Fault[]): readonly EdgeArtifact[];
+  compileTree(tree: CompiledTree, faults: Fault[]): readonly A[];
+  /** Names an oversized artifact; `<tree>'s "<path>"` when absent. */
+  describe?(artifact: A): string;
+  /** The fix an `unsupported` fault names, where this adapter knows a better one. */
+  unsupportedFix?: string;
 }
 
-function checkVersion(version: number): void {
+function checkVersion(name: string, version: number): void {
   if (version === ROUTING_VERSION) return;
   const read = String(ROUTING_VERSION);
+  const reader = `edge adapter "${name}"`;
   throw new ConfigError(
     version > ROUTING_VERSION
-      ? `Routing manifest: version ${String(version)} is newer than this compiler reads (${read}) — upgrade @pagedeck/edge, or build with the @pagedeck/core that wrote it`
-      : `Routing manifest: version ${String(version)} is older than this compiler reads (${read}) — upgrade the @pagedeck/core that wrote it, or downgrade @pagedeck/edge`,
+      ? `Routing manifest: version ${String(version)} is newer than ${reader} reads (${read}) — upgrade the @pagedeck/adapter-* package you compile with, or build with the @pagedeck/core that wrote it`
+      : `Routing manifest: version ${String(version)} is older than ${reader} reads (${read}) — upgrade the @pagedeck/core that wrote it, or downgrade the @pagedeck/adapter-* package you compile with`,
   );
 }
 
@@ -66,19 +67,19 @@ function checkHeaders(tree: RoutingTree, faults: Fault[]): void {
   }
 }
 
-function describe(artifact: EdgeArtifact): string {
-  const tree = treeOf(artifact.domain);
-  return artifact.slot === undefined
-    ? `${tree}'s "${artifact.path}"`
-    : `${tree}'s ${artifact.slot} function`;
+function describePath(artifact: EdgeArtifact): string {
+  return `${treeOf(artifact.domain)}'s "${artifact.path}"`;
 }
 
-export function defineAdapter(definition: AdapterDefinition): EdgeAdapter {
+export function defineAdapter<A extends EdgeArtifact>(
+  definition: AdapterDefinition<A>,
+): EdgeAdapter<A> {
   const { name, limits } = definition;
+  const describe = definition.describe ?? describePath;
   return {
     name,
     compile(manifest) {
-      checkVersion(manifest.version);
+      checkVersion(name, manifest.version);
 
       const faults: Fault[] = [];
       for (const tree of manifest.trees) checkHeaders(tree, faults);
@@ -101,7 +102,7 @@ export function defineAdapter(definition: AdapterDefinition): EdgeAdapter {
           line: `${describe(artifact)} — ${String(bytes)} bytes, limit ${String(limit)}`,
         });
       }
-      throwIfAny(name, faults);
+      throwIfAny(name, faults, definition.unsupportedFix);
 
       return { target: name, artifacts };
     },

@@ -4,8 +4,6 @@ export type {
   ArtifactRole,
   EdgeArtifact,
   EdgeOutput,
-  EventSlot,
-  FunctionRuntime,
 } from "./artifact.js";
 export { jsLiteral } from "./encode.js";
 export { treeOf } from "./faults.js";

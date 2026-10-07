@@ -6,11 +6,21 @@ import {
 import type { ResolvedExperiment, RoutingTree } from "@pagedeck/core/routing";
 
 import { jsLiteral, treeOf, UNSERVED_KEY } from "@pagedeck/edge";
-import type {
-  CompiledTree,
-  EdgeArtifact,
-  FunctionRuntime,
-} from "@pagedeck/edge";
+import type { CompiledTree, EdgeArtifact } from "@pagedeck/edge";
+
+/**
+ * CloudFront needs two functions: viewer-request cannot decorate an origin response, and
+ * viewer-response cannot stop a request.
+ */
+export type EventSlot = "viewer-request" | "viewer-response";
+
+/** The dataset form imports `cloudfront` and awaits, which only `cloudfront-js-2.0` runs. */
+export type FunctionRuntime = "cloudfront-js-1.0" | "cloudfront-js-2.0";
+
+export interface CloudFrontArtifact extends EdgeArtifact {
+  slot?: EventSlot;
+  runtime?: FunctionRuntime;
+}
 
 export const CLOUDFRONT_FUNCTION_LIMIT = 10 * 1024;
 
@@ -396,8 +406,8 @@ function errorResponses(notFound: string): string {
 export function compileCloudFront(
   tree: CompiledTree,
   limit: number | undefined,
-): readonly EdgeArtifact[] {
-  const artifacts: EdgeArtifact[] = [];
+): readonly CloudFrontArtifact[] {
+  const artifacts: CloudFrontArtifact[] = [];
   const splits = tree.experiments ?? [];
 
   // Redirects before the rewrite, so only an address the viewer typed meets the redirect

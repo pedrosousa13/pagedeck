@@ -1,5 +1,3 @@
-// What every adapter is held to, registered from each adapter's own suite: the base cannot
-// import an adapter, and one copy of each case keeps the adapters from drifting apart.
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "@pagedeck/core/exit";

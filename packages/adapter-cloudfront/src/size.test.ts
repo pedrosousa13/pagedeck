@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "@pagedeck/core/exit";
-import type { EdgeArtifact } from "@pagedeck/edge";
 
 import { comparable } from "../../edge/src/interpret.test-support.js";
 import { resolveRequest } from "../../edge/src/oracle.test-support.js";
@@ -11,9 +10,10 @@ import {
   CLOUDFRONT_KVS_LIMIT,
   cloudfront,
 } from "./index.js";
+import type { CloudFrontArtifact } from "./index.js";
 import { interpretCloudFront } from "./interpret.test-support.js";
 
-function artifactsOf(count: number): readonly EdgeArtifact[] {
+function artifactsOf(count: number): readonly CloudFrontArtifact[] {
   return cloudfront().compile(manifestOf(count)).artifacts;
 }
 
@@ -31,13 +31,13 @@ describe("a redirect set that fits", () => {
 
   it("stays under the limit", () => {
     const fn = artifacts[0];
-    expect(bytes(fn as EdgeArtifact)).toBeLessThanOrEqual(
+    expect(bytes(fn as CloudFrontArtifact)).toBeLessThanOrEqual(
       CLOUDFRONT_FUNCTION_LIMIT,
     );
   });
 
   it("names the runtime the inline form needs", () => {
-    expect((artifacts[0] as EdgeArtifact).runtime).toBe("cloudfront-js-1.0");
+    expect((artifacts[0] as CloudFrontArtifact).runtime).toBe("cloudfront-js-1.0");
   });
 });
 
@@ -58,24 +58,24 @@ describe("a redirect set that does not fit", () => {
   });
 
   it("names the runtime the dataset form needs", () => {
-    expect((artifacts[0] as EdgeArtifact).runtime).toBe("cloudfront-js-2.0");
+    expect((artifacts[0] as CloudFrontArtifact).runtime).toBe("cloudfront-js-2.0");
   });
 
   it("leaves the function under the limit", () => {
-    const fn = artifacts[0] as EdgeArtifact;
+    const fn = artifacts[0] as CloudFrontArtifact;
     expect(bytes(fn)).toBeLessThanOrEqual(CLOUDFRONT_FUNCTION_LIMIT);
   });
 
   it("keeps the function the same size whatever the rule count", () => {
     const larger = artifactsOf(count * 4);
-    expect(bytes(larger[0] as EdgeArtifact)).toBe(
-      bytes(artifacts[0] as EdgeArtifact),
+    expect(bytes(larger[0] as CloudFrontArtifact)).toBe(
+      bytes(artifacts[0] as CloudFrontArtifact),
     );
   });
 
   it("carries every rule in the dataset", () => {
     const dataset = artifacts.find((artifact) => artifact.role === "dataset");
-    const parsed = JSON.parse((dataset as EdgeArtifact).contents) as {
+    const parsed = JSON.parse((dataset as CloudFrontArtifact).contents) as {
       data: readonly { key: string; value: string }[];
     };
     expect(parsed.data).toHaveLength(count * 3);
@@ -117,7 +117,7 @@ describe("the store the dataset form needs", () => {
   const moved = artifactsOf(400);
   const inline = artifactsOf(20);
 
-  function configOf(artifacts: readonly EdgeArtifact[]): {
+  function configOf(artifacts: readonly CloudFrontArtifact[]): {
     Runtime: string;
     Comment: string;
     KeyValueStoreAssociations: {
@@ -128,7 +128,7 @@ describe("the store the dataset form needs", () => {
     const config = artifacts.find(
       (artifact) => artifact.role === "function-config",
     );
-    return JSON.parse((config as EdgeArtifact).contents) as never;
+    return JSON.parse((config as CloudFrontArtifact).contents) as never;
   }
 
   it("emits the association fragment beside the function and the dataset", () => {
@@ -144,7 +144,7 @@ describe("the store the dataset form needs", () => {
 
   it("associates exactly one store, on the runtime the function needs", () => {
     const config = configOf(moved);
-    expect(config.Runtime).toBe((moved[0] as EdgeArtifact).runtime);
+    expect(config.Runtime).toBe((moved[0] as CloudFrontArtifact).runtime);
     expect(config.KeyValueStoreAssociations.Quantity).toBe(1);
     expect(config.KeyValueStoreAssociations.Items).toHaveLength(1);
   });
@@ -152,7 +152,7 @@ describe("the store the dataset form needs", () => {
   it("names the dataset the operator has to import into that store", () => {
     const named = configOf(moved).Comment;
     const dataset = moved.find((artifact) => artifact.role === "dataset");
-    expect(named).toContain((dataset as EdgeArtifact).path);
+    expect(named).toContain((dataset as CloudFrontArtifact).path);
   });
 
   it("leaves the ARN as one named substitution, and nothing else", () => {

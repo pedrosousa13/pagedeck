@@ -147,8 +147,6 @@ test("the netlify compiler turns the built document into a _redirects row", () =
   expect(file?.contents).toContain(`${MOVED} ${TARGET} 301`);
 });
 
-// Each other adapter compiles a built document in a site's own suite: `packages/site`'s
-// `deploy.build.test.ts` and the docs, landing and site `site.build.test.ts`.
 test("the netlify adapter names itself in what it compiles from the built document", () => {
   const output = netlify().compile(routing);
 

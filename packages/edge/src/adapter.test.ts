@@ -30,7 +30,7 @@ describe("defineAdapter", () => {
     const newer: RoutingManifest = { ...FIXTURE, version: 2 };
     expect(() => stub.compile(newer)).toThrow(
       new ConfigError(
-        "Routing manifest: version 2 is newer than this compiler reads (1) — upgrade @pagedeck/edge, or build with the @pagedeck/core that wrote it",
+        'Routing manifest: version 2 is newer than edge adapter "stub" reads (1) — upgrade the @pagedeck/adapter-* package you compile with, or build with the @pagedeck/core that wrote it',
       ),
     );
   });
@@ -39,7 +39,7 @@ describe("defineAdapter", () => {
     const older: RoutingManifest = { ...FIXTURE, version: 0 };
     expect(() => stub.compile(older)).toThrow(
       new ConfigError(
-        "Routing manifest: version 0 is older than this compiler reads (1) — upgrade the @pagedeck/core that wrote it, or downgrade @pagedeck/edge",
+        'Routing manifest: version 0 is older than edge adapter "stub" reads (1) — upgrade the @pagedeck/core that wrote it, or downgrade the @pagedeck/adapter-* package you compile with',
       ),
     );
   });

@@ -20,7 +20,7 @@ export function netlifyPattern(value: string): string {
   return value;
 }
 
-// Identity: a header value is checked before any target runs (#671).
+// Identity: a header value is checked before any adapter's own grammar runs (#671).
 export function netlifyHeaderValue(value: string): string {
   return value;
 }

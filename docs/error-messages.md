@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 217 checked messages pin 33747 of the 82911 fenced characters, and
+below**: the 217 checked messages pin 33768 of the 82952 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -125,7 +125,7 @@ Config "/site/pagedeck.config.ts": no store to read at "/site/content.db", so pa
 Dev server: no store to read at "/site/content.db" — run pagedeck sync if it has not been created yet
 Snapshot target "https://cdn.example/store.db": scheme "s3:" is not supported — use file: or https: (an S3-style target is an https: presigned URL)
 Edge target "fastly" is not supported — use one of: cloudfront-function, netlify, nginx, cloudflare-worker
-Routing manifest: version 2 is newer than this compiler reads (1) — upgrade @pagedeck/edge, or build with the @pagedeck/core that wrote it
+Routing manifest: version 2 is newer than edge adapter "nginx" reads (1) — upgrade the @pagedeck/adapter-* package you compile with, or build with the @pagedeck/core that wrote it
 ```
 
 The edge target names the supported list rather than describing it, because the

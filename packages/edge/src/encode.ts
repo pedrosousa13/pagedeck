@@ -1,6 +1,4 @@
-// Every routing-document value an adapter writes into JavaScript passes through `jsLiteral`;
-// a grammar one host alone reads is encoded in that adapter's own `encode.ts` (#49). Encoding
-// only: nothing here changes which address a value names.
+// Encoding only: nothing here changes which address a value names.
 
 // Past `JSON.stringify`: `</` closes an enclosing element, and U+2028 and U+2029 end a line
 // in JavaScript.

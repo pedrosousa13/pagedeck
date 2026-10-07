@@ -1,11 +1,14 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { PUBLIC_PACKAGES } from "../../core/src/public-packages.test-support.js";
 import * as base from "./index.js";
 
 const PACKAGES = join(import.meta.dirname, "..", "..");
+
+// A host's name, or a word only one host's artifacts use.
+const HOST = /cloudfront|cloudflare|netlify|nginx|\bworkers?\b|_redirects|_headers/i;
 
 const ADAPTERS = [
   "adapter-cloudfront",
@@ -75,11 +78,23 @@ describe("the edge packages (#19)", () => {
   });
 
   it("names no host in anything the base exports", () => {
-    expect(
-      Object.keys(base).filter((name) =>
-        /cloudfront|cloudflare|worker|netlify|nginx/i.test(name),
-      ),
-    ).toEqual([]);
+    expect(Object.keys(base).filter((name) => HOST.test(name))).toEqual([]);
+  });
+
+  it("names no host anywhere in the base's shipped source", () => {
+    const named = sourceFiles("edge")
+      .filter((file) => !/\.test(-support)?\.tsx?$/.test(file))
+      .flatMap((file) =>
+        readFileSync(file, "utf8")
+          .split("\n")
+          .map((line, index) => ({ file, line: index + 1, text: line }))
+          .filter(({ text }) => HOST.test(text))
+          .map(
+            ({ file, line, text }) =>
+              `${relative(PACKAGES, file)}:${String(line)}: ${text.trim()}`,
+          ),
+      );
+    expect(named).toEqual([]);
   });
 
   for (const adapter of ADAPTERS) {

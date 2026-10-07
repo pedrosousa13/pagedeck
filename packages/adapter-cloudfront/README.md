@@ -28,6 +28,9 @@ Each artifact's `role` says where it goes, as
 adapter shares (the refusals, the 404 page's headers, the reserved deploy keys
 and trailing slashes) is documented there too.
 
+Its artifacts are `CloudFrontArtifact`s: a `function` carries the event it
+runs on in `slot` and the runtime it needs in `runtime`.
+
 `cloudfront()` takes `limits`, a byte ceiling per role: `function` defaults to
 `CLOUDFRONT_FUNCTION_LIMIT` (10 kB) and `dataset` to `CLOUDFRONT_KVS_LIMIT`
 (5 MB). Raise one only if your account's limit is higher.
