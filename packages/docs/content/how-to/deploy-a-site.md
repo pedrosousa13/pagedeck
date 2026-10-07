@@ -231,6 +231,9 @@ in place of `netlify()`:
   `_redirects`, and `_headers` when the site declares header rules, the same
   as Netlify's. Both are tree files. It refuses `trailingSlash: "never"`; see
   "Cloudflare Pages" below for its build settings.
+- `vercel()` from `@pagedeck/adapter-vercel` writes `vercel.json`, a tree
+  file; see "Vercel" below for its build settings and where the file must
+  end up.
 
 Outside `pagedeck build` — against a manifest from another build, or to try an
 adapter without building — call it directly over a routing document:
@@ -309,3 +312,59 @@ with `PAGEDECK_SNAPSHOT_URL` set as an environment variable on the project. On
 the first run there is no snapshot to pull and no cursor for `--incremental`
 to start from: run `pagedeck sync` and `pagedeck store push` once first, the
 same as that section describes for any CI runner.
+
+## Vercel
+
+[Vercel](https://vercel.com/docs) builds from a connected git repository. Set
+these in the project's Build and Deployment settings
+(https://vercel.com/docs/project-configuration/general-settings):
+
+| Setting | Value |
+| --- | --- |
+| Framework Preset | Other |
+| Build Command | `npx pagedeck sync && npx pagedeck build` |
+| Output Directory | `site` |
+| Node.js Version | `22.x` or `24.x`, not `20.x`, which predates `@pagedeck/core`'s `engines.node` floor |
+
+Install `@pagedeck/adapter-vercel` and name its factory in `build.adapter`:
+`adapter: vercel()`, imported with
+`import { vercel } from "@pagedeck/adapter-vercel"`.
+
+`vercel()` writes `vercel.json` at the root of each output tree —
+`site/vercel.json` for a site with one tree — a tree file, so `pagedeck diff`
+uploads it with the rest of the site like any other. Vercel's own docs
+describe `vercel.json` as living at the project's root, which for a pagedeck
+site is where `pagedeck.config.ts` is, not where the build writes `site/`;
+setting Output Directory to `site` (above) is what makes Vercel read the one
+`pagedeck build` wrote instead. Check this on a staging deploy before relying
+on it, by requesting a path the routing document redirects and reading the
+response.
+
+### Full builds, or keeping the content store
+
+Vercel's build runs in a fresh container on every deploy: it holds no
+`content.db` and no `.pagedeck/` from any earlier build. A build that starts
+with no `content.db` syncs every entry, so a plain
+`npx pagedeck sync && npx pagedeck build`, as the Build Command above runs, is
+the normal case for this host, and it is always a full build —
+`pagedeck build --incremental` needs `site/` from the previous run too (see
+"Keep the content store and `.pagedeck/` between CI runs" above), which
+Vercel's build container does not carry over.
+
+If a full sync is too slow for your content source, keep `content.db` between
+builds with `npx pagedeck store pull` and `npx pagedeck store push`, setting
+`PAGEDECK_SNAPSHOT_URL` as an Environment Variable on the project, and
+changing the Build Command to:
+
+```sh
+npx pagedeck store pull
+npx pagedeck sync --incremental
+npx pagedeck build
+npx pagedeck store push
+```
+
+The build itself stays a full build — `site/` is not carried over — but the
+sync no longer re-fetches every entry from the content source. On the first
+run there is no snapshot to pull and no cursor for `--incremental` to start
+from: run `pagedeck sync` and `pagedeck store push` once first, the same as
+that section describes for any CI runner.

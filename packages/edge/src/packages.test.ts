@@ -8,7 +8,7 @@ import * as base from "./index.js";
 const PACKAGES = join(import.meta.dirname, "..", "..");
 
 // A host's name, or a word only one host's artifacts use.
-const HOST = /cloudfront|cloudflare|netlify|nginx|\bworkers?\b|_redirects|_headers/i;
+const HOST = /cloudfront|cloudflare|netlify|nginx|vercel|\bworkers?\b|_redirects|_headers/i;
 
 const ADAPTERS = [
   "adapter-cloudfront",
@@ -16,6 +16,7 @@ const ADAPTERS = [
   "adapter-nginx",
   "adapter-cloudflare-worker",
   "adapter-cloudflare-pages",
+  "adapter-vercel",
 ] as const;
 
 // Tests and test support included: a suite that imports an adapter is an edge all the same.

@@ -67,7 +67,9 @@ other two pages ship no JavaScript.
 | [`@pagedeck/adapter-netlify`](packages/adapter-netlify) | Compiles the site's redirects and headers into Netlify's `_redirects` and `_headers` |
 | [`@pagedeck/adapter-nginx`](packages/adapter-nginx) | Compiles the site's redirects and headers into an nginx config fragment |
 | [`@pagedeck/adapter-cloudflare-worker`](packages/adapter-cloudflare-worker) | Compiles the site's redirects and headers into a Cloudflare Worker |
-| [`@pagedeck/edge`](packages/edge) | What the four adapters share, for writing another |
+| [`@pagedeck/adapter-cloudflare-pages`](packages/adapter-cloudflare-pages) | Compiles the site's redirects and headers into Cloudflare Pages' `_redirects` and `_headers` |
+| [`@pagedeck/adapter-vercel`](packages/adapter-vercel) | Compiles the site's redirects, headers and 404 page into `vercel.json` |
+| [`@pagedeck/edge`](packages/edge) | What the six adapters share, for writing another |
 | [`@pagedeck/preview`](packages/preview) | The preview app a build can emit, which renders drafts from an editor |
 
 A site created with `npm create pagedeck` installs `core`, `content`, `islands`

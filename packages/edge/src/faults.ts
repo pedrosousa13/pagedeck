@@ -12,7 +12,8 @@ export interface Fault {
     | "header-name"
     | "header-value"
     | "oversize"
-    | "trailing-slash";
+    | "trailing-slash"
+    | "limit";
   line: string;
 }
 
@@ -29,6 +30,8 @@ const OFFSITE_FIX =
 const OVERSIZE_FIX =
   "reduce the rule set, or raise the limit if the host's is higher";
 const TRAILING_SLASH_FIX = 'set trailingSlash: "always"';
+const LIMIT_FIX =
+  "reduce the rule set, or compile a target whose documented limit is higher";
 
 function paragraph(
   target: string,
@@ -69,6 +72,9 @@ export function throwIfAny(
     .map((fault) => fault.line);
   const trailingSlash = faults
     .filter((fault) => fault.kind === "trailing-slash")
+    .map((fault) => fault.line);
+  const limit = faults
+    .filter((fault) => fault.kind === "limit")
     .map((fault) => fault.line);
   const sections: string[] = [];
   if (unsupported.length > 0) {
@@ -159,6 +165,19 @@ export function throwIfAny(
           : "trees cannot serve the site's trailingSlash policy",
         TRAILING_SLASH_FIX,
         trailingSlash,
+      ),
+    );
+  }
+  if (limit.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        limit.length,
+        limit.length === 1
+          ? "value exceeds a limit this target documents"
+          : "values exceed a limit this target documents",
+        LIMIT_FIX,
+        limit,
       ),
     );
   }

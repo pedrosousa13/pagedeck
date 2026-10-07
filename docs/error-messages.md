@@ -673,7 +673,7 @@ one `planRouting` wrote.
 Every adapter makes `planRouting`'s header checks again, for the same reason
 (#671). `defineAdapter` runs them before any adapter's own grammar, with
 `unusableHeaderName` and `unusableHeaderValue` from
-`packages/core/src/routing.ts`, so all four adapters refuse a field alike. Both
+`packages/core/src/routing.ts`, so all six adapters refuse a field alike. Both
 fixes are `planRouting`'s own, so each rule has one wording. A value is named
 by the code point that broke it and never quoted:
 

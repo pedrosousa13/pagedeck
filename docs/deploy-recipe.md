@@ -1015,6 +1015,15 @@ repository has not observed, and the equivalence check assumes it:
   outside this adapter's files entirely: Cloudflare's own nearest-`404.html`
   lookup serves it (not `_redirects` or `_headers`), and whether that response
   carries the 404 page's header set or none is a third open question.
+- **Vercel**, two facts: that a `routes` entry ahead of
+  `{"handle": "filesystem"}` still wins over a real file at that path, and
+  that one declared after it is reached only where no real file answers. If
+  the first is wrong, a reserved deploy key is served as the real file it
+  masks rather than the 404 page. If the second is wrong, a miss anywhere else
+  in the tree gets no header from the routing document, or masks a page that
+  does exist. A third fact, outside this check: that Vercel reads `vercel.json`
+  from the Output Directory, which is where `pagedeck build` writes it. The
+  how-to's "Vercel" section names the Output Directory setting that assumes it.
 
 Check all of these on a staging deploy before relying on them, by requesting a
 missing path, a redirect source and a reserved deploy key, and reading the
