@@ -37,8 +37,8 @@ same Lighthouse run is what qualifies it.
 pnpm build && pnpm test:lighthouse-harness    # the Lighthouse pass and the byte counts
 pnpm build && pnpm test:a11y-harness          # the axe pass
 pnpm build && npx vitest run packages/site/src/runtime.build.test.ts   # criterion 2
-pnpm bench:landing-publish       # criterion 4: deploys the live landing page four times
-pnpm bench:landing-lighthouse    # criterion 5: Lighthouse over the live landing page
+pnpm bench:landing-publish --apply   # criterion 4: deploys the live landing page four times
+pnpm bench:landing-lighthouse        # criterion 5: Lighthouse over the live landing page
 ```
 
 The last two reach the live landing page, so they are run by hand and never by
@@ -288,8 +288,8 @@ two would credit or blame the framework for a CDN.
    the twin's own history is the baseline, and after a cutover there is no twin
    left to measure. Per-page where the URL has enough traffic to be in the
    dataset and per-origin otherwise, stated per row rather than silently mixed.
-2. **First-party RUM**, from the `web-vitals` beacon spec §12 describes and #48
-   owns. It is what makes the comparison per page on pages CrUX cannot see, and
+2. **First-party RUM**, from the `web-vitals` beacon spec §12 describes and
+   framework #48 owned; #56 now takes it for the landing page. It is what makes the comparison per page on pages CrUX cannot see, and
    it is the only source that can attribute a regression to a page rather than
    to an origin. It is not a substitute for CrUX: it measures this site's
    visitors with this site's sampling, and the twin's beacon — if it ever had
@@ -322,7 +322,7 @@ is live: `packages/landing`, served as Workers Static Assets at
 "The landing page on Cloudflare"). The dogfood site is still not deployed and
 has no figure of its own.
 
-**The method.** `pnpm bench:landing-publish` runs
+**The method.** `pnpm bench:landing-publish --apply` runs
 `packages/landing/src/publish-to-live.harness.ts`. Each of its three runs:
 
 1. adds a dated probe sentence after one sentence of
@@ -363,6 +363,17 @@ was about 23 s. The polls came from one machine, through the Cloudflare
 location that serves it. The figure says nothing about how long another
 location serves the old version. Nothing asserts on these figures (#57,
 #183): the harness prints them.
+
+**What the runs exercised.** Not Pagedeck's own incremental deploy. The
+landing page does not go through `deploy.bin.js` (`docs/deploy-recipe.md`), so
+`pagedeck diff`, the deploy history and the one-file publish #57 measured
+below play no part. Each run ran `pagedeck sync` and a full `pagedeck build`,
+not `--incremental`, and then `wrangler deploy`, which hashes every asset and
+uploads only those Cloudflare does not already hold. So the only thing that
+skipped unchanged files was Cloudflare's hash dedupe. The verdict holds on
+that path: the whole of it, from sync to the edit being served, took about
+23 s, under the 60 s the criterion allows. Pagedeck's incremental path was not
+measured here, so this says nothing about its speed.
 
 ### Before #2: a publish into a directory (#57)
 
@@ -656,8 +667,8 @@ Every criterion above that is not met, and every gap named in passing, is filed
 as a `needs-triage` issue with its measurement attached — #59's fourth
 acceptance criterion. They are, in the order they appear here:
 
-- the missing production CWV comparison, blocked on a deploy and on #48's
-  beacon (criterion 3);
+- the missing production CWV comparison, blocked on a deploy and on
+  framework #48's beacon (criterion 3), and for the landing page on #56;
 - publish-to-live, already carried on #57 (criterion 4), with the 36 ms / 9 ms
   local publish attached and the reason it is not the figure. #2 measured it
   on the live landing page and it is met there;
@@ -702,7 +713,7 @@ record of what was.
 - **A performance verdict.** Nothing here measures field performance, and
   criterion 3 is the row that says so.
 - **A gate.** Three of the four filed items wait on something this repository
-  does not have: two on a deploy, one of those also on #48's RUM beacon, and
+  does not have: two on a deploy, one of those also on framework #48's RUM beacon, now #56, and
   PageSpeed with the full loadout on a service this work must not call and a
   vendor loadout it must not name. That last one is no longer waiting on a
   script layer — #212 landed one, and `packages/site` declares it against
