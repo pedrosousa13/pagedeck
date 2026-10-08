@@ -1029,17 +1029,6 @@ Check all of these on a staging deploy before relying on them, by requesting a
 missing path, a redirect source and a reserved deploy key, and reading the
 response headers and status.
 
-**On Netlify, a page's other trailing-slash spelling is Netlify's own answer**
-(#35). Every other target redirects the other spelling of a redirect's target
-to the target. Netlify [matches a `_redirects` rule with or without a trailing
-slash](https://docs.netlify.com/manage/routing/redirects/redirect-options/), and
-its docs say "you cannot use a redirect rule to add or remove a trailing
-slash": a row such as `/new /new/ 301!` sends `/new/` to itself, forever. So
-`netlify()` writes no row whose two paths differ only by a trailing slash, and
-the conformance cases do not claim that redirect for Netlify. It keeps the
-forced row from a redirect source's other spelling to the target, which beats
-a document still on the origin at that spelling.
-
 Nothing in this repository applies the second group, and that is the standing
 decision "edge artifacts are emitted, not provisioned" rather than an unfinished
 step: a compiler emits the files a host needs and records what the host must be
@@ -1047,6 +1036,19 @@ given, and what it emits is inert until somebody installs it. The failure that
 decision is written against is concrete — a CloudFront Function uploaded into the
 bucket beside the site's JavaScript succeeds, publishes nothing, fires no
 redirect, and reports green.
+
+**On Netlify, a page's other trailing-slash spelling is Netlify's own answer**
+(#35). Every other target redirects the other spelling of a redirect's target
+to the target. Netlify [matches a `_redirects` rule with or without a trailing
+slash](https://docs.netlify.com/manage/routing/redirects/redirect-options/), and
+its docs say "you cannot use a redirect rule to add or remove a trailing
+slash": a row such as `/new /new/ 301!` sends `/new/` to itself. So `netlify()`
+writes no row whose two paths differ only by a trailing slash, refuses a
+configured redirect of that shape, and the conformance cases do not claim that
+redirect for Netlify. It keeps the row from a redirect source's other spelling
+to the target: that row is forced (`!`), so it wins over a file at that path.
+Because Netlify ignores the trailing slash, the same forced row also catches
+the source's own spelling, which in effect forces the configured rule too.
 
 The dogfood site declares two redirects and two response headers
 (`packages/site/src/site.ts`), and

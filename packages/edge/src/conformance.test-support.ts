@@ -36,11 +36,8 @@ export interface AdapterUnderTest {
    * where the 404 page's set and the requested path's agree (#39).
    */
   unverifiedNotFound?: boolean;
-  /**
-   * The host answers a page's other spelling itself and no rule can redirect it, so that spelling
-   * gets the origin's answer (#35).
-   */
-  hostSpellsPages?: boolean;
+  /** No rule can redirect one trailing-slash spelling to the other, so the origin answers (#35). */
+  noSlashRedirects?: boolean;
 }
 
 interface Spelling {
@@ -450,12 +447,12 @@ export function describeConformance({
   servedStatus = (status) => status,
   policies,
   unverifiedNotFound = false,
-  hostSpellsPages = false,
+  noSlashRedirects = false,
 }: AdapterUnderTest): void {
   for (const policy of policies) {
     describe(`under trailingSlash "${policy}"`, () => {
       describePolicy(
-        { adapter, interpret, servedStatus, unverifiedNotFound, hostSpellsPages },
+        { adapter, interpret, servedStatus, unverifiedNotFound, noSlashRedirects },
         policy,
       );
     });
@@ -468,7 +465,7 @@ function describePolicy(
     interpret,
     servedStatus,
     unverifiedNotFound,
-    hostSpellsPages,
+    noSlashRedirects,
   }: Required<Omit<AdapterUnderTest, "policies">>,
   policy: TrailingSlash,
 ): void {
@@ -482,7 +479,7 @@ function describePolicy(
   const hardened = underPolicy(HARDENED, policy);
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
   const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
-    resolveRequest(manifest, request, servedStatus, hostSpellsPages);
+    resolveRequest(manifest, request, servedStatus, noSlashRedirects);
   const check = (
     manifest: RoutingManifest,
     request: EdgeRequest,
@@ -553,7 +550,7 @@ function describePolicy(
       expect(textOf(adapter, spellings)).toMatch(alone("/en/legacy"));
     });
 
-    if (!hostSpellsPages) {
+    if (!noSlashRedirects) {
       it(`${name} rules on the non-canonical spelling of a page`, () => {
         expect(textOf(adapter, spellings)).toMatch(alone("/en/about"));
       });

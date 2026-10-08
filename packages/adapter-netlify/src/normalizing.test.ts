@@ -32,11 +32,10 @@ describe("the claim the adapters are checked against", () => {
 });
 
 describe("netlify's slash-insensitive matching", () => {
-  // https://docs.netlify.com/manage/routing/redirects/redirect-options/ : Netlify matches a
-  // rule with or without a trailing slash, so a row between two spellings answers itself (#35).
   for (const manifest of [FIXTURE, ALWAYS_FILE]) {
-    it(`writes no row between two spellings of one path under "${manifest.site.trailingSlash}"`, () => {
-      const bare = (path: string) => path.replace(/(.)\/$/, "$1");
+    it(`writes no row between two spellings of one path under "${manifest.site.trailingSlash}" (#35)`, () => {
+      const bare = (path: string) =>
+        path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
       const loops = contentsOf(netlify(), manifest, "/_redirects")
         .trimEnd()
         .split("\n")

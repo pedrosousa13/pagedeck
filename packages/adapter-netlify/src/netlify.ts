@@ -60,10 +60,16 @@ export function compileNetlify(
     `${DEPLOY_DIRECTORY}/*`,
   ].map((pattern) => `${pattern} ${denied} 404!`);
   for (const rule of tree.redirects) {
-    // Netlify matches a rule with or without a trailing slash, so a row from a target's other
-    // spelling to the target redirects the target to itself (#35):
-    // https://docs.netlify.com/manage/routing/redirects/redirect-options/
-    if (rule.normalizing && withoutSlash(rule.from) === withoutSlash(rule.to)) continue;
+    // Netlify matches with or without a trailing slash, so this row would redirect to itself (#35).
+    if (withoutSlash(rule.from) === withoutSlash(rule.to)) {
+      if (!rule.normalizing) {
+        faults.push({
+          kind: "slash-only",
+          line: `${treeOf(tree.domain)}'s redirect from "${rule.from}" to "${rule.to}" — Netlify matches a rule with or without a trailing slash, so this rule would answer its own target with a redirect to itself`,
+        });
+      }
+      continue;
+    }
     if (!rule.normalizing) {
       check(tree, `redirect from "${rule.from}"`, rule.from, faults);
       check(tree, `redirect target on "${rule.from}"`, rule.to, faults);

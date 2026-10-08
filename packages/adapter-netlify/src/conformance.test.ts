@@ -10,5 +10,5 @@ describeConformance({
   policies: ["never", "always"],
   // https://docs.netlify.com/manage/routing/redirects/redirect-options/ : "You cannot use a
   // redirect rule to add or remove a trailing slash."
-  hostSpellsPages: true,
+  noSlashRedirects: true,
 });
