@@ -2,7 +2,7 @@
 
 // Registered `idle`, yet fetches nothing until touched (#62): focus warms the shard ranges,
 // and typing fetches shards.
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { reportBrowserFault } from "@pagedeck/islands/browser-report";
 import { createSearchClient } from "./query.js";
 import type { SearchHit } from "./query.js";
@@ -38,6 +38,7 @@ export default function SearchIsland({
   const ticket = useRef(0);
 
   const options = useRef(new Map<number, Clickable>());
+  const field = useRef<Typed | null>(null);
 
   const ids = useId();
   const inputId = `${ids}input`;
@@ -77,6 +78,14 @@ export default function SearchIsland({
     },
     [client, report],
   );
+
+  // The server-rendered input takes typing before hydration (#94).
+  useLayoutEffect(() => {
+    const typed = field.current?.value ?? "";
+    if (typed === "") return;
+    setQuery(typed);
+    run(typed);
+  }, [run]);
 
   const showing = open && hits !== undefined && hits.length > 0;
 
@@ -123,6 +132,7 @@ export default function SearchIsland({
             setActive(-1);
           }
         }}
+        ref={field}
         role="combobox"
         type="search"
         value={query}

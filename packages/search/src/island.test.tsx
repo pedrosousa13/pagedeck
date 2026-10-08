@@ -14,6 +14,9 @@ declare global {
 interface El {
   id: string;
   value: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  setSelectionRange(start: number, end: number): void;
   textContent: string | null;
   getAttribute(name: string): string | null;
   focus(): void;
@@ -95,16 +98,32 @@ const PROPS = {
 
 const mounted: { root?: { unmount(): void }; container?: Container } = {};
 
-function mount(): Container {
+// Through the prototype's setter: React drops an `input` event whose value it already saw.
+function setValue(element: El, text: string): void {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+    element,
+    text,
+  );
+}
+
+function mount({
+  beforeHydrating = () => undefined,
+  onRecoverableError = () => undefined,
+}: {
+  beforeHydrating?: (container: Container) => void;
+  onRecoverableError?: (error: unknown) => void;
+} = {}): Container {
   const container = document.createElement("div");
   container.innerHTML = renderToStaticMarkup(
     createElement(SearchIsland, PROPS),
   );
   document.body.appendChild(container);
+  beforeHydrating(container);
   act(() => {
     mounted.root = hydrateRoot(
       container as never,
       createElement(SearchIsland, PROPS),
+      { onRecoverableError },
     );
   });
   mounted.container = container;
@@ -126,15 +145,10 @@ async function focus(container: Container): Promise<void> {
   });
 }
 
-// Through the prototype's setter: React drops an `input` event whose value it already saw.
 async function type(container: Container, text: string): Promise<void> {
   const element = input(container);
   await act(async () => {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    setter?.call(element, text);
+    setValue(element, text);
     element.dispatchEvent(new Event("input", { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
@@ -180,6 +194,54 @@ test("the island fetches no index file until the reader touches it", () => {
 
   expect(fetched).toEqual([]);
   expect(input(container).getAttribute("role")).toBe("combobox");
+});
+
+// Typed before hydration: the server HTML is live, and an `idle` island hydrates later (#94).
+test("text typed before the island hydrates is searched at once, with the caret left where it was", async () => {
+  const faults: unknown[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    faults.push(args);
+  });
+  const container = mount({
+    beforeHydrating: (html) => {
+      const box = input(html);
+      setValue(box, "zebra");
+      box.setSelectionRange(1, 3);
+    },
+    onRecoverableError: (error) => faults.push(error),
+  });
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(options(container).map((option) => option.textContent)).toEqual([
+    "Loaders",
+  ]);
+  const box = input(container);
+  expect(box.value).toBe("zebra");
+  expect([box.selectionStart, box.selectionEnd]).toEqual([1, 3]);
+  expect(faults).toEqual([]);
+});
+
+test("an empty input hydrates with no search run", async () => {
+  const faults: unknown[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    faults.push(args);
+  });
+  const container = mount({
+    onRecoverableError: (error) => faults.push(error),
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(fetched).toEqual([]);
+  expect(container.querySelector('[role="listbox"]')).toBeNull();
+  expect(container.querySelector('[role="status"]')).toBeNull();
+  expect(input(container).getAttribute("aria-expanded")).toBe("false");
+  expect(faults).toEqual([]);
 });
 
 test("focusing the input fetches the shard ranges and no shard", async () => {
