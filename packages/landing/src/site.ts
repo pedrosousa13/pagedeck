@@ -7,6 +7,7 @@ import { defineCollection, getEntry } from "@pagedeck/content";
 import type { Collection, ContentStoreReader, Entry } from "@pagedeck/content";
 import { defineMarkdownLoader } from "@pagedeck/markdown-loader";
 import { defineSearch } from "@pagedeck/search";
+import { cloudflarePages } from "@pagedeck/adapter-cloudflare-pages";
 import type { MarkdownEntry } from "@pagedeck/markdown-loader";
 import {
   defineConfig,
@@ -237,6 +238,7 @@ export function landingSiteConfig(): SiteConfig {
     build: {
       // Not `./dist`, which `pnpm build` writes and would wipe.
       outDir: "./site",
+      adapter: cloudflarePages(),
       // No `Strict-Transport-Security`: it is a promise about a domain this
       // repository does not own.
       routing: {

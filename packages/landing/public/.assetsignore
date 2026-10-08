@@ -1,0 +1,4 @@
+# Deploy metadata and the adapter's fallback 404, kept out of the Workers Static Assets upload (#52).
+/manifest.json
+/.pagedeck
+/404.html

@@ -194,6 +194,9 @@ packages/landing/site/
 packages/landing/content.db
 packages/landing/.pagedeck/
 
+# wrangler's own scratch directory beside `packages/landing/wrangler.jsonc` (#52).
+packages/landing/.wrangler/
+
 # Everything `pnpm bench:scaling` writes
 # (`packages/bench/src/scaling.harness.ts`, #60): one generated site per rung of
 # the ladder, each with its own store and output tree, plus the report the run

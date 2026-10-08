@@ -348,6 +348,10 @@ test("every file the manifest records is a file on disk", () => {
       .map((file) => file.path.replace(/\.[0-9a-f]{8}\./, ".<hash>."))
       .sort(),
   ).toEqual([
+    "/.assetsignore",
+    "/404.html",
+    "/_headers",
+    "/_redirects",
     "/embed/demo-embed.js",
     "/favicon.ico",
     "/fonts/fira-sans-400-normal.<hash>.woff2",
@@ -1074,6 +1078,28 @@ test("the security headers and the policy are in the edge artifacts for every ho
     expect(cloudfront).toContain(`{ name: "${name.toLowerCase()}", value: "${value}" }`);
     expect(nginx).toContain(`add_header "${name}" "${value}" always;`);
   }
+});
+
+test("the _headers the build wrote for Workers Static Assets carries every header of the set", () => {
+  const written = readFileSync(join(OUT, "_headers"), "utf8");
+  expect(written.startsWith("/*\n")).toBe(true);
+  for (const { name, value } of SERVED_HEADERS) {
+    expect(written).toContain(`  ${name}: ${value}\n`);
+  }
+});
+
+test("the .assetsignore keeps the deploy manifest, the deploy directory and the adapter's fallback 404 out of the upload", () => {
+  const ignored = readFileSync(join(OUT, ".assetsignore"), "utf8")
+    .split("\n")
+    .filter((line) => line !== "" && !line.startsWith("#"));
+  expect(ignored).toEqual(["/manifest.json", "/.pagedeck", "/404.html"]);
+  const declared = manifest.routing.trees.filter((tree) => tree.notFound !== undefined);
+  expect(
+    declared.map((tree) => tree.notFound),
+    "The landing page declares a 404 page, which core writes to /404.html, and public/.assetsignore drops /404.html from the upload — remove that line from public/.assetsignore and set not_found_handling to \"404-page\" in wrangler.jsonc (#52)",
+  ).toEqual([]);
+  const proxied = readFileSync(join(OUT, "_redirects"), "utf8");
+  expect(proxied).toContain("/manifest.json /404.html 200\n");
 });
 
 test("every host sends the whole policy and the three security headers with every page", async () => {

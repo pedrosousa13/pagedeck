@@ -28,6 +28,7 @@
     "prepack": "tsc -b tsconfig.build.json"
   },
   "dependencies": {
+    "@pagedeck/adapter-cloudflare-pages": "workspace:*",
     "@pagedeck/brand": "workspace:*",
     "@pagedeck/content": "workspace:*",
     "@pagedeck/core": "workspace:*",
@@ -52,6 +53,7 @@
     "playwright": "^1.62.1",
     "react-dom": "^19.2.0",
     "tailwindcss": "4.3.3",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "wrangler": "4.148.0"
   }
 }

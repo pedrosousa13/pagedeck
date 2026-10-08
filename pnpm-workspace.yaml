@@ -2,3 +2,5 @@ packages:
   - packages/*
 allowBuilds:
   esbuild: true
+  # wrangler deploy runs without workerd's install script (#52).
+  workerd: false

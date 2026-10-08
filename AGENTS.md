@@ -398,6 +398,15 @@ out of every emitted file.
 - **The front page's figures are tested** (#548, #627): `site.build.test.ts`
   holds the ruler to the budget report, each comparison cell to its sentence in
   `docs/research`, and each byte figure to `src/bytes.ts`' format.
+- **It deploys as Workers Static Assets with wrangler** (#52), not through
+  `deploy.bin.js`. `build.adapter` is `cloudflarePages()`, so the build writes
+  `_headers` and `_redirects` into `site/`, and `public/.assetsignore` keeps
+  `manifest.json`, `.pagedeck` and the adapter's fallback `404.html` out of the
+  upload. `wrangler.jsonc` declares the Worker; wrangler is pinned in this
+  package's `devDependencies`, so run it as `pnpm exec wrangler`.
+  `.github/workflows/deploy-landing.yml` dry-runs it, or publishes it with
+  `apply`. `docs/deploy-recipe.md`, "The landing page on Cloudflare", is the
+  runbook.
 
 **Budgets.** A limit is the measurement plus about 16%, rounded to a whole
 kilobyte.
@@ -462,9 +471,9 @@ node dist/deploy.bin.js --origin ../../.origin --apply --prune    # and deletes
 
 A dry run is the default and `--apply` is the only way out (`CONTEXT.md`).
 `docs/deploy-recipe.md` covers presigned origins (`PAGEDECK_DEPLOY_URLS`), the
-refusals, `--edge` and `.github/workflows/deploy.yml`, and the landing page's
-deploy to Cloudflare: `.github/workflows/deploy-landing.yml`, its signing step
-`dist/presign.bin.js` and the Worker it stages (#665).
+refusals, `--edge` and `.github/workflows/deploy.yml`. `dist/presign.bin.js`
+is the R2 signing step the origin harness proves (#665); no workflow runs it.
+The landing page does not deploy through this CLI (see "The landing site").
 
 **Parity** (#58):
 
