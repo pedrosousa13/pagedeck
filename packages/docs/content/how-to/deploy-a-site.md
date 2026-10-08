@@ -140,7 +140,7 @@ refuses every deploy.
 **Keep the content store as a snapshot.** `pagedeck store pull` downloads
 `content.db` and `pagedeck store push` uploads it. Give the target in
 `PAGEDECK_SNAPSHOT_URL` and none on the command line, as
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl) explains:
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedeck-snapshot-url) explains:
 
 ```
 - run: npx pagedeck store pull
@@ -305,7 +305,7 @@ normal case for this host.
 If a full sync is too slow for your content source, keep `content.db` between
 builds the way "Keep the content store and `.pagedeck/` between CI runs" above
 describes. `PAGEDECK_SNAPSHOT_URL` is a credential (see
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedeck-snapshot-url)), and any build
 that has it can overwrite the snapshot production builds start from. In the
 project's Settings > Variables and Secrets, add it to the Production
 environment only, and select **Encrypt** so it is stored as a secret.
@@ -395,7 +395,7 @@ Vercel's build container does not carry over.
 If a full sync is too slow for your content source, keep `content.db` between
 builds with `npx pagedeck store pull` and `npx pagedeck store push`.
 `PAGEDECK_SNAPSHOT_URL` is a credential (see
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedeck-snapshot-url)), and any build
 that has it can overwrite the snapshot production builds start from. In the
 project's Environment Variables settings, add it with the type **Secret**,
 which Vercel describes as "write-only after saving" (it replaced the type
