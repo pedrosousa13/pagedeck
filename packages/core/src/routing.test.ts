@@ -16,7 +16,7 @@ import {
 import type { RoutingConfig, RoutingInput } from "./routing.js";
 
 const HEADER_VALUE_FIX =
-  "remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
+  "remove the character; a field value may hold no control character but HTAB (RFC 9110 forbids the C0 ones and DEL, and a C1 one reaches a headers file as two bytes of UTF-8), since a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
 
 function page(
   locale: string,
@@ -394,6 +394,58 @@ test("a header value holding NUL or a character above U+00FF is refused, by code
     ].join("\n"),
   );
   expect(failure.message).not.toContain("SECRET");
+});
+
+test("a header value holding a C0 or C1 control or DEL is refused, by code point", () => {
+  const failure = failureOf(() =>
+    plan({
+      config: {
+        headers: [
+          {
+            prefix: "/",
+            set: [
+              { name: "X-Bell", value: "a\u0007b" },
+              { name: "X-Del", value: "a\u007Fb" },
+              { name: "X-Nel", value: "a\u0085b" },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 3 header values cannot be sent — ${HEADER_VALUE_FIX}:`,
+      '  build.routing.headers[0].set[0] — "X-Bell" — the header value holds U+0007',
+      '  build.routing.headers[0].set[1] — "X-Del" — the header value holds U+007F',
+      '  build.routing.headers[0].set[2] — "X-Nel" — the header value holds U+0085',
+    ].join("\n"),
+  );
+});
+
+test('a header name beginning "#" or "!" is refused, in its own section', () => {
+  const failure = failureOf(() =>
+    plan({
+      config: {
+        headers: [
+          {
+            prefix: "/",
+            set: [
+              { name: "#X-Frame-Options", value: "DENY" },
+              { name: "!X-Note", value: "v" },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      "Routing manifest: 2 header names cannot be written to a line-based headers file — drop the leading character from the name:",
+      '  build.routing.headers[0].set[0] — "#X-Frame-Options" — the header name begins "#", which a line-based headers file can read as the start of a comment',
+      '  build.routing.headers[0].set[1] — "!X-Note" — the header name begins "!", which a line-based headers file can read as a detach',
+    ].join("\n"),
+  );
 });
 
 test("a header value every edge target sends is accepted", () => {

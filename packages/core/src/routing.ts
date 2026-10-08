@@ -147,16 +147,17 @@ const CONTROL = /[\u0000-\u001F\u007F]/;
 
 const CRLF = /[\r\n]/;
 
-const OFFSITE_TARGET_FIX =
+export const OFFSITE_TARGET_FIX =
   'write a tree-relative path like "/pricing"; a target off this site compiles to an open redirect at the edge';
-const OFFSITE_SOURCE_FIX =
+export const OFFSITE_SOURCE_FIX =
   'write a tree-relative path like "/pricing"; the edge matches the path alone, so a source spelled as a URL is a rule that can never fire';
 const HEADER_INJECTION_FIX =
   "remove it — a header field that can hold a line break can write a second header";
 export const UNSENDABLE_HEADER_VALUE_FIX =
-  "remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
+  "remove the character; a field value may hold no control character but HTAB (RFC 9110 forbids the C0 ones and DEL, and a C1 one reaches a headers file as two bytes of UTF-8), since a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
 export const HEADER_NAME_TOKEN_FIX =
   'write the name as a header field name, such as "X-Frame-Options"; a name that is not one is emitted verbatim, and each target then either reads that line as a different field than the one written, or refuses it outright after the build has already reported success';
+export const HEADER_NAME_LEADING_FIX = "drop the leading character from the name";
 const LOCATION_HEADER_FIX =
   "to send a path elsewhere, write a redirect rule";
 const BAD_STATUS_FIX = "use 301, 302, 307 or 308";
@@ -300,8 +301,19 @@ export function unusableHeaderName(name: string): string | undefined {
     : `the header name holds ${JSON.stringify(held)}, and a header name is one RFC 9110 token`;
 }
 
+/** A token all the same, so read only after `unusableHeaderName` passes the name. */
+export function unwritableHeaderName(name: string): string | undefined {
+  if (name.startsWith("#")) {
+    return 'the header name begins "#", which a line-based headers file can read as the start of a comment';
+  }
+  if (name.startsWith("!")) {
+    return 'the header name begins "!", which a line-based headers file can read as a detach';
+  }
+  return undefined;
+}
+
 function unsendableInHeaderValue(point: number): boolean {
-  return point === 0x00 || point === 0x0a || point === 0x0d || point > 0xff;
+  return (point < 0x20 && point !== 0x09) || (point >= 0x7f && point <= 0x9f) || point > 0xff;
 }
 
 export function unusableHeaderValue(value: string): string | undefined {
@@ -385,6 +397,7 @@ function draft(input: RoutingInput): {
   const offsiteSource: string[] = [];
   const injected: string[] = [];
   const badHeaderNames: string[] = [];
+  const unwritableHeaderNames: string[] = [];
   const badHeaderValues: string[] = [];
   const locationHeaders: string[] = [];
   const badStatus: string[] = [];
@@ -470,6 +483,15 @@ function draft(input: RoutingInput): {
       if (nameReason !== undefined) {
         badHeaderNames.push(
           `  ${at_} — ${JSON.stringify(field.name)} — ${nameReason}`,
+        );
+      }
+      const lineReason =
+        CRLF.test(field.name) || nameReason !== undefined
+          ? undefined
+          : unwritableHeaderName(field.name);
+      if (lineReason !== undefined) {
+        unwritableHeaderNames.push(
+          `  ${at_} — ${JSON.stringify(field.name)} — ${lineReason}`,
         );
       }
       const valueReason = unusableHeaderValue(field.value);
@@ -608,6 +630,16 @@ function draft(input: RoutingInput): {
                 : `${String(badHeaderNames.length)} header names are not tokens`
             } — ${HEADER_NAME_TOKEN_FIX}`,
             badHeaderNames,
+          ),
+      unwritableHeaderNames.length === 0
+        ? undefined
+        : report(
+            `${
+              unwritableHeaderNames.length === 1
+                ? "1 header name cannot be written to a line-based headers file"
+                : `${String(unwritableHeaderNames.length)} header names cannot be written to a line-based headers file`
+            } — ${HEADER_NAME_LEADING_FIX}`,
+            unwritableHeaderNames,
           ),
       badHeaderValues.length === 0
         ? undefined

@@ -15,7 +15,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 110 below, 97 of them
+`x` at/from `path`, outside fenced blocks — there are 112 below, 99 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -29,9 +29,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 270 messages fenced
-below, 217 are checked that way and 53 are not**, and that test lists the 53
-one by one with the reason each is out: 51 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 273 messages fenced
+below, 217 are checked that way and 56 are not**, and that test lists the 56
+one by one with the reason each is out: 54 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 217 checked messages pin 33768 of the 82952 fenced characters, and
+below**: the 217 checked messages pin 33768 of the 84193 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -668,7 +668,25 @@ Edge target "cloudflare-worker": 2 redirect targets are not paths on this site �
 
 The second is `planRouting`'s own refusal of an off-site target, made again by
 the Worker's compiler (#665): a compiler is handed a document, not necessarily
-one `planRouting` wrote.
+one `planRouting` wrote. The Vercel, Netlify and Cloudflare Pages compilers make
+it again for a source as well as a target, through `refuseOffsite`
+(`packages/edge/src/faults.ts`), and a source gets a paragraph of its own,
+because its fix is `planRouting`'s source fix (#41):
+
+```
+Edge target "netlify": 1 redirect source is not a path on this site — write a tree-relative path like "/pricing"; the edge matches the path alone, so a source spelled as a URL is a rule that can never fire:
+  the default tree's redirect from "https://evil.example/b/" — the source holds a scheme
+```
+
+Netlify and Cloudflare Pages write a path into a line of `_redirects` or
+`_headers`, so each refuses a `:` anywhere in it, not only one that begins a
+segment, and any whitespace character, named by code point (#41):
+
+```
+Edge target "netlify": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+  the default tree's redirect from "/time-12:30/" — Netlify reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one
+  the default tree's header prefix "/p q/" — Netlify reads U+0020, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
+```
 
 Every adapter makes `planRouting`'s header checks again, for the same reason
 (#671). `defineAdapter` runs them before any adapter's own grammar, with
@@ -681,9 +699,25 @@ by the code point that broke it and never quoted:
 Edge target "cloudflare-worker": 1 header name is not a token — write the name as a header field name, such as "X-Frame-Options"; a name that is not one is emitted verbatim, and each target then either reads that line as a different field than the one written, or refuses it outright after the build has already reported success:
   the default tree's header name "X-Frame Options" under prefix "/" — the header name holds " ", and a header name is one RFC 9110 token
 
-Edge target "cloudflare-worker": 1 header value cannot be sent — remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF:
+Edge target "cloudflare-worker": 1 header value cannot be sent — remove the character; a field value may hold no control character but HTAB (RFC 9110 forbids the C0 ones and DEL, and a C1 one reaches a headers file as two bytes of UTF-8), since a line break can write a second header, and a Worker's Headers refuses any character above U+00FF:
   the default tree's header "X-Note" under prefix "/" — the header value holds U+000D
 ```
+
+A name that begins `#` or `!` is an RFC 9110 token, so it passes that check,
+but a line-based headers file can read it as a comment or a detach. It is
+refused in a paragraph of its own, by `unwritableHeaderName`
+(`packages/core/src/routing.ts`), and the line says which reading (#41):
+
+```
+Edge target "netlify": 1 header name cannot be written to a line-based headers file — drop the leading character from the name:
+  the default tree's header name "#X-Frame-Options" under prefix "/" — the header name begins "#", which a line-based headers file can read as the start of a comment
+```
+
+A value may hold no control character but HTAB (#41). RFC 9110's `field-value`
+forbids the C0 controls and U+007F. It admits a C1 control, U+0080 to U+009F,
+as `obs-text`, but `obs-text` is an octet, and a headers file is UTF-8, so a C1
+control is written as two bytes, and U+0085 is a Unicode line break. So a C1
+control is refused too, and any other character up to U+00FF passes.
 
 `planRouting` refuses a value by the same rule (#681), so a site's own config
 fails at build time and the compiler's check catches a document edited after
@@ -1791,7 +1825,7 @@ U+00FF would build, write its routing manifest and fail on deploy. The value is
 named by code point and never quoted:
 
 ```
-Routing manifest: 1 header value cannot be sent — remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF:
+Routing manifest: 1 header value cannot be sent — remove the character; a field value may hold no control character but HTAB (RFC 9110 forbids the C0 ones and DEL, and a C1 one reaches a headers file as two bytes of UTF-8), since a line break can write a second header, and a Worker's Headers refuses any character above U+00FF:
   build.routing.headers[0].set[0] — "X-Note" — the header value holds U+0000
 ```
 
