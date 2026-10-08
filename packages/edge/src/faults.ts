@@ -1,7 +1,9 @@
 import { ConfigError } from "@pagedeck/core/exit";
 import {
+  HEADER_NAME_LEADING_FIX,
   HEADER_NAME_TOKEN_FIX,
   OFFSITE_SOURCE_FIX,
+  OFFSITE_TARGET_FIX,
   offsiteReason,
   UNSENDABLE_HEADER_VALUE_FIX,
 } from "@pagedeck/core/routing";
@@ -13,6 +15,7 @@ export interface Fault {
     | "offsite"
     | "offsite-source"
     | "header-name"
+    | "unwritable-header-name"
     | "header-value"
     | "oversize"
     | "trailing-slash"
@@ -25,7 +28,7 @@ export function treeOf(domain: string | undefined): string {
   return domain === undefined ? "the default tree" : `the "${domain}" tree`;
 }
 
-/** Pushes a fault for each end `offsiteReason` refuses, and says which ends it refused. */
+/** Each flag is true when that end was refused. */
 export function refuseOffsite(
   domain: string | undefined,
   rule: { from: string; to: string },
@@ -53,8 +56,6 @@ const UNSUPPORTED_FIX =
   "drop the experiment, or compile with an adapter that compiles a split";
 const UNEXPRESSIBLE_FIX =
   "remove the character, or compile a target that can express it";
-const OFFSITE_FIX =
-  'write a tree-relative path like "/pricing"; a target off this site compiles to an open redirect at the edge';
 const OVERSIZE_FIX =
   "reduce the rule set, or raise the limit if the host's is higher";
 const TRAILING_SLASH_FIX = 'set trailingSlash: "always"';
@@ -96,6 +97,9 @@ export function throwIfAny(
     .map((fault) => fault.line);
   const headerName = faults
     .filter((fault) => fault.kind === "header-name")
+    .map((fault) => fault.line);
+  const unwritableHeaderName = faults
+    .filter((fault) => fault.kind === "unwritable-header-name")
     .map((fault) => fault.line);
   const headerValue = faults
     .filter((fault) => fault.kind === "header-value")
@@ -147,7 +151,7 @@ export function throwIfAny(
         offsite.length === 1
           ? "redirect target is not a path on this site"
           : "redirect targets are not paths on this site",
-        OFFSITE_FIX,
+        OFFSITE_TARGET_FIX,
         offsite,
       ),
     );
@@ -175,6 +179,19 @@ export function throwIfAny(
           : "header names are not tokens",
         HEADER_NAME_TOKEN_FIX,
         headerName,
+      ),
+    );
+  }
+  if (unwritableHeaderName.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        unwritableHeaderName.length,
+        unwritableHeaderName.length === 1
+          ? "header name cannot be written to a line-based headers file"
+          : "header names cannot be written to a line-based headers file",
+        HEADER_NAME_LEADING_FIX,
+        unwritableHeaderName,
       ),
     );
   }

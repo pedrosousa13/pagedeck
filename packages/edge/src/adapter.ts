@@ -3,6 +3,7 @@ import {
   ROUTING_VERSION,
   unusableHeaderName,
   unusableHeaderValue,
+  unwritableHeaderName,
 } from "@pagedeck/core/routing";
 import type { RoutingManifest, RoutingTree } from "@pagedeck/core/routing";
 
@@ -54,6 +55,14 @@ function checkHeaders(tree: RoutingTree, faults: Fault[]): void {
         faults.push({
           kind: "header-name",
           line: `${treeOf(tree.domain)}'s header name ${name} ${under} — ${nameReason}`,
+        });
+      }
+      const lineReason =
+        nameReason === undefined ? unwritableHeaderName(field.name) : undefined;
+      if (lineReason !== undefined) {
+        faults.push({
+          kind: "unwritable-header-name",
+          line: `${treeOf(tree.domain)}'s header name ${name} ${under} — ${lineReason}`,
         });
       }
       const valueReason = unusableHeaderValue(field.value);

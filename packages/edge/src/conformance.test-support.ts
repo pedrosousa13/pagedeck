@@ -102,7 +102,9 @@ export function contentsOf(
 export const HEADER_NAME_FIX =
   'write the name as a header field name, such as "X-Frame-Options"; a name that is not one is emitted verbatim, and each target then either reads that line as a different field than the one written, or refuses it outright after the build has already reported success';
 export const HEADER_VALUE_FIX =
-  "remove the character; RFC 9110 forbids every control character but HTAB in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
+  "remove the character; a field value may hold no control character but HTAB (RFC 9110 forbids the C0 ones and DEL, and a C1 one reaches a headers file as two bytes of UTF-8), since a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
+
+export const HEADER_NAME_LEADING_FIX = "drop the leading character from the name";
 
 export function withHeader(
   name: string,
@@ -690,7 +692,7 @@ function describePolicy(
           adapter.compile(withHeader(`${character}X-Frame-Options`, "DENY", policy)),
         ).toThrow(
           new ConfigError(
-            `Edge target "${name}": 1 header name is not a token — ${HEADER_NAME_FIX}:
+            `Edge target "${name}": 1 header name cannot be written to a line-based headers file — ${HEADER_NAME_LEADING_FIX}:
   the default tree's header name "${character}X-Frame-Options" under prefix "/" — the header name begins "${character}", ${reason}`,
           ),
         );
@@ -704,6 +706,9 @@ function describePolicy(
       ["a vertical tab", "\v", "U+000B"],
       ["U+001F", "\u001F", "U+001F"],
       ["DEL", "\u007F", "U+007F"],
+      ["U+0080", "\u0080", "U+0080"],
+      ["NEL", "\u0085", "U+0085"],
+      ["U+009F", "\u009F", "U+009F"],
       ["LF", "\n", "U+000A"],
       ["NUL", "\u0000", "U+0000"],
       ["U+0100", "Ā", "U+0100"],
@@ -727,18 +732,10 @@ function describePolicy(
       ).not.toThrow();
     });
 
-    // RFC 9110's obs-text is %x80-FF, so a C1 control is a field-value character.
-    for (const [what, value] of [
-      ["HTAB", "a\tb"],
-      ["U+0080", "a\u0080b"],
-      ["U+0085", "a\u0085b"],
-      ["U+009F", "a\u009Fb"],
-    ] as const) {
-      it(`compiles a header value holding ${what} on ${name}`, () => {
-        expect(() =>
-          adapter.compile(withHeader("X-Note", value, policy)),
-        ).not.toThrow();
-      });
-    }
+    it(`compiles a header value holding HTAB on ${name}`, () => {
+      expect(() =>
+        adapter.compile(withHeader("X-Note", "a\tb", policy)),
+      ).not.toThrow();
+    });
   });
 }

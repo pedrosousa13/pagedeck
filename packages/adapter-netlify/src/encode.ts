@@ -4,8 +4,8 @@
 
 import type { RedirectStatus } from "@pagedeck/core/routing";
 
-// Netlify gives `*` and `:` meaning with no escape, and `%2A` is another address; `:` is refused
-// anywhere, not only leading a segment (#41). Whitespace ends a path in `_redirects` and `_headers`.
+// Netlify gives `*` and `:` meaning with no escape, and `%2A` is another address. Whitespace ends
+// a path in `_redirects` and `_headers`.
 const WHITESPACE = /\p{White_Space}/u;
 
 export function unexpressibleInNetlifyPattern(
