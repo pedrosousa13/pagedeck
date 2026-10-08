@@ -422,7 +422,10 @@ export function faultsInEmittedHtml(
       continue;
     }
 
-    if ((name === "title" || name === "meta") && hoistedMetadata(tag, open)) {
+    if (
+      (name === "title" || name === "meta" || iconLink(name, tag)) &&
+      hoistedMetadata(tag, open)
+    ) {
       // An unclosed `<title>` stays put: cut, it would take the rest of the
       // page.
       const content = name === "title" ? titleContent(html, at) : undefined;
@@ -483,6 +486,17 @@ function hoistedMetadata(tag: string, open: readonly string[]): boolean {
 }
 
 const MICRODATA_ATTRIBUTE = /\sitemprop=/i;
+
+const ICON_RELS: ReadonlySet<string> = new Set(["icon", "apple-touch-icon"]);
+
+function iconLink(name: string, tag: string): boolean {
+  if (name !== "link") return false;
+  const rel = attributeOf(tag, "rel") ?? "";
+  return rel
+    .toLowerCase()
+    .split(/\s+/)
+    .some((token) => ICON_RELS.has(token));
+}
 
 function titleContent(
   html: string,
