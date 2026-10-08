@@ -5,10 +5,16 @@ import type { EdgeArtifact } from "@pagedeck/edge";
 import { find, forTree } from "../../edge/src/interpret.test-support.js";
 import type { EdgeRequest, Resolution } from "../../edge/src/oracle.test-support.js";
 
+// https://docs.netlify.com/manage/routing/redirects/redirect-options/ : "Netlify will match
+// paths to rules regardless of whether or not they contain a trailing slash."
+function withoutSlash(path: string): string {
+  return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
 function netlifyMatches(pattern: string, path: string): boolean {
   return pattern.endsWith("*")
     ? path.startsWith(pattern.slice(0, -1))
-    : pattern === path;
+    : withoutSlash(pattern) === withoutSlash(path);
 }
 
 function netlifyAnswer(

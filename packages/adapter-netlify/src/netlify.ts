@@ -13,6 +13,10 @@ import {
 
 const CATCH_ALL = "/*";
 
+function withoutSlash(path: string): string {
+  return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
 function check(
   tree: RoutingTree,
   what: string,
@@ -56,6 +60,10 @@ export function compileNetlify(
     `${DEPLOY_DIRECTORY}/*`,
   ].map((pattern) => `${pattern} ${denied} 404!`);
   for (const rule of tree.redirects) {
+    // Netlify matches a rule with or without a trailing slash, so a row from a target's other
+    // spelling to the target redirects the target to itself (#35):
+    // https://docs.netlify.com/manage/routing/redirects/redirect-options/
+    if (rule.normalizing && withoutSlash(rule.from) === withoutSlash(rule.to)) continue;
     if (!rule.normalizing) {
       check(tree, `redirect from "${rule.from}"`, rule.from, faults);
       check(tree, `redirect target on "${rule.from}"`, rule.to, faults);

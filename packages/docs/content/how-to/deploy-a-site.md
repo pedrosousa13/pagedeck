@@ -408,6 +408,14 @@ ahead of the site's own `trailingSlash` policy and the rows `netlify()`
 compiles for it. Set `pretty_urls = false` so Netlify serves exactly the
 paths the routing document names, under either policy.
 
+Netlify [matches a `_redirects` rule with or without a trailing slash](https://docs.netlify.com/manage/routing/redirects/redirect-options/),
+and "you cannot use a redirect rule to add or remove a trailing slash". So
+`netlify()` writes no row from a redirect target's other spelling to the
+target, which other hosts get: on Netlify that row would redirect the target
+to itself. The other spelling of a page is whatever Netlify answers for it,
+not a redirect to the site's own spelling. A redirect source still answers
+both spellings with its redirect.
+
 Each tree's 404 page is written at the tree's root as `404.html` too (see
 [the 404 page](/reference/routing/#the-404-page)), and
 [Netlify picks it up](https://docs.netlify.com/manage/routing/redirects/redirect-options/)

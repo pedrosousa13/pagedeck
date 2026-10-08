@@ -25,8 +25,6 @@ describe("netlify", () => {
     expect(contentsOf("/_redirects")).toBe(`/manifest.json /en/404 404!
 /.pagedeck /en/404 404!
 /.pagedeck/* /en/404 404!
-/en/about/ /en/about 301!
-/en/docs/intro/ /en/docs/intro 301!
 /en/legacy /en/about 301
 /en/legacy/ /en/about 301!
 /en/old-docs /en/docs/intro 301

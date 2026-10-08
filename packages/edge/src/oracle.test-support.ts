@@ -50,10 +50,13 @@ function canonicalize(path: string, trailingSlash: TrailingSlash): string {
 
 // Redirects before the origin; `planRouting` refuses a redirect from a routed page, so one
 // oracle holds for every host; `servedStatus` is where one narrows what the document declares.
+// `hostSpellsPages` drops the claim that a page's other spelling redirects to it, for a host that
+// answers that spelling itself and lets no rule redirect it (#35).
 export function resolveRequest(
   manifest: RoutingManifest,
   request: EdgeRequest,
   servedStatus: (status: RedirectStatus) => RedirectStatus = (status) => status,
+  hostSpellsPages = false,
 ): Resolution {
   const tree = treeFor(manifest, request.domain);
   if (tree === undefined) return { kind: "pass", headers: [] };
@@ -84,6 +87,7 @@ export function resolveRequest(
       };
     }
     if (
+      !hostSpellsPages &&
       tree.redirects.some(
         (rule) => rule.to === canonical && rule.file !== true,
       )
