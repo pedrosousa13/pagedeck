@@ -41,30 +41,53 @@ function configFor(
   return JSON.parse(file.contents) as VercelConfig;
 }
 
-// The inverse of `headerSource` in `./vercel.js`: pulls the prefix and the excluded sibling
-// prefixes back out of the "<prefix>:rest((?!a)(?!b).*)" shape it writes.
-function parseHeaderSource(source: string): { prefix: string; exclusions: string[] } {
-  const at = source.indexOf(":rest(");
-  const prefix = source.slice(0, at);
-  const inner = source.slice(at + ":rest(".length, -".*)".length);
-  const exclusions = [...inner.matchAll(/\(\?!([^)]*)\)/g)].map(
-    (match) => match[1] ?? "",
-  );
-  return { prefix, exclusions };
+// Vercel documents `source` only as "a pattern"; this assumes path-to-regexp, with a regex inside
+// `:name(…)` (#37, https://vercel.com/docs/project-configuration/vercel-json#header-object-definition).
+function sourcePattern(source: string): RegExp {
+  let pattern = "";
+  let at = 0;
+  while (at < source.length) {
+    const group = /^:\w+\(/.exec(source.slice(at));
+    if (group === null) {
+      const character = source[at] ?? "";
+      if (/[:()*+?{}\\]/.test(character)) {
+        throw new Error(
+          `Header source "${source}": holds path-to-regexp syntax ${JSON.stringify(character)} at ${String(at)} that sourcePattern does not model — model it in sourcePattern, or stop emitting it from vercel()`,
+        );
+      }
+      pattern += character.replace(/[.^$|[\]]/, "\\$&");
+      at += 1;
+      continue;
+    }
+    at += group[0].length;
+    let depth = 1;
+    const start = at;
+    for (; depth > 0; at += 1) {
+      const character = source[at];
+      if (character === undefined) {
+        throw new Error(
+          `Header source "${source}": holds an unclosed group — close it with ")" in vercel()'s headerSource`,
+        );
+      }
+      if (character === "\\") at += 1;
+      else if (character === "(") depth += 1;
+      else if (character === ")") depth -= 1;
+    }
+    pattern += `(${source.slice(start, at - 1)})`;
+  }
+  return new RegExp(`^${pattern}$`);
 }
 
+// Every matching rule applies, not only the first, as Vercel applies them.
 function headersForPath(
   config: VercelConfig,
   path: string,
 ): readonly HeaderField[] {
-  for (const rule of config.headers ?? []) {
-    const { prefix, exclusions } = parseHeaderSource(rule.source);
-    if (!path.startsWith(prefix)) continue;
-    const rest = path.slice(prefix.length);
-    if (exclusions.some((excluded) => rest.startsWith(excluded))) continue;
-    return rule.headers.map((field) => ({ name: field.key, value: field.value }));
-  }
-  return [];
+  return (config.headers ?? [])
+    .filter((rule) => sourcePattern(rule.source).test(path))
+    .flatMap((rule) =>
+      rule.headers.map((field) => ({ name: field.key, value: field.value })),
+    );
 }
 
 function fromRoute(route: VercelRoute): Resolution {

@@ -42,12 +42,12 @@ function checkLength(
   });
 }
 
-// First match, no merge (`headersFor` in `@pagedeck/edge/src/oracle.test-support.ts`): `tree.headers`
-// is sorted longest-prefix-first by `planRouting`, but Vercel's declarative `headers` applies
-// every matching rule's fields, not only the first. A less specific rule's `source` excludes
-// every more specific sibling nested under it, so only one rule can ever match a path.
+// Vercel applies every matching `headers` rule, so each excludes its nested siblings to keep one
+// match per path; the excluded text sits in a regex group, so it is escaped (#37).
 function headerSource(prefix: string, exclusions: readonly string[]): string {
-  const lookaheads = exclusions.map((relative) => `(?!${relative})`).join("");
+  const lookaheads = exclusions
+    .map((relative) => `(?!${escapePcre(relative)})`)
+    .join("");
   return `${prefix}:rest(${lookaheads}.*)`;
 }
 
@@ -66,8 +66,8 @@ function headerRecord(set: readonly HeaderField[]): Record<string, string> {
 }
 
 // `routes[].src` is PCRE (https://vercel.com/docs/project-configuration/vercel-json#routes),
-// so a literal character with regex meaning is escaped — these three patterns are fixed
-// constants, never a value from the routing document.
+// as is a path-to-regexp group in `headers[].source`, so a literal character with regex meaning
+// is escaped.
 function escapePcre(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
