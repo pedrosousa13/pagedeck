@@ -1084,9 +1084,17 @@ wrangler`, which would take whatever version is latest.
 `_redirects` formats as Cloudflare Pages, so `pagedeck build` writes into
 `site/`:
 
-- `_headers`: one `/*` rule with the three security headers and the
+- `_headers`: a `/*` rule with the three security headers and the
   `Content-Security-Policy` from `src/csp.ts`, the same value the routing
-  header rule and the other adapters carry.
+  header rule and the other adapters carry. Then one rule each for
+  `/assets/*`, `/fonts/*` and `/social/*`, which hold only content-hashed
+  names, adding `Cache-Control: public, max-age=31536000, immutable` and
+  detaching the policy (#55). Those three rules set the three security headers
+  too, because a path carries the set of the prefix it matches and no
+  other, and the adapter writes them once, in `/*`. `/images/` holds unhashed
+  names and has no rule. Every other file, and every page, gets Cloudflare's
+  default `public, max-age=0, must-revalidate`, observed on the live landing
+  page (#55).
 - `_redirects`: three rows that proxy `/manifest.json`, `/.pagedeck` and
   `/.pagedeck/*` to `/404.html`. The site declares no redirects of its own.
 - `404.html`: the adapter's bare fallback, written because the site declares
@@ -1114,12 +1122,15 @@ the domain does not exist yet. The Worker serves on its `workers.dev` address.
 local landing build succeeds: it reads the 45 entries of `site/`, ignores
 `.assetsignore`, `404.html`, `_headers`, `_redirects` and `manifest.json`, and
 sends nothing to Cloudflare. `site.build.test.ts` holds the written `_headers`
-to the landing page's header set and `.assetsignore` to its three lines.
+to the landing page's header set, each hashed file to `immutable` with
+`nosniff`, every other file to no `Cache-Control`, and `.assetsignore` to its
+three lines.
 Cloudflare has not been sent a request. These are the host facts the first
 deploy checks:
 
 - Workers Static Assets applies the `_headers` rule to every page, so each
-  response carries the CSP and the three security headers.
+  response carries the CSP and the three security headers, and a hashed file
+  answers `immutable` with `nosniff`.
 - A proxy row whose target is not uploaded answers `404`. This is read from
   the asset worker's source bundled in wrangler 4.148.0's Miniflare
   (`workers-shared`), not observed on Cloudflare, and whether that `404`
@@ -1192,8 +1203,10 @@ The first time:
    `workers.dev` address.
 3. Open that address. `/` answers the page, `/features` answers `307` to
    `/features/`, `/manifest.json` and `/.pagedeck/deploy-history.json` answer
-   `404`, and a page carries the CSP and the three security headers. Then add
-   the domain (below).
+   `404`, and a page carries the CSP and the three security headers. A file
+   under `/assets/` answers `Cache-Control: public, max-age=31536000,
+   immutable` with `X-Content-Type-Options: nosniff`, and `/` answers no
+   `immutable`. Then add the domain (below).
 
 ### Rolling back
 

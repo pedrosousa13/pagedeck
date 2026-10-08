@@ -90,7 +90,9 @@ redirect or a header prefix holding one is refused rather than emitted. A
 nested header rule that sets the same name as an enclosing one is refused too:
 Cloudflare joins a header set twice with a comma rather than letting a nested
 rule replace it, and replacing one would need detaching and setting the same
-name in one block, which is undocumented. An experiment split is refused,
+name in one block, which is undocumented. A nested rule may restate the
+value every enclosing rule sets: the nested block leaves it out and does not
+detach it. An experiment split is refused,
 naming every page it was declared on: `@pagedeck/adapter-cloudfront` is the
 only adapter that compiles one.
 

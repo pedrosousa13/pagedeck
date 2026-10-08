@@ -16,6 +16,7 @@ import type { Manifest, ManifestPage } from "@pagedeck/core";
 import { cloudfront } from "@pagedeck/adapter-cloudfront";
 import { netlify } from "@pagedeck/adapter-netlify";
 import { nginx } from "@pagedeck/adapter-nginx";
+import { interpretCloudflarePages } from "../../adapter-cloudflare-pages/src/interpret.test-support.js";
 import { interpretCloudFront } from "../../adapter-cloudfront/src/interpret.test-support.js";
 import { interpretNetlify } from "../../adapter-netlify/src/interpret.test-support.js";
 import { interpretNginx } from "../../adapter-nginx/src/interpret.test-support.js";
@@ -1085,6 +1086,33 @@ test("the _headers the build wrote for Workers Static Assets carries every heade
   expect(written.startsWith("/*\n")).toBe(true);
   for (const { name, value } of SERVED_HEADERS) {
     expect(written).toContain(`  ${name}: ${value}\n`);
+  }
+});
+
+const HASHED_DIRECTORIES = ["/assets/", "/fonts/", "/social/"];
+const IMMUTABLE = { name: "Cache-Control", value: "public, max-age=31536000, immutable" };
+
+test("the _headers the build wrote serves each hashed file immutable with nosniff, and every other file no Cache-Control", () => {
+  const written = ["/_headers", "/_redirects"].map((path) => ({
+    role: "tree-file" as const,
+    path,
+    contents: readFileSync(join(OUT, path), "utf8"),
+  }));
+  const hashed = (path: string) => HASHED_DIRECTORIES.some((prefix) => path.startsWith(prefix));
+  for (const prefix of HASHED_DIRECTORIES) {
+    expect(manifest.files.some((file) => file.path.startsWith(prefix)), prefix).toBe(true);
+  }
+  for (const file of manifest.files) {
+    if (hashed(file.path)) {
+      expect(file.path, "a file under an immutable prefix carries a content hash").toMatch(
+        /[.-][A-Za-z0-9_-]{8}\.[a-z0-9]+$/,
+      );
+    }
+    const expected = hashed(file.path) ? [...SECURITY_HEADERS, IMMUTABLE] : SERVED_HEADERS;
+    expect(
+      comparable(interpretCloudflarePages(written, { path: file.path, found: true })),
+      file.path,
+    ).toEqual(comparable({ kind: "pass", headers: expected }));
   }
 });
 
