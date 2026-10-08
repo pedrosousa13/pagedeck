@@ -876,21 +876,32 @@ test("a preinit import inside a client closure warns and still builds", async ()
   expect(existsSync(join(dir, "dist", "index.html"))).toBe(true);
 }, 120_000);
 
-test("a global stylesheet a site with no islands cannot compile is warned about", async () => {
+test("a site with no islands compiles and links its global stylesheet, and ships no JavaScript", async () => {
   const dir = site({ globalCss: true, noIslands: true });
   await run(dir, "sync");
 
   const result = await run(dir, "build");
 
   expect(result.code).toBe(EXIT_CODES.success);
-  expect(result.err).toBe(
-    [
-      "Global CSS: 1 declared stylesheet is not in this build, so no page links it — a declared stylesheet reaches the bundler through a page's generated entry module, and this site hydrates no island on any page, so there is no entry module to import it from; this is a warning and not a refusal because every page this build emitted is otherwise correct, and the sheets compile as soon as one page mounts one interactive component — island a component anywhere on the site, or drop the declaration until the site has one:",
-      `  "./global.css"`,
-    ].join("\n"),
+  expect(result.err).toBe("");
+  const dist = join(dir, "dist");
+  for (const page of ["index.html", join("about", "index.html")]) {
+    const html = readFileSync(join(dist, page), "utf8");
+    const head = html.slice(0, html.indexOf("</head>"));
+    const links = [...head.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)];
+    expect(links.map(([, href]) => href)).toEqual([
+      expect.stringMatching(/^\/assets\/[^/]+\.css$/),
+    ]);
+    const href = (links[0] as RegExpMatchArray)[1] as string;
+    expect(readFileSync(join(dist, href), "utf8")).toContain(".fw-global");
+    expect(html).not.toContain("<script");
+  }
+  const manifest = readManifest(
+    readFileSync(join(dist, "manifest.json"), "utf8"),
+    "manifest.json",
   );
-  const home = readFileSync(join(dir, "dist", "index.html"), "utf8");
-  expect(home).not.toContain("<link");
+  expect(manifest.files.filter((file) => file.kind === "js")).toEqual([]);
+  expect(readdirSync(join(dist, "assets")).filter((name) => name.endsWith(".js"))).toEqual([]);
 }, 120_000);
 
 test("a site that declares no header set is warned once, and still builds", async () => {
