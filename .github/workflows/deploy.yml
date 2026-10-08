@@ -1,7 +1,7 @@
 name: Deploy
 
-# Writes only with the `PAGEDECK_SNAPSHOT_URL` secret set and `apply: true`; see
-# `docs/deploy-recipe.md`.
+# Writes only with the `PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL` secrets set and
+# `apply: true`; see `docs/deploy-recipe.md`.
 on:
   # Reads no `apply` from the payload, so a webhook run is always a dry run.
   repository_dispatch:
@@ -45,7 +45,7 @@ jobs:
       run:
         working-directory: packages/site
     env:
-      # `PAGEDECK_SNAPSHOT_URL` is not here: a job-level `env:` reaches every action and lifecycle script.
+      # The snapshot URLs are not here: a job-level `env:` reaches every action and lifecycle script.
       PAGEDECK_DEPLOY_ORIGIN: ${{ github.workspace }}/.deploy/origin
       PAGEDECK_DEPLOY_STAGING: ${{ github.workspace }}/.deploy/staging
       EDGE_TARGET: ${{ inputs.edge_target || 'cloudfront-function' }}
@@ -64,19 +64,27 @@ jobs:
       - name: Decide what this run may do
         id: gate
         env:
-          PAGEDECK_SNAPSHOT_URL: ${{ secrets.PAGEDECK_SNAPSHOT_URL }}
+          PAGEDECK_SNAPSHOT_PULL_URL: ${{ secrets.PAGEDECK_SNAPSHOT_PULL_URL }}
+          PAGEDECK_SNAPSHOT_PUSH_URL: ${{ secrets.PAGEDECK_SNAPSHOT_PUSH_URL }}
         run: |
-          if [ -n "${PAGEDECK_SNAPSHOT_URL}" ]; then
+          # Half a pair is refused: a run that pulls and cannot push, or pushes over what it never pulled, is a misconfiguration.
+          if [ -n "${PAGEDECK_SNAPSHOT_PULL_URL}" ] && [ -n "${PAGEDECK_SNAPSHOT_PUSH_URL}" ]; then
             echo "secret=true" >> "$GITHUB_OUTPUT"
-          else
+          elif [ -z "${PAGEDECK_SNAPSHOT_PULL_URL}${PAGEDECK_SNAPSHOT_PUSH_URL}" ]; then
             echo "secret=false" >> "$GITHUB_OUTPUT"
-            echo "No PAGEDECK_SNAPSHOT_URL is configured: this run will build from the site's own entries, print the plan and publish nothing."
+            echo "No PAGEDECK_SNAPSHOT_PULL_URL or PAGEDECK_SNAPSHOT_PUSH_URL is configured: this run will build from the site's own entries, print the plan and publish nothing."
+          elif [ -z "${PAGEDECK_SNAPSHOT_PUSH_URL}" ]; then
+            echo "::error::PAGEDECK_SNAPSHOT_PULL_URL is configured and PAGEDECK_SNAPSHOT_PUSH_URL is not: add PAGEDECK_SNAPSHOT_PUSH_URL, a URL presigned for PUT, or remove PAGEDECK_SNAPSHOT_PULL_URL (docs/deploy-recipe.md, \"The secrets\")."
+            exit 1
+          else
+            echo "::error::PAGEDECK_SNAPSHOT_PUSH_URL is configured and PAGEDECK_SNAPSHOT_PULL_URL is not: add PAGEDECK_SNAPSHOT_PULL_URL, a URL presigned for GET, or remove PAGEDECK_SNAPSHOT_PUSH_URL (docs/deploy-recipe.md, \"The secrets\")."
+            exit 1
           fi
 
       - name: Pull the store snapshot
         if: steps.gate.outputs.secret == 'true'
         env:
-          PAGEDECK_SNAPSHOT_URL: ${{ secrets.PAGEDECK_SNAPSHOT_URL }}
+          PAGEDECK_SNAPSHOT_PULL_URL: ${{ secrets.PAGEDECK_SNAPSHOT_PULL_URL }}
         # No URL argument: `pagedeck store` reads the variable, and an argument would sit in argv.
         run: node ../core/dist/bin.js store pull
 
@@ -150,7 +158,7 @@ jobs:
           && inputs.rollback == ''
           && steps.gate.outputs.secret == 'true'
         env:
-          PAGEDECK_SNAPSHOT_URL: ${{ secrets.PAGEDECK_SNAPSHOT_URL }}
+          PAGEDECK_SNAPSHOT_PUSH_URL: ${{ secrets.PAGEDECK_SNAPSHOT_PUSH_URL }}
         run: node ../core/dist/bin.js store push
 
       - name: Plan the rollback

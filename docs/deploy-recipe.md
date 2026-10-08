@@ -4,9 +4,9 @@ description: How the dogfood site deploys through presigned uploads and the land
 
 # Deploy recipe
 
-How the dogfood site (`packages/site`) is deployed: the verbs in order, what the
-one secret is, what a dry run does, how to roll back, and what the grace period
-protects. Issue #57. The landing page and the docs site are deployed to
+How the dogfood site (`packages/site`) is deployed: the verbs in order, what
+the two secrets are, what a dry run does, how to roll back, and what the grace
+period protects. Issue #57. The landing page and the docs site are deployed to
 Cloudflare as Workers Static Assets with wrangler, not through this CLI. Their
 runbooks are the last two sections, "The landing page on Cloudflare" and "The
 docs site on Cloudflare".
@@ -60,6 +60,9 @@ is not:
     origin, exit 2, before anything is planned;
   - `pagedeck store push` then `pull` round-trips the store byte-identical, and the
     target it prints carries **no query string**;
+  - a URL signed for GET is refused for a push, and one signed for PUT for a
+    pull, each with the origin's HTTP 403, and the stored object is unchanged
+    (#63);
   - the loopback refusal still fires, with its full message, on the same URL
     pointed at `127.0.0.1`.
 
@@ -94,7 +97,7 @@ is not:
   except that `deploy-landing.yml` and `deploy-docs.yml` publish the landing
   page and the docs site with `wrangler deploy` (below).
 - **`.github/workflows/deploy.yml` has never deployed anything**, and cannot
-  until a maintainer adds the secret below and passes `apply: true`. It is
+  until a maintainer adds the two secrets below and passes `apply: true`. It is
   `workflow_dispatch` and `repository_dispatch` only; it is never `on: push`.
   It still passes `--origin` a directory. Moving it to a presigned origin needs
   a signing step that holds the credentials, and this repository has none.
@@ -120,23 +123,35 @@ is not:
   asserting on it, and so does the origin harness. Its figures are a round trip
   over a local bridge, not publish-to-live, so they do not settle #295.
 
-## The secret
+## The secrets
 
-One secret, `PAGEDECK_SNAPSHOT_URL`, and it is **a presigned `https:` URL** — not an
-AWS access key, not a role to assume, not a credential chain. The transport
-uses no SDK: a presigned S3 URL *is* an HTTPS GET and PUT, so an SDK would buy
-nothing but a dependency and a set of credentials on the runner. Whoever holds
-the real credentials signs a URL and stores the URL.
+Two secrets, and each is **a presigned `https:` URL** for the snapshot's one
+object key: `PAGEDECK_SNAPSHOT_PULL_URL`, signed for GET, which `pagedeck store
+pull` reads, and `PAGEDECK_SNAPSHOT_PUSH_URL`, signed for PUT, which `pagedeck
+store push` reads. Not an AWS access key, not a role to assume, not a
+credential chain. The transport uses no SDK: a presigned S3 URL *is* an HTTPS
+GET or PUT, so an SDK would buy nothing but a dependency and a set of
+credentials on the runner. Whoever holds the real credentials signs the two
+URLs and stores them.
 
-Two consequences worth knowing before storing one:
+It takes two because a SigV4 presigned URL is signed for one method: a URL
+signed for GET is refused for a PUT, and the origin harness shows it (#63).
 
-- **Never name it on a command line.** `pagedeck store pull` and `pagedeck store push` read
-  `PAGEDECK_SNAPSHOT_URL` when the command line names no URL, and that is the whole
-  protection: an argument is in `/proc/<pid>/cmdline`, which is world-readable on
-  a shared runner, and in the `run:` line CI echoes. Writing
-  `pagedeck store pull "$PAGEDECK_SNAPSHOT_URL"` gets no benefit at all — the shell expands
-  it before `pagedeck` starts. Giving both the variable and an argument is refused
-  rather than ranked.
+**A presigned URL lives at most 7 days.** SigV4 caps `X-Amz-Expires` at
+604800 seconds. Whoever holds the credentials signs both URLs again and
+replaces both secrets within 7 days of the last signing, or the next run's
+pull fails with HTTP 403. The workflow refuses a run with only one of the two
+set.
+
+Two consequences worth knowing before storing them:
+
+- **Never name one on a command line.** `pagedeck store pull` and `pagedeck
+  store push` read their variable when the command line names no URL, and that
+  is the whole protection: an argument is in `/proc/<pid>/cmdline`, which is
+  world-readable on a shared runner, and in the `run:` line CI echoes. Writing
+  `pagedeck store pull "$PAGEDECK_SNAPSHOT_PULL_URL"` gets no benefit at all —
+  the shell expands it before `pagedeck` starts. Giving both the variable and
+  an argument is refused rather than ranked.
 - **A presigned URL carries its credential in the query string.** No message in
   the deploy path prints one, and CI secret masking will not save you if one is
   composed at run time rather than stored.
@@ -144,10 +159,11 @@ Two consequences worth knowing before storing one:
 Loopback and link-local targets are refused with no override, so a job that runs
 its object store as a service container on `localhost` cannot push.
 
-**In the workflow the secret is declared on three steps and nowhere else** — the
-gate, the snapshot pull and the snapshot push. A job-level `env:` is exported to
-every step of the job, which would have handed a write credential for the
-content store to `actions/checkout`, `pnpm/action-setup`, `actions/setup-node`,
+**In the workflow the secrets are declared on three steps and nowhere else** —
+both on the gate, the pull URL on the snapshot pull and the push URL on the
+snapshot push. A job-level `env:` is exported to every step of the job, which
+would have handed a write credential for the content store to
+`actions/checkout`, `pnpm/action-setup`, `actions/setup-node`,
 `actions/upload-artifact` and `pnpm install --frozen-lockfile` — that is, to
 every dependency lifecycle script in the workspace. That exposure is what
 `CONTEXT.md`'s **Third-party actions are pinned to commit SHAs** guards, and
@@ -158,7 +174,7 @@ pinning an action does not help against a package.
 Run from `packages/site`, where `pagedeck.config.ts` is:
 
 ```sh
-# 1. the content store, from the snapshot the secret points at
+# 1. the content store, from the snapshot PAGEDECK_SNAPSHOT_PULL_URL points at
 node ../core/dist/bin.js store pull
 
 # 2. render, bundle and write the whole site into ./site
@@ -376,9 +392,10 @@ the next section. Giving both is refused rather than ranked, and exits 2.
 
 **What the workflow adds is two locks, not a third mode.**
 `.github/workflows/deploy.yml` guards every writing step on `apply: true` *and*
-on `PAGEDECK_SNAPSHOT_URL` being set. With no secret configured — this repository's
-state — a run pulls nothing, syncs the site's own entries instead, builds, prints
-the plan, uploads it as a build artifact and finishes green. A `repository_dispatch`
+on both `PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL` being set.
+With neither secret configured — this repository's state — a run pulls nothing,
+syncs the site's own entries instead, builds, prints the plan, uploads it as a
+build artifact and finishes green. A `repository_dispatch`
 run (the CMS webhook) never reaches the writing steps at all, whatever its
 payload says: `inputs` is empty on that event, and the guards test `inputs`.
 
@@ -391,9 +408,10 @@ presigned GET and PUT is a target, and a prune also sends a presigned DELETE.
 
 **The URLs arrive in a file, and the file's path in `PAGEDECK_DEPLOY_URLS`.** Not
 on the command line: an argument is in `/proc/<pid>/cmdline` and in the `run:`
-line CI echoes, the reason `pagedeck store` reads `PAGEDECK_SNAPSHOT_URL` (see "The
-secret"). Not the JSON itself in the variable: a site of a few hundred files
-passes Linux's 128 KB limit on one environment string. The file is keyed by
+line CI echoes, the reason `pagedeck store` reads `PAGEDECK_SNAPSHOT_PULL_URL`
+and `PAGEDECK_SNAPSHOT_PUSH_URL` (see "The secrets"). Not the JSON itself in the
+variable: a site of a few hundred files passes Linux's 128 KB limit on one
+environment string. The file is keyed by
 deploy key:
 
 ```json

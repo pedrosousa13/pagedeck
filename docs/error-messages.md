@@ -2745,11 +2745,12 @@ echo the `run:` line they are about to execute, arguments and all. A careful
 in-message redaction defeated one layer up is not a defence, and calling it one
 would be worse than not having it.
 
-So `pagedeck store` reads its target from `PAGEDECK_SNAPSHOT_URL` when the command line
-names none (#117). What does the work is that the target is never named on the
+So `pagedeck store` reads its target from `PAGEDECK_SNAPSHOT_PULL_URL` or
+`PAGEDECK_SNAPSHOT_PUSH_URL`, one per verb, when the command line names none
+(#117, #63). What does the work is that the target is never named on the
 command line: the process reads the variable rather than being handed its value,
 so nothing lands in `cmdline` and nothing is echoed. A workflow written as
-`pagedeck store pull "$PAGEDECK_SNAPSHOT_URL"` gets none of that — the shell expands the
+`pagedeck store pull "$PAGEDECK_SNAPSHOT_PULL_URL"` gets none of that — the shell expands the
 variable before `pagedeck` starts — and it is the argument-less form that is worth
 documenting. Even that is a smaller exposure rather than none: a workflow that
 echoes the variable puts the credential back in the log, and no framework code

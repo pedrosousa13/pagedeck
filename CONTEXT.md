@@ -1767,6 +1767,12 @@ intentions in one invocation, and acting on either silently is how a store
 gets uploaded somewhere nobody chose. The refusal names the edit, and quotes
 each source through `redactTarget` like every other message. Ruled on #117.
 
+**Amended by #63 (2026-10-08): the variable is per verb.** `pagedeck store pull`
+reads `PAGEDECK_SNAPSHOT_PULL_URL` and `pagedeck store push` reads
+`PAGEDECK_SNAPSHOT_PUSH_URL`, because a presigned URL is signed for one method.
+The holding is unchanged: `<url>` and the verb's variable both set is refused,
+and each verb ignores the other's variable.
+
 ### The build promises "nothing of mine" on stderr, not "nothing at all"
 
 A successful `pagedeck build` writes nothing of the framework's own to stderr.

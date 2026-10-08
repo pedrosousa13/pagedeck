@@ -697,34 +697,76 @@ test("store push with no url is refused before anything is copied", async () => 
 
   expect(result.code).toBe(EXIT_CODES.configError);
   expect(result.err).toContain(
-    "needs a <url> to push, or PAGEDECK_SNAPSHOT_URL set to one",
+    "needs a <url> to push, or PAGEDECK_SNAPSHOT_PUSH_URL set to one",
   );
 });
 
-test("store pull takes its target from PAGEDECK_SNAPSHOT_URL when no url is given", async () => {
+test("store pull reads PAGEDECK_SNAPSHOT_PULL_URL and store push reads PAGEDECK_SNAPSHOT_PUSH_URL", async () => {
   const dir = siteDir();
   await run(dir, "sync");
   const storePath = join(dir, "content.db");
   const before = sha256(storePath);
   const remote = pathToFileURL(join(dir, "remote", "snapshot.db")).href;
-  await run(dir, "store", "push", remote);
-  rmSync(storePath);
+  const unused = pathToFileURL(join(dir, "unused.db")).href;
 
-  const pulled = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: remote }, [
+  const pushed = await runIn(
+    dir,
+    { PAGEDECK_SNAPSHOT_PUSH_URL: remote, PAGEDECK_SNAPSHOT_PULL_URL: unused },
+    ["store", "push"],
+  );
+  rmSync(storePath);
+  const pulled = await runIn(
+    dir,
+    { PAGEDECK_SNAPSHOT_PULL_URL: remote, PAGEDECK_SNAPSHOT_PUSH_URL: unused },
+    ["store", "pull"],
+  );
+
+  expect(pushed.code).toBe(EXIT_CODES.success);
+  expect(pulled.code).toBe(EXIT_CODES.success);
+  expect(sha256(storePath)).toBe(before);
+  expect(existsSync(join(dir, "unused.db"))).toBe(false);
+});
+
+test("store pull does not read the push variable", async () => {
+  const dir = siteDir();
+  await run(dir, "sync");
+  const remote = pathToFileURL(join(dir, "remote.db")).href;
+  await run(dir, "store", "push", remote);
+
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PUSH_URL: remote }, [
     "store",
     "pull",
   ]);
 
-  expect(pulled.code).toBe(EXIT_CODES.success);
-  expect(sha256(storePath)).toBe(before);
+  expect(result.code).toBe(EXIT_CODES.configError);
+  expect(result.err).toContain(
+    "needs a <url> to pull, or PAGEDECK_SNAPSHOT_PULL_URL set to one",
+  );
 });
 
-test("a target given as both <url> and PAGEDECK_SNAPSHOT_URL is refused", async () => {
+test("store push does not read the pull variable", async () => {
   const dir = siteDir();
   await run(dir, "sync");
   const remote = pathToFileURL(join(dir, "remote.db")).href;
 
-  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: remote }, [
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PULL_URL: remote }, [
+    "store",
+    "push",
+  ]);
+
+  expect(result.code).toBe(EXIT_CODES.configError);
+  expect(result.err).toContain(
+    "needs a <url> to push, or PAGEDECK_SNAPSHOT_PUSH_URL set to one",
+  );
+  expect(existsSync(join(dir, "remote.db"))).toBe(false);
+});
+
+test("a target given as both <url> and the verb's variable is refused", async () => {
+  const dir = siteDir();
+  await run(dir, "sync");
+  const remote = pathToFileURL(join(dir, "remote.db")).href;
+
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PUSH_URL: remote }, [
     "store",
     "push",
     remote,
@@ -732,16 +774,16 @@ test("a target given as both <url> and PAGEDECK_SNAPSHOT_URL is refused", async 
 
   expect(result.code).toBe(EXIT_CODES.configError);
   expect(result.err).toContain("given a target twice");
-  expect(result.err).toContain("unset PAGEDECK_SNAPSHOT_URL");
+  expect(result.err).toContain("unset PAGEDECK_SNAPSHOT_PUSH_URL");
   expect(existsSync(join(dir, "remote.db"))).toBe(false);
 });
 
-test("an empty PAGEDECK_SNAPSHOT_URL leaves the <url> argument working", async () => {
+test("an empty PAGEDECK_SNAPSHOT_PUSH_URL leaves the <url> argument working", async () => {
   const dir = siteDir();
   await run(dir, "sync");
   const remote = pathToFileURL(join(dir, "remote.db")).href;
 
-  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: "" }, [
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PUSH_URL: "" }, [
     "store",
     "push",
     remote,
@@ -751,24 +793,24 @@ test("an empty PAGEDECK_SNAPSHOT_URL leaves the <url> argument working", async (
   expect(existsSync(join(dir, "remote.db"))).toBe(true);
 });
 
-test("an empty PAGEDECK_SNAPSHOT_URL and no <url> is the usage error, not a transfer failure", async () => {
+test("an empty PAGEDECK_SNAPSHOT_PULL_URL and no <url> is the usage error, not a transfer failure", async () => {
   const dir = siteDir();
   await run(dir, "sync");
 
-  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: "   " }, ["store", "pull"]);
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PULL_URL: "   " }, ["store", "pull"]);
 
   expect(result.code).toBe(EXIT_CODES.configError);
   expect(result.err).toContain(
-    "needs a <url> to pull, or PAGEDECK_SNAPSHOT_URL set to one",
+    "needs a <url> to pull, or PAGEDECK_SNAPSHOT_PULL_URL set to one",
   );
 });
 
-test("the success line for a target from PAGEDECK_SNAPSHOT_URL is redacted", async () => {
+test("the success line for a target from PAGEDECK_SNAPSHOT_PUSH_URL is redacted", async () => {
   const dir = siteDir();
   await run(dir, "sync");
   const presigned = `${pathToFileURL(join(dir, "remote.db")).href}?X-Amz-Signature=deadbeefcafe`;
 
-  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: presigned }, [
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PUSH_URL: presigned }, [
     "store",
     "push",
   ]);
@@ -783,7 +825,7 @@ test("the refusal of a target given twice quotes neither credential", async () =
   const argvUrl = `${pathToFileURL(join(dir, "argv.db")).href}?X-Amz-Signature=argvsecret`;
   const envUrl = `${pathToFileURL(join(dir, "env.db")).href}?X-Amz-Signature=envsecret`;
 
-  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: envUrl }, [
+  const result = await runIn(dir, { PAGEDECK_SNAPSHOT_PULL_URL: envUrl }, [
     "store",
     "pull",
     argvUrl,
@@ -1462,14 +1504,14 @@ test("a target given twice cannot forge a line, and neither credential is quoted
   const argvUrl = `//AKIAARGV:argvsecret@bucket/a"b\nfw: Site build: 0 problems?sig=argvsig`;
   const envUrl = `//AKIAENV:envsecret@bucket/c"d\nfw: Site build: 0 problems?sig=envsig`;
 
-  const forged = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: envUrl }, [
+  const forged = await runIn(dir, { PAGEDECK_SNAPSHOT_PULL_URL: envUrl }, [
     "store",
     "pull",
     argvUrl,
   ]);
   const written = writtenWithoutForgery(
     forged,
-    await runIn(dir, { PAGEDECK_SNAPSHOT_URL: "//bucket/env.db" }, [
+    await runIn(dir, { PAGEDECK_SNAPSHOT_PULL_URL: "//bucket/env.db" }, [
       "store",
       "pull",
       "//bucket/argv.db",
@@ -1477,7 +1519,7 @@ test("a target given twice cannot forge a line, and neither credential is quoted
   );
 
   expect(written[0]).toContain(`<url> is "…@bucket/a\\"b`);
-  expect(written[0]).toContain(`PAGEDECK_SNAPSHOT_URL is "…@bucket/c\\"d`);
+  expect(written[0]).toContain(`PAGEDECK_SNAPSHOT_PULL_URL is "…@bucket/c\\"d`);
   for (const secret of ["argvsecret", "envsecret", "argvsig", "envsig"])
     expect(forged.err).not.toContain(secret);
 });

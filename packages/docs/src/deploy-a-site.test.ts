@@ -12,6 +12,10 @@ const DOCS = join(import.meta.dirname, "..");
 const BASE_CONFIG = join(DOCS, "..", "..", "tsconfig.base.json");
 const ADAPTER_NETLIFY_PACKAGE = join(DOCS, "..", "adapter-netlify", "package.json");
 
+const SNAPSHOT_URL_VARIABLES: Record<string, string> = {
+  pull: "PAGEDECK_SNAPSHOT_PULL_URL",
+  push: "PAGEDECK_SNAPSHOT_PUSH_URL",
+};
 // Empty, so every verb stops at loading the config: nothing is built, synced or sent.
 const NOWHERE = mkdtempSync(join(tmpdir(), "pagedeck-deploy-how-to-"));
 
@@ -84,9 +88,11 @@ async function faultsOf(commands: readonly string[][], whole = true): Promise<st
     for (const flag of args.filter((arg) => arg.startsWith("--"))) {
       if (!usage.includes(flag)) faults.push(`${shown}: --help names no ${flag}`);
     }
-    // `store` with no <url> reads the variable, as the page's CI sample sets it.
+    // `store` with no <url> reads its verb's variable, as the page's CI sample sets it.
     const env: Record<string, string> =
-      verb === "store" && args.length === 2 ? { PAGEDECK_SNAPSHOT_URL: "file:///nowhere/content.db" } : {};
+      verb === "store" && args.length === 2
+        ? { [SNAPSHOT_URL_VARIABLES[String(subcommand)] ?? ""]: "file:///nowhere/content.db" }
+        : {};
     const output = await cli(args, env);
     const fault = whole
       ? output.includes("Usage:") && output.split("\n")[0]

@@ -207,7 +207,7 @@ Presigned URLs carry their credential in the query string, so every message and
 success line about a snapshot has its target redacted down to scheme, host and
 path.
 
-### PAGEDECK_SNAPSHOT_URL
+### The snapshot variables
 
 Redaction covers what `pagedeck` prints, and nothing else. A URL passed as `<url>` is
 still an argument of the process: on stock Linux `/proc/<pid>/cmdline` is
@@ -215,20 +215,26 @@ readable by every user on the machine, so it is visible to anything else running
 on a shared CI runner, and most CI providers echo the `run:` line — arguments
 included — into the log before executing the step.
 
-So `pagedeck store pull` and `pagedeck store push` take the target from `PAGEDECK_SNAPSHOT_URL`
-when the command line names none:
+So when the command line names no target, `pagedeck store pull` takes it from
+`PAGEDECK_SNAPSHOT_PULL_URL` and `pagedeck store push` from
+`PAGEDECK_SNAPSHOT_PUSH_URL`:
 
 ```
 - run: pagedeck store pull
   env:
-    PAGEDECK_SNAPSHOT_URL: ${{ secrets.SNAPSHOT_URL }}
+    PAGEDECK_SNAPSHOT_PULL_URL: ${{ secrets.SNAPSHOT_PULL_URL }}
 ```
+
+Each verb has its own variable because a presigned S3 URL is signed for one
+method: pull needs a URL signed for GET, and push one signed for PUT. A
+presigned URL also expires, after at most 7 days, so whoever holds the bucket's
+credentials signs both again and replaces both values within that time.
 
 `/proc/<pid>/environ` is readable only by the user the process runs as, and the
 echoed `run:` line holds no URL.
 
 **Do not expand the variable into the command line.** `pagedeck store pull
-"$PAGEDECK_SNAPSHOT_URL"` is no safer than typing the URL: the shell expands it before
+"$PAGEDECK_SNAPSHOT_PULL_URL"` is no safer than typing the URL: the shell expands it before
 `pagedeck` starts, so the value is in the process arguments and in the echoed line
 again. The protection comes from `pagedeck` reading the variable itself, which means
 giving it no `<url>` at all.
@@ -237,12 +243,12 @@ This reduces the exposure; it does not remove it. A workflow that echoes the
 variable, or a step that dumps its environment, puts the credential back in the
 log.
 
-An empty or whitespace-only `PAGEDECK_SNAPSHOT_URL` counts as unset — a CI expression
+An empty or whitespace-only variable counts as unset — a CI expression
 for a secret that does not exist expands to the empty string, and that must not
 be mistaken for a target.
 
 `<url>` still works, and is the right form for a `file:` target or any URL
-carrying no credential. Passing both `<url>` and `PAGEDECK_SNAPSHOT_URL` is refused
+carrying no credential. Passing both `<url>` and the verb's variable is refused
 rather than resolved by precedence: two targets in one invocation have no
 defensible winner, and picking one silently could upload the store to the wrong
 place.

@@ -375,28 +375,53 @@ describe.skipIf(unavailable !== undefined)(
       expect((await live()).build.id).toBe(first.build.id);
     }, 60_000);
 
-    test("pagedeck store push and pull round-trip the store, and the printed target has no query string", async () => {
+    test("pagedeck store push and pull round-trip the store through a PUT-signed and a GET-signed URL, and the printed target has no query string", async () => {
       const saved = `${STORE}.saved`;
       copyFileSync(STORE, saved);
       const bare = `${origin.endpoint}${objectPath(BUCKET, SNAPSHOT_KEY)}`;
+      // Both set, so each verb must ignore the other's.
+      const pair = {
+        PAGEDECK_SNAPSHOT_PULL_URL: presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "GET" }),
+        PAGEDECK_SNAPSHOT_PUSH_URL: presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "PUT" }),
+      };
 
-      const push = await pagedeck(["store", "push"], {
-        PAGEDECK_SNAPSHOT_URL: presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "PUT" }),
-      });
+      const push = await pagedeck(["store", "push"], pair);
       expect(push.err).toEqual([]);
       expect(push.code).toBe(EXIT_CODES.success);
       expect(push.out).toEqual([`pushed snapshot from ${STORE} to ${bare}`]);
       expect(push.out.join("\n")).not.toMatch(/\?|X-Amz-/);
 
       rmSync(STORE);
-      const pull = await pagedeck(["store", "pull"], {
-        PAGEDECK_SNAPSHOT_URL: presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "GET" }),
-      });
+      const pull = await pagedeck(["store", "pull"], pair);
       expect(pull.err).toEqual([]);
       expect(pull.code).toBe(EXIT_CODES.success);
       expect(pull.out).toEqual([`pulled snapshot from ${bare} to ${STORE}`]);
       expect(readFileSync(STORE).equals(readFileSync(saved))).toBe(true);
       rmSync(saved);
+    }, 60_000);
+
+    test("a URL signed for one method is refused for the other, which is why the snapshot takes two (#63)", async () => {
+      const stored = await signedFetch({ ...origin, path: objectPath(BUCKET, SNAPSHOT_KEY) });
+      expect(stored.status).toBe(200);
+      const before = Buffer.from(await stored.arrayBuffer());
+
+      const push = await pagedeck(["store", "push"], {
+        PAGEDECK_SNAPSHOT_PUSH_URL: presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "GET" }),
+      });
+      const pull = await pagedeck(["store", "pull"], {
+        PAGEDECK_SNAPSHOT_PULL_URL: presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "PUT" }),
+      });
+
+      for (const run of [push, pull]) {
+        expect(run.code).not.toBe(EXIT_CODES.success);
+        expect(run.out).toEqual([]);
+        expect(run.err.join("\n")).toContain("HTTP 403");
+        expect(run.err.join("\n")).not.toMatch(/X-Amz-/);
+      }
+      const after = await signedFetch({ ...origin, path: objectPath(BUCKET, SNAPSHOT_KEY) });
+      expect(Buffer.from(await after.arrayBuffer()).equals(before)).toBe(true);
+      console.log(`[#63] a GET-signed URL used to push: ${push.err[0] ?? ""}`);
+      console.log(`[#63] a PUT-signed URL used to pull: ${pull.err[0] ?? ""}`);
     }, 60_000);
 
     test("the R2 signing step's URLs, region auto, carry both passes of the spawned CLI, and the compiled Worker serves what they put", async () => {
@@ -493,7 +518,7 @@ describe.skipIf(unavailable !== undefined)(
       // is taken because it is a private range; this one never is.
       const signed = presign({ ...origin, bucket: BUCKET, key: SNAPSHOT_KEY, method: "PUT" });
       const loopback = signed.replace(ORIGIN_IP, "127.0.0.1");
-      const push = await pagedeck(["store", "push"], { PAGEDECK_SNAPSHOT_URL: loopback });
+      const push = await pagedeck(["store", "push"], { PAGEDECK_SNAPSHOT_PUSH_URL: loopback });
       expect(push.code).toBe(EXIT_CODES.configError);
       expect(push.out).toEqual([]);
       expect(push.err.join("\n")).toContain(

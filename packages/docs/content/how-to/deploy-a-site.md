@@ -138,20 +138,25 @@ A CI runner starts with no `content.db` and no `.pagedeck/`. Without
 refuses every deploy.
 
 **Keep the content store as a snapshot.** `pagedeck store pull` downloads
-`content.db` and `pagedeck store push` uploads it. Give the target in
-`PAGEDECK_SNAPSHOT_URL` and none on the command line, as
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl) explains:
+`content.db` and `pagedeck store push` uploads it. Give the pull target in
+`PAGEDECK_SNAPSHOT_PULL_URL`, the push target in `PAGEDECK_SNAPSHOT_PUSH_URL`
+and none on the command line, as
+[the snapshot variables](/reference/cli/#the-snapshot-variables) explains:
 
 ```
 - run: npx pagedeck store pull
   env:
-    PAGEDECK_SNAPSHOT_URL: ${{ secrets.SNAPSHOT_URL }}
+    PAGEDECK_SNAPSHOT_PULL_URL: ${{ secrets.SNAPSHOT_PULL_URL }}
 - run: npx pagedeck sync --incremental
 - run: npx pagedeck build
 - run: npx pagedeck store push
   env:
-    PAGEDECK_SNAPSHOT_URL: ${{ secrets.SNAPSHOT_URL }}
+    PAGEDECK_SNAPSHOT_PUSH_URL: ${{ secrets.SNAPSHOT_PUSH_URL }}
 ```
+
+For an S3-style bucket the two are presigned URLs for the same object, one
+signed for GET and one for PUT. Each expires after at most 7 days: sign both
+again and replace both secrets before then.
 
 On the first run there is no snapshot to pull, and no cursor for
 `pagedeck sync --incremental` to start from. Run `pagedeck sync` and
@@ -304,17 +309,17 @@ normal case for this host.
 
 If a full sync is too slow for your content source, keep `content.db` between
 builds the way "Keep the content store and `.pagedeck/` between CI runs" above
-describes. `PAGEDECK_SNAPSHOT_URL` is a credential (see
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
-that has it can overwrite the snapshot production builds start from. In the
-project's Settings > Variables and Secrets, add it to the Production
-environment only, and select **Encrypt** so it is stored as a secret.
+describes. `PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL` are
+credentials (see [the snapshot variables](/reference/cli/#the-snapshot-variables)), and any build
+that has the push URL can overwrite the snapshot production builds start from.
+In the project's Settings > Variables and Secrets, add both to the Production
+environment only, and select **Encrypt** so each is stored as a secret.
 Cloudflare's [bindings](https://developers.cloudflare.com/pages/functions/bindings/)
 page says variables are set "for both your production and preview environments
 at runtime and build-time", but it documents **Encrypt** for secrets bound to
 Pages Functions and does not say whether an encrypted value reaches the build.
 If the first production build stops with the `pagedeck store pull` usage error
-that names `PAGEDECK_SNAPSHOT_URL`, the build did not receive it.
+that names `PAGEDECK_SNAPSHOT_PULL_URL`, the build did not receive it.
 
 Then run the snapshot steps only on a production build. Cloudflare sets
 `CF_PAGES_BRANCH` to the name of the branch being deployed
@@ -343,10 +348,10 @@ Replace `"main"` with the production branch set in the project. If that branch
 is ever renamed and the script is not, production builds take the `else`
 branch and silently stop pulling and pushing the snapshot.
 
-A preview build gets no `PAGEDECK_SNAPSHOT_URL`, so it neither reads nor
+A preview build gets neither variable, so it neither reads nor
 writes the snapshot: it syncs every entry from the content source and builds
 the whole site. It cannot run the production steps instead: `pagedeck store
-pull` with no URL stops with a usage error that names `PAGEDECK_SNAPSHOT_URL`,
+pull` with no URL stops with a usage error that names `PAGEDECK_SNAPSHOT_PULL_URL`,
 and `pagedeck sync --incremental` on an empty store stops with "no cursor to
 sync since — run a full sync first".
 
@@ -394,10 +399,10 @@ Vercel's build container does not carry over.
 
 If a full sync is too slow for your content source, keep `content.db` between
 builds with `npx pagedeck store pull` and `npx pagedeck store push`.
-`PAGEDECK_SNAPSHOT_URL` is a credential (see
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
-that has it can overwrite the snapshot production builds start from. In the
-project's Environment Variables settings, add it with the type **Secret**,
+`PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL` are credentials
+(see [the snapshot variables](/reference/cli/#the-snapshot-variables)), and any build
+that has the push URL can overwrite the snapshot production builds start from.
+In the project's Environment Variables settings, add both with the type **Secret**,
 which Vercel describes as "write-only after saving" (it replaced the type
 Vercel called Sensitive), and with Production as its only target environment
 ([Config and Secret environment variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables)).
@@ -426,7 +431,7 @@ fi
 
 The build itself stays a full build — `site/` is not carried over — but a
 production sync no longer re-fetches every entry from the content source. A
-preview build gets no `PAGEDECK_SNAPSHOT_URL` and takes the `else` branch,
+preview build gets neither variable and takes the `else` branch,
 which syncs every entry and touches no snapshot, as on Cloudflare Pages above.
 On the first production run there is no snapshot to pull and no cursor for
 `--incremental` to start from: run `pagedeck sync` and `pagedeck store push`
@@ -492,9 +497,10 @@ this page's section on CI already covers — a snapshot for the store, a cache
 for `.pagedeck/` — wired into that plugin or into `command` here, rather than
 into a plain CI job's own steps.
 
-If you keep the snapshot, set `PAGEDECK_SNAPSHOT_URL` in the site's
-environment variables with **Contains secret values** selected, and give it a
-value only in the Production deploy context. Netlify says "Secret values must
+If you keep the snapshot, set `PAGEDECK_SNAPSHOT_PULL_URL` and
+`PAGEDECK_SNAPSHOT_PUSH_URL` in the site's environment variables with
+**Contains secret values** selected, and give each a value only in the
+Production deploy context. Netlify says "Secret values must
 be set to explicit deploy contexts and scopes to avoid unexpected exposure"
 ([secrets controller](https://docs.netlify.com/build/environment-variables/secrets-controller/)).
 Run `pagedeck store pull` and `pagedeck store push` only when `CONTEXT`, the
@@ -519,5 +525,5 @@ else
 fi
 ```
 
-Deploy previews and branch deploys get no `PAGEDECK_SNAPSHOT_URL` and take
+Deploy previews and branch deploys get neither variable and take
 the `else` branch: a full sync and build that touches no snapshot.

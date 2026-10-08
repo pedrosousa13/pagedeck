@@ -35,7 +35,10 @@ export interface CliIo {
   err(line: string): void;
 }
 
-const SNAPSHOT_URL_VARIABLE = "PAGEDECK_SNAPSHOT_URL";
+const SNAPSHOT_URL_VARIABLES = {
+  pull: "PAGEDECK_SNAPSHOT_PULL_URL",
+  push: "PAGEDECK_SNAPSHOT_PUSH_URL",
+} as const;
 
 const USAGE = [
   "Usage:",
@@ -56,7 +59,9 @@ const USAGE = [
   "deploying over. pagedeck rollback needs no such flag: a rollback is out of order by",
   "definition, which is the whole of what it is for.",
   "<url> is a file: or https: URL (an S3-style target is a presigned https: URL).",
-  "pagedeck store takes <url> from PAGEDECK_SNAPSHOT_URL when the command line names none.",
+  "When the command line names no <url>, pagedeck store pull takes it from",
+  "PAGEDECK_SNAPSHOT_PULL_URL and pagedeck store push from PAGEDECK_SNAPSHOT_PUSH_URL:",
+  "a presigned URL is signed for one method, so each verb has its own.",
   "Naming no <url> is what keeps a presigned one out of the process table and",
   "the echoed CI line. Giving both is refused.",
 ];
@@ -344,17 +349,18 @@ function resolveSnapshotTarget(
   url: string | undefined,
   env: CliIo["env"],
 ): string {
-  const configured = env[SNAPSHOT_URL_VARIABLE]?.trim();
+  const variable = SNAPSHOT_URL_VARIABLES[subcommand];
+  const configured = env[variable]?.trim();
   const fromEnv = configured === "" ? undefined : configured;
   if (url !== undefined && fromEnv !== undefined) {
     throw usageError(
-      `pagedeck store ${subcommand} was given a target twice: <url> is ${quoteIdentifier(redactTarget(url))} and ${SNAPSHOT_URL_VARIABLE} is ${quoteIdentifier(redactTarget(fromEnv))} — pass <url>, or unset ${SNAPSHOT_URL_VARIABLE}.`,
+      `pagedeck store ${subcommand} was given a target twice: <url> is ${quoteIdentifier(redactTarget(url))} and ${variable} is ${quoteIdentifier(redactTarget(fromEnv))} — pass <url>, or unset ${variable}.`,
     );
   }
   const target = url ?? fromEnv;
   if (target === undefined) {
     throw usageError(
-      `pagedeck store ${subcommand} needs a <url> to ${subcommand}, or ${SNAPSHOT_URL_VARIABLE} set to one.`,
+      `pagedeck store ${subcommand} needs a <url> to ${subcommand}, or ${variable} set to one.`,
     );
   }
   return target;

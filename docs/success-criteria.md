@@ -411,7 +411,8 @@ prints them and asserts nothing.
 
 The pipeline that would produce the real figure is prepared and unrun:
 `.github/workflows/deploy.yml` has never deployed anything and cannot until a
-maintainer supplies `PAGEDECK_SNAPSHOT_URL` and passes `apply: true`.
+maintainer supplies `PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL`
+and passes `apply: true`.
 
 ## 5. PageSpeed mobile ≥ 90 with the full third-party loadout — **not measurable here**
 
