@@ -1464,14 +1464,17 @@ repoint, so a pin to one is a pin to whatever that owner pushes next: a tag
 moved upstream runs unreviewed code on the runner, inside the job, with
 whatever the job's `GITHUB_TOKEN` and secrets reach. What caps that is the
 `permissions: contents: read` each workflow declares. This binds a workflow
-file added later as much as the ones that exist today.
+file added later as much as the ones that exist today. A local `./` reference
+names no SHA, because it runs at the same commit as the workflow.
 
 To update a pin, resolve the tag to its commit
 (`gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`) and replace the SHA and
 the trailing comment together. The comment is the only human-readable record of
-which version is pinned, and nothing derives it from the SHA or checks it,
-which is why **Comments say only what the code cannot** keeps it. Ruled on
-#121.
+which version is pinned, which is why **Comments say only what the code
+cannot** keeps it. `packages/core/src/workflow-pins.test.ts` refuses a `uses:`
+that is not a 40-character SHA followed by a `# v…` comment. Whether the SHA is
+the commit the comment names needs the network, and nothing checks it. Ruled on
+#121, narrowed on #61.
 
 **`release.yml`'s `publish` job holds more than `contents: read`.** It also
 holds `id-token: write`, which can publish every public package once trusted
@@ -1492,25 +1495,29 @@ spelling is the rule rather than a preference: the expression evaluator
 substitutes text before a shell has seen the line, so a value containing `;`
 ends the command and starts another, and the substituted line is the one the
 runner echoes into the log. An `env:` entry has neither property, because the
-value is never parsed as source and never appears in the echoed command.
+value is never parsed as source and never appears in the echoed command. The
+`script:` input of an `actions/github-script` step follows the same rule, since
+Node parses it as JavaScript: the value is an `env:` entry read as
+`process.env.NAME`.
 
 It binds a workflow added tomorrow, which is what puts it here rather than in
 the section below: `packages/core/src/workflow-interpolations.test.ts` reads
 every file in `.github/workflows/` off disk and reports every expression it
-finds inside a `run:` block, with the file, the line, the step and the
-expression, so a new workflow is held to the rule the day it lands with no list
-to add itself to. That the rule *fails* is the point — it was stated in a
-comment and one file drifted from it for as long as nothing checked, which is
-the #225 argument that a docblock cannot fail. What the guard does not reach is
-an action input that is itself code, a value the shell then expands unquoted, a
-composite action under `.github/actions/`, and a `run:` written as anything but
-a block scalar or a value on its own key's line.
+finds inside a `run:` block or a github-script `script:`, with the file, the
+line, the step and the expression, so a new workflow is held to the rule the
+day it lands with no list to add itself to. That the rule *fails* is the point
+— it was stated in a comment and one file drifted from it for as long as
+nothing checked, which is the #225 argument that a docblock cannot fail. It
+reads block, plain, quoted and flow-style keys, and an expression that spans
+lines. What the guard does not reach is any other action input that is itself
+code, a value the shell then expands unquoted, and a composite action under
+`.github/actions/`.
 
 **The finding it closed had no impact and the record should not imply
 otherwise.** A dispatch needs repo write access and `ci.yml` runs `on: push`, so
 the drift bought an attacker nothing they did not already have. What was wrong
 was that one file contradicted a convention the rest of the repo obeys, which is
-how a convention stops being true. Ruled on #337.
+how a convention stops being true. Ruled on #337, widened on #61.
 
 ### Every package declares the same three fields, and packs only `dist`
 
