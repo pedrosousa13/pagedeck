@@ -6,7 +6,7 @@ export type {
   EdgeOutput,
 } from "./artifact.js";
 export { jsLiteral } from "./encode.js";
-export { treeOf } from "./faults.js";
+export { refuseOffsite, treeOf } from "./faults.js";
 export type { Fault } from "./faults.js";
 export type { CompiledRedirect, CompiledTree } from "./normalize.js";
 export { UNSERVED_KEY } from "./reserved-keys.js";

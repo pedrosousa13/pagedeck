@@ -1,7 +1,7 @@
 import { DEPLOY_DIRECTORY, DEPLOY_MANIFEST_PATH } from "@pagedeck/core/routing";
 import type { RoutingTree } from "@pagedeck/core/routing";
 
-import { treeOf } from "@pagedeck/edge";
+import { refuseOffsite, treeOf } from "@pagedeck/edge";
 import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 
 import {
@@ -12,7 +12,7 @@ import {
 // https://developers.cloudflare.com/pages/configuration/redirects/#per-file : 2,000 static and
 // 100 dynamic (a splat or a placeholder), 2,100 combined. Every row this adapter writes is a
 // concrete address — `RoutingTree.redirects` holds no pattern to begin with, and `check` below
-// refuses an authored one that holds "*" or a ":" segment before it ever reaches a row — except
+// refuses an authored one that holds "*" or ":" before it ever reaches a row — except
 // its own fixed `/.pagedeck/*` denial, one row that never nears the smaller cap on its own. So
 // the only limit a real site can ever reach is the static one, counted over every row including
 // that one.
@@ -71,6 +71,7 @@ function redirectsFile(
   tree: CompiledTree,
   faults: Fault[],
 ): string {
+  if (tree.notFound !== undefined) check(tree, "404 page", tree.notFound, faults);
   // Reserved deploy keys: Cloudflare Pages cannot rewrite with a status other than 200
   // (https://developers.cloudflare.com/pages/configuration/redirects/#advanced-redirects), so a
   // key is proxied (200, in place) to the tree's 404 page — redirects always run ahead of a real
@@ -88,8 +89,9 @@ function redirectsFile(
 
   for (const rule of tree.redirects) {
     if (!rule.normalizing) {
-      check(tree, `redirect from "${rule.from}"`, rule.from, faults);
-      check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
+      const offsite = refuseOffsite(tree.domain, rule, faults);
+      if (!offsite.from) check(tree, `redirect from "${rule.from}"`, rule.from, faults);
+      if (!offsite.to) check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
     }
     rows.push({ source: rule.from, destination: rule.to, code: rule.status });
   }

@@ -143,3 +143,62 @@ describe("compile refusals", () => {
     expect(() => vercel().compile(FIXTURE)).not.toThrow();
   });
 });
+
+describe("paths off the site", () => {
+  // Written by hand: `planRouting` refuses these, but a compiler is handed a document.
+  const redirects = (
+    rows: readonly (readonly [string, string])[],
+  ): RoutingManifest["trees"][number]["redirects"] =>
+    rows.map(([from, to]) => ({
+      from,
+      to,
+      status: 301 as const,
+      source: "config" as const,
+      via: [],
+    }));
+
+  it("refuses a redirect target off the site on vercel, naming every one", () => {
+    const offsite: RoutingManifest = {
+      ...FIXTURE,
+      trees: [
+        {
+          redirects: redirects([
+            ["/a/", "//evil.example/x\n/manifest.json /manifest.json 200!"],
+            ["/b/", "https://evil.example/"],
+            ["/c/", "/pricing/"],
+          ]),
+          headers: [],
+        },
+      ],
+    };
+    expect(() => vercel().compile(offsite)).toThrow(
+      new ConfigError(
+        `Edge target "vercel": 2 redirect targets are not paths on this site — write a tree-relative path like "/pricing"; a target off this site compiles to an open redirect at the edge:
+  the default tree's redirect target on "/a/" — the target begins "//", which is a host
+  the default tree's redirect target on "/b/" — the target holds a scheme`,
+      ),
+    );
+  });
+
+  it("refuses a redirect source off the site on vercel, naming every one", () => {
+    const offsite: RoutingManifest = {
+      ...FIXTURE,
+      trees: [
+        {
+          redirects: redirects([
+            ["/a\n/manifest.json/", "/pricing/"],
+            ["https://evil.example/b/", "/pricing/"],
+          ]),
+          headers: [],
+        },
+      ],
+    };
+    expect(() => vercel().compile(offsite)).toThrow(
+      new ConfigError(
+        `Edge target "vercel": 2 redirect sources are not paths on this site — write a tree-relative path like "/pricing"; the edge matches the path alone, so a source spelled as a URL is a rule that can never fire:
+  the default tree's redirect from "/a\\n/manifest.json/" — the source holds a control character
+  the default tree's redirect from "https://evil.example/b/" — the source holds a scheme`,
+      ),
+    );
+  });
+});

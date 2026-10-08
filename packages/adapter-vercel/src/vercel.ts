@@ -1,7 +1,7 @@
 import { DEPLOY_DIRECTORY, DEPLOY_MANIFEST_PATH } from "@pagedeck/core/routing";
 import type { HeaderField, RoutingTree } from "@pagedeck/core/routing";
 
-import { treeOf } from "@pagedeck/edge";
+import { refuseOffsite, treeOf } from "@pagedeck/edge";
 import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 
 import {
@@ -114,8 +114,9 @@ export function compileVercel(
     // The derived rows only reshape an authored address by a trailing slash: checking them
     // too would report the same bad character twice.
     if (!rule.normalizing) {
-      check(tree, `redirect from "${rule.from}"`, rule.from, faults);
-      check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
+      const offsite = refuseOffsite(tree.domain, rule, faults);
+      if (!offsite.from) check(tree, `redirect from "${rule.from}"`, rule.from, faults);
+      if (!offsite.to) check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
       checkLength(tree, `redirect from "${rule.from}"`, rule.from, faults);
       checkLength(tree, `redirect target on "${rule.from}"`, rule.to, faults);
     }

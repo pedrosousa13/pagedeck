@@ -16,7 +16,7 @@ import {
 import type { RoutingConfig, RoutingInput } from "./routing.js";
 
 const HEADER_VALUE_FIX =
-  "remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
+  "remove the character; RFC 9110 forbids every control character but HTAB in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
 
 function page(
   locale: string,

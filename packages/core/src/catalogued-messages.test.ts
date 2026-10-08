@@ -255,6 +255,9 @@ const UNCHECKED: readonly Unchecked[] = [
     names: 'Edge target "cloudflare-worker": 1 header value',
     because: "assembled",
   },
+  { names: 'Edge target "netlify": 1 redirect source', because: "assembled" },
+  { names: 'Edge target "netlify": 2 values cannot', because: "assembled" },
+  { names: 'Edge target "netlify": 1 header name', because: "assembled" },
   {
     names: '"build.budget" declares 1 limit',
     because: "assembled",

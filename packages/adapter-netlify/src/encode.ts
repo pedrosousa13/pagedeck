@@ -4,15 +4,23 @@
 
 import type { RedirectStatus } from "@pagedeck/core/routing";
 
-// Netlify gives `*` and a leading `:` meaning with no escape, and `%2A` is another address.
+// Netlify gives `*` and `:` meaning with no escape, and `%2A` is another address; `:` is refused
+// anywhere, not only leading a segment (#41). Whitespace ends a path in `_redirects` and `_headers`.
+const WHITESPACE = /\p{White_Space}/u;
+
 export function unexpressibleInNetlifyPattern(
   value: string,
 ): string | undefined {
   if (value.includes("*")) {
     return 'Netlify reads "*" in a path pattern as a splat, and offers no escape for a literal one';
   }
-  if (value.split("/").some((segment) => segment.startsWith(":"))) {
-    return 'Netlify reads a path segment beginning ":" as a placeholder, and offers no escape for a literal one';
+  if (value.includes(":")) {
+    return 'Netlify reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one';
+  }
+  const space = WHITESPACE.exec(value)?.[0];
+  if (space !== undefined) {
+    const point = (space.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0");
+    return `Netlify reads U+${point}, a whitespace character, as the end of a path pattern, and offers no escape for a literal one`;
   }
   return undefined;
 }

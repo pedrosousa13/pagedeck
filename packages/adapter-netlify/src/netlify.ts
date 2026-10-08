@@ -1,7 +1,7 @@
 import { DEPLOY_DIRECTORY, DEPLOY_MANIFEST_PATH } from "@pagedeck/core/routing";
 import type { RoutingTree } from "@pagedeck/core/routing";
 
-import { treeOf, UNSERVED_KEY } from "@pagedeck/edge";
+import { refuseOffsite, treeOf, UNSERVED_KEY } from "@pagedeck/edge";
 import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 
 import {
@@ -71,8 +71,9 @@ export function compileNetlify(
       continue;
     }
     if (!rule.normalizing) {
-      check(tree, `redirect from "${rule.from}"`, rule.from, faults);
-      check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
+      const offsite = refuseOffsite(tree.domain, rule, faults);
+      if (!offsite.from) check(tree, `redirect from "${rule.from}"`, rule.from, faults);
+      if (!offsite.to) check(tree, `redirect target on "${rule.from}"`, rule.to, faults);
     }
     // Forced on derived rows only: the origin's document at the other spelling is what the row
     // must beat. An authored `from` is never a page of this build.

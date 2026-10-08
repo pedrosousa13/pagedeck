@@ -149,12 +149,12 @@ const CRLF = /[\r\n]/;
 
 const OFFSITE_TARGET_FIX =
   'write a tree-relative path like "/pricing"; a target off this site compiles to an open redirect at the edge';
-const OFFSITE_SOURCE_FIX =
+export const OFFSITE_SOURCE_FIX =
   'write a tree-relative path like "/pricing"; the edge matches the path alone, so a source spelled as a URL is a rule that can never fire';
 const HEADER_INJECTION_FIX =
   "remove it — a header field that can hold a line break can write a second header";
 export const UNSENDABLE_HEADER_VALUE_FIX =
-  "remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
+  "remove the character; RFC 9110 forbids every control character but HTAB in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
 export const HEADER_NAME_TOKEN_FIX =
   'write the name as a header field name, such as "X-Frame-Options"; a name that is not one is emitted verbatim, and each target then either reads that line as a different field than the one written, or refuses it outright after the build has already reported success';
 const LOCATION_HEADER_FIX =
@@ -294,6 +294,12 @@ const HEADER_NAME_CHARACTER = /[^!#$%&'*+\-.^_`|~0-9A-Za-z]/;
  */
 export function unusableHeaderName(name: string): string | undefined {
   if (name === "") return "the header name is empty";
+  if (name.startsWith("#")) {
+    return 'the header name begins "#", which a line-based headers file can read as the start of a comment';
+  }
+  if (name.startsWith("!")) {
+    return 'the header name begins "!", which a line-based headers file can read as a detach';
+  }
   const held = [...name].find((one) => HEADER_NAME_CHARACTER.test(one));
   return held === undefined
     ? undefined
@@ -301,7 +307,7 @@ export function unusableHeaderName(name: string): string | undefined {
 }
 
 function unsendableInHeaderValue(point: number): boolean {
-  return point === 0x00 || point === 0x0a || point === 0x0d || point > 0xff;
+  return (point < 0x20 && point !== 0x09) || point === 0x7f || point > 0xff;
 }
 
 export function unusableHeaderValue(value: string): string | undefined {
