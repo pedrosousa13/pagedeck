@@ -3,6 +3,7 @@ import type { ChildProcess } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { redactToolOutput } from "@pagedeck/landing/redact";
 
 const LANDING = join(import.meta.dirname, "..");
 const BIN = join(LANDING, "..", "core", "dist", "bin.js");
@@ -23,14 +24,6 @@ With --apply, this harness would:
   5. put the file back, build and deploy the unedited content, and wait for ${LIVE} to serve it byte for byte.
 Run "pnpm bench:landing-publish --apply" only with the maintainer's approval of the deploys.
 `;
-
-const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
-const HEX_ID = /\b[0-9a-f]{32}\b/gi;
-
-/** wrangler prints the account's email and ID; neither belongs in a message. */
-export function redactToolOutput(text: string): string {
-  return text.replace(EMAIL, "<email>").replace(HEX_ID, "<id>");
-}
 
 interface Run {
   readonly run: number;

@@ -55,7 +55,7 @@ jobs:
         if: ${{ !inputs.apply }}
         run: |
           set -o pipefail
-          pnpm exec wrangler deploy --dry-run | tee "$GITHUB_WORKSPACE/wrangler.txt"
+          pnpm exec wrangler deploy --dry-run 2>&1 | node "$GITHUB_WORKSPACE/packages/landing/dist/redact.bin.js" | tee "$GITHUB_WORKSPACE/wrangler.txt"
 
       - name: Publish the Worker
         if: inputs.apply
@@ -72,7 +72,7 @@ jobs:
             exit 1
           fi
           set -o pipefail
-          pnpm exec wrangler deploy | tee "$GITHUB_WORKSPACE/wrangler.txt"
+          pnpm exec wrangler deploy 2>&1 | node "$GITHUB_WORKSPACE/packages/landing/dist/redact.bin.js" | tee "$GITHUB_WORKSPACE/wrangler.txt"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()

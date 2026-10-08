@@ -14,6 +14,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./redact": {
+      "source": "./src/redact.ts",
+      "types": "./dist/redact.d.ts",
+      "default": "./dist/redact.js"
+    },
     "./components/*": {
       "source": "./src/components/*.tsx",
       "types": "./dist/components/*.d.ts",

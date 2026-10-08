@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
-import { DRY_RUN_TEXT, exec, redactToolOutput } from "./publish-to-live.harness.js";
+import { DRY_RUN_TEXT, exec } from "./publish-to-live.harness.js";
+import { redactToolOutput } from "./redact.js";
 
 const HARNESS = join(import.meta.dirname, "publish-to-live.harness.ts");
 const CONTENT = join(import.meta.dirname, "..", "content", "index.md");
@@ -40,4 +41,14 @@ test("redaction leaves the rest of the output as it was", () => {
     "Uploaded pagedeck-landing (3.1 sec)\nhttps://pagedeck-landing.pedrodsousa.workers.dev",
   );
   expect(redactToolOutput("a.b+c@mail.example.org ABCDEF0123456789ABCDEF0123456789")).toBe("<email> <id>");
+});
+
+test("an ID or email is redacted whatever non-hex character sits beside it, and a longer hex run is left alone", () => {
+  const id = "0123456789abcdef0123456789abcdef";
+  expect(redactToolOutput(`\x1b[33m${id}\x1b[0m`)).toBe("\x1b[33m<id>\x1b[0m");
+  expect(redactToolOutput(`account_${id}`)).toBe("account_<id>");
+  expect(redactToolOutput(`https://dash.cloudflare.com/${id}/workers`)).toBe("https://dash.cloudflare.com/<id>/workers");
+  expect(redactToolOutput(id.toUpperCase())).toBe("<id>");
+  expect(redactToolOutput("\x1b[1mme@mail.example\x1b[0m")).not.toContain("me@mail.example");
+  expect(redactToolOutput(`${id}0`)).toBe(`${id}0`);
 });
