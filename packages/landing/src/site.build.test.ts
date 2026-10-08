@@ -1060,7 +1060,37 @@ describe("/server-data", () => {
 const SERVED_HEADERS = [
   ...SECURITY_HEADERS,
   { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
+  {
+    name: "Permissions-Policy",
+    value:
+      "accelerometer=(), bluetooth=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()",
+  },
+  { name: "Cross-Origin-Opener-Policy", value: "same-origin" },
 ];
+
+test("the policy admits no inline <style> element and no form posting to another origin (#62)", () => {
+  const directives = CONTENT_SECURITY_POLICY.split("; ").filter(
+    (directive) => !directive.startsWith("script-src "),
+  );
+  expect(directives).toEqual([
+    "default-src 'self'",
+    "style-src 'self'",
+    "style-src-attr 'unsafe-inline'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ]);
+});
+
+test("no document holds a <style> element, so style-src needs no 'unsafe-inline' (#62)", () => {
+  const documents = manifest.files.filter((file) => file.path.endsWith(".html"));
+  expect(documents).not.toEqual([]);
+  for (const file of documents) {
+    expect(readFileSync(join(OUT, file.path), "utf8"), file.path).not.toMatch(/<style[\s>]/i);
+  }
+});
 
 function edgeText(target: keyof typeof ADAPTERS, path: string): string {
   return (
@@ -1130,7 +1160,7 @@ test("the .assetsignore keeps the deploy manifest, the deploy directory and the 
   expect(proxied).toContain("/manifest.json /404.html 200\n");
 });
 
-test("every host sends the whole policy and the three security headers with every page", async () => {
+test("every host sends the whole policy and every security header with every page", async () => {
   const compiled = (target: keyof typeof ADAPTERS) => ADAPTERS[target].compile(manifest.routing).artifacts;
   const cloudfront = compiled("cloudfront-function");
   const netlify = compiled("netlify");

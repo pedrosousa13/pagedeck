@@ -1151,10 +1151,11 @@ wrangler`, which would take whatever version is latest.
 `_redirects` formats as Cloudflare Pages, so `pagedeck build` writes into
 `site/`:
 
-- `_headers`: a `/*` rule with the three security headers and the
+- `_headers`: a `/*` rule with the three security headers, the
   `Content-Security-Policy` from `src/csp.ts`, the same value the routing
-  header rule and the other adapters carry. Then one rule each for
-  `/assets/*`, `/fonts/*` and `/social/*`, which hold only content-hashed
+  header rule and the other adapters carry, and the `Permissions-Policy` and
+  `Cross-Origin-Opener-Policy` from the same file (#62). Then one rule each
+  for `/assets/*`, `/fonts/*` and `/social/*`, which hold only content-hashed
   names, adding `Cache-Control: public, max-age=31536000, immutable` and
   detaching the policy (#55). Those three rules set the three security headers
   too, because a path carries the set of the prefix it matches and no
@@ -1196,8 +1197,9 @@ Cloudflare has not been sent a request. These are the host facts the first
 deploy checks:
 
 - Workers Static Assets applies the `_headers` rule to every page, so each
-  response carries the CSP and the three security headers, and a hashed file
-  answers `immutable` with `nosniff`.
+  response carries the CSP, the three security headers, `Permissions-Policy`
+  and `Cross-Origin-Opener-Policy` (#62), and a hashed file answers
+  `immutable` with `nosniff`.
 - A proxy row whose target is not uploaded answers `404`. This is read from
   the asset worker's source bundled in wrangler 4.148.0's Miniflare
   (`workers-shared`), not observed on Cloudflare, and whether that `404`
@@ -1277,8 +1279,9 @@ The first time:
    `workers.dev` address.
 3. Open that address. `/` answers the page, `/features` answers `307` to
    `/features/`, `/manifest.json` and `/.pagedeck/deploy-history.json` answer
-   `404`, and a page carries the CSP and the three security headers. A file
-   under `/assets/` answers `Cache-Control: public, max-age=31536000,
+   `404`, and a page carries the CSP, the three security headers, a
+   `Permissions-Policy` and `Cross-Origin-Opener-Policy: same-origin` (#62).
+   A file under `/assets/` answers `Cache-Control: public, max-age=31536000,
    immutable` with `X-Content-Type-Options: nosniff`, and `/` answers no
    `immutable`. Then add the domain (below).
 
