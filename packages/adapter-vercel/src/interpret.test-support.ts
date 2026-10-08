@@ -41,8 +41,8 @@ function configFor(
   return JSON.parse(file.contents) as VercelConfig;
 }
 
-// Path-to-regexp, as Vercel reads `source`: literal text outside a group, a regex inside `:name(…)` (#37,
-// https://vercel.com/docs/project-configuration/vercel-json#negative-lookahead).
+// Vercel documents `source` only as "a pattern"; this assumes path-to-regexp, with a regex inside
+// `:name(…)` (#37, https://vercel.com/docs/project-configuration/vercel-json#header-object-definition).
 function sourcePattern(source: string): RegExp {
   let pattern = "";
   let at = 0;
@@ -51,7 +51,9 @@ function sourcePattern(source: string): RegExp {
     if (group === null) {
       const character = source[at] ?? "";
       if (/[:()*+?{}\\]/.test(character)) {
-        throw new Error(`unmodelled path-to-regexp syntax at ${String(at)} in "${source}"`);
+        throw new Error(
+          `Header source "${source}": holds path-to-regexp syntax ${JSON.stringify(character)} at ${String(at)} that sourcePattern does not model — model it in sourcePattern, or stop emitting it from vercel()`,
+        );
       }
       pattern += character.replace(/[.^$|[\]]/, "\\$&");
       at += 1;
@@ -62,7 +64,11 @@ function sourcePattern(source: string): RegExp {
     const start = at;
     for (; depth > 0; at += 1) {
       const character = source[at];
-      if (character === undefined) throw new Error(`unclosed group in "${source}"`);
+      if (character === undefined) {
+        throw new Error(
+          `Header source "${source}": holds an unclosed group — close it with ")" in vercel()'s headerSource`,
+        );
+      }
       if (character === "\\") at += 1;
       else if (character === "(") depth += 1;
       else if (character === ")") depth -= 1;
