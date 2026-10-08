@@ -135,6 +135,65 @@ describe("compile refusals", () => {
     );
   });
 
+  it("lets a nested rule restate an enclosing header's value, writing it once, in the enclosing block", () => {
+    const manifest: RoutingManifest = {
+      ...ALWAYS_FIXTURE,
+      trees: [
+        {
+          redirects: [],
+          headers: [
+            {
+              prefix: "/en/assets/",
+              set: [
+                { name: "X-Content-Type-Options", value: "nosniff" },
+                { name: "Cache-Control", value: "immutable" },
+              ],
+            },
+            {
+              prefix: "/en/",
+              set: [
+                { name: "X-Content-Type-Options", value: "nosniff" },
+                { name: "X-Frame-Options", value: "DENY" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const headers = cloudflarePages()
+      .compile(manifest)
+      .artifacts.find((artifact) => artifact.path === "/_headers");
+    expect(headers?.contents).toBe(`/en/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+
+/en/assets/*
+  ! X-Frame-Options
+  Cache-Control: immutable
+`);
+  });
+
+  it("refuses a restated value that an intermediate rule does not set", () => {
+    const manifest: RoutingManifest = {
+      ...ALWAYS_FIXTURE,
+      trees: [
+        {
+          redirects: [],
+          headers: [
+            { prefix: "/en/docs/", set: [{ name: "X-Frame-Options", value: "DENY" }] },
+            { prefix: "/en/", set: [{ name: "Referrer-Policy", value: "no-referrer" }] },
+            { prefix: "/", set: [{ name: "X-Frame-Options", value: "DENY" }] },
+          ],
+        },
+      ],
+    };
+    expect(() => cloudflarePages().compile(manifest)).toThrow(
+      new ConfigError(
+        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:\n  the default tree's header "X-Frame-Options" under prefix "/en/docs/" — also set under the enclosing prefix "/", and Cloudflare Pages joins a header set twice with a comma rather than letting a nested rule replace it`,
+      ),
+    );
+  });
+
   it("compiles the same name set at two prefixes that do not nest", () => {
     const manifest: RoutingManifest = {
       ...ALWAYS_FIXTURE,

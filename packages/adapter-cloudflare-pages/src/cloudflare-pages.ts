@@ -135,15 +135,31 @@ function headersFile(tree: CompiledTree, faults: Fault[]): string | undefined {
   const blocks = ordered.map((rule, index) => {
     check(tree, `header prefix "${rule.prefix}"`, rule.prefix, faults);
     const ownNames = new Set(rule.set.map((field) => field.name.toLowerCase()));
+    const enclosingRules = ordered
+      .slice(0, index)
+      .filter((enclosing) => rule.prefix.startsWith(enclosing.prefix));
+    // A value every enclosing rule already sets is inherited: written again, Cloudflare would
+    // join it with itself (#55).
+    const inherited = new Set(
+      rule.set
+        .filter(
+          (own) =>
+            enclosingRules.length > 0 &&
+            enclosingRules.every((enclosing) =>
+              enclosing.set.some(
+                (field) =>
+                  field.name.toLowerCase() === own.name.toLowerCase() && field.value === own.value,
+              ),
+            ),
+        )
+        .map((own) => own.name.toLowerCase()),
+    );
     const detach: string[] = [];
     const detached = new Set<string>();
-    for (let earlier = 0; earlier < index; earlier++) {
-      const enclosing = ordered[earlier];
-      if (enclosing === undefined || !rule.prefix.startsWith(enclosing.prefix)) {
-        continue;
-      }
+    for (const enclosing of enclosingRules) {
       for (const field of enclosing.set) {
         const lower = field.name.toLowerCase();
+        if (inherited.has(lower)) continue;
         if (ownNames.has(lower)) {
           faults.push({
             kind: "unexpressible",
@@ -158,7 +174,9 @@ function headersFile(tree: CompiledTree, faults: Fault[]): string | undefined {
     const lines = [
       `${cloudflarePagesPattern(rule.prefix)}*`,
       ...detach,
-      ...rule.set.map((field) => `  ${field.name}: ${field.value}`),
+      ...rule.set
+        .filter((field) => !inherited.has(field.name.toLowerCase()))
+        .map((field) => `  ${field.name}: ${field.value}`),
     ];
     for (const line of lines) {
       lineLimit(tree, `header line under prefix "${rule.prefix}"`, line, HEADER_LINE_LIMIT, faults);
