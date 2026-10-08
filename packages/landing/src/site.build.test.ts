@@ -1093,6 +1093,11 @@ test("the .assetsignore keeps the deploy manifest, the deploy directory and the 
     .split("\n")
     .filter((line) => line !== "" && !line.startsWith("#"));
   expect(ignored).toEqual(["/manifest.json", "/.pagedeck", "/404.html"]);
+  const declared = manifest.routing.trees.filter((tree) => tree.notFound !== undefined);
+  expect(
+    declared.map((tree) => tree.notFound),
+    "The landing page declares a 404 page, which core writes to /404.html, and public/.assetsignore drops /404.html from the upload — remove that line from public/.assetsignore and set not_found_handling to \"404-page\" in wrangler.jsonc (#52)",
+  ).toEqual([]);
   const proxied = readFileSync(join(OUT, "_redirects"), "utf8");
   expect(proxied).toContain("/manifest.json /404.html 200\n");
 });

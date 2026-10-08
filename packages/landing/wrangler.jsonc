@@ -6,8 +6,7 @@
   "assets": {
     "directory": "./site",
     "html_handling": "auto-trailing-slash",
-    // The site declares no 404 page, and `site/.assetsignore` keeps the adapter's
-    // fallback `404.html` out of the upload.
+    // No 404 page is declared or uploaded (#52, docs/deploy-recipe.md).
     "not_found_handling": "none"
   }
 }

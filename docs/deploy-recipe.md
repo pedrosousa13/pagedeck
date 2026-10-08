@@ -1,5 +1,5 @@
 ---
-description: How the dogfood site and the landing page deploy, with a dry run, presigned uploads, a grace period and a rollback, and what is proven.
+description: How the dogfood site deploys through presigned uploads and the landing page through wrangler, each with a dry run and a rollback, and what is proven.
 ---
 
 # Deploy recipe
