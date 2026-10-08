@@ -170,9 +170,25 @@ which.
 ### Releasing
 
 `.github/workflows/release.yml` publishes the public set to npm when a tag
-`v<version>` is pushed (#7). It installs with `--frozen-lockfile`, checks the
-tag with `pnpm check:release-tag`, runs `pnpm test:pack-harness`, and then runs
-`pnpm -r publish --access public --provenance --no-git-checks`. pnpm skips
+`v<version>` is pushed (#7). It has two jobs (#58):
+
+- **`verify`** holds `contents: read` only. It installs with
+  `--frozen-lockfile`, checks the tag with `pnpm check:release-tag`, and runs
+  `pnpm test:pack-harness`.
+- **`publish`** `needs: verify` and is the only job with `id-token: write`.
+  It checks out again, installs with `--frozen-lockfile --ignore-scripts`, and
+  runs `pnpm -r publish --access public --provenance --no-git-checks` and
+  nothing else.
+
+Any step in a job with `id-token: write` can mint an OIDC token, and npm's
+trusted publisher exchanges that token for publish rights to every public
+package. So the token reaches only the job that runs the publish, and never
+the install scripts, the registry install or the site builds of the pack
+harness. `cleanEnv` in `pack.harness.ts` also strips
+`ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` from what
+the harness spawns. `--ignore-scripts` is safe because `prepack`, which
+`pnpm publish` runs in each package, is `tsc -b` and needs no install script.
+`packages/core/src/release-permissions.test.ts` holds the split. pnpm skips
 every `private` package. `--no-git-checks` is there because a tag checkout is a
 detached HEAD, and pnpm's branch check refuses one. `pnpm publish` applies
 `.pnpmfile.mjs` the same way `pnpm pack` does, so the registry gets the
@@ -216,8 +232,8 @@ that way replaces any token the `.npmrc` names
 placeholder such as `${NODE_AUTH_TOKEN}` whose variable is unset counts as
 empty, not as a literal token
 (<https://github.com/pnpm/pnpm/releases/tag/v11.1.3>). With the secret deleted,
-`NODE_AUTH_TOKEN` is empty, and OIDC does the authenticating. The job already
-has `id-token: write`, which npm requires, and under trusted publishing npm
+`NODE_AUTH_TOKEN` is empty, and OIDC does the authenticating. The `publish`
+job already has `id-token: write`, which npm requires, and under trusted publishing npm
 generates provenance by itself, so `--provenance` does no harm
 (<https://docs.npmjs.com/trusted-publishers>).
 
@@ -229,7 +245,9 @@ registry (<https://pnpm.io/cli/publish>). So:
 
 - If the cause is outside the code (an expired token, a trusted publisher
   set up wrong, an npm outage), fix it without a new commit and use "Re-run
-  jobs" on the same tag's run. The re-run skips what is already published.
+  failed jobs" on the same tag's run. That re-runs `publish` alone, on the
+  `verify` that already passed; "Re-run all jobs" runs `verify` and its pack
+  harness again first. The re-run skips what is already published.
 - Never bump the version over a half-published set to get past a failure.
 - If the cause needs a code change, bump the whole public set to the next
   patch version, land it, and tag that. The half-published version stays as
