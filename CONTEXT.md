@@ -1473,12 +1473,15 @@ which version is pinned, and nothing derives it from the SHA or checks it,
 which is why **Comments say only what the code cannot** keeps it. Ruled on
 #121.
 
-**`release.yml` holds more than `contents: read`.** It also holds
-`id-token: write`, which can publish every public package once trusted
+**`release.yml`'s `publish` job holds more than `contents: read`.** It also
+holds `id-token: write`, which can publish every public package once trusted
 publishing is on, and runs two third-party actions (`pnpm/action-setup` and
 `actions/setup-node`) in that job. A moved tag there could publish to npm, which
-is worse than anywhere else. What limits it is the same SHA pin, and a trigger
-that only a pushed `v*` tag fires, which needs repo write access. Ruled on #7.
+is worse than anywhere else. What limits it is the same SHA pin, a trigger
+that only a pushed `v*` tag fires, which needs repo write access, and the job
+split: the install, the tag check and the pack harness run in `verify` with
+`contents: read`, and `publish` installs with `--ignore-scripts` and runs only
+`pnpm -r publish`. Ruled on #7; split on #58.
 
 ### No workflow interpolates a `${{ }}` expression into a `run:` block
 

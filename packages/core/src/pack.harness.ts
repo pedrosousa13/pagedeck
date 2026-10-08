@@ -51,10 +51,11 @@ interface Packed {
 }
 
 // The variables `pnpm test:pack-harness` itself exports would configure the
-// install below with this workspace's settings.
+// install below with this workspace's settings. The OIDC request pair would let
+// anything the harness spawns mint a token, should a job ever grant one (#58).
 function cleanEnv(): NodeJS.ProcessEnv {
   return Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !/^(npm_|pnpm_config_)/i.test(key)),
+    Object.entries(process.env).filter(([key]) => !/^(npm_|pnpm_config_|ACTIONS_ID_TOKEN_REQUEST_(URL|TOKEN)$)/i.test(key)),
   );
 }
 
