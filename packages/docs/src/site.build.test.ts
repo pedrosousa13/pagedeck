@@ -810,6 +810,27 @@ const SERVED_HEADERS = [
   { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
 ];
 
+test("the policy admits no inline <style> element (#87)", () => {
+  expect(CONTENT_SECURITY_POLICY.split("; ")).toEqual([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "style-src-attr 'unsafe-inline'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ]);
+});
+
+test("no document holds a <style> element, so style-src needs no 'unsafe-inline' (#87)", () => {
+  const documents = manifest.files.filter((file) => file.path.endsWith(".html"));
+  expect(documents).not.toEqual([]);
+  for (const file of documents) {
+    expect(readFileSync(join(OUT, file.path), "utf8"), file.path).not.toMatch(/<style[\s>]/i);
+  }
+});
+
 function edgeText(target: keyof typeof ADAPTERS, path: string): string {
   return (
     ADAPTERS[target].compile(manifest.routing).artifacts.find(
