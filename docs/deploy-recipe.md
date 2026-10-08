@@ -1342,13 +1342,19 @@ domain. Both workflows call `.github/workflows/deploy-worker.yml`, which builds
 the one site it is given and runs wrangler on it.
 
 **What the build writes for it.** `build.adapter` is `cloudflarePages()`, so
-`pagedeck build` writes the same four files into `site/`: `_headers`, with the
-docs site's own `Content-Security-Policy` from `src/csp.ts`; `_redirects`, the
+`pagedeck build` writes the same four files into `site/`: `_headers`, a `/*`
+rule with the three security headers and the docs site's own
+`Content-Security-Policy` from `src/csp.ts`, then a rule for `/assets/*`, which
+holds only content-hashed names, adding `Cache-Control: public,
+max-age=31536000, immutable` and detaching the policy (#86); `_redirects`, the
 three proxy rows for `/manifest.json`, `/.pagedeck` and `/.pagedeck/*`; the
 fallback `404.html`; and `.assetsignore`, from `public/`. The site declares no
 404 page, so `not_found_handling` is `none`, and the fallback stays out of the
 upload. `/search/` is the one page with JavaScript, and its index under
-`/search/en/` is uploaded with the pages.
+`/search/en/` is uploaded with the pages. The index files and `favicon.ico`
+have unhashed names and no rule: like every page, they get Cloudflare's
+default `public, max-age=0, must-revalidate`, as observed on the landing page
+(#55).
 
 **If the site ever declares a 404 page**, uploading it is not enough. With
 `/404.html` uploaded, the asset worker bundled in wrangler 4.148.0 answers a
@@ -1371,7 +1377,9 @@ change `DOCS_ORIGIN` there and every link with it.
 
 **What is proven.** `wrangler deploy --dry-run` against a local docs build
 reads `site/`, ignores `.assetsignore`, `404.html`, `_headers`, `_redirects`
-and `manifest.json`, and sends nothing. Cloudflare has not been sent a request.
+and `manifest.json`, and sends nothing. `site.build.test.ts` holds each hashed
+file to `immutable` with the three security headers, and every other file to
+the full set with no `Cache-Control`. Cloudflare has not been sent a request.
 
 ```sh
 gh workflow run deploy-docs.yml                  # build, then wrangler deploy --dry-run
@@ -1385,4 +1393,6 @@ built `site/`. The site declares no budget, so there is no budget report.
 After the first publish, open the address. `/` and `/search/` answer their
 pages, `/reference/cli` answers `307` to `/reference/cli/`, `/manifest.json`
 and `/.pagedeck/deploy-history.json` answer `404`, a page carries the CSP and
-the three security headers, and a search on `/search/` returns results.
+the three security headers, a file under `/assets/` answers `Cache-Control:
+public, max-age=31536000, immutable` with `X-Content-Type-Options: nosniff`,
+`/` answers no `immutable`, and a search on `/search/` returns results.

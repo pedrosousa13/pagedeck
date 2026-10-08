@@ -481,6 +481,14 @@ export function docsSiteConfig(): SiteConfig {
               { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
             ],
           },
+          // Holds only content-hashed names; `/search/` and the root hold unhashed ones (#86).
+          {
+            prefix: "/assets/",
+            set: [
+              ...SECURITY_HEADERS,
+              { name: "Cache-Control", value: "public, max-age=31536000, immutable" },
+            ],
+          },
         ],
       },
       css: [GLOBAL_CSS],
