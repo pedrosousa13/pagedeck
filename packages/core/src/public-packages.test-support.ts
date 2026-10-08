@@ -18,7 +18,7 @@ export const PUBLIC_PACKAGES = [
   "social-image",
 ] as const;
 
-export const PUBLIC_VERSION = "0.2.2";
+export const PUBLIC_VERSION = "0.2.3";
 
 /**
  * What a package may pack besides `dist`, `package.json`, `README*` and
