@@ -765,6 +765,28 @@ red run of `.github/workflows/scaling.yml` means it did not finish (#380). The
 default ladder stops at 32,000 pages. `docs/scaling-verification.md` holds the
 measurements; do not compare figures across machines.
 
+### The live landing measurements
+
+```sh
+pnpm bench:landing-publish               # prints the plan; edits and deploys nothing
+pnpm bench:landing-publish --apply       # deploys; needs `wrangler login` in packages/landing
+pnpm bench:landing-lighthouse
+```
+
+Both reach the live landing page on its `workers.dev` address, so they run by
+hand only, never in CI (#2). `packages/landing/src/publish-to-live.harness.ts`
+is a dry run unless given `--apply`. With it, it edits `content/index.md` in
+place, deploys three times, times each deploy and the first response holding
+the edit, then deploys the unedited build again and waits for `/` to serve it
+byte for byte. That restore runs once, after an error or on `SIGINT` or
+`SIGTERM`, and an interrupted run exits non-zero. A deploy is killed after
+300 s. Run `--apply` only with the maintainer's approval of the deploys.
+`publish-to-live.harness.test.ts` covers the dry run, the deploy timeout and
+the redaction of wrangler's account email and ID from a failure message. `packages/landing/src/lighthouse-live.harness.ts`
+runs Lighthouse twice per page, mobile and desktop, over the four pages, and
+lists any request to another origin. `docs/success-criteria.md`, criteria 4
+and 5, holds the figures.
+
 ### The island-scan measurement
 
 ```sh

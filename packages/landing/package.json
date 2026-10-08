@@ -50,6 +50,8 @@
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.2.0",
     "axe-core": "^4.13.0",
+    "chrome-launcher": "^1.2.1",
+    "lighthouse": "^13.4.1",
     "playwright": "^1.62.1",
     "react-dom": "^19.2.0",
     "tailwindcss": "4.3.3",
