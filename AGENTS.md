@@ -398,7 +398,9 @@ Cloudflare" in `docs/deploy-recipe.md`. The READMEs link its pages at
 
 `/search` is the only page that ships JavaScript (#62). `site.build.test.ts`
 excludes it from the zero-JavaScript assertions **by name**, never by dropping
-it from the page set. The axe harness audits eight pages and a search:
+it from the page set. The axe harness audits eight pages and a search,
+and requires zero CSP violations under the headers the build wrote to
+`_headers`:
 
 ```
 pnpm build && pnpm test:docs-a11y-harness

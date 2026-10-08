@@ -5,10 +5,12 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { chromium } from "playwright";
-import type { Browser, Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright";
 import { budgetReportPath, RETENTION_DIR } from "@pagedeck/core";
 import { serveBuild } from "@pagedeck/site/audit-site";
 import type { ServedOrigin } from "@pagedeck/site/audit-site";
+import { interpretCloudflarePages } from "../../adapter-cloudflare-pages/src/interpret.test-support.js";
+import { CONTENT_SECURITY_POLICY } from "./csp.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -52,14 +54,44 @@ interface Run {
   readonly overflow: number;
   readonly layoutWidth: number;
   readonly navShown: boolean;
+  readonly policy: string | undefined;
+  readonly cspViolations: readonly string[];
 }
 
 let browser: Browser | undefined;
 let served: ServedOrigin | undefined;
 let runs: Run[] = [];
 let unfolded: boolean[] = [];
+let written: { role: "tree-file"; path: string; contents: string }[] = [];
 
-async function audit(page: Page, label: string): Promise<Run> {
+const VIOLATIONS = `window.cspViolations=[];document.addEventListener("securitypolicyviolation",function(e){window.cspViolations.push(e.effectiveDirective+" "+(e.blockedURI||"inline"))})`;
+
+async function serveWrittenHeaders(context: BrowserContext): Promise<void> {
+  await context.addInitScript({ content: VIOLATIONS });
+  await context.route("**/*", async (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    const response = await route.fetch();
+    const resolution = interpretCloudflarePages(written, {
+      path: new URL(route.request().url()).pathname,
+      found: true,
+    });
+    const headers = resolution.kind === "pass" ? resolution.headers : [];
+    return route.fulfill({
+      response,
+      headers: {
+        ...response.headers(),
+        ...Object.fromEntries(headers.map(({ name, value }) => [name, value])),
+      },
+    });
+  });
+}
+
+async function visit(page: Page, url: string): Promise<string | undefined> {
+  const response = await page.goto(url, { waitUntil: "networkidle" });
+  return response?.headers()["content-security-policy"];
+}
+
+async function audit(page: Page, label: string, policy: string | undefined): Promise<Run> {
   await page.evaluate(AXE_SOURCE);
   const result = (await page.evaluate(`(async () => {
     const run = await window.axe.run(document, { resultTypes: ["violations", "incomplete"] });
@@ -74,15 +106,21 @@ async function audit(page: Page, label: string): Promise<Run> {
       overflow: Math.max(0, document.documentElement.scrollWidth - innerWidth),
       layoutWidth: document.documentElement.clientWidth,
       navShown: link !== null && link.checkVisibility(),
+      cspViolations: window.cspViolations,
     };
-  })()`)) as Omit<Run, "label">;
-  return { label, ...result };
+  })()`)) as Omit<Run, "label" | "policy">;
+  return { label, policy, ...result };
 }
 
 beforeAll(async () => {
   for (const path of LEFTOVERS) rmSync(path, { recursive: true, force: true });
   await execFileAsync(process.execPath, [BIN, "sync"], { cwd: SITE });
   await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE });
+  written = ["/_headers", "/_redirects"].map((path) => ({
+    role: "tree-file" as const,
+    path,
+    contents: readFileSync(join(OUT, path), "utf8"),
+  }));
 
   served = await serveBuild(OUT);
   const origin = served.origin;
@@ -99,24 +137,25 @@ beforeAll(async () => {
         // would pass at 390 px (#568, #604).
         isMobile: width === 390,
       });
+      await serveWrittenHeaders(context);
       const page = await context.newPage();
       for (const path of PAGES) {
-        await page.goto(origin + path, { waitUntil: "networkidle" });
-        runs.push(await audit(page, `${path} ${scheme} ${String(width)}px`));
+        const policy = await visit(page, origin + path);
+        runs.push(await audit(page, `${path} ${scheme} ${String(width)}px`, policy));
       }
-      await page.goto(origin + "/search", { waitUntil: "networkidle" });
+      const searchPolicy = await visit(page, origin + "/search");
       await page.getByRole("combobox").fill(QUERY.text);
       await page.locator(`.fw-search__result[href="${QUERY.finds}"]`).waitFor();
       await page.keyboard.press("ArrowDown");
-      runs.push(await audit(page, `/search?results ${scheme} ${String(width)}px`));
+      runs.push(await audit(page, `/search?results ${scheme} ${String(width)}px`, searchPolicy));
       if (width === 390) {
-        await page.goto(origin + PAGES[1], { waitUntil: "networkidle" });
+        const navPolicy = await visit(page, origin + PAGES[1]);
         await page.locator(".fw-docnav__summary").click();
         unfolded.push(
           await page.locator(".fw-docnav a").first().isVisible(),
         );
         // Unfolded, because axe reads a closed `<details>`' contents as hidden.
-        runs.push(await audit(page, `${PAGES[1]}?nav-open ${scheme} ${String(width)}px`));
+        runs.push(await audit(page, `${PAGES[1]}?nav-open ${scheme} ${String(width)}px`, navPolicy));
       }
       await context.close();
     }
@@ -157,6 +196,20 @@ test("the navigation is folded on a phone, opens from its summary, and is open o
     );
   }
   expect(unfolded).toEqual([true, true]);
+});
+
+test("every page, the driven search included, was served with the site's policy and reported no violation of it (#87)", () => {
+  expect(runs).toHaveLength(PER_LAYOUT * SCHEMES.length * WIDTHS.length + SCHEMES.length);
+  expect(runs.filter((run) => run.policy !== CONTENT_SECURITY_POLICY).map((run) => run.label)).toEqual([]);
+  const counts = new Map<string, number>();
+  for (const run of runs) {
+    for (const violation of run.cspViolations) {
+      const key = `${run.label}: ${violation}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  const faults = [...counts].map(([key, count]) => `  ${key} ×${String(count)}`);
+  expect(faults.length === 0 ? "" : `\n${faults.join("\n")}`).toBe("");
 });
 
 test("the dark runs really were dark, and contrast was measured in every run", () => {
