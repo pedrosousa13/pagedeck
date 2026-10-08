@@ -289,6 +289,33 @@ test("an outline entry's text is the heading's text content, never its markup", 
   ]);
 });
 
+test("an underscore inside a word is text, not emphasis, so the outline keeps it", async () => {
+  const rendered = await renderer.render("### PAGEDECK_SNAPSHOT_URL\n", "d.md");
+  expect(rendered.toc).toEqual([
+    { depth: 3, slug: "pagedeck-snapshot-url", text: "PAGEDECK_SNAPSHOT_URL" },
+  ]);
+  expect(rendered.html).toContain(
+    '<h3 id="pagedeck-snapshot-url">PAGEDECK_SNAPSHOT_URL</h3>',
+  );
+});
+
+test("an outline entry keeps every character a reader sees, and drops only the markers", async () => {
+  const rendered = await renderer.render(
+    "## `server_data_page.tsx`\n\n## An _emphasised_ word\n\n## A __strong__ word\n\n## snake_case and *star*\n\n## a * b\n\n## \\_escaped\\_\n\n## a `` ` `` tick\n",
+    "d.md",
+  );
+  expect(rendered.toc.map(({ text, slug }) => [text, slug])).toEqual([
+    ["server_data_page.tsx", "server-data-page-tsx"],
+    ["An emphasised word", "an-emphasised-word"],
+    ["A strong word", "a-strong-word"],
+    ["snake_case and star", "snake-case-and-star"],
+    ["a * b", "a-b"],
+    ["_escaped_", "escaped"],
+    ["a ` tick", "a-tick"],
+  ]);
+  expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
+});
+
 test("the title still loses only the emphasis markers", async () => {
   const rendered = await renderer.render(
     "# A [link](http://x) and *bold* <b>b</b>\n",

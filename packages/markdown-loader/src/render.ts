@@ -190,7 +190,7 @@ function textContent(tokens: readonly Token[], curled: boolean): string {
       text += (token as Tokens.Codespan | Tokens.Escape).text;
     } else if (children !== undefined) text += textContent(children, curled);
   }
-  return text.replace(/[*_`]/g, "").trim();
+  return text.trim();
 }
 
 // A whitelist of Unicode letters and digits, so an `id` holds no quote, bracket or `&` and
