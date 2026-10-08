@@ -33,7 +33,7 @@ import {
   SITE_FOOTER,
   SITE_HEADER,
 } from "./catalog.js";
-import { CONTENT_SECURITY_POLICY } from "./csp.js";
+import { DOCUMENT_HEADERS } from "./csp.js";
 import {
   FEATURES_HEAD,
   FEATURES_PATH,
@@ -245,12 +245,10 @@ export function landingSiteConfig(): SiteConfig {
         headers: [
           {
             prefix: "/",
-            set: [
-              ...SECURITY_HEADERS,
-              { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
-            ],
+            set: [...SECURITY_HEADERS, ...DOCUMENT_HEADERS],
           },
           // Each holds only content-hashed names; `/images/` holds unhashed ones (#55).
+          // None holds a document, so `DOCUMENT_HEADERS` stays off (#62).
           ...["/assets/", "/fonts/", "/social/"].map((prefix) => ({
             prefix,
             set: [
