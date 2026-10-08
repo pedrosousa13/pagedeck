@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
@@ -28,6 +29,11 @@ export function retainedKey(id: string): string {
 // manifest byte for byte. Not `.json`, so the store's reader never opens it (#403).
 export function deployInstantKey(id: string): string {
   return fileKey(undefined, `/${RETENTION_DIR}/${id}.deployed-at`);
+}
+
+export function isDeployInstantKey(key: string): boolean {
+  const prefix = `/${RETENTION_DIR}/`;
+  return key.startsWith(prefix) && /^[^/]+\.deployed-at$/.test(key.slice(prefix.length));
 }
 
 // Beside `RETENTION_DIR`, not in it: the store's reader would open a `.json` there as a
@@ -133,8 +139,10 @@ export function filesystemTarget(root: string): DeployTarget {
   };
 }
 
-// A PUT is sent with exactly `Content-Type` and `Cache-Control` (#560); a signer that
-// wants the host to enforce them signs both.
+export const contentMd5 = (body: Uint8Array): string => createHash("md5").update(body).digest("base64");
+
+// A PUT is sent with exactly `Content-Type`, `Cache-Control` (#560) and the body's
+// `Content-MD5`; a header the signer signed binds the object to that value (#60).
 export interface PresignedUrls {
   put(key: string, metadata: ObjectMetadata): string | Promise<string>;
   delete(key: string): string | Promise<string>;
@@ -191,6 +199,7 @@ export function presignedTarget(urls: PresignedUrls): DeployTarget {
               headers: {
                 "content-type": upload.metadata.contentType,
                 "cache-control": upload.metadata.cacheControl,
+                "content-md5": contentMd5(upload.body),
               },
             }),
       });
@@ -199,7 +208,7 @@ export function presignedTarget(urls: PresignedUrls): DeployTarget {
     }
     if (!response.ok) {
       throw new Error(
-        `Deploy of "${key}": the host answered ${String(response.status)} to ${method} — re-presign the URL, and check that the credential it was signed with may write this key. The URL is not printed: it carries the credential in its query string.`,
+        `Deploy of "${key}": the host answered ${String(response.status)} to ${method} — re-presign the URL, and check that the credential it was signed with may write this key${method === "PUT" ? ", and that the dry run whose requests were signed read this same build: a PUT URL takes only the type and bytes it was signed for" : ""}. The URL is not printed: it carries the credential in its query string.`,
       );
     }
   };

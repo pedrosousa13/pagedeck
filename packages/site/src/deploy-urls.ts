@@ -14,6 +14,7 @@ import type { DeployPlan } from "./deploy.js";
 import type { UnreadableDeployInstant } from "./deploy-run.js";
 import {
   applyPlan,
+  contentMd5,
   deployInstantKey,
   HISTORY_INDEX_KEY,
   HISTORY_INDEX_MAX_BYTES,
@@ -286,17 +287,23 @@ export async function readSignedHistory(
 export interface PlannedPut {
   key: string;
   metadata: ObjectMetadata;
+  // Absent for the deploy instant, whose bytes are the apply's own clock.
+  contentMd5?: string;
 }
 
 // The apply itself against a target that records, so the list cannot drift from it.
-export async function plannedPuts(plan: DeployPlan, source: string): Promise<PlannedPut[]> {
+export async function plannedPuts(
+  plan: DeployPlan,
+  options: { source: string; history?: readonly string[] },
+): Promise<PlannedPut[]> {
   const puts: PlannedPut[] = [];
+  const instant = deployInstantKey(plan.to.id);
   await applyPlan(plan, {
-    source,
+    ...options,
     target: {
       name: "planned puts",
-      async put(key, _body, metadata) {
-        puts.push({ key, metadata });
+      async put(key, body, metadata) {
+        puts.push(key === instant ? { key, metadata } : { key, metadata, contentMd5: contentMd5(body) });
       },
       async delete() {
         throw new Error("Deploy: an apply deletes nothing");
@@ -356,7 +363,9 @@ export function requestsDocument(
 ): string {
   const document = {
     get: Object.fromEntries(reads.map((key) => [key, {}])),
-    put: Object.fromEntries(puts.map((one) => [one.key, one.metadata])),
+    put: Object.fromEntries(
+      puts.map((one) => [one.key, one.contentMd5 === undefined ? one.metadata : { ...one.metadata, contentMd5: one.contentMd5 }]),
+    ),
     delete: Object.fromEntries(deletes.map((key) => [key, {}])),
   };
   return `${JSON.stringify(document, null, 2)}\n`;

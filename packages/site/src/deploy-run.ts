@@ -139,6 +139,7 @@ export async function executePlan(
     out(line);
   }
 
+  const planned = { source: run.source, ...(run.history === undefined ? {} : { history: run.history }) };
   const pruning = run.pruneAfterUpload === true && run.pruneWithheld === undefined;
   const prune = async (target: DeployTarget): Promise<readonly string[]> =>
     superseded === undefined
@@ -163,7 +164,7 @@ export async function executePlan(
   if (run.apply !== true) {
     const requests = run.presigned?.requests;
     if (run.presigned !== undefined && requests !== undefined) {
-      const puts = await plannedPuts(plan, run.source);
+      const puts = await plannedPuts(plan, planned);
       await writeFile(requests, requestsDocument(run.presigned.reads, puts, deletes));
       out(
         `Wrote the ${String(run.presigned.reads.length + puts.length + deletes.length)} requests an apply sends to ${quoteIdentifier(requests)}: sign each one, and pass the signed file to the --apply run as ${DEPLOY_URLS_VARIABLE}.`,
@@ -187,7 +188,7 @@ export async function executePlan(
     target = run.target ?? filesystemTarget(run.origin);
   } else {
     const unsigned =
-      unsignedPuts(run.presigned.urls, await plannedPuts(plan, run.source)) ??
+      unsignedPuts(run.presigned.urls, await plannedPuts(plan, planned)) ??
       unsignedDeletes(run.presigned.urls, deletes);
     if (unsigned !== undefined) throw unsigned;
     target = signedUrlTarget(run.presigned.urls);

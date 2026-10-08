@@ -1,4 +1,3 @@
-// Signed over `host` alone, so a URL can be signed before the request's headers are known.
 import { createHash, createHmac } from "node:crypto";
 
 export const ALGORITHM = "AWS4-HMAC-SHA256";
@@ -35,6 +34,19 @@ export function objectPath(bucket: string, key: string): string {
   return `/${bucket}/${encode(key, true)}`;
 }
 
+export function canonicalHeaders(
+  host: string,
+  headers: Readonly<Record<string, string>> = {},
+): { canonical: string; signed: string } {
+  const entries = [...Object.entries(headers), ["host", host] as const]
+    .map(([name, value]) => [name.toLowerCase(), value.trim().replace(/ +/g, " ")] as const)
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  return {
+    canonical: entries.map(([name, value]) => `${name}:${value}\n`).join(""),
+    signed: entries.map(([name]) => name).join(";"),
+  };
+}
+
 export interface S3Access {
   endpoint: string;
   accessKey: string;
@@ -48,9 +60,11 @@ export function presignPath(
     method: string;
     expires: number;
     now?: Date;
+    headers?: Readonly<Record<string, string>>;
   },
 ): string {
   const { host, protocol } = new URL(options.endpoint);
+  const headers = canonicalHeaders(host, options.headers);
   const { amzDate, dateStamp } = stamps(options.now ?? new Date());
   const scope = `${dateStamp}/${options.region}/${SERVICE}/aws4_request`;
   const canonicalQuery = [
@@ -58,7 +72,7 @@ export function presignPath(
     ["X-Amz-Credential", `${options.accessKey}/${scope}`],
     ["X-Amz-Date", amzDate],
     ["X-Amz-Expires", String(options.expires)],
-    ["X-Amz-SignedHeaders", "host"],
+    ["X-Amz-SignedHeaders", headers.signed],
   ]
     .map(([k, v]) => [encode(k as string), encode(v as string)])
     .sort((a, b) => ((a[0] as string) < (b[0] as string) ? -1 : 1))
@@ -68,8 +82,8 @@ export function presignPath(
     options.method,
     options.path,
     canonicalQuery,
-    `host:${host}\n`,
-    "host",
+    headers.canonical,
+    headers.signed,
     "UNSIGNED-PAYLOAD",
   ].join("\n");
   const stringToSign = [ALGORITHM, amzDate, scope, sha256hex(canonicalRequest)].join("\n");

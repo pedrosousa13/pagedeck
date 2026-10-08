@@ -46,6 +46,12 @@ is not:
     request, and the origin still serves what it served before;
   - a presigned `DELETE` takes an object from 200 to 404, through
     `presignedTarget` directly;
+  - a PUT URL signed by `presignRequests` for one type, one cache policy and
+    one MD5 refuses another `Content-Type` or `Cache-Control` (403
+    `SignatureDoesNotMatch`), other bytes under
+    the signed `Content-MD5` (400 `BadDigest`), other bytes under their own
+    MD5 or with no MD5 (403), and the object keeps its type, cache policy and
+    bytes (#60);
   - three builds deployed to a bucket and to a directory origin, then pruned
     with `--prune` on each, lose the same files: a page the second build
     dropped, and a passthrough file it dropped once its grace was backdated
@@ -417,8 +423,10 @@ depends on what is live.
 2. Run the dry run with `--requests <file>`. It plans against the live
    manifest it read and writes every request an apply would send, in the same
    shape: each GET key, each PUT key with the `contentType` and
-   `cacheControl` the PUT will carry, so a signer can sign those headers too,
-   and with `--prune` each DELETE key.
+   `cacheControl` the PUT will carry and the base64 `contentMd5` of its body,
+   and with `--prune` each DELETE key. The deploy instant has no
+   `contentMd5`: its bytes are the time of the apply. "What a signed PUT
+   binds" below says what the signer does with them.
 3. Sign every request in that file, write the URLs over the same keys, and run
    `--apply` with `PAGEDECK_DEPLOY_URLS` pointing at the result.
 
@@ -631,10 +639,69 @@ do without.
 
 **For whoever signs the URLs.** `PresignedUrls.put(key, metadata)` receives the
 two values before the PUT is sent, and the CLI's `--requests` file lists them
-for each key. A SigV4 URL signed over `host` alone, like
-the harness's, does not need them. S3 stores both headers with the object all
-the same. A signer that wants the host to refuse any other type can sign
-`content-type` and `cache-control` with these values.
+for each key, with the body's MD5. The PUT also sends `Content-MD5`.
+`presign.bin.js` signs `content-type` and `cache-control` into every PUT URL,
+and `content-md5` into every PUT URL whose request carries an MD5: every file
+but the deploy instant ("What a signed PUT binds" below). A URL signed over
+`host` alone, like most of the harness's, still works, and S3 stores the headers with the object all the
+same, but such a URL writes any bytes with any type and cache policy for as
+long as it lives.
+
+### What a signed PUT binds
+
+A presigned PUT URL that signs only `host` lets whoever holds it write any
+bytes with any `Content-Type` to its key until it expires (#60). The
+`cloudflare-worker` Worker serves the stored type, so a leaked URL is a stored
+XSS. A URL that leaves `Cache-Control` free can store a long `immutable` on a
+page, so a later retraction of it never reaches a cache that kept it (#555).
+`presign.bin.js` therefore signs the headers of each PUT from the requests file,
+and the deploy sends each with exactly that value:
+
+- **`content-type`.** Cloudflare's R2 presigned URL page: "Specify the
+  allowed `Content-Type` in your SDK's parameters. The signature will include
+  this header, so uploads will fail with a `403/SignatureDoesNotMatch` error if
+  the client sends a different `Content-Type` for an upload request."
+  (<https://developers.cloudflare.com/r2/api/s3/presigned-urls/>). AWS's
+  upload guide says the same of S3: "Make sure the content type in your upload
+  request matches the content type specified when generating the URL"
+  (<https://docs.aws.amazon.com/AmazonS3/latest/userguide/PresignedUrlUploadObject.html>).
+- **`cache-control`.** No R2 or S3 page speaks to signing `Cache-Control` in
+  particular. It is a signed header like any other: SigV4 puts each signed
+  header's value in the canonical request, so a request that sends another
+  value does not match the signature. The harness proves the refusal on
+  SeaweedFS only.
+- **`content-md5`**, the base64 MD5 of the body, in every PUT URL whose request
+  carries one: every file but the deploy instant. A signed header must arrive
+  with the value signed, so the URL takes only that MD5, and the host checks the
+  body against it. AWS: "After uploading the object, Amazon S3 calculates the
+  MD5 digest of the object and compares it to the value that you provided. The
+  request succeeds only if the two digests match."
+  (<https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html>).
+  R2's S3 API compatibility table lists `Content-MD5` as implemented for
+  `PutObject` (<https://developers.cloudflare.com/r2/api/s3/api/>).
+
+**Why not a SHA-256.** R2's table lists no `x-amz-checksum-*` header for
+`PutObject`, and lists SHA-256 for composite (multipart) checksums only, so
+`x-amz-checksum-sha256`, which S3 does verify on a single-part upload, is not
+documented to bind anything on R2. A hex `x-amz-content-sha256` in place of
+`UNSIGNED-PAYLOAD` is documented by neither for a presigned URL, and SeaweedFS
+4.47, the harness's origin, stored a different body under one when #60 tried
+it. MD5 is broken for collisions, not for
+second preimages, and binding a URL to a known body needs the second.
+
+**What stays unbound.** The deploy instant
+`/.pagedeck/manifests/<id>.deployed-at` gets a signed type and cache policy and
+no MD5, because its bytes are the clock of the apply, which the dry run cannot
+know. `presign.bin.js` refuses any other PUT in the requests file that has no
+`contentMd5`, and names each one: run the dry run again on the same build and
+sign the file it writes. GET and DELETE URLs sign `host` alone.
+
+**A rebuild between the passes is refused.** The MD5s come from the bytes the
+dry run read. If the apply reads other bytes for a key, the host answers 403,
+and the deploy stops with `the host answered 403 to PUT`. Run both passes
+again on the same build. The history index is planned from the history the dry
+run read, so a deploy that lands between the passes makes the apply's index
+differ, and it is refused the same way.
 
 These are the headers the object is stored with. The headers an edge adds at
 serve time (`_headers`, the CloudFront function) are routing's, and this does

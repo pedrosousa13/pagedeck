@@ -23,7 +23,7 @@ beforeAll(() => {
     join(dir, "requests.json"),
     JSON.stringify({
       get: { "/manifest.json": {} },
-      put: { "/index.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache" } },
+      put: { "/index.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" } },
       delete: { "/old.html": {} },
     }),
   );

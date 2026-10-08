@@ -814,7 +814,7 @@ test("the presigned target reports the status a host answered, and never the URL
 
     const put = await refusal(target.put("/index.html", new Uint8Array([1]), documentMetadata("/index.html")));
     expect(put.message).toBe(
-      'Deploy of "/index.html": the host answered 403 to PUT — re-presign the URL, and check that the credential it was signed with may write this key. The URL is not printed: it carries the credential in its query string.',
+      'Deploy of "/index.html": the host answered 403 to PUT — re-presign the URL, and check that the credential it was signed with may write this key, and that the dry run whose requests were signed read this same build: a PUT URL takes only the type and bytes it was signed for. The URL is not printed: it carries the credential in its query string.',
     );
     expect(put.message).not.toContain("SECRET");
     expect(put.message).not.toContain("origin.example");
@@ -834,7 +834,7 @@ test("the presigned target reports the status a host answered, and never the URL
   ).toBe("presigned https target");
 });
 
-test("the presigned target sends each object's type and cache policy as headers, and hands them to the signer (#560)", async () => {
+test("the presigned target sends each object's type, cache policy and body MD5 as headers, and hands the metadata to the signer (#560, #60)", async () => {
   const sent: { url: string; headers: Record<string, string> }[] = [];
   const signed: { key: string; metadata: ObjectMetadata }[] = [];
   const real = globalThis.fetch;
@@ -871,18 +871,19 @@ test("the presigned target sends each object's type and cache policy as headers,
   expect(sent).toEqual([
     {
       url: "https://origin.example/index.html?sig=1",
-      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" },
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache", "content-md5": "VaVACK0bpYmqIQ0mKcHfQQ==" },
     },
     {
       url: "https://origin.example/assets/app-C52oINTW.js?sig=1",
       headers: {
         "content-type": "text/javascript; charset=utf-8",
         "cache-control": "public, max-age=31536000, immutable",
+        "content-md5": "VaVACK0bpYmqIQ0mKcHfQQ==",
       },
     },
     {
       url: "https://origin.example/manifest.json?sig=1",
-      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" },
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache", "content-md5": "VaVACK0bpYmqIQ0mKcHfQQ==" },
     },
     { url: "https://origin.example/index.html?sig=1", headers: {} },
   ]);
