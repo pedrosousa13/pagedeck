@@ -577,8 +577,8 @@ test("a chunk's imports come back spelled the way its own path is", async () => 
     for (const target of one) expect(paths).toContain(target);
   }
 
-  const core = build.files.find((file) => file.name === "fw-core");
-  expect(reached).toContain(core?.path);
+  const startup = build.files.find((file) => file.name === "fw-startup");
+  expect(reached).toContain(startup?.path);
 }, 60_000);
 
 test("a chunk's imports are the ones it fetches with itself, not the ones it may fetch later", async () => {

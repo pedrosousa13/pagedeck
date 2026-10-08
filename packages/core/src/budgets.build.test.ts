@@ -44,6 +44,7 @@ interface Layers {
   widgetProps?: Record<string, unknown>;
   islandPropsBudget?: string;
   tabbed?: boolean;
+  deferred?: boolean;
 }
 
 // A fresh directory per call: Node caches the config module by URL, so a reused
@@ -113,7 +114,7 @@ export default defineConfig({
     }),
     components: {
       Hero: { path: "./components/Hero.js", hydrate: "visible" },
-      Widget: { path: "./components/Widget.js", hydrate: "load" },
+      Widget: { path: "./components/Widget.js", hydrate: ${JSON.stringify(layers.deferred === true ? "idle" : "load")} },
       Copy: "./components/Copy.js",
       Tabs: { path: "./components/Tabs.js", hydrate: "load" },
     },
@@ -249,6 +250,18 @@ test("an eagerly hydrated island counts and a lazily hydrated one does not", asy
 
   expect(counted.filter((path) => path.includes("/Widget-"))).toHaveLength(1);
   expect(counted.filter((path) => path.includes("/Hero-"))).toHaveLength(0);
+}, 60_000);
+
+test("a page whose islands load the runtime on a trigger is still charged for it", async () => {
+  const dir = site({ "/": "500kb", "/about": "0b" }, { deferred: true });
+  await run(dir, "sync");
+  expect((await run(dir, "build")).code).toBe(EXIT_CODES.success);
+
+  const home = reportIn(dir).pages.find((page) => page.path === "/");
+  const counted = home?.chunks.map((chunk) => chunk.path) ?? [];
+
+  expect(counted.filter((path) => path.includes("/fw-core-"))).toHaveLength(1);
+  expect(home?.actual).toBeGreaterThan(40_000);
 }, 60_000);
 
 test("a content-only page reports 0 bytes and passes a zero budget", async () => {

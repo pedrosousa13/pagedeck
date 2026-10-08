@@ -37,21 +37,29 @@ A budget counts the JavaScript a page transfers **for first render**, as
 - the page's entry chunk, plus everything it **statically** imports, directly or
   through another chunk,
 - the chunk holding each **eagerly hydrated** island's component, plus
-  everything those chunks statically import, and
+  everything those chunks statically import,
+- on a page with an island, the chunk holding the **island runtime**, plus
+  everything it statically imports, React included, even where the page loads
+  it later, and
 - the executable JavaScript the build wrote **into the page's own document**
   rather than into a chunk.
 
 Each chunk is counted once, however many ways the page reaches it.
 
-Six consequences are worth stating outright:
+Seven consequences are worth stating outright:
 
-- **Only `hydrate: "load"` islands count.** An island hydrating on `load` has
-  its module fetched the moment the page's entry runs, so it is part of first
-  render. `idle` and `visible` islands are not: `visible` waits for the island
-  to scroll into view, which for a page nobody scrolls is never, and `idle`
-  waits for the browser to finish the page's own load work, which is after first
-  render by definition. Moving an island from `load` to `visible` is therefore a
-  real way to get a page back under its budget.
+- **Only `hydrate: "load"` islands' own chunks count.** An island hydrating on
+  `load` has its module fetched the moment the page's entry runs, so it is part
+  of first render. `idle` and `visible` islands are not: `visible` waits for the
+  island to scroll into view, which for a page nobody scrolls is never, and
+  `idle` waits for the browser to finish the page's own load work, which is
+  after first render by definition. Moving an island from `load` to `visible`
+  is therefore a real way to get a page back under its budget.
+- **A runtime loaded later still counts.** A page whose islands are all `idle`
+  or `visible` loads React and the island runtime only when its first island's
+  trigger fires. Its budget charges them all the same, because a budget counts
+  what a page downloads, not when. Moving every island off `load` saves the
+  islands' own chunks and the work at load, not React's bytes.
 - **A shared chunk counts, once.** A chunk two of a page's islands both reach is
   one download. A tier chunk shared with the rest of the site still counts
   against every page that loads it on first render.

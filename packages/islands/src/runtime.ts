@@ -16,6 +16,7 @@ import {
 import { wrapInProviders } from "./providers.js";
 import type { RootProvider, RootProviderProbe } from "./providers.js";
 import { RegistryError } from "./registry.js";
+import type { Schedule } from "./startup.js";
 
 export interface IslandElement extends IslandRoot {
   getAttribute(name: string): string | null;
@@ -32,18 +33,9 @@ export interface IslandRoot {
   querySelectorAll(selectors: string): Iterable<IslandElement>;
 }
 
-interface Intersection {
-  isIntersecting: boolean;
-}
-
-// Not the `DOM` lib, which would type `document` in node-only packages. Read off
-// `globalThis` because a bare `requestIdleCallback` throws where it is missing.
+// Not the `DOM` lib, which would type `document` in node-only packages.
 interface Browser {
   document: IslandRoot;
-  IntersectionObserver: new (
-    callback: (entries: readonly Intersection[]) => void,
-  ) => { observe(target: IslandElement): void; disconnect(): void };
-  requestIdleCallback?: (callback: () => void) => void;
 }
 const browser = globalThis as unknown as Browser;
 
@@ -51,6 +43,9 @@ type AnyComponent = ComponentType<Record<string, unknown>>;
 
 export interface HydrateIslandsOptions {
   resolve: (name: string) => Promise<ComponentType<never>>;
+  // Passed in, not imported: the core chunk would take the startup module, which
+  // a page with no `load` island must reach without it.
+  schedule: Schedule;
   providers?: readonly RootProvider[];
   // A shape only: importing the probe's module would put it in production graphs.
   probe?: RootProviderProbe;
@@ -101,7 +96,7 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     // life of the page, so it does not retain every marker's snapshot.
     const owned = slots.get(marker);
     const stashed = stash.get(marker);
-    schedule(marker, island.mode, () => {
+    options.schedule(marker, island.mode, () => {
       void mount(marker, island, options, owned, stashed);
     });
   }
@@ -219,62 +214,6 @@ function markerFailure(failures: readonly UnreadableMarker[]): RegistryError {
   return new RegistryError(
     `Island markers: ${String(failures.length)} on this page cannot be read, so those islands will not hydrate — ${MARKER_FIX}:\n${detail}`,
   );
-}
-
-// Safari has never shipped `requestIdleCallback`, so every iPhone takes this.
-const IDLE_FALLBACK_MS = 200;
-
-function schedule(
-  marker: IslandElement,
-  mode: string,
-  hydrate: () => void,
-): void {
-  if (mode === "load") hydrate();
-  else if (mode === "idle") whenIdle(hydrate);
-  else whenVisible(marker, hydrate);
-}
-
-function whenIdle(hydrate: () => void): void {
-  const requestIdle = browser.requestIdleCallback;
-  if (requestIdle === undefined) setTimeout(hydrate, IDLE_FALLBACK_MS);
-  else requestIdle(hydrate);
-}
-
-// Observes the marker's element children, not the marker: under
-// `display: contents` it has no box and would never intersect (prototype #68).
-function whenVisible(marker: IslandElement, hydrate: () => void): void {
-  const targets: IslandElement[] = [];
-  observableTargets(marker, targets);
-  if (targets.length === 0) {
-    whenIdle(hydrate);
-    return;
-  }
-  let hydrated = false;
-  const observer = new browser.IntersectionObserver((entries) => {
-    if (hydrated || !entries.some((entry) => entry.isIntersecting)) return;
-    hydrated = true;
-    // Before hydrating, which replaces the observed children: watching detached
-    // nodes would keep the island's old subtree alive.
-    observer.disconnect();
-    hydrate();
-  });
-  for (const target of targets) {
-    // An `observe` can deliver synchronously and hydrate, and re-arming then would
-    // leave an observer nothing disconnects.
-    if (hydrated) break;
-    observer.observe(target);
-  }
-}
-
-function observableTargets(
-  element: IslandElement,
-  into: IslandElement[],
-): void {
-  for (const child of Array.from(element.children)) {
-    if (child.localName === ISLAND_SLOT_TAG || child.localName === ISLAND_TAG) {
-      observableTargets(child, into);
-    } else into.push(child);
-  }
 }
 
 // `slot.js` is imported on demand so a page of leaf islands never downloads it.

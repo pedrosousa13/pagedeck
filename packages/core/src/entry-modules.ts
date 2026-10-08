@@ -9,14 +9,11 @@ export function serveEntryModules(
   origin: string,
   globalCss: readonly string[] = [],
 ): Plugin {
-  const global = globalCss
-    .map((path) => `import ${JSON.stringify(path)};\n`)
-    .join("");
   return serveGeneratedEntries(
     new Map(
       plan.entries.map((entry) => [
         entry.id,
-        `${global}${renderEntryModule(entry)}`,
+        renderEntryModule(entry, { globalCss }),
       ]),
     ),
     origin,

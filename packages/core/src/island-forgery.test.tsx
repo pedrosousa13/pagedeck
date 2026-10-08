@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ComponentDefinition, HydrationMode, ComponentRegistry } from "@pagedeck/islands";
 // The runtime entry point: the package root is what a build reads.
 import { hydrateIslands } from "@pagedeck/islands/runtime";
+import { schedule } from "@pagedeck/islands/startup";
 import { renderPage, unescapedHtml } from "./render.js";
 import type { EntryNode } from "./render.js";
 
@@ -135,7 +136,7 @@ async function build(tree: readonly EntryNode[]): Promise<void> {
 async function buildAndHydrate(tree: readonly EntryNode[]): Promise<void> {
   await build(tree);
   await act(async () => {
-    hydrateIslands({ resolve: resolveModule });
+    hydrateIslands({ schedule, resolve: resolveModule });
   });
 }
 
@@ -241,7 +242,7 @@ test("rich text closing the stash template does not put live DOM in a marker", a
   expect([...document.body.querySelectorAll("template")]).toHaveLength(1);
 
   await act(async () => {
-    hydrateIslands({ resolve: resolveModule });
+    hydrateIslands({ schedule, resolve: resolveModule });
   });
 
   expect(mounted).toEqual(["tabs"]);

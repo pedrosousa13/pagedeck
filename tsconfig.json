@@ -35,6 +35,7 @@
     "packages/islands/vitest.aria-engine.config.ts",
     "packages/core/vitest.crash-harness.config.ts",
     "packages/core/vitest.singleton-harness.config.ts",
+    "packages/core/vitest.lazy-runtime-harness.config.ts",
     "packages/core/vitest.consent-facade-harness.config.ts",
     "packages/core/vitest.pack-harness.config.ts",
     "packages/site/vitest.a11y.config.ts",

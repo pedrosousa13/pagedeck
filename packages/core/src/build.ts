@@ -33,7 +33,7 @@ import type { ClientBuild } from "./client-build.js";
 import { installClientReferences } from "./client-reference-loader.js";
 import { inlineStyleElements, inlinedPages } from "./critical-css.js";
 import { checkDrift, driftWarnings } from "./drift.js";
-import { planEntries } from "./entries.js";
+import { planEntries, runtimeImports } from "./entries.js";
 import type { EntryPlan, PageDemand, PageEntry } from "./entries.js";
 import { ConfigError, describeError, printable } from "./exit.js";
 import { faviconFiles } from "./favicon.js";
@@ -1648,6 +1648,13 @@ export function eagerChunksByPage(
         continue;
       }
       chunks.add(chunk);
+    }
+    // Charged though a page with no eager island imports them on a trigger: a
+    // budget counts what a page downloads, not when.
+    for (const specifier of runtimeImports(entry)) {
+      const id = client.ids[specifier];
+      const chunk = id === undefined ? undefined : chunkByModule.get(id);
+      if (chunk !== undefined) chunks.add(chunk);
     }
     if (chunks.size > 0) byPage.set(`${entry.locale} ${entry.path}`, [...chunks]);
   }

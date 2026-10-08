@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
+import { runtimeImports } from "./entries.js";
 import type { EntryPlan } from "./entries.js";
 import { entryInputs, serveEntryModules } from "./entry-modules.js";
 import { ConfigError } from "./exit.js";
@@ -196,6 +197,17 @@ export function resolveModuleIds(
 // recorded.
 const SPLIT_PRIORITY = 10;
 
+export const STARTUP_GROUP = "fw-startup";
+
+// Above core, which would otherwise take both as dependencies of its own modules,
+// and a page with no `load` island imports them at startup without core.
+const STARTUP_PRIORITY = 40;
+
+const ISLANDS_STARTUP = "@pagedeck/islands/startup";
+
+// Vite's own id for the helper it wraps each dynamic `import()` in.
+const PRELOAD_HELPER = "\0vite/preload-helper.js";
+
 function midChunk(name: string): boolean {
   return name === MID_GROUP || name.startsWith(`${MID_GROUP}~`);
 }
@@ -387,9 +399,11 @@ export async function buildClient(
       ...new Set([
         ...grouped,
         ...REACT_RUNTIMES,
-        ...input.plan.entries.flatMap((entry) =>
-          entry.components.map((component) => component.module),
-        ),
+        ISLANDS_STARTUP,
+        ...input.plan.entries.flatMap((entry) => [
+          ...runtimeImports(entry),
+          ...entry.components.map((component) => component.module),
+        ]),
       ]),
     ],
     input.origin,
@@ -435,6 +449,20 @@ export async function buildClient(
       test: (id: string) => held.has(withoutQuery(id)),
     });
   }
+
+  splitting.groups.push({
+    name: STARTUP_GROUP,
+    priority: STARTUP_PRIORITY,
+    minSize: 0,
+    minShareCount: 1,
+    test: (id: string) => {
+      const plain = withoutQuery(id);
+      return (
+        plain === PRELOAD_HELPER ||
+        plain === resolver.taken().ids[ISLANDS_STARTUP]
+      );
+    },
+  });
 
   const compiler = compileIslands();
   const naming = contentNaming();
@@ -521,6 +549,7 @@ export async function buildClient(
           !emitted.isEntry &&
           !emitted.isDynamicEntry &&
           emitted.name !== CORE_GROUP &&
+          emitted.name !== STARTUP_GROUP &&
           !midChunk(emitted.name);
         files.push({
           path,

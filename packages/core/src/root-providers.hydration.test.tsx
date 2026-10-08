@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { hydrateIslands } from "@pagedeck/islands/runtime";
+import { schedule } from "@pagedeck/islands/startup";
 import { rootProviderProbe } from "@pagedeck/islands/root-provider-probe";
 import type { RootProvider, ComponentRegistry } from "@pagedeck/islands";
 import { renderPage } from "./render.js";
@@ -202,6 +203,7 @@ async function hydrate(): Promise<string[]> {
     });
   await act(async () => {
     hydrateIslands({
+      schedule,
       resolve: async (name) => MODULES[name] as typeof Hero,
       providers: STACK,
     });
@@ -252,6 +254,7 @@ test("two islands on one page hydrate under distinct prefixes, and their useId v
     });
   await act(async () => {
     hydrateIslands({
+      schedule,
       resolve: async (name) => MODULES[name] as typeof Hero,
       providers: STACK,
     });
@@ -331,6 +334,7 @@ test("a provider that owns its state is named once both islands have mounted", a
     });
   await act(async () => {
     hydrateIslands({
+      schedule,
       resolve: async (name) => MODULES[name] as typeof Hero,
       providers: OWN_STACK,
       probe: rootProviderProbe(),
@@ -361,6 +365,7 @@ test("a provider handed the shared store is named by nothing", async () => {
     });
   await act(async () => {
     hydrateIslands({
+      schedule,
       resolve: async (name) => MODULES[name] as typeof Hero,
       providers: STACK,
       probe: rootProviderProbe(),
@@ -389,7 +394,7 @@ test("hydrating an island without the configured stack mismatches", async () => 
       lines.push(args.map((arg) => String(arg)).join(" "));
     });
   await act(async () => {
-    hydrateIslands({ resolve: async (name) => MODULES[name] as typeof Hero });
+    hydrateIslands({ schedule, resolve: async (name) => MODULES[name] as typeof Hero });
   });
   spy.mockRestore();
 
