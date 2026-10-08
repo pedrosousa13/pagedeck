@@ -770,7 +770,7 @@ test("with an origin, each tree's og:image names its own locale's domain", async
     const page = readFileSync(join(dist, tree, "index.html"), "utf8");
     const href = /<meta property="og:image" content="([^"]*)">/.exec(page)?.[1];
     expect(href).toMatch(
-      new RegExp(`^https://${tree.replace(".", "\\.")}/social/[a-z-]+\\.[0-9a-f]{8}\\.png$`),
+      new RegExp(`^https://${tree.replaceAll(".", "\\.")}/social/[a-z-]+\\.[0-9a-f]{8}\\.png$`),
     );
     const path = new URL(String(href)).pathname;
     expect(existsSync(join(dist, tree, path.slice(1)))).toBe(true);
