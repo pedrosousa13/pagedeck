@@ -25,10 +25,11 @@ const NOW = new Date("2026-10-03T12:00:00.000Z");
 const REQUESTS = JSON.stringify({
   get: { "/manifest.json": {} },
   put: {
-    "/index.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache" },
-    "/en/caf%C3%A9/index.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache" },
-    "/.pagedeck/manifests/b1.json": { contentType: "application/json; charset=utf-8", cacheControl: "no-cache" },
-    "/manifest.json": { contentType: "application/json; charset=utf-8", cacheControl: "no-cache" },
+    "/index.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" },
+    "/en/caf%C3%A9/index.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" },
+    "/.pagedeck/manifests/b1.json": { contentType: "application/json; charset=utf-8", cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" },
+    "/.pagedeck/manifests/b1.deployed-at": { contentType: "text/plain; charset=utf-8", cacheControl: "no-cache" },
+    "/manifest.json": { contentType: "application/json; charset=utf-8", cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" },
   },
   delete: { "/old/index.html": {}, "/assets/app-0a1b2c.js": {} },
 });
@@ -57,6 +58,7 @@ describe("presignRequests", () => {
       "/index.html",
       "/en/caf%C3%A9/index.html",
       "/.pagedeck/manifests/b1.json",
+      "/.pagedeck/manifests/b1.deployed-at",
       "/manifest.json",
     ]);
     const url = new URL(document.put["/en/caf%C3%A9/index.html"] as string);
@@ -67,8 +69,29 @@ describe("presignRequests", () => {
       `${ENV.PAGEDECK_S3_ACCESS_KEY_ID}/20261003/auto/s3/aws4_request`,
     );
     expect(url.searchParams.get("X-Amz-Date")).toBe("20261003T120000Z");
-    expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe("host");
+    expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe("cache-control;content-md5;content-type;host");
     expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test("signs each PUT's content type and cache policy, and its MD5 where the requests carry one, so the host refuses other bytes, another type or another policy (#60)", () => {
+    const document = signed();
+    const headersOf = (url: string | undefined): string | null =>
+      new URL(url as string).searchParams.get("X-Amz-SignedHeaders");
+    expect(headersOf(document.put["/index.html"])).toBe("cache-control;content-md5;content-type;host");
+    expect(headersOf(document.put["/.pagedeck/manifests/b1.deployed-at"])).toBe("cache-control;content-type;host");
+    expect(headersOf(document.get["/manifest.json"])).toBe("host");
+    expect(headersOf(document.delete["/old/index.html"])).toBe("host");
+    const one = (entry: Record<string, string>): string | undefined =>
+      (
+        JSON.parse(
+          presignRequests(readRequests(JSON.stringify({ put: { "/index.html": entry } }), "requests.json"), signingAccess(ENV), NOW),
+        ) as Signed
+      ).put["/index.html"];
+    const base = { contentType: "text/html; charset=utf-8", cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" };
+    expect(one(base)).toBe(document.put["/index.html"]);
+    expect(one({ ...base, contentType: "text/plain; charset=utf-8" })).not.toBe(document.put["/index.html"]);
+    expect(one({ ...base, contentMd5: "XUFAKrxLKna5cZ2REBfFkg==" })).not.toBe(document.put["/index.html"]);
+    expect(one({ ...base, cacheControl: "public, max-age=31536000, immutable" })).not.toBe(document.put["/index.html"]);
   });
 
   test("lets each URL live minutes, not days", () => {
@@ -186,4 +209,33 @@ describe("readRequests", () => {
       ),
     );
   });
+});
+
+test("readRequests refuses a PUT without the type, cache policy or checksum it would be signed for (#60)", () => {
+  expect(() =>
+    readRequests(
+      JSON.stringify({
+        put: {
+          "/a.html": { cacheControl: "no-cache", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" },
+          "/b.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache", contentMd5: "not an md5" },
+          "/c.html": "text/html",
+          "/d.html": { contentType: "text/html; charset=utf-8", cacheControl: "no-cache" },
+          "/e.html": { contentType: "text/html; charset=utf-8", contentMd5: "1B2M2Y8AsgTpgAmY7PhCfg==" },
+          "/.pagedeck/manifests/b1.deployed-at": { contentType: "text/plain; charset=utf-8", cacheControl: "no-cache" },
+        },
+      }),
+      "requests.json",
+    ),
+  ).toThrow(
+    new ConfigError(
+      [
+        'Signing: "requests.json" has 5 entries that cannot be signed, and nothing was signed — pass the file deploy.bin.js --requests wrote:',
+        '  put "/a.html": has no "contentType" string — a PUT is signed for the type it sends',
+        '  put "/b.html": its "contentMd5" is not the base64 MD5 of a body — a PUT is signed for the bytes it sends',
+        '  put "/c.html": is not an object — write it as {contentType, cacheControl, contentMd5}',
+        '  put "/d.html": has no "contentMd5" — a PUT is signed for the bytes it sends, and only the deploy instant has none; run the dry run again on the same build and sign the file it writes',
+        '  put "/e.html": has no "cacheControl" string — a PUT is signed for the cache policy it sends',
+      ].join("\n"),
+    ),
+  );
 });

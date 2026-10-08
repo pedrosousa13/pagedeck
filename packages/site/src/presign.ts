@@ -1,6 +1,7 @@
 // This holds the credential: no message here quotes a URL or a variable's value.
 import { ConfigError, deployKeyFault, quoteIdentifier } from "@pagedeck/core";
 import { isReservedDeployKey } from "@pagedeck/core/routing";
+import { isDeployInstantKey } from "./deploy-target.js";
 import { objectPath, presignPath } from "./sigv4.js";
 
 /**
@@ -48,9 +49,16 @@ export function signingAccess(env: NodeJS.ProcessEnv): SigningAccess {
   return { ...access, endpoint: endpoint.origin };
 }
 
+export interface PutRequest {
+  key: string;
+  contentType: string;
+  cacheControl: string;
+  contentMd5?: string;
+}
+
 export interface Requests {
   get: readonly string[];
-  put: readonly string[];
+  put: readonly PutRequest[];
   delete: readonly string[];
 }
 
@@ -58,6 +66,24 @@ const METHODS = ["get", "put", "delete"] as const;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const MD5_BASE64 = /^[A-Za-z0-9+/]{22}==$/;
+
+function putRequest(key: string, entry: unknown): PutRequest | string {
+  if (!isObject(entry)) return "is not an object — write it as {contentType, cacheControl, contentMd5}";
+  const { contentType, cacheControl, contentMd5 } = entry;
+  if (typeof contentType !== "string") return 'has no "contentType" string — a PUT is signed for the type it sends';
+  if (typeof cacheControl !== "string") return 'has no "cacheControl" string — a PUT is signed for the cache policy it sends';
+  if (contentMd5 === undefined) {
+    return isDeployInstantKey(key)
+      ? { key, contentType, cacheControl }
+      : 'has no "contentMd5" — a PUT is signed for the bytes it sends, and only the deploy instant has none; run the dry run again on the same build and sign the file it writes';
+  }
+  if (typeof contentMd5 !== "string" || !MD5_BASE64.test(contentMd5)) {
+    return 'its "contentMd5" is not the base64 MD5 of a body — a PUT is signed for the bytes it sends';
+  }
+  return { key, contentType, cacheControl, contentMd5 };
+}
 
 export function readRequests(text: string, file: string): Requests {
   const fix = "pass the file deploy.bin.js --requests wrote";
@@ -78,7 +104,7 @@ export function readRequests(text: string, file: string): Requests {
       faults.push(`${quoteIdentifier(field)}: is not a field the deploy reads — the fields are "get", "put" and "delete"`);
     }
   }
-  const requests = { get: [] as string[], put: [] as string[], delete: [] as string[] };
+  const requests = { get: [] as string[], put: [] as PutRequest[], delete: [] as string[] };
   for (const method of METHODS) {
     const entries = document[method];
     if (entries === undefined) continue;
@@ -98,6 +124,12 @@ export function readRequests(text: string, file: string): Requests {
         );
         continue;
       }
+      if (method === "put") {
+        const put = putRequest(key, entries[key]);
+        if (typeof put === "string") faults.push(`put ${quoteIdentifier(key)}: ${put}`);
+        else requests.put.push(put);
+        continue;
+      }
       requests[method].push(key);
     }
   }
@@ -112,9 +144,20 @@ export function readRequests(text: string, file: string): Requests {
   return requests;
 }
 
-// An object key is the deploy key without its leading `/`, the key `worker.js` reads.
+export const putHeaders = (put: PutRequest): Record<string, string> => ({
+  "content-type": put.contentType,
+  "cache-control": put.cacheControl,
+  ...(put.contentMd5 === undefined ? {} : { "content-md5": put.contentMd5 }),
+});
+
+// Every header a PUT sends is signed, so a leaked URL writes only those bytes with that
+// type and cache policy (#60). Content-MD5 because R2 documents no x-amz-checksum-* header.
 export function presignRequests(requests: Requests, access: SigningAccess, now = new Date()): string {
-  const sign = (method: "GET" | "PUT" | "DELETE", key: string): [string, string] => [
+  const sign = (
+    method: "GET" | "PUT" | "DELETE",
+    key: string,
+    headers?: Readonly<Record<string, string>>,
+  ): [string, string] => [
     key,
     presignPath({
       ...access,
@@ -122,11 +165,12 @@ export function presignRequests(requests: Requests, access: SigningAccess, now =
       method,
       expires: PRESIGN_EXPIRES_SECONDS,
       now,
+      ...(headers === undefined ? {} : { headers }),
     }),
   ];
   return `${JSON.stringify({
     get: Object.fromEntries(requests.get.map((key) => sign("GET", key))),
-    put: Object.fromEntries(requests.put.map((key) => sign("PUT", key))),
+    put: Object.fromEntries(requests.put.map((put) => sign("PUT", put.key, putHeaders(put)))),
     delete: Object.fromEntries(requests.delete.map((key) => sign("DELETE", key))),
   })}\n`;
 }

@@ -18,7 +18,13 @@ export type { S3Access } from "./sigv4.js";
 const REGION = "us-east-1";
 
 export function presign(
-  options: S3Access & { bucket: string; key: string; method: string; expires?: number },
+  options: S3Access & {
+    bucket: string;
+    key: string;
+    method: string;
+    expires?: number;
+    headers?: Readonly<Record<string, string>>;
+  },
 ): string {
   return presignPath({
     ...options,

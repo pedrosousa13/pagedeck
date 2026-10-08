@@ -8,9 +8,10 @@ import { cloudflareWorker } from "@pagedeck/adapter-cloudflare-worker";
 import { runWorker } from "../../adapter-cloudflare-worker/src/worker.test-support.js";
 import type { OriginBinding } from "../../adapter-cloudflare-worker/src/worker.test-support.js";
 import type { Manifest } from "@pagedeck/core";
-import { deployInstantKey, HISTORY_INDEX_KEY, MANIFEST_KEY, presignedTarget, retainedKey } from "./deploy-target.js";
+import { contentMd5, deployInstantKey, HISTORY_INDEX_KEY, MANIFEST_KEY, presignedTarget, retainedKey } from "./deploy-target.js";
 import type { DeployTarget } from "./deploy-target.js";
-import { documentMetadata } from "./deploy-metadata.js";
+import { documentMetadata, fileMetadata } from "./deploy-metadata.js";
+import { presignRequests, readRequests, signingAccess } from "./presign.js";
 import { credentialLeaks, DEPLOY_BIN, runDeployCli, signedDeploy, signUrls } from "./deploy-cli.test-support.js";
 import type { CliRun } from "./deploy-cli.test-support.js";
 import {
@@ -309,6 +310,63 @@ describe.skipIf(unavailable !== undefined)(
       expect((await read(key)).status).toBe(404);
     });
 
+    test("a PUT URL the signing step signed takes only its type, cache policy and bytes: another type, another policy, other bytes or no MD5 is refused, and the object is unchanged (#60)", async () => {
+      const key = "/signed.html";
+      const body = Buffer.from("<p>signed</p>\n");
+      const metadata = fileMetadata({ path: key, kind: "html" });
+      const requests = JSON.stringify({ put: { [key]: { ...metadata, contentMd5: contentMd5(body) } } });
+      const access = signingAccess({
+        PAGEDECK_S3_ENDPOINT: origin.endpoint,
+        PAGEDECK_S3_REGION: "us-east-1",
+        PAGEDECK_S3_BUCKET: BUCKET,
+        PAGEDECK_S3_ACCESS_KEY_ID: origin.accessKey,
+        PAGEDECK_S3_SECRET_ACCESS_KEY: origin.secretKey,
+      });
+      const signed = (JSON.parse(presignRequests(readRequests(requests, "requests.json"), access)) as { put: Record<string, string> }).put[key] as string;
+      expect(new URL(signed).searchParams.get("X-Amz-SignedHeaders")).toBe("cache-control;content-md5;content-type;host");
+      const through = presignedTarget({ put: () => signed, delete: () => signed });
+      await through.put(key, body, metadata);
+
+      const stored = async (): Promise<{ type: string | null; cache: string | null; bytes: Buffer }> => {
+        const response = await read(key);
+        expect(response.status).toBe(200);
+        return {
+          type: response.headers.get("content-type"),
+          cache: response.headers.get("cache-control"),
+          bytes: Buffer.from(await response.arrayBuffer()),
+        };
+      };
+      const before = await stored();
+      expect(before).toEqual({ type: metadata.contentType, cache: metadata.cacheControl, bytes: body });
+
+      const evil = Buffer.from("<script>alert(1)</script>\n");
+      const sent = { "content-type": metadata.contentType, "cache-control": metadata.cacheControl, "content-md5": contentMd5(body) };
+      const attempt = async (bytes: Buffer, headers: Record<string, string>): Promise<string> => {
+        const response = await fetch(signed, { method: "PUT", body: bytes, headers, redirect: "manual" });
+        const code = /<Code>([^<]+)<\/Code>/.exec(await response.text())?.[1] ?? "";
+        return `${String(response.status)} ${code}`;
+      };
+      const refusals = {
+        type: await attempt(body, { ...sent, "content-type": "text/plain" }),
+        cacheControl: await attempt(body, { ...sent, "cache-control": "public, max-age=31536000, immutable" }),
+        bytesUnderSignedMd5: await attempt(evil, sent),
+        bytesUnderTheirMd5: await attempt(evil, { ...sent, "content-md5": contentMd5(evil) }),
+        bytesWithoutMd5: await attempt(evil, { "content-type": metadata.contentType }),
+      };
+      expect(refusals).toEqual({
+        type: "403 SignatureDoesNotMatch",
+        cacheControl: "403 SignatureDoesNotMatch",
+        bytesUnderSignedMd5: "400 BadDigest",
+        bytesUnderTheirMd5: "403 SignatureDoesNotMatch",
+        bytesWithoutMd5: "403 SignatureDoesNotMatch",
+      });
+      await expect(through.put(key, evil, metadata)).rejects.toThrow(
+        `Deploy of "${key}": the host answered 403 to PUT — re-presign the URL`,
+      );
+      expect(await stored()).toEqual(before);
+      console.log(`[#60] a signed PUT URL refused: ${JSON.stringify(refusals)}; the object kept its type, cache policy and bytes`);
+    });
+
     test("an origin error is the origin's real status, exits 1, and no credential reaches argv or output", async () => {
       const wrong = "not-the-secret-this-host-knows";
       const refused = await signedDeploy({ ...signing(), putSecret: wrong }, ["--out", OUT], [MANIFEST_KEY, HISTORY_INDEX_KEY]);
@@ -433,13 +491,18 @@ describe.skipIf(unavailable !== undefined)(
       expect(dry.stdout).toContain("(first deploy)");
       const allSigned = await presign("r2-requests.json", "r2-signed.json");
       expect(allSigned.code).toBe(EXIT_CODES.success);
+      const built = readManifest(readFileSync(join(OUT, "manifest.json"), "utf8"), join(OUT, "manifest.json"));
+      const signedPuts = (JSON.parse(readFileSync(join(SITE, "r2-signed.json"), "utf8")) as { put: Record<string, string> }).put;
+      const signedHeaders = Object.entries(signedPuts).map(([key, one]) => [key, new URL(one).searchParams.get("X-Amz-SignedHeaders")]);
+      expect(signedHeaders.filter(([, headers]) => headers !== "cache-control;content-md5;content-type;host")).toEqual([
+        [deployInstantKey(built.build.id), "cache-control;content-type;host"],
+      ]);
       const apply = await runDeployCli(signing(), ["--out", OUT, ...edge, "--apply"], join(SITE, "r2-signed.json"));
       expect(apply.stderr).toBe("");
       expect(apply.code).toBe(EXIT_CODES.success);
       expect(credentialLeaks(origin, [readsSigned, dry, allSigned, apply])).toEqual([]);
       for (const run of [readsSigned, allSigned]) expect(run.stdout + run.stderr).not.toContain(ORIGIN_IP);
 
-      const built = readManifest(readFileSync(join(OUT, "manifest.json"), "utf8"), join(OUT, "manifest.json"));
       const read = (key: string): Promise<Response> => signedFetch({ ...origin, path: objectPath(bucket, key) });
       for (const file of built.files) {
         const key = fileKey(file.domain, file.path);

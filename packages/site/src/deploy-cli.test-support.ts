@@ -2,6 +2,8 @@ import { execFile } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { S3Origin } from "./s3-origin.test-support.js";
+import { putHeaders, readRequests } from "./presign.js";
+import type { PutRequest } from "./presign.js";
 import { presign } from "./sigv4.test-support.js";
 
 export const DEPLOY_BIN = join(import.meta.dirname, "..", "dist", "deploy.bin.js");
@@ -35,17 +37,22 @@ export interface SigningOptions {
 
 const objectKey = (key: string): string => key.replace(/^\//, "");
 
+// A PUT given as a request is signed for its type and MD5, as `presign.bin.js` signs it.
 export function signUrls(
   options: SigningOptions,
   name: string,
-  keys: { get?: readonly string[]; put?: readonly string[]; delete?: readonly string[] },
+  keys: { get?: readonly string[]; put?: readonly (string | PutRequest)[]; delete?: readonly string[] },
 ): string {
-  const sign = (method: string, key: string, secretKey: string): string =>
-    presign({ ...options.origin, secretKey, bucket: options.bucket, key: objectKey(key), method });
+  const sign = (method: string, key: string, secretKey: string, headers?: Record<string, string>): string =>
+    presign({ ...options.origin, secretKey, bucket: options.bucket, key: objectKey(key), method, ...(headers === undefined ? {} : { headers }) });
   const document = {
     get: Object.fromEntries((keys.get ?? []).map((key) => [key, sign("GET", key, options.origin.secretKey)])),
     put: Object.fromEntries(
-      (keys.put ?? []).map((key) => [key, sign("PUT", key, options.putSecret ?? options.origin.secretKey)]),
+      (keys.put ?? []).map((put) =>
+        typeof put === "string"
+          ? [put, sign("PUT", put, options.putSecret ?? options.origin.secretKey)]
+          : [put.key, sign("PUT", put.key, options.putSecret ?? options.origin.secretKey, putHeaders(put))],
+      ),
     ),
     delete: Object.fromEntries(
       (keys.delete ?? []).map((key) => [key, sign("DELETE", key, options.putSecret ?? options.origin.secretKey)]),
@@ -94,10 +101,10 @@ export async function signedDeploy(
     const dry = await runDeployCli(options, [...argv, "--requests", requests], signed);
     dries.push(dry);
     if (dry.code !== 0) return { dry, dries, puts: [], deletes: [] };
-    const asked = JSON.parse(readFileSync(requests, "utf8")) as Record<"get" | "put" | "delete", Record<string, unknown>>;
-    puts = Object.keys(asked.put);
-    deletes = Object.keys(asked.delete);
-    signed = signUrls(options, "signed.json", { get: Object.keys(asked.get), put: puts, delete: deletes });
+    const asked = readRequests(readFileSync(requests, "utf8"), requests);
+    puts = asked.put.map((put) => put.key);
+    deletes = [...asked.delete];
+    signed = signUrls(options, "signed.json", { get: asked.get, put: asked.put, delete: deletes });
   }
   const apply = await runDeployCli(options, [...argv, "--apply"], signed);
   return { dry: dries.at(-1) as CliRun, dries, apply, puts, deletes };

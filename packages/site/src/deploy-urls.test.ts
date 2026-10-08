@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,6 +16,7 @@ import type { EmittedFile, Manifest, Page } from "@pagedeck/core";
 import { planDeploy } from "./deploy.js";
 import {
   applyPlan,
+  contentMd5,
   deployInstantKey,
   HISTORY_INDEX_KEY,
   HISTORY_INDEX_MAX_BYTES,
@@ -364,18 +366,21 @@ function siteTree(): { to: Manifest; source: string } {
 test("the planned PUTs are the keys and metadata an apply puts, in its order", async () => {
   const { to, source } = siteTree();
   const plan = planDeploy({ to });
-  const puts: { key: string; metadata: ObjectMetadata }[] = [];
+  const puts: { key: string; metadata: ObjectMetadata; contentMd5?: string }[] = [];
   const target: DeployTarget = {
     name: "recording",
-    async put(key, _body, metadata) {
-      puts.push({ key, metadata });
+    async put(key, body, metadata) {
+      puts.push(key === deployInstantKey("build-01") ? { key, metadata } : { key, metadata, contentMd5: contentMd5(body) });
     },
     async delete() {
       throw new Error("an apply deletes nothing");
     },
   };
-  await applyPlan(plan, { source, target });
-  expect(await plannedPuts(plan, source)).toEqual(puts);
+  // The history the run read, so the index planned is the index put.
+  const history = ["build-00"];
+  await applyPlan(plan, { source, target, history });
+  const planned = await plannedPuts(plan, { source, history });
+  expect(planned).toEqual(puts);
   expect(puts.map((one) => one.key)).toEqual([
     "/assets/app-a1b2c3.js",
     "/index.html",
@@ -383,6 +388,15 @@ test("the planned PUTs are the keys and metadata an apply puts, in its order", a
     deployInstantKey("build-01"),
     HISTORY_INDEX_KEY,
     MANIFEST_KEY,
+  ]);
+  const md5 = (path: string): string => createHash("md5").update(readFileSync(join(source, path))).digest("base64");
+  expect(planned.map((one) => one.contentMd5)).toEqual([
+    md5("assets/app-a1b2c3.js"),
+    md5("index.html"),
+    md5("manifest.json"),
+    undefined,
+    createHash("md5").update('{"builds":["build-00","build-01"]}\n').digest("base64"),
+    md5("manifest.json"),
   ]);
 });
 
@@ -421,6 +435,11 @@ test("a dry run against a presigned origin writes the requests an apply sends, a
   expect(document.put["/assets/app-a1b2c3.js"]).toEqual({
     contentType: "text/javascript; charset=utf-8",
     cacheControl: "public, max-age=31536000, immutable",
+    contentMd5: createHash("md5").update("console.log(1);").digest("base64"),
+  });
+  expect(document.put[deployInstantKey("build-01")]).toEqual({
+    contentType: "text/plain; charset=utf-8",
+    cacheControl: "no-cache",
   });
   expect(lines).toContain(
     `Wrote the 7 requests an apply sends to "${requests}": sign each one, and pass the signed file to the --apply run as PAGEDECK_DEPLOY_URLS.`,
