@@ -103,7 +103,8 @@ project settings.
   }
 }
 
-const CORE_IMPORT = 'import { defineConfig, fromCollection } from "@pagedeck/core";';
+const CORE_IMPORT =
+  'import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";';
 
 const COMPONENTS_BLOCK = `    components: {
       layout: "./components/layout.tsx",

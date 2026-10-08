@@ -13,3 +13,5 @@ npx pagedeck build   # write the finished site to site/
   island: it starts with `"use client"`, so its JavaScript ships to `/counter`
   and to no other page. `content/counter.md` puts it on that page with
   `components: [counter]` in its frontmatter.
+- `build.routing` spreads `SECURITY_HEADERS` into a rule over `/`, so every
+  page ships those three headers.
