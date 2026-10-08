@@ -1186,6 +1186,13 @@ Both build the page from the checked-out commit. A run without `apply` uses no
 credential. Each run uploads the `landing-deploy` artifact: what wrangler
 printed, the built `site/` and `.pagedeck/budget-report.json`.
 
+The repository is public, so anyone can read a run's log and its artifacts.
+wrangler's stdout and stderr pass through `packages/landing/dist/redact.bin.js`
+before the log or `wrangler.txt` gets them. It replaces each email with
+`<email>` and each 32-character hex ID, such as the account ID, with `<id>`
+(#59). `packages/landing/src/redact.bin.test.ts` fails on a workflow line
+that runs wrangler without it.
+
 To deploy from your machine instead, from `packages/landing` after `pnpm build`
 at the repository root:
 
@@ -1301,7 +1308,8 @@ gh workflow run deploy-docs.yml                  # build, then wrangler deploy -
 gh workflow run deploy-docs.yml -f apply=true    # build, then wrangler deploy
 ```
 
-Each run uploads the `docs-deploy` artifact: what wrangler printed and the
+Each run uploads the `docs-deploy` artifact: what wrangler printed, redacted
+by the landing package's `redact.bin.js` as for the landing page, and the
 built `site/`. The site declares no budget, so there is no budget report.
 
 After the first publish, open the address. `/` and `/search/` answer their
