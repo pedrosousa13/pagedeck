@@ -140,7 +140,7 @@ refuses every deploy.
 **Keep the content store as a snapshot.** `pagedeck store pull` downloads
 `content.db` and `pagedeck store push` uploads it. Give the target in
 `PAGEDECK_SNAPSHOT_URL` and none on the command line, as
-[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedeck-snapshot-url) explains:
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl) explains:
 
 ```
 - run: npx pagedeck store pull
@@ -308,21 +308,27 @@ describes. `PAGEDECK_SNAPSHOT_URL` is a credential (see
 [PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
 that has it can overwrite the snapshot production builds start from. In the
 project's Settings > Variables and Secrets, add it to the Production
-environment only, and select **Encrypt** so it is stored as a secret
-([Cloudflare Pages bindings](https://developers.cloudflare.com/pages/functions/bindings/)).
+environment only, and select **Encrypt** so it is stored as a secret.
+Cloudflare's [bindings](https://developers.cloudflare.com/pages/functions/bindings/)
+page says variables are set "for both your production and preview environments
+at runtime and build-time", but it documents **Encrypt** for secrets bound to
+Pages Functions and does not say whether an encrypted value reaches the build.
+If the first production build stops with the `pagedeck store pull` usage error
+that names `PAGEDECK_SNAPSHOT_URL`, the build did not receive it.
 
 Then run the snapshot steps only on a production build. Cloudflare sets
 `CF_PAGES_BRANCH` to the name of the branch being deployed
 ([build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/)),
-so compare it with the project's production branch, `main` here. Commit this
-script beside `pagedeck.config.ts` and set the build command to
-`sh build.sh`:
+and its guide to
+[build commands per branch](https://developers.cloudflare.com/pages/how-to/build-commands-branches/)
+branches on it in a `build.sh` the same way. Commit this script beside
+`pagedeck.config.ts` and set the build command to `sh build.sh`:
 
 `build.sh`:
 
 ```sh
 set -e
-if [ "$CF_PAGES_BRANCH" = main ]; then
+if [ "$CF_PAGES_BRANCH" = "main" ]; then
   npx pagedeck store pull
   npx pagedeck sync --incremental
   npx pagedeck build
@@ -332,6 +338,10 @@ else
   npx pagedeck build
 fi
 ```
+
+Replace `"main"` with the production branch set in the project. If that branch
+is ever renamed and the script is not, production builds take the `else`
+branch and silently stop pulling and pushing the snapshot.
 
 A preview build gets no `PAGEDECK_SNAPSHOT_URL`, so it neither reads nor
 writes the snapshot: it syncs every entry from the content source and builds
@@ -403,7 +413,7 @@ Commit this script beside `pagedeck.config.ts` and set the Build Command to
 
 ```sh
 set -e
-if [ "$VERCEL_ENV" = production ]; then
+if [ "$VERCEL_ENV" = "production" ]; then
   npx pagedeck store pull
   npx pagedeck sync --incremental
   npx pagedeck build
@@ -491,6 +501,23 @@ Run `pagedeck store pull` and `pagedeck store push` only when `CONTEXT`, the
 "name of the build's deploy context", is `production`; the other values are
 `deploy-preview`, `branch-deploy` and `dev`
 ([environment variables](https://docs.netlify.com/build/configure-builds/environment-variables/)).
-The `build.sh` shown for Cloudflare Pages above works here with
-`"$CONTEXT" = production` as its test and `command = "sh build.sh"`. Deploy
-previews and branch deploys then sync in full and touch no snapshot.
+Commit this script beside `pagedeck.config.ts`, and in `netlify.toml` above
+set `command = "sh build.sh"` in place of the two `pagedeck` lines:
+
+`build.sh`:
+
+```sh
+set -e
+if [ "$CONTEXT" = "production" ]; then
+  npx pagedeck store pull
+  npx pagedeck sync --incremental
+  npx pagedeck build
+  npx pagedeck store push
+else
+  npx pagedeck sync
+  npx pagedeck build
+fi
+```
+
+Deploy previews and branch deploys get no `PAGEDECK_SNAPSHOT_URL` and take
+the `else` branch: a full sync and build that touches no snapshot.
