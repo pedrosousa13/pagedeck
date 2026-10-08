@@ -1,0 +1,88 @@
+name: Deploy a site's Worker
+
+# Runbooks: `docs/deploy-recipe.md`, "The landing page on Cloudflare" and
+# "The docs site on Cloudflare".
+on:
+  workflow_call:
+    inputs:
+      site:
+        description: "The package under packages/ that is the site, and holds its wrangler.jsonc."
+        required: true
+        type: string
+      apply:
+        description: "Publish. Off is a dry run that bundles the Worker and lists the upload, and sends nothing."
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/${{ inputs.site }}
+    # No secret here: a job-level `env:` reaches every action and lifecycle script.
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - run: pnpm build
+        working-directory: .
+
+      - name: Sync the site's content
+        run: node ../core/dist/bin.js sync
+
+      - name: Build the site
+        run: node ../core/dist/bin.js build
+
+      - name: Check the Worker without publishing
+        if: ${{ !inputs.apply }}
+        run: |
+          set -o pipefail
+          pnpm exec wrangler deploy --dry-run | tee "$GITHUB_WORKSPACE/wrangler.txt"
+
+      - name: Publish the Worker
+        if: inputs.apply
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=()
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Worker not published::Not set: ${missing[*]}. Nothing was published. Add each as a repository secret (docs/deploy-recipe.md, \"The secrets\") and run again with apply."
+            exit 1
+          fi
+          set -o pipefail
+          pnpm exec wrangler deploy | tee "$GITHUB_WORKSPACE/wrangler.txt"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: ${{ inputs.site }}-deploy
+          path: |
+            wrangler.txt
+            packages/${{ inputs.site }}/site
+            packages/${{ inputs.site }}/.pagedeck/budget-report.json
+          # `.assetsignore` and `.pagedeck` are hidden, and are excluded without this.
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30

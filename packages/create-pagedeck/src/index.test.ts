@@ -359,7 +359,7 @@ for (const [host, dependency, factory, importPath] of [
     const own = manifestOf(PACKAGE) as unknown as { engines: { node: string } };
     expect(readme).toContain("npx pagedeck sync && npx pagedeck build");
     expect(readme).toContain("site");
-    expect(readme).toMatch(/deploy-a-site\.md/);
+    expect(readme).toMatch(/\/how-to\/deploy-a-site\/#/);
     expect(readme).toContain(own.engines.node);
   });
 

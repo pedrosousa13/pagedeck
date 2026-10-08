@@ -35,7 +35,7 @@ callback reads each page's entry with `getEntry`. The whole config is in
 
 ## Read more
 
-- [Write a loader](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/how-to/write-a-loader.md) covers the loader
+- [Write a loader](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/write-a-loader/) covers the loader
   contract, incremental syncs, deletions and schemas.
-- [Your first site](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/tutorials/your-first-site.md) declares a
+- [Your first site](https://pagedeck-docs.pedrodsousa.workers.dev/tutorials/your-first-site/) declares a
   collection and builds a site from it.

@@ -34,6 +34,7 @@ import type {
   SiteConfig,
 } from "@pagedeck/core";
 import { defineSearch } from "@pagedeck/search";
+import { cloudflarePages } from "@pagedeck/adapter-cloudflare-pages";
 import {
   components,
   SEARCH_ISLAND,
@@ -99,6 +100,9 @@ const PACKAGE = join(import.meta.dirname, "..");
 // Absolute, so a config re-exporting this site from another directory resolves
 // the same file.
 const GLOBAL_CSS = join(PACKAGE, "styles", "global.css");
+
+// Holds `.assetsignore`, which wrangler reads at the root of the upload.
+const PUBLIC_DIR = join(PACKAGE, "public");
 
 // Declared because a browser asks for it unprompted, and Lighthouse scores the
 // 404 as a console error.
@@ -465,6 +469,7 @@ export function docsSiteConfig(): SiteConfig {
     build: {
       // Not `./dist`, which `pnpm build` writes and would wipe.
       outDir: "./site",
+      adapter: cloudflarePages(),
       // No `Strict-Transport-Security`: it is a promise about a domain this
       // repository does not own.
       routing: {
@@ -480,6 +485,7 @@ export function docsSiteConfig(): SiteConfig {
       },
       css: [GLOBAL_CSS],
       favicon: FAVICON,
+      passthrough: { root: PUBLIC_DIR },
       vite: { plugins: [tailwindcss()] },
       pages: definePages({
         locales: defineLocales({ en: { label: "English", direction: "ltr" } }),

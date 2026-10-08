@@ -77,20 +77,23 @@ and `markdown-loader`. Add the others when you need them.
 
 ## Read more
 
-The documentation is written as markdown in this repository:
+The [documentation](https://pagedeck-docs.pedrodsousa.workers.dev/) is built
+from markdown in this repository:
 
-- [Your first site](packages/docs/content/tutorials/your-first-site.md) creates
-  a site with `npm create pagedeck`, edits it under `pagedeck dev` and builds it.
-- [Write a loader](packages/docs/content/how-to/write-a-loader.md) reads content
-  from a source of your own.
-- [Add an island](packages/docs/content/how-to/add-an-island.md) ships one
-  component's JavaScript and holds each page to a budget.
-- [Connect a CMS](packages/docs/content/how-to/connect-a-cms.md) builds a site
-  from a headless CMS through a loader.
-- [Deploy a site](packages/docs/content/how-to/deploy-a-site.md) uploads a
-  build, then only what changed, and rolls back.
-- [Reference](packages/docs/content/reference) has a page for the `pagedeck`
-  command and one per build feature, such as routing, fonts and site search.
+- [Your first site](https://pagedeck-docs.pedrodsousa.workers.dev/tutorials/your-first-site/)
+  creates a site with `npm create pagedeck`, edits it under `pagedeck dev` and
+  builds it.
+- [Write a loader](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/write-a-loader/)
+  reads content from a source of your own.
+- [Add an island](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/add-an-island/)
+  ships one component's JavaScript and holds each page to a budget.
+- [Connect a CMS](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/connect-a-cms/)
+  builds a site from a headless CMS through a loader.
+- [Deploy a site](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/deploy-a-site/)
+  uploads a build, then only what changed, and rolls back.
+- [Reference](https://pagedeck-docs.pedrodsousa.workers.dev/reference/cli/) has a
+  page for the `pagedeck` command and one per build feature, such as routing,
+  fonts and site search.
 
 To work on Pagedeck itself, read [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -29,7 +29,7 @@ const docs = defineCollection({
 
 The collection goes in the site config's `collections`. A site created with
 `npm create pagedeck` declares one like this, and
-[Your first site](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/tutorials/your-first-site.md) walks through
+[Your first site](https://pagedeck-docs.pedrodsousa.workers.dev/tutorials/your-first-site/) walks through
 it.
 
 ## Options

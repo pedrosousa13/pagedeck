@@ -57,10 +57,10 @@ refuses it for a module that starts with `"use client"`.
 
 ## Read more
 
-- [Fold strategy](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/fold-strategy.md) covers when each
+- [Fold strategy](https://pagedeck-docs.pedrodsousa.workers.dev/reference/fold-strategy/) covers when each
   island hydrates, and how the build moves islands near the top of a page to
   `load`.
-- [Shared store](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/shared-store.md) shares state
+- [Shared store](https://pagedeck-docs.pedrodsousa.workers.dev/reference/shared-store/) shares state
   between islands.
-- [JavaScript budgets](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/javascript-budgets.md) caps
+- [JavaScript budgets](https://pagedeck-docs.pedrodsousa.workers.dev/reference/javascript-budgets/) caps
   what each page may ship.

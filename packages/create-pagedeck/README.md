@@ -51,5 +51,5 @@ Pagedeck needs Node 22.18 or later. On Node 23, it needs 23.7 or later.
 
 ## Read more
 
-[Your first site](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/tutorials/your-first-site.md) starts from
+[Your first site](https://pagedeck-docs.pedrodsousa.workers.dev/tutorials/your-first-site/) starts from
 this site: it edits a page under `pagedeck dev`, adds one and builds the result.
