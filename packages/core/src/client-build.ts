@@ -591,11 +591,8 @@ export async function buildClient(
 
 const GLOBAL_STYLES_ENTRY = "\0fw:global-styles";
 
-/**
- * A site with no island has no entry module to import `build.css` from, so the
- * sheets get an entry of their own, and its JavaScript chunk is dropped: it
- * holds nothing but the imports of the sheets it was built to reach.
- */
+/** With no island to import `build.css`, the sheets get their own entry; its
+ * JavaScript chunk holds only those imports, so it is dropped (#104). */
 async function buildGlobalStyles(
   input: ClientBuildInput,
 ): Promise<Pick<ClientBuild, "files" | "globalStyles">> {
