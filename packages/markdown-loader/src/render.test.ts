@@ -316,12 +316,45 @@ test("an outline entry keeps every character a reader sees, and drops only the m
   expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
 });
 
-test("the title still loses only the emphasis markers", async () => {
+test("the title is the heading's text content, never its markup", async () => {
   const rendered = await renderer.render(
-    "# A [link](http://x) and *bold* <b>b</b>\n",
+    "# A [link](http://x) and `code` and *bold* <b>b</b> ![alt](y.png)\n",
     "d.md",
   );
-  expect(rendered.title).toBe("A [link](http://x) and bold <b>b</b>");
+  expect(rendered.title).toBe("A link and code and bold b");
+});
+
+test("a first level-1 heading with no text gives no title, and no later one takes over", async () => {
+  for (const body of ["# ![x](y.png)\n\n# Real\n", "# <img src=x>\n\n# Real\n", "#\n\n# Real\n"]) {
+    const rendered = await renderer.render(body, "d.md");
+    expect(rendered.title).toBeUndefined();
+    expect(rendered.html).toContain(">Real</h1>");
+  }
+});
+
+test("the title keeps every character a reader sees, and drops only the markers", async () => {
+  const titles = await Promise.all(
+    [
+      "# PAGEDECK_SNAPSHOT_URL\n",
+      "# `server_data_page.tsx`\n",
+      "# An _emphasised_ word\n",
+      "# A __strong__ word\n",
+      "# snake_case and *star*\n",
+      "# a * b\n",
+      "# \\_escaped\\_\n",
+      "# a `` ` `` tick\n",
+    ].map(async (body) => (await renderer.render(body, "d.md")).title),
+  );
+  expect(titles).toEqual([
+    "PAGEDECK_SNAPSHOT_URL",
+    "server_data_page.tsx",
+    "An emphasised word",
+    "A strong word",
+    "snake_case and star",
+    "a * b",
+    "_escaped_",
+    "a ` tick",
+  ]);
 });
 
 test("the outline names exactly the headings the body anchors, in order", async () => {

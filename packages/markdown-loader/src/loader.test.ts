@@ -116,12 +116,14 @@ test("every file with no title at all is named in one report", async () => {
     "a.md": "Just a paragraph.\n",
     "b.md": "## Only a subheading\n",
     "c.md": "# Fine\n",
+    "d.md": "# ![logo](x.png)\n\n# Later\n",
   });
 
   expect(await causeOf(syncCollection(store, docs(root)))).toBe(
-    `Markdown root "${root}": 2 documents could not be read, and each failure below carries its own fix:\n` +
-      `  Markdown "a.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading\n` +
-      `  Markdown "b.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading`,
+    `Markdown root "${root}": 3 documents could not be read, and each failure below carries its own fix:\n` +
+      `  Markdown "a.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading that has text\n` +
+      `  Markdown "b.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading that has text\n` +
+      `  Markdown "d.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading that has text`,
   );
 });
 
@@ -138,7 +140,7 @@ test("documents that fail for different reasons are reported in one run", async 
       `  Markdown "a.md": opens a frontmatter block that is never closed — end the block with a line holding only "---", or remove the opening one\n` +
       `  Markdown "b.md": 1 code language is not loaded, so its fences cannot be highlighted — add each to the loader's languages, or drop the language from the fence:\n` +
       `    rust\n` +
-      `  Markdown "c.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading`,
+      `  Markdown "c.md": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading that has text`,
   );
 });
 

@@ -80,7 +80,7 @@ function refuseMissingRoot(root: string): void {
 }
 
 function untitledMessage(file: string): string {
-  return `Markdown "${file}": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading`;
+  return `Markdown "${file}": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading that has text`;
 }
 
 // One report over the whole tree, every kind of failure alike (rule 5).
