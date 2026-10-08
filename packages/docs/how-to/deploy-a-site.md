@@ -138,20 +138,25 @@ A CI runner starts with no `content.db` and no `.pagedeck/`. Without
 refuses every deploy.
 
 **Keep the content store as a snapshot.** `pagedeck store pull` downloads
-`content.db` and `pagedeck store push` uploads it. Give the target in
-`PAGEDECK_SNAPSHOT_URL` and none on the command line, as
-[PAGEDECK_SNAPSHOT_URL](../reference/cli.md#pagedeck-snapshot-url) explains:
+`content.db` and `pagedeck store push` uploads it. Give the pull target in
+`PAGEDECK_SNAPSHOT_PULL_URL`, the push target in `PAGEDECK_SNAPSHOT_PUSH_URL`
+and none on the command line, as
+[the snapshot variables](../reference/cli.md#the-snapshot-variables) explains:
 
 ```
 - run: npx pagedeck store pull
   env:
-    PAGEDECK_SNAPSHOT_URL: ${{ secrets.SNAPSHOT_URL }}
+    PAGEDECK_SNAPSHOT_PULL_URL: ${{ secrets.SNAPSHOT_PULL_URL }}
 - run: npx pagedeck sync --incremental
 - run: npx pagedeck build
 - run: npx pagedeck store push
   env:
-    PAGEDECK_SNAPSHOT_URL: ${{ secrets.SNAPSHOT_URL }}
+    PAGEDECK_SNAPSHOT_PUSH_URL: ${{ secrets.SNAPSHOT_PUSH_URL }}
 ```
+
+For an S3-style bucket the two are presigned URLs for the same object, one
+signed for GET and one for PUT. Each expires after at most 7 days: sign both
+again and replace both secrets before then.
 
 On the first run there is no snapshot to pull, and no cursor for
 `pagedeck sync --incremental` to start from. Run `pagedeck sync` and
