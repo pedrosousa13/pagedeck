@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "pagedeck-landing",
+  // Where `deploy.bin.js --staging ../../.deploy/staging --apply` writes it, which is
+  // `PAGEDECK_DEPLOY_STAGING` in `.github/workflows/deploy-landing.yml`.
+  "main": "../../.deploy/staging/worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "PAGEDECK_ORIGIN",
+      "bucket_name": "pagedeck-landing"
+    }
+  ]
+}

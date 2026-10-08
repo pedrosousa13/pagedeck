@@ -194,6 +194,11 @@ packages/landing/site/
 packages/landing/content.db
 packages/landing/.pagedeck/
 
+# The landing page's Worker, staged where `packages/landing/wrangler.jsonc`'s `main`
+# reads it (#52), and wrangler's own scratch directory beside that config.
+.deploy/
+packages/landing/.wrangler/
+
 # Everything `pnpm bench:scaling` writes
 # (`packages/bench/src/scaling.harness.ts`, #60): one generated site per rung of
 # the ladder, each with its own store and output tree, plus the report the run

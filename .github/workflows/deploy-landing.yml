@@ -1,6 +1,7 @@
 name: Deploy landing
 
-# Writes only with every PAGEDECK_R2_* secret set and `apply: true`; see
+# Writes only with every PAGEDECK_R2_* secret set and `apply: true`, and publishes the
+# Worker only after that write and with both CLOUDFLARE_* secrets set; see
 # `docs/deploy-recipe.md`, "The landing page on Cloudflare".
 on:
   workflow_dispatch:
@@ -193,6 +194,24 @@ jobs:
             --staging "$PAGEDECK_DEPLOY_STAGING" \
             --edge cloudflare-worker \
             --apply | tee -a "$GITHUB_WORKSPACE/deploy-plan.txt"
+
+      # After the apply, never before or without it: the routing compiled into worker.js
+      # belongs to the build the apply just made live (docs/deploy-recipe.md).
+      - name: Publish the Worker
+        if: steps.apply.outcome == 'success'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=()
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::warning title=Worker not published::Not set: ${missing[*]}. The bucket holds the new build and the Worker was not published. To publish this run's, from the repository root: gh run download $GITHUB_RUN_ID --name deploy-plan --dir .deploy/run-$GITHUB_RUN_ID && mkdir -p .deploy/staging && cp .deploy/run-$GITHUB_RUN_ID/.deploy/staging/worker.js .deploy/staging/worker.js && cd packages/landing && pnpm exec wrangler deploy"
+            exit 0
+          fi
+          pnpm exec wrangler deploy
 
       # What a later rollback uploads: `pagedeck build` keeps the manifest, not the bytes.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
