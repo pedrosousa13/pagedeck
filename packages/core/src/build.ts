@@ -52,7 +52,7 @@ import type {
   SocialImageResult,
   SocialImagesSetting,
 } from "./social-image.js";
-import { localeAlternates, pageLinks } from "./alternates.js";
+import { localeAlternates, pageLinks, variantUrl } from "./alternates.js";
 import type { PageLinks } from "./alternates.js";
 import {
   absorbedHeadConflicts,
@@ -1121,7 +1121,18 @@ async function stageSite(input: {
         head:
           card === undefined
             ? heads.get(key)
-            : { ...heads.get(key), image: card.href },
+            : {
+                ...heads.get(key),
+                image:
+                  section.origin === undefined
+                    ? card.href
+                    : variantUrl(section.origin, {
+                        ...(page.declaredDomain === undefined
+                          ? {}
+                          : { declaredDomain: page.declaredDomain }),
+                        output: card.href,
+                      }),
+              },
         ...(card === undefined
           ? {}
           : { socialImage: { width: card.width, height: card.height } }),
@@ -2150,6 +2161,11 @@ const DOUBLE_IMAGE_FIX =
 
 const CARD_REFERENCE = /<meta property="og:image" content="([^"]*)">/;
 
+function cardPath(reference: string | undefined): string | undefined {
+  if (reference === undefined || reference.startsWith("/")) return reference;
+  return URL.canParse(reference) ? new URL(reference).pathname : undefined;
+}
+
 async function carriedCards(input: {
   outDir: string;
   previous: Manifest;
@@ -2170,7 +2186,7 @@ async function carriedCards(input: {
   const carried = new Map<string, EmittedFile>();
   const seen = new Set<string>();
   for (const document of input.documents.values()) {
-    const href = CARD_REFERENCE.exec(textOf(document.contents))?.[1];
+    const href = cardPath(CARD_REFERENCE.exec(textOf(document.contents))?.[1]);
     if (href === undefined || !href.startsWith(SOCIAL_DIR)) continue;
     if (seen.has(href)) continue;
     seen.add(href);

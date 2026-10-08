@@ -44,6 +44,9 @@ const TREES_SITE = join(SITES, ".pagedeck-social-trees-test");
 const CARRIED_TREES_SITE = join(SITES, ".pagedeck-social-carried-trees-test");
 const PARTIAL_SITE = join(SITES, ".pagedeck-social-partial-test");
 const DROPPED_TREE_SITE = join(SITES, ".pagedeck-social-dropped-tree-test");
+const ORIGIN_SITE = join(SITES, ".pagedeck-social-origin-test");
+const ORIGIN_TREES_SITE = join(SITES, ".pagedeck-social-origin-trees-test");
+const CARRIED_ORIGIN_SITE = join(SITES, ".pagedeck-social-carried-origin-test");
 
 const ONE_TREE = `en: { label: "en", direction: "ltr" },`;
 const TWO_TREES = `en: { label: "en", direction: "ltr", domain: "example.com" },
@@ -140,6 +143,8 @@ const DOUBLE_CARDS = `socialImages: {
           ? "https://cdn.example/hand.png"
           : "https://reader:s3cret@cdn.example/private.png",
     }),`;
+
+const ORIGIN = `origin: "https://example.com",`;
 
 const CONTENT: Record<string, string> = {
   home: "Home",
@@ -287,6 +292,9 @@ afterAll(() => {
     CARRIED_TREES_SITE,
     PARTIAL_SITE,
     DROPPED_TREE_SITE,
+    ORIGIN_SITE,
+    ORIGIN_TREES_SITE,
+    CARRIED_ORIGIN_SITE,
   ]) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -730,4 +738,75 @@ test("a card in a tree the locale set no longer declares is not carried", async 
     [],
   );
   expect(existsSync(join(dist, "example.de", href.slice(1)))).toBe(false);
+}, 240_000);
+
+test("with an origin, the page's og:image is the origin followed by the card's path", async () => {
+  const dist = await build(ORIGIN_SITE, `${ORIGIN}\n    ${DECLARED_CARDS}`);
+  const manifestFile = join(dist, "manifest.json");
+  const manifest = readManifest(
+    readFileSync(manifestFile, "utf8"),
+    manifestFile,
+  );
+  const href = manifest.files.find((row) =>
+    row.path.startsWith("/social/"),
+  )?.path;
+  const page = readFileSync(join(dist, "index.html"), "utf8");
+
+  expect(href).toMatch(/^\/social\/en\.[0-9a-f]{8}\.png$/);
+  expect(page).toContain(
+    `<meta property="og:image" content="https://example.com${String(href)}">`,
+  );
+}, 180_000);
+
+test("with an origin, each tree's og:image names its own locale's domain", async () => {
+  const dist = await build(
+    ORIGIN_TREES_SITE,
+    `${ORIGIN}\n    ${DECLARED_CARDS}`,
+    TWO_TREES,
+    ["en", "de"],
+  );
+
+  for (const tree of ["example.com", "example.de"]) {
+    const page = readFileSync(join(dist, tree, "index.html"), "utf8");
+    const href = /<meta property="og:image" content="([^"]*)">/.exec(page)?.[1];
+    expect(href).toMatch(
+      new RegExp(`^https://${tree.replace(".", "\\.")}/social/[a-z-]+\\.[0-9a-f]{8}\\.png$`),
+    );
+    const path = new URL(String(href)).pathname;
+    expect(existsSync(join(dist, tree, path.slice(1)))).toBe(true);
+  }
+}, 180_000);
+
+test("with an origin, a carried page's card is kept on the tree and not pruned", async () => {
+  const dir = site(CARRIED_ORIGIN_SITE, `${ORIGIN}\n    ${CROSS_PAGE_CARDS}`);
+  await ok(dir, "sync");
+  await ok(dir, "build");
+  const dist = join(dir, "dist");
+  const before = readFileSync(join(dist, "index.html"), "utf8");
+
+  writeFileSync(
+    join(dir, "content", "en", "about.json"),
+    `${JSON.stringify({ rev: 2, data: { title: "Edited" } })}\n`,
+  );
+  await ok(dir, "sync");
+  const { loadConfig } = await import("./config.js");
+  const { buildSite } = await import("./build.js");
+  const built = await buildSite({
+    config: await loadConfig(dir),
+    incremental: true,
+    stamp: { id: "social-carried-origin", createdAt: "2026-09-01T00:00:00.000Z" },
+  });
+  const patch = built.patch;
+  if (patch === undefined) throw new Error("the run produced no patch");
+
+  expect(patch.stats.reused).toBe(1);
+  const after = readFileSync(join(dist, "index.html"), "utf8");
+  expect(after).toBe(before);
+
+  const href = /<meta property="og:image" content="([^"]*)">/.exec(after)?.[1];
+  expect(href).toMatch(/^https:\/\/example\.com\/social\/en\.[0-9a-f]{8}\.png$/);
+  const path = new URL(String(href)).pathname;
+  expect(existsSync(join(dist, path.slice(1)))).toBe(true);
+  expect(patch.pruned.map((one) => one.path)).not.toContain(path);
+  expect(patch.written.map((file) => file.path)).not.toContain(path);
 }, 240_000);
