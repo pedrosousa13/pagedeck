@@ -1,7 +1,7 @@
-name: Deploy landing
+name: Deploy docs
 
 # Publishes only with `apply: true`, and then fails unless both CLOUDFLARE_* secrets are
-# set; see `docs/deploy-recipe.md`, "The landing page on Cloudflare".
+# set; see `docs/deploy-recipe.md`, "The docs site on Cloudflare".
 on:
   workflow_dispatch:
     inputs:
@@ -17,14 +17,14 @@ permissions:
 # A publishing run is never cancelled: wrangler uploads the assets before it publishes
 # the version that serves them.
 concurrency:
-  group: deploy-landing-${{ inputs.apply && 'apply' || 'dry-run' }}
+  group: deploy-docs-${{ inputs.apply && 'apply' || 'dry-run' }}
   cancel-in-progress: ${{ !inputs.apply }}
 
 jobs:
   deploy:
     uses: ./.github/workflows/deploy-worker.yml
     with:
-      site: landing
+      site: docs
       apply: ${{ inputs.apply }}
     # Read by the publish step alone.
     secrets:

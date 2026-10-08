@@ -388,6 +388,14 @@ fence against the real `PreviewBridge` from `@pagedeck/preview`, with the DOM
 lib a site's own tsconfig has. Rename the page or the heading, and change the
 notice in `packages/core/src/cli.ts` with it.
 
+It deploys as the Worker `pagedeck-docs` the way the landing page does (#6):
+`cloudflarePages()`, `public/.assetsignore`, `wrangler.jsonc`,
+`.github/workflows/deploy-docs.yml`, and the runbook "The docs site on
+Cloudflare" in `docs/deploy-recipe.md`. The READMEs link its pages at
+`https://pagedeck-docs.pedrodsousa.workers.dev` until #54, and
+`site.build.test.ts` holds each linked route and heading to the build, from
+`DOCS_ORIGIN`.
+
 `/search` is the only page that ships JavaScript (#62). `site.build.test.ts`
 excludes it from the zero-JavaScript assertions **by name**, never by dropping
 it from the page set. The axe harness audits eight pages and a search:
@@ -423,8 +431,8 @@ out of every emitted file.
   upload. `wrangler.jsonc` declares the Worker; wrangler is pinned in this
   package's `devDependencies`, so run it as `pnpm exec wrangler`.
   `.github/workflows/deploy-landing.yml` dry-runs it, or publishes it with
-  `apply`. `docs/deploy-recipe.md`, "The landing page on Cloudflare", is the
-  runbook.
+  `apply`, through `deploy-worker.yml`, which `deploy-docs.yml` calls too.
+  `docs/deploy-recipe.md`, "The landing page on Cloudflare", is the runbook.
 
 **Budgets.** A limit is the measurement plus about 16%, rounded to a whole
 kilobyte.

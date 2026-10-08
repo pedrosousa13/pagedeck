@@ -32,6 +32,6 @@ drafts need.
 
 ## Read more
 
-[Preview app](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/preview.md) covers security, how to
+[Preview app](https://pagedeck-docs.pedrodsousa.workers.dev/reference/preview/) covers security, how to
 write a bridge, the path rules, sites with a domain per locale, and what the
 app does not do.

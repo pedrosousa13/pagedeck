@@ -36,7 +36,7 @@ Then render it from a page's tree. It takes three props, all required:
 },
 ```
 
-[Site search](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/site-search.md) covers what the island
+[Site search](https://pagedeck-docs.pedrodsousa.workers.dev/reference/site-search/) covers what the island
 does with each prop, and what the index holds.
 
 ## What a page contributes

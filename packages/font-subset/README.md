@@ -37,5 +37,5 @@ font has no character in the face's `unicodeRanges`.
 
 ## Read more
 
-[Fonts](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/fonts.md) covers every face field, unicode
+[Fonts](https://pagedeck-docs.pedrodsousa.workers.dev/reference/fonts/) covers every face field, unicode
 ranges, fallbacks, preloads and scoping a face to some pages.

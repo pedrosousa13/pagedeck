@@ -38,7 +38,7 @@ for (const artifact of artifacts) console.log(artifact.role, artifact.path);
 
 Each artifact carries its text in `contents`, and its `role` says where it
 goes, as [What comes out](#what-comes-out) lists.
-[Routing](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/routing.md) covers `build.routing`.
+[Routing](https://pagedeck-docs.pedrodsousa.workers.dev/reference/routing/) covers `build.routing`.
 
 An adapter only compiles. `compile` takes the routing document from the
 manifest and returns each file as text. It reads no file, opens no socket and

@@ -1,14 +1,15 @@
 ---
-description: How the dogfood site deploys through presigned uploads and the landing page through wrangler, each with a dry run and a rollback, and what is proven.
+description: How the dogfood site deploys through presigned uploads and the landing and docs sites through wrangler, with dry runs, rollbacks and proofs.
 ---
 
 # Deploy recipe
 
 How the dogfood site (`packages/site`) is deployed: the verbs in order, what the
 one secret is, what a dry run does, how to roll back, and what the grace period
-protects. Issue #57. The landing page is deployed to Cloudflare as Workers
-Static Assets with wrangler, not through this CLI, and its runbook is the last
-section, "The landing page on Cloudflare".
+protects. Issue #57. The landing page and the docs site are deployed to
+Cloudflare as Workers Static Assets with wrangler, not through this CLI. Their
+runbooks are the last two sections, "The landing page on Cloudflare" and "The
+docs site on Cloudflare".
 
 ## What has been proven, and what has not
 
@@ -90,8 +91,8 @@ is not:
   `node:vm` against a stand-in for its R2 binding, by `pnpm test` and by the
   origin harness over what a deploy put into SeaweedFS. The Workers runtime has
   not run it. Nothing in this repository creates a CDN or cloud resource,
-  except that `deploy-landing.yml` publishes the landing page with
-  `wrangler deploy` (below).
+  except that `deploy-landing.yml` and `deploy-docs.yml` publish the landing
+  page and the docs site with `wrangler deploy` (below).
 - **`.github/workflows/deploy.yml` has never deployed anything**, and cannot
   until a maintainer adds the secret below and passes `apply: true`. It is
   `workflow_dispatch` and `repository_dispatch` only; it is never `on: push`.
@@ -102,6 +103,9 @@ is not:
   secrets set, and has run only as `wrangler deploy --dry-run`, locally, which
   sends nothing to Cloudflare. It does not use `deploy.bin.js` or the signing
   step, `presign.bin.js`, which the origin harness proves in region `auto`.
+- **`.github/workflows/deploy-docs.yml` has never deployed anything**, on the
+  same terms: `apply: true` and the two secrets, and a local `wrangler deploy
+  --dry-run` only.
 - The **deferred prune** reads the history back off a directory origin by
   listing it, and off a presigned origin through the history index (#659,
   below). `packages/site/src/deploy.test.ts` pins the arithmetic —
@@ -1235,3 +1239,59 @@ which deletes the record Cloudflare created for it, and recreate the records
 you wrote down. Then take the route out of `wrangler.jsonc` and set
 `workers_dev` back to `true`, so the next publish does not add the route
 again.
+
+## The docs site on Cloudflare
+
+The docs site (`packages/docs`) deploys the way the landing page does, as its
+own Workers Static Assets Worker, `pagedeck-docs` (#6). Everything in "The
+landing page on Cloudflare" holds for it, with `packages/docs` for
+`packages/landing` and `deploy-docs.yml` for `deploy-landing.yml`: the same
+token and the same two secrets, wrangler pinned to the same version in this
+package's dev dependencies, the same rollback and the same steps to add a
+domain. Both workflows call `.github/workflows/deploy-worker.yml`, which builds
+the one site it is given and runs wrangler on it.
+
+**What the build writes for it.** `build.adapter` is `cloudflarePages()`, so
+`pagedeck build` writes the same four files into `site/`: `_headers`, with the
+docs site's own `Content-Security-Policy` from `src/csp.ts`; `_redirects`, the
+three proxy rows for `/manifest.json`, `/.pagedeck` and `/.pagedeck/*`; the
+fallback `404.html`; and `.assetsignore`, from `public/`. The site declares no
+404 page, so `not_found_handling` is `none`, and the fallback stays out of the
+upload. `/search/` is the one page with JavaScript, and its index under
+`/search/en/` is uploaded with the pages.
+
+**If the site ever declares a 404 page**, uploading it is not enough. With
+`/404.html` uploaded, the asset worker bundled in wrangler 4.148.0 answers a
+proxy row's target through `html_handling`: `/manifest.json` gets `307` to
+`/404`, and `/404` serves the page with `200`. `site.build.test.ts` fails when
+a 404 page is declared while `.assetsignore` still names `/404.html`.
+
+`packages/docs/wrangler.jsonc` declares the Worker: `assets.directory`
+`./site`, `html_handling` `auto-trailing-slash`, because the site's
+`trailingSlash` is `always` (`/reference/cli` answers `307` to
+`/reference/cli/`), `not_found_handling` `none`, no `main`, `workers_dev` on,
+and no route. The Worker serves on
+`https://pagedeck-docs.pedrodsousa.workers.dev` until a domain is chosen (#54).
+
+**The READMEs link it.** The root README, each package README and the
+README that `create-pagedeck --host` writes link the deployed pages at that
+address. `site.build.test.ts` requires each linked route to be a page the
+build emits, and each `#fragment` a heading on it. When the domain changes,
+change `DOCS_ORIGIN` there and every link with it.
+
+**What is proven.** `wrangler deploy --dry-run` against a local docs build
+reads `site/`, ignores `.assetsignore`, `404.html`, `_headers`, `_redirects`
+and `manifest.json`, and sends nothing. Cloudflare has not been sent a request.
+
+```sh
+gh workflow run deploy-docs.yml                  # build, then wrangler deploy --dry-run
+gh workflow run deploy-docs.yml -f apply=true    # build, then wrangler deploy
+```
+
+Each run uploads the `docs-deploy` artifact: what wrangler printed and the
+built `site/`. The site declares no budget, so there is no budget report.
+
+After the first publish, open the address. `/` and `/search/` answer their
+pages, `/reference/cli` answers `307` to `/reference/cli/`, `/manifest.json`
+and `/.pagedeck/deploy-history.json` answer `404`, a page carries the CSP and
+the three security headers, and a search on `/search/` returns results.

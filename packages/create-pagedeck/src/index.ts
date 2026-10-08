@@ -65,7 +65,7 @@ const ADAPTERS: Record<Exclude<Host, "none">, Adapter> = {
 };
 
 const DEPLOY_DOC =
-  "https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/how-to/deploy-a-site.md";
+  "https://pagedeck-docs.pedrodsousa.workers.dev/how-to/deploy-a-site/";
 
 // `node` is this package's own `engines.node`, the exact range `deploy-a-site.md` states —
 // looser wording such as "22.18.0 or later" would admit 23.0–23.6, which the range excludes.

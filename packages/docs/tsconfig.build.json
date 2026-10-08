@@ -19,6 +19,7 @@
     "src/**/*.harness.tsx"
   ],
   "references": [
+    { "path": "../adapter-cloudflare-pages/tsconfig.build.json" },
     { "path": "../content/tsconfig.build.json" },
     { "path": "../core/tsconfig.build.json" },
     { "path": "../islands/tsconfig.build.json" },

@@ -37,6 +37,6 @@ does not change with the fonts a machine has installed.
 
 ## Read more
 
-[Page head](https://github.com/pedrosousa13/pagedeck/blob/main/packages/docs/content/reference/page-head.md#cards-the-build-draws) covers
+[Page head](https://pagedeck-docs.pedrodsousa.workers.dev/reference/page-head/#cards-the-build-draws) covers
 `build.socialImages`, how a component reads its page's card, and what happens
 when a page also declares an `image`.

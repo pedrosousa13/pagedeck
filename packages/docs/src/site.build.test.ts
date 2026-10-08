@@ -436,7 +436,12 @@ test("the search index is written into the site's output and hashed into the man
   ];
   expect(
     assetFiles()
-      .filter((path) => path !== "favicon.ico")
+      .filter((path) => !path.startsWith(`${directory}/`))
+      .sort(),
+  ).toEqual([".assetsignore", "404.html", "_headers", "_redirects", "favicon.ico"]);
+  expect(
+    assetFiles()
+      .filter((path) => path.startsWith(`${directory}/`))
       .sort(),
   ).toEqual([...named].sort());
   for (const path of named) {
@@ -853,6 +858,94 @@ test("every page's inline scripts are in the policy it is served with, and the p
     source.startsWith("'sha256-"),
   );
   expect(new Set(listed)).toEqual(carried);
+});
+
+test("the _headers the build wrote for Workers Static Assets carries every header of the set", () => {
+  const written = readFileSync(join(OUT, "_headers"), "utf8");
+  expect(written.startsWith("/*\n")).toBe(true);
+  for (const { name, value } of SERVED_HEADERS) {
+    expect(written).toContain(`  ${name}: ${value}\n`);
+  }
+});
+
+test("the .assetsignore keeps the deploy manifest, the deploy directory and the adapter's fallback 404 out of the upload", () => {
+  const ignored = readFileSync(join(OUT, ".assetsignore"), "utf8")
+    .split("\n")
+    .filter((line) => line !== "" && !line.startsWith("#"));
+  expect(ignored).toEqual(["/manifest.json", "/.pagedeck", "/404.html"]);
+  const declared = manifest.routing.trees.filter((tree) => tree.notFound !== undefined);
+  expect(
+    declared.map((tree) => tree.notFound),
+    "The docs site declares a 404 page, which core writes to /404.html, and public/.assetsignore drops /404.html from the upload — remove that line from public/.assetsignore and set not_found_handling to \"404-page\" in wrangler.jsonc, then keep /manifest.json from answering 200: with /404.html uploaded, its proxy row answers 307 to /404, which serves the page (#6)",
+  ).toEqual([]);
+  const proxied = readFileSync(join(OUT, "_redirects"), "utf8");
+  expect(proxied).toContain("/manifest.json /404.html 200\n");
+});
+
+// The Worker's workers.dev address until #54 names the docs domain. Every README
+// spells it, and this is what they are checked against.
+const DOCS_ORIGIN = "https://pagedeck-docs.pedrodsousa.workers.dev";
+
+const REPOSITORY = join(SITE, "..", "..");
+
+function linkingFiles(): string[] {
+  const packages = readdirSync(join(REPOSITORY, "packages"))
+    .map((name) => join("packages", name, "README.md"))
+    .filter((path) => existsSync(join(REPOSITORY, path)));
+  return [
+    "README.md",
+    ...packages,
+    join("packages", "create-pagedeck", "src", "index.ts"),
+  ].sort();
+}
+
+const DOCS_LINK = new RegExp(
+  `${DOCS_ORIGIN.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(/[^)\\s"#]*)(?:#([^)\\s"]*))?`,
+  "g",
+);
+
+test("every docs link a README writes names a page this build emits, and a heading on it", () => {
+  const routes = new Set(manifest.pages.map((row) => row.path));
+  const dangling: string[] = [];
+  let links = 0;
+  for (const file of linkingFiles()) {
+    const text = readFileSync(join(REPOSITORY, file), "utf8");
+    for (const [href, route, fragment] of text.matchAll(DOCS_LINK)) {
+      links += 1;
+      if (!routes.has(route as string)) {
+        dangling.push(`${file}: ${href} — no page at ${route as string}; link the page's route with its trailing slash`);
+        continue;
+      }
+      if (fragment !== undefined && !document(route as string).includes(` id="${fragment}"`)) {
+        dangling.push(`${file}: ${href} — ${route as string} has no heading #${fragment}; link a heading id the page has, or drop the fragment`);
+      }
+    }
+  }
+  expect(dangling).toEqual([]);
+  expect(links).toBeGreaterThan(20);
+});
+
+test("no README links the docs at an origin other than DOCS_ORIGIN", () => {
+  const strayLinks = linkingFiles().flatMap((file) =>
+    [...readFileSync(join(REPOSITORY, file), "utf8").matchAll(/(https?:\/\/[\w.-]+)[^\s)"'`<>]*/g)]
+      .filter(([, origin]) => origin !== DOCS_ORIGIN && /\.workers\.dev$|pagedeck-docs/.test(origin as string))
+      .map(([href]) => `${file}: ${href}`),
+  );
+  expect(strayLinks, `link the page at ${DOCS_ORIGIN}/<route>/ instead (#6)`).toEqual([]);
+});
+
+test("no README links the docs' markdown in the repository instead of the deployed site", () => {
+  const repositoryLinks = linkingFiles().flatMap((file) =>
+    [
+      ...readFileSync(join(REPOSITORY, file), "utf8").matchAll(
+        /(?:\]\(|")([^)"\s]*packages\/docs\/content[^)"\s]*)/g,
+      ),
+    ].map((match) => `${file}: ${match[1] as string}`),
+  );
+  expect(
+    repositoryLinks,
+    `link the page at ${DOCS_ORIGIN}/<route>/ instead (#6)`,
+  ).toEqual([]);
 });
 
 function servedPolicy(page: ManifestPage): string | undefined {
