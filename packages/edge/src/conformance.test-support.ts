@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "@pagedeck/core/exit";
@@ -17,7 +19,7 @@ import type { EdgeArtifact } from "./artifact.js";
 import { FIXTURE } from "./fixture.test-support.js";
 import { comparable } from "./interpret.test-support.js";
 import { compiledTree } from "./normalize.js";
-import { resolveRequest } from "./oracle.test-support.js";
+import { headersAt, resolveRequest } from "./oracle.test-support.js";
 import type { EdgeRequest, Resolution } from "./oracle.test-support.js";
 
 export interface AdapterUnderTest {
@@ -28,13 +30,12 @@ export interface AdapterUnderTest {
   ): Resolution | Promise<Resolution>;
   /** The status a host serves for one the document declares, where it narrows it (#10). */
   servedStatus?(status: RedirectStatus): RedirectStatus;
-  /** The shared cases run once under each. */
   policies: readonly TrailingSlash[];
   /**
-   * The host decides which document and headers a 404 carries, in ways docs/deploy-recipe.md
-   * records as unverified, so a 404 is checked for its kind alone.
+   * A 404 the host serves itself is checked for its kind (#559), and a proxied 404's headers only
+   * where the 404 page's set and the requested path's agree (#39).
    */
-  notFoundByHost?: boolean;
+  unverifiedNotFound?: boolean;
 }
 
 interface Spelling {
@@ -443,12 +444,12 @@ export function describeConformance({
   interpret,
   servedStatus = (status) => status,
   policies,
-  notFoundByHost = false,
+  unverifiedNotFound = false,
 }: AdapterUnderTest): void {
   for (const policy of policies) {
     describe(`under trailingSlash "${policy}"`, () => {
       describePolicy(
-        { adapter, interpret, servedStatus, notFoundByHost },
+        { adapter, interpret, servedStatus, unverifiedNotFound },
         policy,
       );
     });
@@ -460,7 +461,7 @@ function describePolicy(
     adapter,
     interpret,
     servedStatus,
-    notFoundByHost,
+    unverifiedNotFound,
   }: Required<Omit<AdapterUnderTest, "policies">>,
   policy: TrailingSlash,
 ): void {
@@ -472,27 +473,51 @@ function describePolicy(
   const file = underPolicy(FILE, policy);
   const bare = underPolicy(BARE, policy);
   const hardened = underPolicy(HARDENED, policy);
-  const settled = (resolution: Resolution): Resolution =>
-    notFoundByHost && resolution.kind === "not-found"
-      ? { kind: "not-found" }
-      : comparable(resolution);
-  const answer = async (
-    manifest: RoutingManifest,
-    request: EdgeRequest,
-  ): Promise<Resolution> =>
-    settled(await interpret(adapter.compile(manifest).artifacts, request));
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
   const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
     resolveRequest(manifest, request, servedStatus);
-  const expected = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
-    settled(claimFor(manifest, request));
+  const check = (
+    manifest: RoutingManifest,
+    request: EdgeRequest,
+    resolution: Resolution,
+  ): void => {
+    const answer = comparable(resolution);
+    const claim = comparable(claimFor(manifest, request));
+    if (
+      !unverifiedNotFound ||
+      answer.kind !== "not-found" ||
+      claim.kind !== "not-found" ||
+      !("document" in claim)
+    ) {
+      expect(answer).toEqual(claim);
+    } else if (!("document" in answer)) {
+      expect(answer).toEqual({ kind: "not-found" });
+    } else if (
+      isDeepStrictEqual(
+        claim.headers,
+        comparable({ kind: "pass", headers: headersAt(manifest, request) }).headers,
+      )
+    ) {
+      expect(answer).toEqual(claim);
+    } else {
+      expect(answer.document).toBe(claim.document);
+    }
+  };
+  const expectAnswer = async (
+    manifest: RoutingManifest,
+    request: EdgeRequest,
+  ): Promise<void> => {
+    check(
+      manifest,
+      request,
+      await interpret(adapter.compile(manifest).artifacts, request),
+    );
+  };
 
   describe("one document, every target, one behavior", () => {
     for (const request of requests(spelling)) {
       it(`${name} answers ${request.what} the way the document says`, async () => {
-        expect(await answer(fixture, request)).toEqual(
-          expected(fixture, request),
-        );
+        await expectAnswer(fixture, request);
       });
     }
   });
@@ -508,9 +533,7 @@ function describePolicy(
   describe("an escaped path answers the same on every target", () => {
     for (const request of escapedRequests(spelling)) {
       it(`${name} answers ${request.what}`, async () => {
-        expect(await answer(escaped, request)).toEqual(
-          expected(escaped, request),
-        );
+        await expectAnswer(escaped, request);
       });
     }
   });
@@ -531,9 +554,7 @@ function describePolicy(
   describe("a non-canonical spelling answers the same on every target", () => {
     for (const request of spellingRequests(spelling)) {
       it(`${name} answers ${request.what}`, async () => {
-        expect(await answer(spellings, request)).toEqual(
-          expected(spellings, request),
-        );
+        await expectAnswer(spellings, request);
       });
     }
   });
@@ -544,9 +565,7 @@ function describePolicy(
     });
 
     it(`${name} answers the slashed file as the claim does`, async () => {
-      expect(await answer(file, SLASHED_FILE)).toEqual(
-        expected(file, SLASHED_FILE),
-      );
+      await expectAnswer(file, SLASHED_FILE);
     });
   });
 
@@ -571,7 +590,7 @@ function describePolicy(
         for (const path of paths) {
           const request = { path, found: ALWAYS_FILE_HELD.has(path) };
           const resolution = await resolve(request);
-          expect(settled(resolution)).toEqual(expected(ALWAYS_FILE, request));
+          check(ALWAYS_FILE, request, resolution);
           if (resolution.kind === "redirect") expect(resolution.to).not.toBe(path);
         }
         expect((await resolve({ path: "/sitemap.xml", found: true })).kind).toBe(
@@ -586,7 +605,7 @@ function describePolicy(
       it(`${name}, for ${request.what}`, async () => {
         const claim = claimFor(fixture, request);
         expect(claim.kind).toBe("not-found");
-        expect(await answer(fixture, request)).toEqual(settled(claim));
+        await expectAnswer(fixture, request);
       });
     }
 
@@ -594,7 +613,7 @@ function describePolicy(
       it(`${name}, and serves ${request.what} as the site file it is`, async () => {
         const claim = claimFor(fixture, request);
         expect(claim.kind).toBe("pass");
-        expect(await answer(fixture, request)).toEqual(settled(claim));
+        await expectAnswer(fixture, request);
       });
     }
   });
@@ -603,17 +622,13 @@ function describePolicy(
     for (const request of KEYS.filter((key) => key.domain === undefined)) {
       it(`gets a bare 404 from ${name} for ${request.what}, whatever header rule covers it`, async () => {
         expect(claimFor(bare, request)).toEqual({ kind: "not-found" });
-        expect(await answer(bare, request)).toEqual(
-          comparable({ kind: "not-found" }),
-        );
+        await expectAnswer(bare, request);
       });
     }
 
     it(`still gets its headers on a page from ${name}`, async () => {
       const request = { path: spelling.page("/about"), found: true };
-      expect(await answer(bare, request)).toEqual(
-        expected(bare, request),
-      );
+      await expectAnswer(bare, request);
     });
   });
 
@@ -643,7 +658,7 @@ function describePolicy(
           "x-content-type-options",
           "x-frame-options",
         ]);
-        expect(await answer(hardened, request)).toEqual(settled(claim));
+        await expectAnswer(hardened, request);
       });
     }
   });
