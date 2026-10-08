@@ -524,6 +524,7 @@ describe.skipIf(unavailable !== undefined)(
             key,
             body: new Blob([bytes]).stream(),
             text: () => Promise.resolve(bytes.toString("utf8")),
+            arrayBuffer: () => Promise.resolve(new Uint8Array(bytes).buffer),
             httpEtag: response.headers.get("etag") ?? "",
             uploaded: new Date(response.headers.get("last-modified") ?? 0),
             writeHttpMetadata(headers) {
