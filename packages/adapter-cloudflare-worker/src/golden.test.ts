@@ -28,6 +28,8 @@ var KEY_PREFIX = "";
 var DEPLOY_MANIFEST = "/manifest.json";
 var DEPLOY_DIRECTORY = "/.pagedeck";
 var NOT_FOUND = "/en/404";
+var NOT_FOUND_KEY = "en/404/index.html";
+var MANIFEST_TTL_MS = 10000;
 
 var REDIRECTS = new Map([
   ["/en/about/", { to: "/en/about", status: 308 }],
@@ -84,17 +86,72 @@ function reserved(text) {
     bare.indexOf(DEPLOY_DIRECTORY + "/") === 0;
 }
 
-async function named(origin) {
-  var paths = new Set();
-  var live = await origin.get(DEPLOY_MANIFEST.slice(1));
-  if (live === null) return paths;
-  var files = JSON.parse(await live.text()).files;
-  for (var at = 0; at < files.length; at++) {
-    var domain = files[at].domain === undefined ? null : files[at].domain;
-    if (domain === DOMAIN) paths.add(files[at].path);
+function namedPaths(text) {
+  var manifest;
+  try {
+    manifest = JSON.parse(text);
+  } catch (malformed) {
+    return "it is not JSON (" + String(malformed.message).replace(/"[\\s\\S]*"/, "\\"\\u2026\\"") + ")";
   }
+  var files = manifest !== null && typeof manifest === "object" ? manifest.files : undefined;
+  if (!Array.isArray(files)) return "it has no files list";
+  var paths = new Set();
+  var bad = [];
+  for (var at = 0; at < files.length; at++) {
+    var row = files[at];
+    if (row === null || typeof row !== "object" || typeof row.path !== "string") {
+      bad.push("files[" + at + "]");
+      continue;
+    }
+    var domain = row.domain === undefined ? null : row.domain;
+    if (domain === DOMAIN) paths.add(row.path);
+  }
+  if (bad.length === 1) return bad[0] + " has no path";
+  if (bad.length > 1) return bad.slice(0, -1).join(", ") + " and " + bad[bad.length - 1] + " have no path";
   return paths;
 }
+
+function kept(load) {
+  var entry = null;
+  return function (origin) {
+    var now = Date.now();
+    if (entry === null || now >= entry.until) {
+      var next = { until: now + MANIFEST_TTL_MS, value: null };
+      next.value = load(origin).catch(function (failure) {
+        if (entry === next) entry = null;
+        throw failure;
+      });
+      entry = next;
+    }
+    return entry.value;
+  };
+}
+
+var live = kept(async function (origin) {
+  var site = { paths: new Set(), broken: false, notFound: null };
+  var object = await origin.get(DEPLOY_MANIFEST.slice(1));
+  if (object !== null) {
+    var named = namedPaths(await object.text());
+    if (typeof named === "string") {
+      site.broken = true;
+      console.error("pagedeck Worker: manifest.json in the bucket bound as " + ORIGIN + " is not a deploy manifest: " + named + ", so every request but a refused one is answered 503 until it is read again " + MANIFEST_TTL_MS / 1000 + " s after this read \\u2014 deploy again to put a valid one");
+    } else {
+      site.paths = named;
+    }
+  }
+  return site;
+});
+
+async function stored(page) {
+  if (page === null) return null;
+  var headers = new Headers();
+  page.writeHttpMetadata(headers);
+  return { body: await page.arrayBuffer(), headers: headers };
+}
+
+var refusalPage = kept(async function (origin) {
+  return NOT_FOUND_KEY === null ? null : await stored(await origin.get(NOT_FOUND_KEY));
+});
 
 async function read(origin, paths, path) {
   var keys = path.endsWith("/") ? [path + "index.html"] : [path, path + "/index.html"];
@@ -102,12 +159,6 @@ async function read(origin, paths, path) {
     if (paths.has(keys[at])) return await origin.get((KEY_PREFIX + keys[at]).slice(1));
   }
   return null;
-}
-
-function respond(request, object, status, path) {
-  var headers = new Headers();
-  object.writeHttpMetadata(headers);
-  return new Response(request.method === "HEAD" ? null : object.body, { status: status, headers: headersFor(path, headers) });
 }
 
 var MONTHS = "JanFebMarAprMayJunJulAugSepOctNovDec";
@@ -158,12 +209,27 @@ function serve(request, object, path) {
   return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers: headers });
 }
 
-async function missing(request, origin, paths, path) {
-  if (NOT_FOUND !== null) {
-    var page = await read(origin, paths, NOT_FOUND);
-    if (page !== null) return respond(request, page, 404, NOT_FOUND);
+function notFoundPage(origin, site) {
+  if (site.notFound === null) {
+    site.notFound = (async function () {
+      return NOT_FOUND === null ? null : await stored(await read(origin, site.paths, NOT_FOUND));
+    })().catch(function (failure) {
+      site.notFound = null;
+      throw failure;
+    });
+  }
+  return site.notFound;
+}
+
+function missing(request, page, path) {
+  if (page !== null) {
+    return new Response(request.method === "HEAD" ? null : page.body.slice(0), { status: 404, headers: headersFor(NOT_FOUND, new Headers(page.headers)) });
   }
   return new Response(request.method === "HEAD" ? null : "Not Found", { status: 404, headers: headersFor(path, new Headers()) });
+}
+
+function unavailable(request, path) {
+  return new Response(request.method === "HEAD" ? null : "Service Unavailable", { status: 503, headers: headersFor(path, new Headers()) });
 }
 
 export default {
@@ -176,16 +242,17 @@ export default {
       return new Response(null, { status: 405, headers: refused });
     }
     var text = decoded(path);
-    if (text === null || reserved(text)) return missing(request, origin, await named(origin), path);
+    if (text === null || reserved(text)) return missing(request, await refusalPage(origin), path);
     var rule = REDIRECTS.get(path);
     if (rule !== undefined) {
       var headers = headersFor(path, new Headers());
       headers.set("location", rule.to);
       return new Response(null, { status: rule.status, headers: headers });
     }
-    var paths = await named(origin);
-    var object = await read(origin, paths, path);
-    if (object === null) return missing(request, origin, paths, path);
+    var site = await live(origin);
+    if (site.broken) return unavailable(request, path);
+    var object = await read(origin, site.paths, path);
+    if (object === null) return missing(request, await notFoundPage(origin, site), path);
     return serve(request, object, path);
   },
 };

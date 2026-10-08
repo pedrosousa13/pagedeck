@@ -1,16 +1,20 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import type { EdgeArtifact } from "@pagedeck/edge";
 
 import { FIXTURE } from "../../edge/src/fixture.test-support.js";
+import { MANIFEST_TTL_MS } from "./cloudflare-worker.js";
 import { cloudflareWorker } from "./index.js";
 import {
   UPLOADED,
+  isolate,
   objectKey,
   originStandIn,
   runWorker,
 } from "./worker.test-support.js";
-import type { StoredObject } from "./worker.test-support.js";
+import type { OriginBinding, StoredObject } from "./worker.test-support.js";
 
 const ORIGIN = "https://site.test";
 
@@ -78,8 +82,10 @@ async function get(
 }
 
 const NOT_FOUND_PAGE = "/en/404/index.html";
-// The live manifest and the 404 page: the only reads a refused request may make.
-const REFUSAL_READS = ["manifest.json", "en/404/index.html"];
+// A refused path never reaches the manifest: its one read is the 404 page, by its own key.
+const REFUSAL_READS = ["en/404/index.html"];
+// A path the manifest does not name reads the manifest, then the 404 page it names.
+const MISSING_READS = ["manifest.json", "en/404/index.html"];
 
 describe("a path that traverses, plainly or escaped, is the site's 404 and reads no object", () => {
   // Handed over as the runtime might pass it, unparsed: a `Request` would resolve the dot
@@ -156,7 +162,7 @@ describe("the Worker serves only keys the live manifest names", () => {
     const { response, body, reads } = await get(`${ORIGIN}/secret.txt`);
     expect(response.status).toBe(404);
     expect(body).toBe(NOT_FOUND_PAGE);
-    expect(reads).toEqual(REFUSAL_READS);
+    expect(reads).toEqual(MISSING_READS);
   });
 
   it("serves nothing before the first deploy has published a manifest", async () => {
@@ -475,5 +481,262 @@ describe("conditional requests", () => {
     expect(response.status).toBe(404);
     expect(body).toBe("Not Found");
     expect(response.headers.get("etag")).toBeNull();
+  });
+});
+
+describe("one isolate reads the live manifest at most once per bound", () => {
+  function warmIsolate(objects: Map<string, StoredObject> = bucket()) {
+    let now = 1_000_000;
+    const errors: string[] = [];
+    const origin = originStandIn(objects);
+    const fetch = isolate(workerSource(), { now: () => now, errors });
+    let failing = 0;
+    const binding: OriginBinding = {
+      get(key) {
+        if (failing > 0) {
+          failing -= 1;
+          origin.reads.push(key);
+          return Promise.reject(new Error("R2 is unavailable"));
+        }
+        return origin.binding.get(key);
+      },
+    };
+    return {
+      objects,
+      errors,
+      reads: origin.reads,
+      advance(ms: number) {
+        now += ms;
+      },
+      failNext(count: number) {
+        failing = count;
+      },
+      async get(path: string, method = "GET") {
+        const response = await fetch({ method, url: `${ORIGIN}${path}` }, binding);
+        return { response, body: await response.text() };
+      },
+    };
+  }
+
+  it("states the bound in the README as the Worker keeps it", () => {
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    expect(readme).toContain(
+      `reads \`manifest.json\` at most once every ${String(MANIFEST_TTL_MS / 1000)} seconds`,
+    );
+  });
+
+  it("serves a second page from the cached manifest, reading only the page", async () => {
+    const worker = warmIsolate();
+    await worker.get("/en/about");
+    worker.reads.length = 0;
+    const { response, body } = await worker.get("/en/docs/intro");
+    expect(response.status).toBe(200);
+    expect(body).toBe("/en/docs/intro/index.html");
+    expect(worker.reads).toEqual(["en/docs/intro/index.html"]);
+  });
+
+  it("shares one manifest read among concurrent requests on a cold isolate", async () => {
+    const worker = warmIsolate();
+    const answers = await Promise.all(
+      ["/en/about", "/en/docs/intro", "/nowhere", "/", "/en/about"].map((path) =>
+        worker.get(path),
+      ),
+    );
+    expect(answers.map(({ response }) => response.status)).toEqual([200, 200, 404, 200, 200]);
+    expect(worker.reads.filter((key) => key === "manifest.json")).toEqual(["manifest.json"]);
+  });
+
+  const REFUSED = [
+    "/manifest.json",
+    "/.pagedeck/manifests/b1.json",
+    "//.pagedeck//manifests/b1.json",
+    "/en/../index.html",
+    "/en/%2e%2e/index.html",
+    "/en%2F..%2F.pagedeck%2Fmanifests%2Fb1.json",
+    "/en/%5C..%5Cindex.html",
+    "/index.html%00",
+    "/en/%E0%A4%A",
+  ];
+
+  for (const path of REFUSED) {
+    it(`refuses ${path} with the site's 404 and reads nothing from the bucket`, async () => {
+      const worker = warmIsolate();
+      await worker.get("/manifest.json");
+      worker.reads.length = 0;
+      const { response, body } = await worker.get(path);
+      expect(response.status).toBe(404);
+      expect(body).toBe(NOT_FOUND_PAGE);
+      expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+      expect(worker.reads).toEqual([]);
+    });
+  }
+
+  it("refuses a path on a cold isolate without reading the manifest", async () => {
+    const worker = warmIsolate();
+    await worker.get("/.pagedeck/manifests/b1.json");
+    await worker.get("/en/../index.html");
+    expect(worker.reads).toEqual(["en/404/index.html"]);
+  });
+
+  it("refuses a reserved key with a bare 404 when the bucket holds no 404 page", async () => {
+    const objects = bucket();
+    objects.delete("en/404/index.html");
+    const worker = warmIsolate(objects);
+    const { response, body } = await worker.get("/manifest.json");
+    expect(response.status).toBe(404);
+    expect(body).toBe("Not Found");
+    expect(worker.reads).toEqual(["en/404/index.html"]);
+  });
+
+  it("refuses a domain tree's reserved key with that tree's 404 page, by its own key", async () => {
+    const origin = originStandIn(bucket());
+    const response = await runWorker(
+      workerSource("shop.example"),
+      { method: "GET", url: "https://shop.example/manifest.json" },
+      origin.binding,
+    );
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe("shop.example/shop-404/index.html");
+    expect(origin.reads).toEqual(["/shop.example/shop-404/index.html"]);
+  });
+
+  it("answers a path no manifest names with the cached 404 page, reading nothing", async () => {
+    const worker = warmIsolate();
+    const first = await worker.get("/nowhere");
+    worker.reads.length = 0;
+    const again = await worker.get("/secret.txt");
+    expect(again.response.status).toBe(404);
+    expect(again.body).toBe(NOT_FOUND_PAGE);
+    expect(Object.fromEntries(again.response.headers)).toEqual(
+      Object.fromEntries(first.response.headers),
+    );
+    expect(worker.reads).toEqual([]);
+    const head = await worker.get("/nowhere", "HEAD");
+    expect(head.response.status).toBe(404);
+    expect(head.body).toBe("");
+  });
+
+  it("serves a new deploy once the bound has passed, and not before", async () => {
+    const worker = warmIsolate();
+    expect((await worker.get("/en/new")).response.status).toBe(404);
+    const files = (
+      JSON.parse(worker.objects.get("manifest.json")?.body ?? "") as {
+        files: { path: string }[];
+      }
+    ).files;
+    worker.objects.set("en/new/index.html", { body: "/en/new/index.html", ...PAGE });
+    worker.objects.set("manifest.json", {
+      body: JSON.stringify({ files: [...files, { path: "/en/new/index.html" }] }),
+    });
+
+    worker.advance(MANIFEST_TTL_MS - 1);
+    expect((await worker.get("/en/new")).response.status).toBe(404);
+    worker.advance(1);
+    worker.reads.length = 0;
+    const { response, body } = await worker.get("/en/new");
+    expect(response.status).toBe(200);
+    expect(body).toBe("/en/new/index.html");
+    expect(worker.reads).toEqual(["manifest.json", "en/new/index.html"]);
+  });
+
+  it("keeps a missing manifest's bare 404 for the bound, then serves the first deploy", async () => {
+    const objects = bucket();
+    const manifest = objects.get("manifest.json");
+    objects.delete("manifest.json");
+    const worker = warmIsolate(objects);
+    expect((await worker.get("/en/about")).body).toBe("Not Found");
+    if (manifest === undefined) throw new Error("no manifest");
+    objects.set("manifest.json", manifest);
+    worker.reads.length = 0;
+    expect((await worker.get("/en/about")).body).toBe("Not Found");
+    expect(worker.reads).toEqual([]);
+    worker.advance(MANIFEST_TTL_MS);
+    expect((await worker.get("/en/about")).response.status).toBe(200);
+  });
+
+  it("does not keep a manifest read that failed: the next request reads it again", async () => {
+    const worker = warmIsolate();
+    worker.failNext(1);
+    await expect(worker.get("/en/about")).rejects.toThrow("R2 is unavailable");
+    const { response } = await worker.get("/en/about");
+    expect(response.status).toBe(200);
+    expect(worker.reads).toEqual(["manifest.json", "manifest.json", "en/about/index.html"]);
+  });
+
+  const LOG_PREFIX =
+    "pagedeck Worker: manifest.json in the bucket bound as PAGEDECK_ORIGIN is not a deploy manifest";
+  const LOG_FIX = `, so every request but a refused one is answered 503 until it is read again ${String(MANIFEST_TTL_MS / 1000)} s after this read — deploy again to put a valid one`;
+
+  for (const [what, text, reason] of [
+    [
+      "is not JSON",
+      "{\"files\": [",
+      "it is not JSON (Unexpected end of JSON input)",
+    ],
+    [
+      "is JSON the parser quotes back",
+      "not json",
+      "it is not JSON (Unexpected token 'o', \"…\" is not valid JSON)",
+    ],
+    ["holds no files list", JSON.stringify({ files: "everything" }), "it has no files list"],
+    ["holds a row without a path", JSON.stringify({ files: [null] }), "files[0] has no path"],
+    [
+      "holds several rows without a path",
+      JSON.stringify({ files: [{ path: "/a" }, 7, { path: "/b" }, { domain: "x" }, { path: 1 }] }),
+      "files[1], files[3] and files[4] have no path",
+    ],
+  ] as const) {
+    it(`answers 503 and logs once while the manifest ${what}`, async () => {
+      const objects = bucket();
+      objects.set("manifest.json", { body: text });
+      const worker = warmIsolate(objects);
+      for (const path of ["/en/about", "/nowhere"]) {
+        const { response, body } = await worker.get(path);
+        expect(response.status, path).toBe(503);
+        expect(body, path).toBe("Service Unavailable");
+      }
+      expect((await worker.get("/en/about")).response.headers.get("x-content-type-options")).toBe(
+        "nosniff",
+      );
+      expect(worker.reads).toEqual(["manifest.json"]);
+      expect(worker.errors).toEqual([`${LOG_PREFIX}: ${reason}${LOG_FIX}`]);
+    });
+  }
+
+  it("logs a broken manifest once for concurrent requests on a cold isolate", async () => {
+    const objects = bucket();
+    objects.set("manifest.json", { body: "not json" });
+    const worker = warmIsolate(objects);
+    const answers = await Promise.all(
+      ["/en/about", "/nowhere", "/", "/en/docs/intro"].map((path) => worker.get(path)),
+    );
+    expect(answers.map(({ response }) => response.status)).toEqual([503, 503, 503, 503]);
+    expect(worker.reads).toEqual(["manifest.json"]);
+    expect(worker.errors).toHaveLength(1);
+  });
+
+  it("answers a reserved key with the site's 404 while the manifest is broken", async () => {
+    const objects = bucket();
+    objects.set("manifest.json", { body: "not json" });
+    const worker = warmIsolate(objects);
+    for (const path of ["/manifest.json", "/.pagedeck/manifests/b1.json"]) {
+      const { response, body } = await worker.get(path);
+      expect(response.status, path).toBe(404);
+      expect(body, path).toBe(NOT_FOUND_PAGE);
+    }
+    expect(worker.reads).toEqual(["en/404/index.html"]);
+    expect(worker.errors).toEqual([]);
+  });
+
+  it("serves again once a broken manifest is replaced and the bound has passed", async () => {
+    const objects = bucket();
+    const manifest = objects.get("manifest.json");
+    if (manifest === undefined) throw new Error("no manifest");
+    objects.set("manifest.json", { body: "not json" });
+    const worker = warmIsolate(objects);
+    expect((await worker.get("/en/about")).response.status).toBe(503);
+    objects.set("manifest.json", manifest);
+    worker.advance(MANIFEST_TTL_MS);
+    expect((await worker.get("/en/about")).response.status).toBe(200);
   });
 });

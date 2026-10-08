@@ -39,21 +39,39 @@ are in the script. There is no dataset
 form: the Workers script limit (`CLOUDFLARE_WORKER_LIMIT`, 3 MB, measured over
 the text) holds a redirect table CloudFront has to move out of its function.
 
-**The live manifest decides what is served.** On each request the Worker reads
-`manifest.json` from the bucket and serves a path only when a row of that
-manifest names it, as the path itself or as `<path>/index.html`. A deploy puts
-`manifest.json` last, so a build's pages are served once it is live, and a
-rollback, which puts the restored build's manifest, is served without
-publishing the Worker again. A change to the routing is not: the redirects and
-the header sets are compiled into the script, so the Worker is published again
-whenever `worker.js` changes.
+**The live manifest decides what is served.** The Worker serves a path only
+when a row of the bucket's `manifest.json` names it, as the path itself or as
+`<path>/index.html`. A deploy puts `manifest.json` last, so a build's pages are
+served once it is live, and a rollback, which puts the restored build's
+manifest, is served without publishing the Worker again. A change to the
+routing is not: the redirects and the header sets are compiled into the
+script, so the Worker is published again whenever `worker.js` changes.
+
+**Each isolate reads `manifest.json` at most once every 10 seconds.** The
+parsed manifest, and the 404 page once a request needs it, are kept in the
+isolate for 10 seconds from the read, so a deploy or a rollback is served by
+every isolate within 10 seconds of its manifest going live. Requests that
+arrive while the read is under way wait for that read rather than start
+another. A missing manifest is kept for the same time: before the first
+deploy, every path is a bare 404. A read that R2 fails is not kept: the
+requests waiting on it are answered `500`, and the next request reads again.
+
+**A `manifest.json` that is not a deploy manifest answers `503`.** When it is
+not JSON, has no `files` list, or has rows with no `path`, every request the
+isolate gets until it reads the manifest again, except a refused one, is
+answered `503` with the header set the requested path matches, and the Worker
+logs one `console.error` line naming the problem: the parser's message, or
+every row without a `path`, by index.
 
 **An R2 key is the deploy key without its leading `/`.** `/en/about/index.html`
 is stored as `en/about/index.html`, and a domain tree's `//shop.example/x` as
 `/shop.example/x`. The signing step in `docs/deploy-recipe.md` writes the same
 keys.
 
-**Refused before any object is read**, with the site's 404:
+**Refused without reading the manifest**, with the site's 404, read from its
+own key (`<404 page>/index.html`) and kept for 10 seconds like the manifest,
+so a refusal reads at most that one object, whatever state the manifest is in.
+With no 404 page in the bucket, the refusal is a bare 404:
 
 - a reserved deploy key, matched on the decoded path with empty segments
   dropped, whether or not the manifest names it;
@@ -86,8 +104,3 @@ sets `Cache-Control` wins.
 
 An experiment split is refused, naming every page it was declared on:
 `@pagedeck/adapter-cloudfront` is the only adapter that compiles one.
-
-## Known gaps
-
-- **The Worker reads and parses `manifest.json` on every request**, a `304`
-  included.
