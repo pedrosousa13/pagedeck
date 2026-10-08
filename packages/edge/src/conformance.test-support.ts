@@ -36,6 +36,8 @@ export interface AdapterUnderTest {
    * where the 404 page's set and the requested path's agree (#39).
    */
   unverifiedNotFound?: boolean;
+  /** No rule can redirect one trailing-slash spelling to the other, so the origin answers (#35). */
+  noSlashRedirects?: boolean;
 }
 
 interface Spelling {
@@ -445,11 +447,12 @@ export function describeConformance({
   servedStatus = (status) => status,
   policies,
   unverifiedNotFound = false,
+  noSlashRedirects = false,
 }: AdapterUnderTest): void {
   for (const policy of policies) {
     describe(`under trailingSlash "${policy}"`, () => {
       describePolicy(
-        { adapter, interpret, servedStatus, unverifiedNotFound },
+        { adapter, interpret, servedStatus, unverifiedNotFound, noSlashRedirects },
         policy,
       );
     });
@@ -462,6 +465,7 @@ function describePolicy(
     interpret,
     servedStatus,
     unverifiedNotFound,
+    noSlashRedirects,
   }: Required<Omit<AdapterUnderTest, "policies">>,
   policy: TrailingSlash,
 ): void {
@@ -475,7 +479,7 @@ function describePolicy(
   const hardened = underPolicy(HARDENED, policy);
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
   const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
-    resolveRequest(manifest, request, servedStatus);
+    resolveRequest(manifest, request, servedStatus, noSlashRedirects);
   const check = (
     manifest: RoutingManifest,
     request: EdgeRequest,
@@ -546,9 +550,11 @@ function describePolicy(
       expect(textOf(adapter, spellings)).toMatch(alone("/en/legacy"));
     });
 
-    it(`${name} rules on the non-canonical spelling of a page`, () => {
-      expect(textOf(adapter, spellings)).toMatch(alone("/en/about"));
-    });
+    if (!noSlashRedirects) {
+      it(`${name} rules on the non-canonical spelling of a page`, () => {
+        expect(textOf(adapter, spellings)).toMatch(alone("/en/about"));
+      });
+    }
   });
 
   describe("a non-canonical spelling answers the same on every target", () => {

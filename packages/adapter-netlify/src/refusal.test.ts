@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "@pagedeck/core/exit";
+import { planRouting } from "@pagedeck/core/routing";
 import type { RoutingManifest } from "@pagedeck/core/routing";
 
 import { HEADER_NAME_FIX } from "../../edge/src/conformance.test-support.js";
@@ -84,6 +85,22 @@ describe("compile refusals", () => {
       new ConfigError(
         `Edge target "netlify": 1 tree declares an experiment this target cannot compile — drop the experiment, or compile cloudfront-function, the only target that compiles a split:
   the default tree's experiment on "/en/pricing" (build.routing.experiments)`,
+      ),
+    );
+  });
+
+  // https://docs.netlify.com/manage/routing/redirects/redirect-options/ (#35)
+  it("refuses a redirect that differs from its target only by a trailing slash", () => {
+    const feed = planRouting({
+      pages: [{ locale: "en", path: "/", output: "/", dependencies: [] }],
+      trailingSlash: "always",
+      emitted: [{ path: "/feed.xml" }],
+      config: { redirects: [{ from: "/feed.xml/", to: "/feed.xml", status: 301 }] },
+    });
+    expect(() => netlify().compile(feed)).toThrow(
+      new ConfigError(
+        `Edge target "netlify": 1 redirect differs from its target only by a trailing slash — remove the redirect; this target matches a path with or without a trailing slash, so no rule can add or remove one:
+  the default tree's redirect from "/feed.xml/" to "/feed.xml" — Netlify matches a rule with or without a trailing slash, so this rule would answer its own target with a redirect to itself`,
       ),
     );
   });

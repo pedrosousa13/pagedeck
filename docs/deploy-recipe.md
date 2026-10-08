@@ -1037,6 +1037,19 @@ decision is written against is concrete — a CloudFront Function uploaded into 
 bucket beside the site's JavaScript succeeds, publishes nothing, fires no
 redirect, and reports green.
 
+**On Netlify, a page's other trailing-slash spelling is Netlify's own answer**
+(#35). Every other target redirects the other spelling of a redirect's target
+to the target. Netlify [matches a `_redirects` rule with or without a trailing
+slash](https://docs.netlify.com/manage/routing/redirects/redirect-options/), and
+its docs say "you cannot use a redirect rule to add or remove a trailing
+slash": a row such as `/new /new/ 301!` sends `/new/` to itself. So `netlify()`
+writes no row whose two paths differ only by a trailing slash, refuses a
+configured redirect of that shape, and the conformance cases do not claim that
+redirect for Netlify. It keeps the row from a redirect source's other spelling
+to the target: that row is forced (`!`), so it wins over a file at that path.
+Because Netlify ignores the trailing slash, the same forced row also catches
+the source's own spelling, which in effect forces the configured rule too.
+
 The dogfood site declares two redirects and two response headers
 (`packages/site/src/site.ts`), and
 `packages/site/src/site.build.test.ts` compiles the real build's routing document

@@ -13,6 +13,7 @@ export interface Fault {
     | "header-value"
     | "oversize"
     | "trailing-slash"
+    | "slash-only"
     | "limit";
   line: string;
 }
@@ -30,6 +31,8 @@ const OFFSITE_FIX =
 const OVERSIZE_FIX =
   "reduce the rule set, or raise the limit if the host's is higher";
 const TRAILING_SLASH_FIX = 'set trailingSlash: "always"';
+const SLASH_ONLY_FIX =
+  "remove the redirect; this target matches a path with or without a trailing slash, so no rule can add or remove one";
 const LIMIT_FIX =
   "reduce the rule set, or compile a target whose documented limit is higher";
 
@@ -72,6 +75,9 @@ export function throwIfAny(
     .map((fault) => fault.line);
   const trailingSlash = faults
     .filter((fault) => fault.kind === "trailing-slash")
+    .map((fault) => fault.line);
+  const slashOnly = faults
+    .filter((fault) => fault.kind === "slash-only")
     .map((fault) => fault.line);
   const limit = faults
     .filter((fault) => fault.kind === "limit")
@@ -165,6 +171,19 @@ export function throwIfAny(
           : "trees cannot serve the site's trailingSlash policy",
         TRAILING_SLASH_FIX,
         trailingSlash,
+      ),
+    );
+  }
+  if (slashOnly.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        slashOnly.length,
+        slashOnly.length === 1
+          ? "redirect differs from its target only by a trailing slash"
+          : "redirects differ from their targets only by a trailing slash",
+        SLASH_ONLY_FIX,
+        slashOnly,
       ),
     );
   }

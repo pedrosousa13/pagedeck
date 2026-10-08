@@ -54,6 +54,7 @@ export function resolveRequest(
   manifest: RoutingManifest,
   request: EdgeRequest,
   servedStatus: (status: RedirectStatus) => RedirectStatus = (status) => status,
+  noSlashRedirects = false,
 ): Resolution {
   const tree = treeFor(manifest, request.domain);
   if (tree === undefined) return { kind: "pass", headers: [] };
@@ -84,6 +85,7 @@ export function resolveRequest(
       };
     }
     if (
+      !noSlashRedirects &&
       tree.redirects.some(
         (rule) => rule.to === canonical && rule.file !== true,
       )

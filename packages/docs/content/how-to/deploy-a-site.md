@@ -405,8 +405,20 @@ site, no separate step. `NODE_VERSION` must meet the adapter's own
 [Pretty URLs](https://docs.netlify.com/build/post-processing/overview/) is a
 Netlify post-processing option that rewrites `/about` to `/about/` on its own,
 ahead of the site's own `trailingSlash` policy and the rows `netlify()`
-compiles for it. Set `pretty_urls = false` so Netlify serves exactly the
-paths the routing document names, under either policy.
+compiles for it. Set `pretty_urls = false` so Netlify does not move a page
+to its other spelling against the site's policy.
+
+Netlify's
+[redirect options](https://docs.netlify.com/manage/routing/redirects/redirect-options/)
+say: "Our CDN edge nodes do URL normalization before the redirect rules kick
+in", so "Netlify will match paths to rules regardless of whether or not they
+contain a trailing slash", and "you cannot use a redirect rule to add or
+remove a trailing slash". So `netlify()` writes no row from a redirect
+target's other spelling to the target. Other hosts get that row. On Netlify it
+would redirect the target to itself. For the same reason `netlify()` refuses a
+configured redirect whose two paths differ only by a trailing slash. A
+redirect source still answers both spellings with its redirect. What Netlify
+serves at a page's other spelling has not been checked on a live deploy.
 
 Each tree's 404 page is written at the tree's root as `404.html` too (see
 [the 404 page](/reference/routing/#the-404-page)), and
