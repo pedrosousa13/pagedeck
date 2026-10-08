@@ -6,13 +6,16 @@ numbers vs the Next.js twin". This is that report: one row per criterion, each
 marked met, not met or not measurable here, each carrying its measurement and
 where the measurement came from.
 
-**Two of the five are met or missed on numbers taken here. Three cannot be
-settled from this repository at all, and they are named rather than omitted.**
-The reason is one fact and it is the same fact every time: there is no
-production, no live twin and no third-party measurement service in reach.
-`docs/dogfood-parity.md` is bounded by it, `docs/deploy-recipe.md` is bounded by
-it, and this file is the third. A criterion this repository cannot settle is
-reported unsettled, with what would settle it.
+**Three of the five are met on numbers taken here. Two cannot be settled, and
+they are named rather than omitted.** When #59 wrote this report, the reason was
+one fact, the same every time: there was no production, no live twin and no
+third-party measurement service in reach. `docs/dogfood-parity.md` is bounded by
+it, `docs/deploy-recipe.md` is bounded by it, and this file was the third. The
+landing page is now live at `https://pagedeck-landing.pedrodsousa.workers.dev`
+(#52, #53), and the maintainer's 2026-10-08 ruling on #2 measures criteria 4
+and 5 there. The dogfood site and its twin are still not in production. A
+criterion this repository cannot settle is reported unsettled, with what would
+settle it.
 
 ## The verdicts
 
@@ -20,9 +23,9 @@ reported unsettled, with what would settle it.
 | --- | --- | --- | --- |
 | 1 | Content-only pages: **0 kB JS** | **met** | 0 B raw, gzip and Brotli on all three content pages; the twin's floor is 452,538 B raw / 133,120 B gzip |
 | 2 | Island pages: the framework's own JS at or under **6,376 B raw / 3,093 B gzip**, a ratchet (#292, gzip re-based by #547) | **met** | 6,376 B raw / 3,093 B gzip on `/en/pricing`, React set apart: at the recorded ceiling, which is today's figure. From `pnpm build && npx vitest run packages/site/src/runtime.build.test.ts` |
-| 3 | Core Web Vitals better on every metric, in production (CrUX/RUM) | **not measurable here** | no production, no RUM, no CrUX — the comparison plan is below |
-| 4 | Publish-to-live for a content edit **< 60 s** | **not met** | 36 ms first publish / 9 ms incremental, into a local directory — not a distribution, so not the figure |
-| 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **not met** | PageSpeed is a service this work must not call, and the loadout is two placeholder scripts on one page rather than the production one §15 names (#212) |
+| 3 | Core Web Vitals better on every metric, in production (CrUX/RUM) | **not measurable here** | no production, no RUM, no CrUX — the comparison plan is below. The landing page's field data is #56 |
+| 4 | Publish-to-live for a content edit **< 60 s** | **met** | 15.2 s, 16.2 s and 17.3 s from `wrangler deploy` starting to the live landing page serving the edit, three runs on 2026-10-08 (#2). The build before the deploy is not in the figure |
+| 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **not measurable here** | Lighthouse mobile performance 99 or 100 on every run over the four live landing pages (#2), but the landing page loads no third-party script, so there is no loadout for the score to survive |
 
 Issue #59's own second criterion — an axe pass with zero serious or critical
 violations — is **met**, and is reported below beside criterion 5 because the
@@ -34,7 +37,13 @@ same Lighthouse run is what qualifies it.
 pnpm build && pnpm test:lighthouse-harness    # the Lighthouse pass and the byte counts
 pnpm build && pnpm test:a11y-harness          # the axe pass
 pnpm build && npx vitest run packages/site/src/runtime.build.test.ts   # criterion 2
+pnpm bench:landing-publish       # criterion 4: deploys the live landing page four times
+pnpm bench:landing-lighthouse    # criterion 5: Lighthouse over the live landing page
 ```
+
+The last two reach the live landing page, so they are run by hand and never by
+CI or `pnpm test`; criteria 4 and 5 say how each is taken. Everything else in
+this section is about the first three.
 
 The third needs no browser and is in `pnpm test`; criterion 2 below says what
 it measures. The first two build this site into a scratch directory with the
@@ -262,7 +271,9 @@ and both are in the report.
 CrUX is Google's field dataset and RUM is real traffic. This repository has
 neither and must call neither: the criterion says "measured in production", and
 there is no production. **No number is offered.** What follows is the comparison
-plan §15's own parenthesis asks for.
+plan §15's own parenthesis asks for. The landing page is live (#53), but it
+has no field data yet: its beacon and endpoint are #56,
+blocked by the domain (#54).
 
 **Metrics.** LCP, INP and CLS, which are the three Core Web Vitals as they stand
 at the time of writing, plus TTFB and FCP as diagnostics — a TTFB difference is
@@ -302,7 +313,60 @@ four-core box, against a local origin. They are in the table under criterion 5.
 They are lab numbers about one machine's idea of a slow phone, they say nothing
 about field performance, and **nothing asserts on them** — see below.
 
-## 4. Publish-to-live for a content edit under 60 s — **not met**
+## 4. Publish-to-live for a content edit under 60 s — **met**
+
+**Measured on #2, on the landing page, not the dogfood site.** The
+maintainer's 2026-10-08 ruling on #2 moved the measurement to the one site that
+is live: `packages/landing`, served as Workers Static Assets at
+`https://pagedeck-landing.pedrodsousa.workers.dev` (`docs/deploy-recipe.md`,
+"The landing page on Cloudflare"). The dogfood site is still not deployed and
+has no figure of its own.
+
+**The method.** `pnpm bench:landing-publish` runs
+`packages/landing/src/publish-to-live.harness.ts`. Each of its three runs:
+
+1. adds a dated probe sentence after one sentence of
+   `packages/landing/content/index.md`, in place, and puts the file back in a
+   `finally`;
+2. runs `pagedeck sync` and `pagedeck build`, and checks that
+   `site/index.html` holds the sentence;
+3. starts the clock and runs `pnpm exec wrangler deploy` with
+   `WRANGLER_SEND_METRICS=false`;
+4. from the same instant, requests `/` no more than once a second, with no
+   cache-busting query, until a response holds the sentence.
+
+"Deploy" is the clock when wrangler exits. "First served" is the clock when
+the first response holding the sentence arrives. After the three runs, the
+harness builds the unedited content, deploys it, and polls until `/` is that
+local build byte for byte.
+
+**The figures**, 2026-10-08, the content of commit `ee75c45` (`main`), from
+this machine (Linux x64, 4 cores, Node v24.18.1, wrangler 4.148.0):
+
+| Run | deploy start → deploy end | deploy start → first served | requests to `/` |
+| --- | ---: | ---: | ---: |
+| 1 | 15,017 ms | 15,215 ms | 16 |
+| 2 | 15,088 ms | 16,244 ms | 17 |
+| 3 | 15,315 ms | 17,273 ms | 18 |
+
+The deploy that put the unedited build back took 12,460 ms. `/` then served
+that build byte for byte, with the ETag `"4468ecea333a7ea4779c3512ccc27afe"`,
+the same one it carried before the first run.
+
+**What the figure covers.** The edit was served 0.2 s to 2.0 s after wrangler
+exited, and the poll interval is 1 s, so most of the figure is wrangler's
+upload and publish. No run saw a stale copy after that, so the poll needed no
+cache-busting query. The `pagedeck sync` and `pagedeck build` before the deploy
+are not in the figure. Timed by hand on the same machine, they took 5.6 s for
+the unedited content, twice, so an edit through build, deploy and first serve
+was about 23 s. The polls came from one machine, through the Cloudflare
+location that serves it. The figure says nothing about how long another
+location serves the old version. Nothing asserts on these figures (#57,
+#183): the harness prints them.
+
+### Before #2: a publish into a directory (#57)
+
+Until #2 the verdict here was **not met**, for the reasons below.
 
 **Carried from #57 rather than re-litigated.** `docs/deploy-recipe.md` records
 the finding and the reason: "Spec §11's 'publish in under 60 s' is a figure
@@ -338,7 +402,72 @@ The pipeline that would produce the real figure is prepared and unrun:
 `.github/workflows/deploy.yml` has never deployed anything and cannot until a
 maintainer supplies `PAGEDECK_SNAPSHOT_URL` and passes `apply: true`.
 
-## 5. PageSpeed mobile ≥ 90 with the full third-party loadout — **not met**
+## 5. PageSpeed mobile ≥ 90 with the full third-party loadout — **not measurable here**
+
+**The score half is met. The loadout half cannot be measured, because the page
+has no loadout.** Measured on #2, against the live landing page, on the
+maintainer's 2026-10-08 ruling.
+
+**The method.** `pnpm bench:landing-lighthouse` runs
+`packages/landing/src/lighthouse-live.harness.ts`: Lighthouse 13.4.1 in the
+Chromium that `playwright@1.62.1` pins, launched as
+`packages/site/src/lighthouse.harness.ts` launches it, over `/`, `/features/`,
+`/interactive/` and `/server-data/` at
+`https://pagedeck-landing.pedrodsousa.workers.dev`. Each page ran twice in
+Lighthouse's default configuration, which is mobile, and twice in its desktop
+configuration: 16 page loads, all to the Worker.
+
+**The conditions, plainly.** It is a `workers.dev` address, not the domain
+(#54). The edge cache was close to cold: the run started minutes after the
+deploy that put `main`'s build back, and only the publish harness's polls of
+`/` had requested that version. It ran
+from this machine (Linux x64, 4 cores, Node v24.18.1) over its own network,
+with Lighthouse's simulated throttling. **It is not PageSpeed Insights**: the
+PageSpeed API was not called, and its servers, its network path and its CrUX
+field half are not in these figures.
+
+**The figures**, 2026-10-08, `main`'s build at commit `ee75c45`. Timings in
+milliseconds; CLS is unitless.
+
+| Page | Form | Run | Perf | A11y | BP | SEO | LCP | TBT | CLS | FCP | SI |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/` | mobile | 1 | 100 | 100 | 100 | 100 | 1227 | 0 | 0.000 | 1227 | 1227 |
+| `/` | mobile | 2 | 100 | 100 | 100 | 100 | 1235 | 0 | 0.000 | 935 | 935 |
+| `/` | desktop | 1 | 100 | 100 | 100 | 100 | 353 | 0 | 0.000 | 276 | 276 |
+| `/` | desktop | 2 | 100 | 100 | 100 | 100 | 357 | 0 | 0.000 | 279 | 284 |
+| `/features/` | mobile | 1 | 99 | 100 | 100 | 100 | 1868 | 39 | 0.000 | 1675 | 1675 |
+| `/features/` | mobile | 2 | 100 | 100 | 100 | 100 | 1541 | 0 | 0.000 | 1342 | 1342 |
+| `/features/` | desktop | 1 | 100 | 100 | 100 | 100 | 432 | 0 | 0.000 | 410 | 410 |
+| `/features/` | desktop | 2 | 100 | 100 | 100 | 100 | 595 | 0 | 0.000 | 462 | 462 |
+| `/interactive/` | mobile | 1 | 100 | 100 | 100 | 100 | 972 | 20 | 0.000 | 972 | 972 |
+| `/interactive/` | mobile | 2 | 99 | 100 | 100 | 100 | 1779 | 33 | 0.000 | 1542 | 1542 |
+| `/interactive/` | desktop | 1 | 100 | 100 | 100 | 100 | 544 | 0 | 0.000 | 472 | 472 |
+| `/interactive/` | desktop | 2 | 100 | 100 | 100 | 100 | 532 | 0 | 0.000 | 462 | 462 |
+| `/server-data/` | mobile | 1 | 100 | 100 | 100 | 100 | 949 | 34 | 0.000 | 949 | 949 |
+| `/server-data/` | mobile | 2 | 99 | 100 | 100 | 100 | 1881 | 0 | 0.000 | 1646 | 1646 |
+| `/server-data/` | desktop | 1 | 100 | 100 | 100 | 100 | 527 | 0 | 0.000 | 455 | 455 |
+| `/server-data/` | desktop | 2 | 100 | 100 | 100 | 100 | 410 | 0 | 0.000 | 410 | 410 |
+
+The timings move between two runs of the same bytes: `/interactive/` on
+mobile had an LCP of 972 ms, then 1,779 ms. That is why nothing asserts on
+them, as below.
+
+**The loadout.** Every request in all 16 loads went to the Worker's own
+origin: the harness collects each URL in Lighthouse's `network-requests` audit
+and found none on another origin. The landing page has no analytics, no tag
+manager, no pixel and no consent manager, and `/features/`' embed script and
+images are same-origin stand-ins by design (AGENTS.md, "The landing site").
+Cloudflare adds a `NEL` header that names `a.nel.cloudflare.com` as a report
+endpoint, with a `success_fraction` of 0. No load in the run sent it a report.
+So a mobile performance score of 99 or 100 is what the page scores with no
+third-party script at all. That is the criterion's starting condition, the
+same thing the section below says of #212's placeholder sources. It does not
+show that the score survives the loadout §15 names. That needs a page that
+loads a real third-party set, and no site here names a vendor (`CONTEXT.md`).
+
+### Before #2: the dogfood site on a loopback origin (#59)
+
+Until #2 the verdict here was **not met**, for the reasons below.
 
 **Not met twice over, and both halves have to be said.**
 
@@ -530,9 +659,11 @@ acceptance criterion. They are, in the order they appear here:
 - the missing production CWV comparison, blocked on a deploy and on #48's
   beacon (criterion 3);
 - publish-to-live, already carried on #57 (criterion 4), with the 36 ms / 9 ms
-  local publish attached and the reason it is not the figure;
+  local publish attached and the reason it is not the figure. #2 measured it
+  on the live landing page and it is met there;
 - PageSpeed with the third-party loadout, which #212's placeholder sources do
-  not supply and no run here can call (criterion 5).
+  not supply and no run here can call (criterion 5). #2 ran Lighthouse against
+  the live landing page, which has no third-party loadout either.
 
 `meta-description` on every page was on this list too, holding the SEO floor
 at 91. It was filed as #405 and is **closed** by it: each page now carries a
@@ -575,6 +706,8 @@ record of what was.
   PageSpeed with the full loadout on a service this work must not call and a
   vendor loadout it must not name. That last one is no longer waiting on a
   script layer — #212 landed one, and `packages/site` declares it against
-  placeholder sources. The harnesses' assertions and
+  placeholder sources. Since #2, publish-to-live has its deploy and is met on
+  the landing page, and the PageSpeed item waits only on a real loadout. The
+  harnesses' assertions and
   `packages/site/src/runtime.build.test.ts` are the gate; this file is the
   record.
