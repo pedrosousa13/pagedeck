@@ -15,7 +15,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 112 below, 99 of them
+`x` at/from `path`, outside fenced blocks — there are 111 below, 98 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -29,8 +29,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 273 messages fenced
-below, 217 are checked that way and 56 are not**, and that test lists the 56
+literal interpolates left as holes it cannot read. **Of the 272 messages fenced
+below, 216 are checked that way and 56 are not**, and that test lists the 56
 one by one with the reason each is out: 54 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 217 checked messages pin 33768 of the 84193 fenced characters, and
+below**: the 216 checked messages pin 33314 of the 83653 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3495,23 +3495,23 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty-one, and each says what it cannot promise; a twenty-second is written
+writes twenty, and each says what it cannot promise; a twenty-first is written
 by `pagedeck sync` rather than by a build and is the last one described below; three
 more are the browser's and are argued in this rule's closing section, where they
 sit among the browser's refusals rather than after them.
 
-**All twenty-one reach `io.err`, and four of them only through one verb**, and
+**All twenty reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-second is reachable too, by the same shape through the other verb: `syncSite`
+The twenty-first is reachable too, by the same shape through the other verb: `syncSite`
 returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It is described
-after the twenty-one below, and kept out of their count because `pagedeck sync` is what
-writes it and no build ever does. Seventeen — `resourcePlacerWarning`,
-`uncompiledGlobalCssWarning`, `workerFallbackWarning`, `workerConsentWarning`,
+after the twenty below, and kept out of their count because `pagedeck sync` is what
+writes it and no build ever does. Sixteen — `resourcePlacerWarning`,
+`workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `checkSiteLinks`' two,
 `probeExternalLinks`' three, `retainManifest`'s two and `compileIslands`' two —
 are collected into `SiteBuild.warnings` by `buildSite` and written by
-`runBuildVerb`. All seventeen are reachable; one of them was not until #270, and
+`runBuildVerb`. All sixteen are reachable; one of them was not until #270, and
 its own section below records what closed it — a site's redirects now reach
 `planRouting` through `build.routing`. The last two travel one stage further to
 get there, and #242 is that stage: a bundler plugin has no `io.err` to write
@@ -3522,8 +3522,8 @@ The four #29 adds, `driftWarnings`' two and `compileSupplements`' two, are
 strings shaped for that same field, and #281 gave them the caller they were
 waiting on: `buildSite` (`packages/core/src/build.ts`) runs `checkDrift` and
 `compileSupplements` on a run given `incremental: true`, and puts both sets of
-warnings into the same `warnings` list the seventeen above go into. So all
-twenty-one are reachable, and the four reach a reader through
+warnings into the same `warnings` list the sixteen above go into. So all
+twenty are reachable, and the four reach a reader through
 `pagedeck build --incremental` and through nothing else — a full build cannot drift by
 construction, since the class manifest it would check against is the one it is
 writing, so it makes no plan, takes no check and produces none of these four.
@@ -3557,27 +3557,12 @@ and `runBuildVerb` writes it — before the success line, so a reader meets the
 caveat above the summary. `buildSite` takes no `CliIo` on purpose, so the verb
 is where a diagnostic becomes a line.
 
-The second is `uncompiledGlobalCssWarning` (`packages/core/src/build.ts`), on
-the same channel and by the same route. A site that declares `build.css` and
-hydrates no island on any page compiles none of it: a declared stylesheet
-reaches the bundler through a generated page entry, and a site with no island
-has no entry for the bundler to run at all.
-
-```
-Global CSS: 1 declared stylesheet is not in this build, so no page links it — a declared stylesheet reaches the bundler through a page's generated entry module, and this site hydrates no island on any page, so there is no entry module to import it from; this is a warning and not a refusal because every page this build emitted is otherwise correct, and the sheets compile as soon as one page mounts one interactive component — island a component anywhere on the site, or drop the declaration until the site has one:
-  "./styles/global.css"
-```
-
-A warning for the opposite reason to the one above: not because the build
-cannot see the fault, but because it can see it exactly and the output is still
-correct HTML. Refusing would fail a build nobody can fault. What it must not do
-is stay silent — the reference page promises the sheet on every page, and this
-is the one site shape where it does not arrive.
-
-The third is `workerFallbackWarning` (`packages/core/src/scripts.ts`), on the
-same channel and by the same route, and it is the second warning's argument over
-a different field (#46). Core defines the `worker` strategy and deliberately
-ships no mechanism to move a script off the main thread — the mechanism is
+The second is `workerFallbackWarning` (`packages/core/src/scripts.ts`), on the
+same channel and by the same route (#46). It is a warning for the opposite
+reason to the one above, and later warnings lean on its argument: not because
+the build cannot see the fault, but because it can see it exactly and the
+output is still correct, and refusing would fail a build nobody can fault.
+Core defines the `worker` strategy and deliberately ships no mechanism to move a script off the main thread — the mechanism is
 `build.scripts.runtime`, an adapter the site supplies — so a site that declared
 `worker` and configured none loads those scripts on `idle` instead, which is the
 fallback spec §12 states.
@@ -3604,7 +3589,7 @@ message. Each line says which door the script reaches `worker` through, and a
 script reachable through more than one is named once. No `src` is quoted, which
 is the field rule 6 would have to reach.
 
-The fourth is `workerConsentWarning` (`packages/core/src/scripts.ts`), the same
+The third is `workerConsentWarning` (`packages/core/src/scripts.ts`), the same
 argument one issue later and over a second reason the same fallback applies
 (#47). A script that declares a consent category is gated by the loader this
 build writes, and a `worker` script is not loaded by that loader at all — it is
@@ -3636,7 +3621,7 @@ ordering of the doors and the name-once rule are `workerReachingScripts`' and
 are shared with it in code, so the two cannot come to describe the same config
 differently.
 
-The fifth is `unloadedScriptWarning` (`packages/core/src/scripts.ts`), the
+The fourth is `unloadedScriptWarning` (`packages/core/src/scripts.ts`), the
 third of the script layer's and the one of the three that is not decided from
 the config alone (#345). An override map can set a script to `"off"`, which
 takes it off the pages its key covers; a key that covers every page the site
@@ -3687,7 +3672,7 @@ site write one stderr (spec §11) — `checkSiteLinks`' reason above, over an or
 that would otherwise come from the config and from the route table. No `src` is
 quoted, which is the field rule 6 would have to reach.
 
-The sixth is `undeclaredHeadersWarning` (`packages/core/src/routing.ts`), the
+The fifth is `undeclaredHeadersWarning` (`packages/core/src/routing.ts`), the
 last of the ones decided from the config alone and the only one whose subject is
 an *absence in the emitted output* rather than a downgrade inside it (#318).
 `build.routing.headers` is wholly author-written and core supplies no default,
@@ -3703,7 +3688,7 @@ Security headers: this site declares no header set, so no response its output se
   Referrer-Policy: strict-origin-when-cross-origin
 ```
 
-Not a refusal, on `uncompiledGlobalCssWarning`'s argument: the pages are
+Not a refusal, on `workerFallbackWarning`'s argument: the pages are
 correct, and a site whose CDN or reverse proxy already sets these headers has
 nothing at all to fix. **Not a default either, and that is the half this one has
 to state**: emitting the headers anyway is the fix that suggests itself, and it
@@ -3742,12 +3727,12 @@ build composes has no policy correct by default. #315 settled the other half of
 that story without a header: each page's manifest row records the inline script
 loader's CSP hash, and the site writes the policy that uses it.
 
-`pagedeck dev` does not report it, and unlike the fifth's case that is not a question
+`pagedeck dev` does not report it, and unlike the fourth's case that is not a question
 it could ask badly — it is a question with no subject there at all. That server
 answers requests itself and emits none of #33's three artifacts, so a site with
 no header set is missing nothing yet.
 
-The seventh and eighth are `driftWarnings`' (`packages/core/src/drift.ts`), and
+The sixth and seventh are `driftWarnings`' (`packages/core/src/drift.ts`), and
 they are the two paragraphs of one report — spec §9's drift protocol, #29. An
 incremental build extracts the classes of the pages it re-rendered and checks
 them against the class manifest the last full build recorded and against the
@@ -3787,13 +3772,13 @@ content value goes into the log the site's own content is built from — and it 
 the whole diagnosis besides: naming a position instead would send a reader to
 search a page for a class the message declined to spell.
 
-Not a refusal, on `uncompiledGlobalCssWarning`'s argument: spec §9 inlines a
+Not a refusal, on `workerFallbackWarning`'s argument: spec §9 inlines a
 supplement into each drifted page, so the emitted pages are correct and
 `core.css` is byte-identical, and refusing would fail a build whose output
 nobody can fault. Not silence either — drift is a bug every time, and the report
 is the only thing that says a safelist has stopped covering the site.
 
-The eighth is the threshold breach, a second paragraph rather than a line under
+The seventh is the threshold breach, a second paragraph rather than a line under
 the first, on `loadComponents`' argument: the fix above is a safelist or a
 component, and the fix here is a build to run.
 
@@ -3809,7 +3794,7 @@ this build wrote — `Manifest.fullRebuild`, which carries why a rebuild is need
 and not merely that one is, so a deploy stack holding the manifest alone can act
 on it.
 
-The ninth and tenth are `compileSupplements`' (`packages/core/src/supplement.ts`),
+The eighth and ninth are `compileSupplements`' (`packages/core/src/supplement.ts`),
 and they are the other half of the same protocol — spec §9's step 1, the
 supplement inlined into each drifted page. The framework compiles nothing: no
 source of it names a CSS toolkit (`CONTEXT.md`), so `build.driftSupplement` is
@@ -3818,7 +3803,7 @@ stylesheet covering them. Each warning is one way that seam can produce no
 supplement, and each is loud because the page it is about is the one thing this
 protocol cannot make right on its own.
 
-The ninth is the seam left undeclared. It is the case the drift warning above
+The eighth is the seam left undeclared. It is the case the drift warning above
 cannot cover: that one calls drift a warning *because* a supplement leaves the
 page correctly styled, which is a promise nothing keeps when there is no
 compiler to make one with.
@@ -3829,7 +3814,7 @@ Class drift: 2 drifted pages have no supplement, because this site declares no s
   de /pricing — "badge-rogue"
 ```
 
-Not a refusal, on `uncompiledGlobalCssWarning`'s argument plus one this field has
+Not a refusal, on `workerFallbackWarning`'s argument plus one this field has
 of its own: a site whose CSS is hand-written has no compiler to declare and never
 will, so refusing would turn every content-hygiene bug on such a site into a
 failed build with a fix its author cannot take — and the pages the build emitted
@@ -3839,7 +3824,7 @@ fixes are in the sentence for `workerConsentWarning`'s reason: which is right
 depends on something no build can know — a site with a toolkit wires the seam,
 and a site without one fixes the class.
 
-The tenth is the seam declared and answering with nothing. A second paragraph
+The ninth is the seam declared and answering with nothing. A second paragraph
 rather than a line under the first, on `loadComponents`' argument: this site
 *has* wired the seam, so "declare a compiler" is not its fix, and what an empty
 answer means is that the compiler does not generate these classes.
@@ -3896,11 +3881,11 @@ Class drift: 1 supplement cannot be inlined because it holds "</style", which en
   en /pricing — "</style" at line 1, column 23
 ```
 
-The eleventh and twelfth are `checkSiteLinks`' (`packages/core/src/links.ts`), and
+The tenth and eleventh are `checkSiteLinks`' (`packages/core/src/links.ts`), and
 they are the two halves of issue #31's reference check: a document names a route
 or a file, and this build knows which of them it emitted.
 
-The eleventh is the broken half, and it is a warning **only** where the site asked
+The tenth is the broken half, and it is a warning **only** where the site asked
 for one. `build.links` defaults to `broken: "error"`, which is the refusal the
 build already made over a `<script src>` naming a file nothing emitted (#56), so
 the paragraph below is what a site declaring `broken: "warn"` gets instead of
@@ -3921,7 +3906,7 @@ which of the two an author meant. The page comes first on each line and the
 lines are sorted, so one page's references sit together and two builds of one
 site write one stderr (spec §11).
 
-The twelfth is the redirected half, and it is a warning **at either setting**,
+The eleventh is the redirected half, and it is a warning **at either setting**,
 which is issue #31's second acceptance criterion in as many words: a link that
 resolves through a redirect works, so there is nothing for a refusal to be right
 about. What it costs is the hop, so the line carries the direct target — the
@@ -3947,7 +3932,7 @@ beside the same corpus with the rule removed, which is refused as a broken
 reference instead. Both paragraphs are skipped whole, along with the walk that
 would produce them, by a site declaring `links: { broken: false }`.
 
-The thirteenth, fourteenth and fifteenth are `probeExternalLinks`'
+The twelfth, thirteenth and fourteenth are `probeExternalLinks`'
 (`packages/core/src/links.ts`), and they are the opt-in half of the same check:
 the absolute `http:`/`https:` URLs a site's pages link, asked about one at a
 time through a probe the site declared (`build.links.external`, spec §13).
@@ -3960,7 +3945,7 @@ failed on those would fail on a Sunday for a reason no reader can act on and
 whose fix is to run it again. The `broken` setting governs references into this
 site and does not reach here.
 
-The thirteenth is a URL that answered. Under 400 is silence; 400 and over is a
+The twelfth is a URL that answered. Under 400 is silence; 400 and over is a
 line, with the status the probe returned and every page that links it:
 
 ```
@@ -3968,7 +3953,7 @@ Site build: 1 external reference answered with a status a reader will not see th
   "https://example.com/moved" — 410 — linked from en /
 ```
 
-The fourteenth is a URL the probe *threw* on, and it is a separate paragraph
+The thirteenth is a URL the probe *threw* on, and it is a separate paragraph
 because it has a separate fix: a timeout, a DNS failure and a proxy refusing the
 request are how a network says nothing, and none of them says the link is
 broken. The thrown value is quoted on the line rather than attached as a cause,
@@ -3980,7 +3965,7 @@ Site build: 1 external reference could not be checked, because the external link
   "https://example.com/slow" — Error: ETIMEDOUT — linked from en /
 ```
 
-The fifteenth is what the build did not ask about. Requests are sequential,
+The fourteenth is what the build did not ask about. Requests are sequential,
 paced by `build.links.external.intervalMs`, and bounded in number by
 `build.links.external.limit`, so a site with more URLs than the limit gets an
 answer about some of them — and silence about the rest would read exactly like a
@@ -4022,8 +4007,8 @@ What a refusal costs, here as everywhere in this build, is the warnings the same
 run collected: `buildSite` returns them and a throw returns nothing. That is the
 shape of a refusal rather than a fault in this one.
 
-The sixteenth is `retainManifest`'s (`packages/core/src/retention.ts`, #32),
-and it is about a directory rather than about the site, as the twenty-first
+The fifteenth is `retainManifest`'s (`packages/core/src/retention.ts`, #32),
+and it is about a directory rather than about the site, as the twentieth
 below is too: a document in the retention store that this `pagedeck` cannot read, removed rather than kept.
 `listRetainedManifests` skips such a file instead of throwing over it, because
 its two callers want the newest id and the deletion list and neither needs to
@@ -4054,14 +4039,14 @@ JSON at all send a reader to different places. It is appended after everything
 `stageSite` collected, last in the list: the store is written after the tree, so
 the fault is not known until every warning about the site itself already is.
 
-The seventeenth is `misfiledWarning`'s (`packages/core/src/retention.ts`, #312),
+The sixteenth is `misfiledWarning`'s (`packages/core/src/retention.ts`, #312),
 and it is the other thing a run can find in that same directory: a document
 whose file name and whose `build.id` disagree. Only `retainManifest` writes the
 store and it writes each document to `fileOf(root, id)`, so the two agree in
 every file a `pagedeck build` produced — a pair that disagrees was written by hand.
 
 It is counted as its own warning on this rule's convention rather than as a
-second paragraph of the sixteenth, which is the same convention `driftWarnings`'
+second paragraph of the fifteenth, which is the same convention `driftWarnings`'
 two and `compileSupplements`' two are counted on: what is numbered here is a
 message a reader can meet — its own subject, its own fix, its own reason for
 being a warning — and not the value it travels in. `retainManifest` returns the
@@ -4099,7 +4084,7 @@ of its own: `runBuildVerb` stamps the newest document's id as the next build's
 rollback can reach. Both the file and the id are named (rule 2), because the
 whole fault is that they disagree and neither of them alone says so.
 
-**Each line says whether the file is still there**, which the sixteenth settles
+**Each line says whether the file is still there**, which the fifteenth settles
 in its headline instead — it prunes every document it reports, so "and has been
 pruned" is true of all of them. Here it is true of some: a misfiled document
 past the keep count went with this build's prune and one inside the window is
@@ -4120,7 +4105,7 @@ written in a singular and a plural form (`MISFILED_FIX.one` and `.many`, on
 documents followed by "rename the file" tells a reader to fix one of them.
 
 **Both interpolated values pass through `printable`** (`packages/core/src/exit.ts`),
-and so does every line of the sixteenth. Neither value is the site's: the file
+and so does every line of the fifteenth. Neither value is the site's: the file
 name is what `readdir` answered with and the id is bytes out of a document
 `readManifest` checks for types and not for content — the same document this
 message exists to say was written by hand. `bin.ts` marks per line, so a
@@ -4131,7 +4116,7 @@ log as this framework's own diagnostic. Every control character becomes `U+FFFD`
 instead. That is not rule 6, which is about a value that should not be printed
 at all; it is about a value that must not be able to stop being a value.
 
-The eighteenth and nineteenth are `bailoutWarning`'s and `crashWarning`'s
+The seventeenth and eighteenth are `bailoutWarning`'s and `crashWarning`'s
 (`packages/core/src/react-compiler.ts`, #106), and they are the two things React
 Compiler can say about a module the client build compiled: it refused a
 component over a rule, or it fell over on one. Both leave the same output — the
@@ -4139,7 +4124,7 @@ component the author wrote, rendering correctly and memoizing nothing — so a
 reader who is not told cannot tell either event from a component there was
 nothing to do for, and the two need opposite responses.
 
-The eighteenth is the bailout. The compiler's own `reason` names the rule and its
+The seventeenth is the bailout. The compiler's own `reason` names the rule and its
 `description` states the fix, so both are quoted rather than paraphrased, and
 the closing sentence is what makes the loss visible at all. The line below is
 `packages/core/src/react-compiler.test.ts`', which pins it character for
@@ -4149,7 +4134,7 @@ character off a build of a component that writes to its props:
 Module "/site/components/Title.tsx" line 3: React Compiler skipped component "Title" — This value cannot be modified: Modifying component props or hook arguments is not allowed. Consider using a local variable instead. It renders as written, without automatic memoization.
 ```
 
-The nineteenth is the crash, and the wording is the whole of what separates it
+The eighteenth is the crash, and the wording is the whole of what separates it
 from the line above: one is a rule to accept or rewrite around, the other is a
 compiler bug to report. Only the first line of the thrown error is quoted, rule
 6's reason — the rest is the compiler's own stack under absolute paths from
@@ -4163,7 +4148,7 @@ gives the placement and the trigger to re-measure on.
 Module "/site/components/Chart.tsx" line 2: React Compiler crashed on component "Chart" — RangeError: Maximum call stack size exceeded. That is a fault in the compiler rather than a rule the component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash is logged whether or not the directive is present. It renders as written, without automatic memoization.
 ```
 
-Neither is a refusal, on `uncompiledGlobalCssWarning`'s argument: the compiler's
+Neither is a refusal, on `workerFallbackWarning`'s argument: the compiler's
 `panicThreshold` is left at its default, which does not throw, and failing a
 site's build over a memoization it can do without would fail a build whose
 output nobody can fault. Not silence either, which is the whole reason these
@@ -4192,7 +4177,7 @@ is read off a spawned `pagedeck build`, over a site whose one component the comp
 refuses for a different rule than the one quoted above: the line is marked, the
 build still exits 0, and no unmarked copy of it reached the descriptor.
 
-The twentieth is `undeclaredContentRootWarning` (`packages/core/src/build.ts`),
+The nineteenth is `undeclaredContentRootWarning` (`packages/core/src/build.ts`),
 and it is the silent half #474 left behind (#485). A site that declares
 `build.passthrough.contentRoot` has every content-relative reference resolved,
 and refused where it names nothing. A site that declares no content tree ships
@@ -4232,7 +4217,7 @@ added: no site has this case yet, and a setting that silences the warning puts
 it. Until one exists, such a site builds, its
 output is correct, and every build writes this warning, one line per address.
 
-The twenty-first is `unprunedTreeWarning` (`packages/core/src/build.ts`), and
+The twentieth is `unprunedTreeWarning` (`packages/core/src/build.ts`), and
 it is the one case a full build cannot prune the tree it builds into (#515). A
 full build reads the `manifest.json` already in `outDir` and, after writing its
 own, deletes each file the old one named and the new one does not, so a post
@@ -4286,7 +4271,7 @@ themselves, or a new directory the build fills from nothing.
 
 A `manifest.json` that is absent is not this warning. That is a first build or
 an emptied directory, and it prunes nothing and says nothing, as a full build
-always did. Each line passes through `printable` for the sixteenth's reason:
+always did. Each line passes through `printable` for the fifteenth's reason:
 it can carry a parser's echo of bytes somebody wrote.
 
 The incremental refusal runs the same row check, `untrustedRows`
@@ -4304,7 +4289,7 @@ The fix is a full build, and not an edit to the document: that build warns as
 above, prunes nothing, and leaves a manifest of its own, which is the one the
 next incremental run plans against.
 
-**The twenty-second is not a build's at all, and it is `colorFailureWarning`**
+**The twenty-first is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
 fetch a dominant color for. It is written by `pagedeck sync` and reaches `io.err`
 through `runSyncVerb`, which writes `SyncReport.warnings` before the failures —
@@ -4476,7 +4461,7 @@ Root provider "OwnStoreProvider": delivers a different value to each island root
 ```
 
 A warning for both of the reasons the two above are warnings at once. The output
-is correct HTML, as `uncompiledGlobalCssWarning`'s is — the page renders, and
+is correct HTML, as `workerFallbackWarning`'s is — the page renders, and
 only its behaviour is wrong, so a dev server that refused would take away the
 page an author needs in order to see the fault. And the instrument cannot be
 complete, as `resourcePlacerWarning`'s cannot: a class, a `memo` and a provider

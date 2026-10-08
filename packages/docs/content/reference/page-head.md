@@ -146,7 +146,7 @@ altered; it is spelled differently in the file.
 
 ## Metadata a component renders
 
-A component may render `<title>` and `<meta>` itself. React hoists them out of
+A component may render `<title>` and `<meta>` itself, and the icon links below. React hoists them out of
 where you wrote them, and because each island is rendered as its own fragment
 they would land in `<body>` — where a crawler reading head metadata does not look
 and where two islands leave two `<title>` elements. The build takes them out of
@@ -192,7 +192,29 @@ and so does the build.
 A stylesheet is the one thing this does not extend to. A component that declares
 one with React's `precedence` prop is refused, because a sheet that reaches the
 document this way outranks every stylesheet the build placed. Import it from the
-component's module instead.
+component's module instead, or list it in `build.css` if every page needs
+it.
+
+### Icon links
+
+A `<link rel="icon">` or `<link rel="apple-touch-icon">` a component renders is
+taken into the `<head>` the same way, after the metadata, on a site with islands
+or without them. An icon claims nothing, so a page can carry several, one per
+size or format:
+
+```tsx
+export function Icons() {
+  return (
+    <>
+      <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    </>
+  );
+}
+```
+
+Render it anywhere in the page's tree: a layout component is the usual place.
+Every other `<link>` stays where you rendered it.
 
 ## What the head carries besides this
 

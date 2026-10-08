@@ -1,7 +1,7 @@
 ---
 section: reference
 title: Global CSS
-description: Stylesheets listed in build.css share one core-tier sheet every page links, though a site that hydrates no island gets a warning and no sheet.
+description: Stylesheets listed in build.css share one core-tier sheet every page links, on a site with islands or without them.
 ---
 
 # Global CSS
@@ -25,24 +25,14 @@ The field is optional. A site that declares no `css` behaves as it did before:
 every rule reaches a page through a component's own `import`, and a page that
 mounts no component links no stylesheet.
 
-## One limit: a site with no islands at all
+## A site with no islands
 
 A declared stylesheet is compiled by the same bundler run that builds the
-site's JavaScript, and that run is started by the page entries the build
-generates. A site where **no page hydrates a single component** has no entry, so
-nothing compiles the stylesheet and no page links it.
-
-The build says so rather than emitting the pages silently:
-
-```
-Global CSS: 1 declared stylesheet is not in this build, so no page links it — a declared stylesheet reaches the bundler through a page's generated entry module, and this site hydrates no island on any page, so there is no entry module to import it from; this is a warning and not a refusal because every page this build emitted is otherwise correct, and the sheets compile as soon as one page mounts one interactive component — island a component anywhere on the site, or drop the declaration until the site has one:
-  "./styles/global.css"
-```
-
-It is a warning and not an error: the pages are correct HTML, and one
-interactive component anywhere on the site is enough to make the sheet arrive
-everywhere. A site with at least one island is unaffected, and a page of it that
-renders no component still links the sheet — which is the ordinary case above.
+site's JavaScript, and that run starts from the page entries the build
+generates. A site where **no page hydrates a single component** has no entry,
+so the build compiles the declared stylesheets in a run of their own and links
+the sheet from every page, as above. That run emits no JavaScript, so a page
+that shipped 0 B before still ships 0 B.
 
 ## Why global means core-tier
 

@@ -788,9 +788,9 @@ _Avoid_: metadata (broader — a manifest row is metadata too), SEO fields (only
 some of them are), head tags, meta tags
 
 **Absorbed metadata**:
-A `<title>` or a `<meta>` a *component* rendered, taken out of the body React
-hoisted it into and written into the `<head>` by the build (`AbsorbedMetadata`,
-#239). Absorbing is the whole verb: the element is moved, not copied, so the
+A `<title>`, a `<meta>` or an icon link (`rel="icon"`, `rel="apple-touch-icon"`,
+#104) a *component* rendered, taken out of the body React hoisted it into and
+written into the `<head>` by the build (`AbsorbedMetadata`, #239). Absorbing is the whole verb: the element is moved, not copied, so the
 body it came from no longer holds it.
 
 It is not a **page head**, above, and the two arrive by different doors: a page
@@ -1823,7 +1823,7 @@ The blocks, in the order `headElements` writes them:
     late one restarts.
 2. **The document's own metadata** (`head:metadata`): `<title>`, the
     description, the OG tags. Metadata a render hoisted goes at the end of the
-    block, after the site's own (#239).
+    block, after the site's own (#239), and so does an icon link (#104).
 3. **`<link rel="canonical">`, the `<link rel="alternate" hreflang>` set and
     the feed's autodiscovery link** (`head:addresses`, #39, #324). Statements
     about which document this is, so beside the `head:metadata` block. Composed
@@ -1934,6 +1934,15 @@ Ruled on #239, against §6's table in
 `docs/research/2026-08-29-react-19-stylesheets-under-island-roots.md`, which says
 "refuse" for these rows and was written from the CSS side. That document's
 **Status** line records which of its rows this superseded.
+
+**Amended by #104: an icon link is absorbed like metadata.** A
+`<link rel="icon">` or `<link rel="apple-touch-icon">` a component renders is
+absorbed on #239's argument: an icon is a statement about the document, not a
+place in a cascade, so a second writer has no order to invert. It claims no
+singleton, since a page may carry one icon per size or format. Every other
+`<link>` stays where it was rendered, and a stylesheet is still not absorbed: a
+site-wide sheet is `build.css`'s job. Before this, a site with no islands had
+no way to put an icon in its `<head>`, and Safari may ignore one in `<body>`.
 
 **Extended by #281: a build that does not render a page reads its document back,
 and never composes one.** An incremental build re-renders the pages its plan
@@ -2113,6 +2122,13 @@ Vite serves it. What survives is the part that is a promise about pages rather
 than about files: every page gets these rules, content-only pages included, on
 both targets. What is build-time is "over one cached URL", which was already
 only half the sentence after #23.
+
+**Amended by #104: a site with no islands gets its sheet too.** The core tier
+is built from the pages' generated entries, and a site where no page hydrates
+an island has none, so until #104 the declared sheets were not compiled and the
+build only warned. Now the build compiles them in a bundler run of their own,
+drops the JavaScript chunk that run emits, and links the sheet from every page.
+The promise above holds on every site, and a `0b` page stays `0b`.
 
 ### A flagged page inlines its whole reachable CSS, core tier included
 
@@ -2627,7 +2643,7 @@ what the author asked for.
 
 The absence is *warned*, not filled. `undeclaredHeadersWarning` says once that
 a site declared no header set at all, and names the constant that closes it, on
-`uncompiledGlobalCssWarning`'s terms: every page the build emitted is correct,
+`workerFallbackWarning`'s terms: every page the build emitted is correct,
 so this is not a refusal, and a site whose host sets these headers a layer out
 has nothing to fix. Any declared rule ends the warning whatever it carries —
 grading a site's set against names core would have preferred is the silent
