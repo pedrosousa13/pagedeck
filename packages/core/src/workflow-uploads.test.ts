@@ -119,7 +119,7 @@ function uploadsReport(count: number): string {
 }
 
 function hiddenReport(count: number): string {
-  return `Workflow uploads: ${String(count)} upload-artifact step${count === 1 ? "" : "s"} name a hidden path, of at least ${String(MINIMUM_HIDDEN_PATH_UPLOADS)} (the deploy-plan uploads in deploy.yml and deploy-landing.yml both name .deploy/staging), so the path: reading in uploads() has stopped recognising a dot-directory and the rule below proves nothing — fix the reading; lower MINIMUM_HIDDEN_PATH_UPLOADS only if those uploads were deliberately removed`;
+  return `Workflow uploads: ${String(count)} upload-artifact step${count === 1 ? "" : "s"} name a hidden path, of at least ${String(MINIMUM_HIDDEN_PATH_UPLOADS)} (deploy.yml's deploy-plan upload names .deploy/staging, and deploy-landing.yml's landing-deploy upload names packages/landing/.pagedeck), so the path: reading in uploads() has stopped recognising a dot-directory and the rule below proves nothing — fix the reading; lower MINIMUM_HIDDEN_PATH_UPLOADS only if those uploads were deliberately removed`;
 }
 
 function droppedReport(dropped: readonly Upload[]): string {

@@ -6,8 +6,9 @@ description: How the dogfood site and the landing page deploy, with a dry run, p
 
 How the dogfood site (`packages/site`) is deployed: the verbs in order, what the
 one secret is, what a dry run does, how to roll back, and what the grace period
-protects. Issue #57. The landing page is deployed to Cloudflare by the same CLI,
-and its runbook is the last section, "The landing page on Cloudflare".
+protects. Issue #57. The landing page is deployed to Cloudflare as Workers
+Static Assets with wrangler, not through this CLI, and its runbook is the last
+section, "The landing page on Cloudflare".
 
 ## What has been proven, and what has not
 
@@ -89,7 +90,7 @@ is not:
   `node:vm` against a stand-in for its R2 binding, by `pnpm test` and by the
   origin harness over what a deploy put into SeaweedFS. The Workers runtime has
   not run it. Nothing in this repository creates a CDN or cloud resource,
-  except that `deploy-landing.yml` publishes the landing page's Worker with
+  except that `deploy-landing.yml` publishes the landing page with
   `wrangler deploy` (below).
 - **`.github/workflows/deploy.yml` has never deployed anything**, and cannot
   until a maintainer adds the secret below and passes `apply: true`. It is
@@ -97,11 +98,10 @@ is not:
   It still passes `--origin` a directory. Moving it to a presigned origin needs
   a signing step that holds the credentials, and this repository has none.
 - **`.github/workflows/deploy-landing.yml` has never deployed anything**
-  either. It writes only with the four `PAGEDECK_R2_*` secrets set and
-  `apply: true`, and publishes the Worker only after that write and with the
-  two `CLOUDFLARE_*` secrets set. Its signing step, `presign.bin.js`, is what
-  the origin harness proves, in region `auto`. Its publish step has run only
-  as `wrangler deploy --dry-run`, which sends nothing to Cloudflare.
+  either. It publishes only with `apply: true` and the two `CLOUDFLARE_*`
+  secrets set, and has run only as `wrangler deploy --dry-run`, locally, which
+  sends nothing to Cloudflare. It does not use `deploy.bin.js` or the signing
+  step, `presign.bin.js`, which the origin harness proves in region `auto`.
 - The **deferred prune** reads the history back off a directory origin by
   listing it, and off a presigned origin through the history index (#659,
   below). `packages/site/src/deploy.test.ts` pins the arithmetic —
@@ -1062,231 +1062,176 @@ made about them: they are text, compiled from the site's own config.
 
 ## The landing page on Cloudflare
 
-The landing page (`packages/landing`) is served from an R2 bucket with a Worker
-in front of it (#665). `.github/workflows/deploy-landing.yml` builds the page,
-signs presigned URLs for the bucket, deploys through `deploy.bin.js`, stages
-the compiled `worker.js`, and then publishes the Worker with wrangler (#52).
-The bucket is written through presigned URLs only; wrangler publishes the
-Worker and nothing else. The Worker is declared in
-`packages/landing/wrangler.jsonc`: the name `pagedeck-landing`, the staged
-`worker.js` as `main`, the R2 binding `PAGEDECK_ORIGIN` to the bucket
-`pagedeck-landing`, and `workers_dev` on. It declares no route, because the
-domain does not exist yet; the Worker serves on its `workers.dev` address.
+The landing page (`packages/landing`) is deployed as **Workers Static
+Assets**: one `wrangler deploy` uploads the built tree and publishes a Worker
+that serves it, with no Worker code of the site's own and no bucket (#52). It
+does not go through `deploy.bin.js`, so the incremental deploy, the deploy
+history, the grace period and the rollback above do not apply to it: wrangler
+uploads only the files Cloudflare does not hold yet, and Cloudflare keeps the
+Worker's versions. The `cloudflare-worker` adapter, `presign.bin.js` and the
+origin harness stay as they are, as the R2 path for other sites.
 
 wrangler is `packages/landing`'s exact-version dev dependency, so every command
-below runs as `pnpm exec wrangler` in `packages/landing`, and never as `npx
+below runs as `pnpm exec wrangler` in `packages/landing`, never as `npx
 wrangler`, which would take whatever version is latest.
 
-**What is proven, and what is not.** The signing step is proven against
-SeaweedFS by the origin harness, in region `auto`, through both passes of the
-spawned CLI. The compiled Worker is run against an in-memory stand-in for its
-R2 binding in `pnpm test`, and against what the harness deployed.
-`wrangler deploy --dry-run` with `wrangler.jsonc` bundles the `worker.js` the
-deploy CLI stages for the landing page and lists the `PAGEDECK_ORIGIN` binding;
-a dry run sends nothing to Cloudflare. Neither Cloudflare R2, the Workers
-runtime nor Cloudflare's API has been sent a request. These are the host facts
-the Worker, the signing step and the publish rest on, and the first deploy is
-what checks them:
+**What the build writes for it.** The site's `build.adapter` is
+`cloudflarePages()`. Workers Static Assets reads the same `_headers` and
+`_redirects` formats as Cloudflare Pages, so `pagedeck build` writes into
+`site/`:
 
-- R2's S3 endpoint accepts a SigV4 URL signed path-style for region `auto` and
-  signed over `host` alone, and stores the `Content-Type` and `Cache-Control`
-  the PUT carries.
-- The R2 binding's `get` answers `null` for a missing key, and an object's
-  `writeHttpMetadata` writes those two headers back.
-- An R2 object's `httpEtag` is its etag in quotes, and its `uploaded` is the
-  time it was put. The Worker's `ETag` and its `304` rest on both.
-- The Workers runtime hands `request.url` over as a serialized URL.
-- An API token with Workers Scripts: Edit on the account is enough for
-  `wrangler deploy` to publish a Worker with an R2 binding (step 3 below).
+- `_headers`: one `/*` rule with the three security headers and the
+  `Content-Security-Policy` from `src/csp.ts`, the same value the routing
+  header rule and the other adapters carry.
+- `_redirects`: three rows that proxy `/manifest.json`, `/.pagedeck` and
+  `/.pagedeck/*` to `/404.html`. The site declares no redirects of its own.
+- `404.html`: the adapter's bare fallback, written because the site declares
+  no 404 page.
+- `.assetsignore`, from `public/`, through passthrough. It names
+  `/manifest.json`, `/.pagedeck` and `/404.html`. wrangler leaves those out of
+  the upload, and itself leaves out `.assetsignore`, `_headers` and
+  `_redirects`, which it reads as configuration.
 
-### The Cloudflare objects
+So `manifest.json` and the fallback page are never uploaded, and the build
+writes `.pagedeck/` beside `site/`, not in it. A request for `/manifest.json`
+or under `/.pagedeck/` matches a proxy row whose target was not uploaded, and
+the asset worker answers a proxied path with no asset `404`. Uploaded, the
+fallback page would be served for those keys with status `200`, which is why
+it is left out. Any other path with no asset is answered by
+`not_found_handling: "none"`, a bare `404`.
 
-Create each once, in the Cloudflare account that will hold the domain, from
-`packages/landing`. `wrangler login` opens a browser and authorizes wrangler
-for your own account, on your machine; the CI token below is a different
-credential.
+`packages/landing/wrangler.jsonc` declares the Worker: the name
+`pagedeck-landing`, `assets.directory` `./site`, `html_handling`
+`auto-trailing-slash` (`/features` answers `307` to `/features/`),
+`not_found_handling` `none`, no `main`, `workers_dev` on, and no route, because
+the domain does not exist yet. The Worker serves on its `workers.dev` address.
 
-```sh
-cd packages/landing
-pnpm exec wrangler login
-pnpm exec wrangler r2 bucket create pagedeck-landing
-```
+**What is proven, and what is not.** `wrangler deploy --dry-run` against a
+local landing build succeeds: it reads the 45 entries of `site/`, ignores
+`.assetsignore`, `404.html`, `_headers`, `_redirects` and `manifest.json`, and
+sends nothing to Cloudflare. `site.build.test.ts` holds the written `_headers`
+to the landing page's header set and `.assetsignore` to its three lines.
+Cloudflare has not been sent a request. These are the host facts the first
+deploy checks:
 
-1. **The R2 bucket**, `pagedeck-landing`, the name `wrangler.jsonc` binds.
-   `wrangler r2 bucket create` leaves public access off: do not add an
-   `r2.dev` subdomain or a custom domain to it. The Worker is the only reader,
-   and a bucket anyone can read serves `manifest.json` and the deploy history,
-   which the Worker refuses (#556).
-2. **An R2 API token** for that bucket, **in the dashboard**: wrangler cannot
-   mint the S3 access key pair that the signing step needs. In R2's API token
-   settings, create a token with the permission **Object Read & Write**,
-   applied to **that one bucket only**, not to every bucket in the account.
-   Copy its **Access Key ID** and **Secret Access Key** when they are shown;
-   the secret is shown once. Copy the **Account ID** from the R2 overview page.
-3. **A Cloudflare API token** for the workflow's publish step, under My Profile
-   → API Tokens → Create Token → Custom token, with one permission: **Account →
-   Workers Scripts → Edit**, on that one account. Cloudflare's public
-   documentation names no further permission for a Worker that binds an R2
-   bucket: the publish uploads the script with the binding's bucket name, and
-   creates and reads no bucket. That is not yet checked against the API. If
-   the first publish is refused with an authorization error, the error names
-   what is missing; add only that.
-4. **The Worker**, `pagedeck-landing`. Nothing creates it by hand: the first
-   `wrangler deploy` creates it with its binding and its `workers.dev` address,
-   either in the workflow or by hand (see "Deploying").
-5. **The route**, when the domain is ready. Add it to `wrangler.jsonc` as a
-   custom domain route, and set `workers_dev` to `false`, so the page has one
-   address. Do it in the config and not in the dashboard: `wrangler deploy`
-   applies the config's `workers_dev` on every publish.
+- Workers Static Assets applies the `_headers` rule to every page, so each
+  response carries the CSP and the three security headers.
+- A proxy row whose target is not uploaded answers `404`. This is read from
+  the asset worker's source bundled in wrangler 4.148.0's Miniflare
+  (`workers-shared`), not observed on Cloudflare, and whether that `404`
+  carries the `_headers` set is not documented.
+- An API token with Account → Workers Scripts → Edit can upload the assets and
+  publish the Worker. Cloudflare's permissions reference describes that
+  permission as write access to Workers scripts and names nothing for static
+  assets; that nothing more is needed is not checked.
+
+### Setting up
+
+Once, in the Cloudflare account that will hold the domain:
+
+1. **wrangler on your machine.** `wrangler login` opens a browser and
+   authorizes wrangler for your own account. It is for the commands you run by
+   hand; the workflow uses the token below.
+
+   ```sh
+   cd packages/landing
+   pnpm exec wrangler login
+   ```
+
+2. **An API token for the workflow**, in the dashboard under My Profile → API
+   Tokens → Create Token → Custom token, with one permission: **Account →
+   Workers Scripts → Edit**, on that one account. If the first publish is
+   refused with an authorization error, add only the permission the error
+   names.
+3. **The Worker.** Nothing creates it by hand: the first `wrangler deploy`
+   creates `pagedeck-landing` with its assets and its `workers.dev` address.
 
 ### The secrets
 
-Six repository secrets, under Settings → Secrets and variables → Actions:
+Two repository secrets, under Settings → Secrets and variables → Actions:
 
 | Secret | Value |
 | --- | --- |
-| `PAGEDECK_R2_ACCOUNT_ID` | the Account ID; the endpoint is `https://<account id>.r2.cloudflarestorage.com` |
-| `PAGEDECK_R2_BUCKET` | `pagedeck-landing` |
-| `PAGEDECK_R2_ACCESS_KEY_ID` | the R2 token's Access Key ID |
-| `PAGEDECK_R2_SECRET_ACCESS_KEY` | the R2 token's Secret Access Key |
-| `CLOUDFLARE_API_TOKEN` | the Cloudflare API token (step 3) |
-| `CLOUDFLARE_ACCOUNT_ID` | the Account ID again: wrangler reads it under this name |
+| `CLOUDFLARE_API_TOKEN` | the API token above |
+| `CLOUDFLARE_ACCOUNT_ID` | the account's ID, from the dashboard's Workers & Pages overview |
 
 `gh secret set <name>` reads the value from standard input when you paste it,
-so the value is not on a command line. With any `PAGEDECK_R2_*` secret
-missing, the workflow plans a first deploy against an empty directory and
-writes nothing, which is what it does in this repository today. With the four
-set and either `CLOUDFLARE_*` secret missing, an applying run writes the
-bucket, does not publish the Worker, and ends with a warning that says so and
-gives the commands to publish it by hand.
-
-The workflow passes the `PAGEDECK_R2_*` secrets to the gate, which only tests
-that they are set, and to the two signing steps, and to no other step. The
-signing step (`packages/site/dist/presign.bin.js`) reads them as
-`PAGEDECK_S3_ENDPOINT`, `PAGEDECK_S3_REGION`, `PAGEDECK_S3_BUCKET`,
-`PAGEDECK_S3_ACCESS_KEY_ID` and `PAGEDECK_S3_SECRET_ACCESS_KEY`, and writes the
-URLs into `$RUNNER_TEMP/signing`, which no artifact includes. Each URL is valid
-for 900 seconds and names one key and one method. It prints how many URLs it
-signed, and no URL, key or endpoint. The `CLOUDFLARE_*` secrets reach the
-publish step and no other step.
+so the value is not on a command line. The workflow passes both to the publish
+step and to no other step. A publishing run with either one unset fails, names
+it, and publishes nothing.
 
 ### Deploying
 
 ```sh
-gh workflow run deploy-landing.yml                  # plan against the live bucket
-gh workflow run deploy-landing.yml -f apply=true    # deploy, then publish the Worker
+gh workflow run deploy-landing.yml                  # build, then wrangler deploy --dry-run
+gh workflow run deploy-landing.yml -f apply=true    # build, then wrangler deploy
 ```
 
-A run without `apply` signs the one read, prints the plan against the live
-`manifest.json`, writes nothing and publishes nothing. A run with `apply` signs
-every request the plan lists and deploys it. The deploy is incremental: it puts
-only the files whose hash changed, then the build's history copy, its deploy
-instant and `manifest.json`. The workflow does not pass `--prune`, so a page
-dropped from the build stays in the bucket; the Worker no longer serves it,
-because the live manifest no longer names it. A prune there needs the third
-signing pass in "Pruning a presigned origin" above, which the workflow does not
-run yet.
+Both build the page from the checked-out commit. A run without `apply` uses no
+credential. Each run uploads the `landing-deploy` artifact: what wrangler
+printed, the built `site/` and `.pagedeck/budget-report.json`.
 
-**The routing is compiled into `worker.js`**, so the Worker is published again
-after every apply. On the landing page the script changes when its header set
-changes, which includes the CSP hash that moves when core changes an inline
-loader (`AGENTS.md`, "Sites"). The deploy writes the bucket first, and the
-publish step runs only after it succeeds: until both are done, the new pages
-and the old policy, or the reverse, can disagree about one inline script's
-hash. A failed apply publishes nothing.
-
-The publish step is `pnpm exec wrangler deploy` in `packages/landing`.
-`wrangler.jsonc`'s `main` is `../../.deploy/staging/worker.js`, which is
-`$GITHUB_WORKSPACE/.deploy/staging/worker.js`, where the workflow's `--staging`
-(`PAGEDECK_DEPLOY_STAGING`) writes it. The deploy CLI stages `worker.js` only
-with `--apply`; a dry run names it and writes nothing.
-
-Each run uploads the `deploy-plan` artifact: `deploy-plan.txt`, and
-`.deploy/staging/worker.js`.
+To deploy from your machine instead, from `packages/landing` after `pnpm build`
+at the repository root:
 
 ```sh
-gh run download <run id> --name deploy-plan --dir plan   # plan/.deploy/staging/worker.js
-```
-
-**Publishing by hand** is for an applying run whose publish step did not run
-or failed. From the repository root, with `wrangler login` done:
-
-```sh
-gh run download <run id> --name deploy-plan --dir .deploy/run-<run id>
-mkdir -p .deploy/staging
-cp .deploy/run-<run id>/.deploy/staging/worker.js .deploy/staging/worker.js
-cd packages/landing
-pnpm exec wrangler deploy --dry-run   # bundles it and lists the binding; sends nothing
+node ../core/dist/bin.js sync
+node ../core/dist/bin.js build
+pnpm exec wrangler deploy --dry-run   # lists the upload; sends nothing
 pnpm exec wrangler deploy
 ```
 
-`.deploy/` is gitignored. To check the config against a local build instead,
-with no credential and no account, from `packages/landing` after `pnpm build`:
-
-```sh
-node ../core/dist/bin.js sync && node ../core/dist/bin.js build
-mkdir -p ../../.deploy/origin
-node ../site/dist/deploy.bin.js --origin ../../.deploy/origin \
-  --staging ../../.deploy/staging --edge cloudflare-worker --apply
-pnpm exec wrangler deploy --dry-run
-```
-
-The `--apply` there writes to the empty local directory `.deploy/origin`, not
-to the bucket.
-
 The first time:
 
-1. Create the objects and set the six secrets above.
-2. Run with `apply=true`. The bucket now holds the page and its manifest, and
-   the publish step creates the Worker `pagedeck-landing` with its binding.
-   Without the two `CLOUDFLARE_*` secrets, publish by hand as above.
-3. Open the Worker's `workers.dev` address, which `wrangler deploy` prints.
-   `/` answers the page, `/manifest.json` answers 404, and a response carries
-   the CSP. Then add the route (step 5).
-4. Once the domain answers the page over HTTPS, declare HSTS. It is left out
-   until then because it is a promise about a domain (`CONTEXT.md`, "The
-   framework emits no header a site did not write"). Add
-   `{ name: "Strict-Transport-Security", value: "max-age=31536000" }` to the
-   `/` rule in `packages/landing/src/site.ts`, where a comment says why it is
-   absent, and to `SERVED_HEADERS` in `packages/landing/src/site.build.test.ts`.
-   Leave out `includeSubDomains` unless every host under the domain serves
-   HTTPS. Merge and run with `apply=true`, which publishes the new `worker.js`,
-   the file that carries the header. Check one response for it.
+1. Set up as above and set the two secrets.
+2. Run with `apply=true`. wrangler creates the Worker and prints its
+   `workers.dev` address.
+3. Open that address. `/` answers the page, `/features` answers `307` to
+   `/features/`, `/manifest.json` and `/.pagedeck/deploy-history.json` answer
+   `404`, and a page carries the CSP and the three security headers. Then add
+   the domain (below).
 
-### Rolling back the deploy
+### Rolling back
 
-An applying run keeps its built tree as the `landing-site` artifact for 90
-days. A rollback restores that build: it is "Rolling back" above against a
-presigned origin, with the tree downloaded from the run that deployed it.
+Each `wrangler deploy` makes a new version of the Worker, with its assets, and
+Cloudflare keeps them. From `packages/landing`, with `wrangler login` done:
 
 ```sh
-gh run list --workflow deploy-landing.yml                               # find the run
-gh workflow run deploy-landing.yml -f rollback_run=<run id>             # plan the restore
-gh workflow run deploy-landing.yml -f rollback_run=<run id> -f apply=true
+pnpm exec wrangler deployments list          # what was deployed, newest first
+pnpm exec wrangler rollback                  # back to the version before the live one
+pnpm exec wrangler rollback <version id>     # back to a named version
 ```
 
-The run reads the build id out of the downloaded `manifest.json`, signs GETs
-for the live manifest, the history index and that build's document in the
-bucket's history,
-plans the restore and, with `apply`, puts the files that differ and the
-restored `manifest.json`. The Worker serves the restored build at once, because
-it reads the live manifest on every request. The apply stages the restored
-build's `worker.js`, and the publish step then publishes it, so the routing
-goes back with the pages; without the `CLOUDFLARE_*` secrets, publish it by
-hand from the run's `deploy-plan` artifact.
+A rollback publishes an earlier version as it was. The next applying run
+deploys the checked-out commit again, so revert the change on `main` before
+the next run if it should stay rolled back.
 
-The run refuses, before it downloads anything, a `rollback_run` that is not a
-number or that names a run other than a successful run of this workflow on
-`main`, and a downloaded build id that is not a UUID as `pagedeck build`
-stamps one. A build older than 90 days has no artifact, and cannot be restored this
-way; deploy its commit again instead.
+### Adding the domain
 
-### Rolling back DNS
+When the domain is ready, declare it in `wrangler.jsonc`, not in the
+dashboard, and turn `workers_dev` off so the page has one address. `wrangler
+deploy` applies the config's `workers_dev` on every publish.
 
-Before step 5, write down the DNS records the domain has. To take the page off
-the domain, remove the custom domain from the Worker, which deletes the record
-Cloudflare created for it, and recreate the records you wrote down. Then take
-the route out of `wrangler.jsonc` and set `workers_dev` back to `true`, so the
-next publish does not add the route again. The bucket, the Worker and the
-secrets stay as they are, so the route can be added again later with no other
-step.
+```json
+"workers_dev": false,
+"routes": [{ "pattern": "<domain>", "custom_domain": true }]
+```
+
+Before that, write down the DNS records the domain has: a custom domain
+creates its own record. Merge and run with `apply=true`. Then:
+
+1. Check `/` over HTTPS on the domain, as in step 3 above.
+2. Declare HSTS. It is left out until then because it is a promise about a
+   domain (`CONTEXT.md`, "The framework emits no header a site did not
+   write"). Add `{ name: "Strict-Transport-Security", value:
+   "max-age=31536000" }` to the `/` rule in `packages/landing/src/site.ts`,
+   where a comment says why it is absent, and to `SERVED_HEADERS` in
+   `packages/landing/src/site.build.test.ts`. Leave out `includeSubDomains`
+   unless every host under the domain serves HTTPS. Merge, run with
+   `apply=true`, and check one response for it.
+
+To take the page off the domain, remove the custom domain from the Worker,
+which deletes the record Cloudflare created for it, and recreate the records
+you wrote down. Then take the route out of `wrangler.jsonc` and set
+`workers_dev` back to `true`, so the next publish does not add the route
+again.

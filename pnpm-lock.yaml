@@ -450,6 +450,9 @@ importers:
 
   packages/landing:
     dependencies:
+      '@pagedeck/adapter-cloudflare-pages':
+        specifier: workspace:*
+        version: link:../adapter-cloudflare-pages
       '@pagedeck/brand':
         specifier: workspace:*
         version: link:../brand

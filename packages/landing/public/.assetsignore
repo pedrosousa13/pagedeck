@@ -1,0 +1,6 @@
+# Workers Static Assets: wrangler reads this and never uploads it (docs/deploy-recipe.md).
+# Without the adapter's fallback /404.html, the _redirects rows that proxy the
+# deploy keys to it answer 404 rather than 200.
+/manifest.json
+/.pagedeck
+/404.html

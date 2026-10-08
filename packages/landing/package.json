@@ -28,6 +28,7 @@
     "prepack": "tsc -b tsconfig.build.json"
   },
   "dependencies": {
+    "@pagedeck/adapter-cloudflare-pages": "workspace:*",
     "@pagedeck/brand": "workspace:*",
     "@pagedeck/content": "workspace:*",
     "@pagedeck/core": "workspace:*",

@@ -194,9 +194,7 @@ packages/landing/site/
 packages/landing/content.db
 packages/landing/.pagedeck/
 
-# The landing page's Worker, staged where `packages/landing/wrangler.jsonc`'s `main`
-# reads it (#52), and wrangler's own scratch directory beside that config.
-.deploy/
+# wrangler's own scratch directory beside `packages/landing/wrangler.jsonc` (#52).
 packages/landing/.wrangler/
 
 # Everything `pnpm bench:scaling` writes

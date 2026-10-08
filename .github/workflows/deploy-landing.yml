@@ -1,28 +1,21 @@
 name: Deploy landing
 
-# Writes only with every PAGEDECK_R2_* secret set and `apply: true`, and publishes the
-# Worker only after that write and with both CLOUDFLARE_* secrets set; see
-# `docs/deploy-recipe.md`, "The landing page on Cloudflare".
+# Publishes only with `apply: true`, and then fails unless both CLOUDFLARE_* secrets are
+# set; see `docs/deploy-recipe.md`, "The landing page on Cloudflare".
 on:
   workflow_dispatch:
     inputs:
       apply:
-        description: "Upload. Off is a dry run that prints the plan and writes nothing."
+        description: "Publish. Off is a dry run that bundles the Worker and lists the upload, and sends nothing."
         required: false
         default: false
         type: boolean
-      rollback_run:
-        description: "The id of an applying run of this workflow whose build to restore. Set this and the deploy path is skipped."
-        required: false
-        type: string
 
-# `actions: read` is for the rollback, which downloads the build an earlier run kept.
 permissions:
   contents: read
-  actions: read
 
-# A run that can write is never cancelled: a cancel mid-apply leaves pages pointing at
-# chunks that were never uploaded.
+# A publishing run is never cancelled: wrangler uploads the assets before it publishes
+# the version that serves them.
 concurrency:
   group: deploy-landing-${{ inputs.apply && 'apply' || 'dry-run' }}
   cancel-in-progress: ${{ !inputs.apply }}
@@ -36,12 +29,7 @@ jobs:
         working-directory: packages/landing
     # No secret here: a job-level `env:` reaches every action and lifecycle script.
     env:
-      DEPLOY_BIN: ${{ github.workspace }}/packages/site/dist/deploy.bin.js
-      PRESIGN_BIN: ${{ github.workspace }}/packages/site/dist/presign.bin.js
-      PAGEDECK_DEPLOY_STAGING: ${{ github.workspace }}/.deploy/staging
-      # Nothing creates it, so the plan made without a credential is a first deploy.
-      PAGEDECK_DEPLOY_ORIGIN: ${{ github.workspace }}/.deploy/origin
-      ROLLBACK_RUN: ${{ inputs.rollback_run }}
+      WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
@@ -54,151 +42,20 @@ jobs:
       - run: pnpm build
         working-directory: .
 
-      - name: Decide what this run may do
-        id: gate
-        env:
-          PAGEDECK_R2_ACCOUNT_ID: ${{ secrets.PAGEDECK_R2_ACCOUNT_ID }}
-          PAGEDECK_R2_BUCKET: ${{ secrets.PAGEDECK_R2_BUCKET }}
-          PAGEDECK_R2_ACCESS_KEY_ID: ${{ secrets.PAGEDECK_R2_ACCESS_KEY_ID }}
-          PAGEDECK_R2_SECRET_ACCESS_KEY: ${{ secrets.PAGEDECK_R2_SECRET_ACCESS_KEY }}
-        run: |
-          missing=()
-          for name in PAGEDECK_R2_ACCOUNT_ID PAGEDECK_R2_BUCKET PAGEDECK_R2_ACCESS_KEY_ID PAGEDECK_R2_SECRET_ACCESS_KEY; do
-            if [ -z "${!name}" ]; then missing+=("$name"); fi
-          done
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "secret=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "secret=false" >> "$GITHUB_OUTPUT"
-            echo "Not set: ${missing[*]}. This run builds, prints a first-deploy plan and publishes nothing."
-          fi
-          mkdir -m 700 "$RUNNER_TEMP/signing"
-
       - name: Sync the landing content
         run: node ../core/dist/bin.js sync
 
       - name: Build the landing page
         run: node ../core/dist/bin.js build
 
-      - name: Plan the deploy without a credential
-        if: steps.gate.outputs.secret != 'true' && inputs.rollback_run == ''
+      - name: Check the Worker without publishing
+        if: ${{ !inputs.apply }}
         run: |
           set -o pipefail
-          node "$DEPLOY_BIN" \
-            --origin "$PAGEDECK_DEPLOY_ORIGIN" \
-            --staging "$PAGEDECK_DEPLOY_STAGING" \
-            --edge cloudflare-worker \
-            | tee "$GITHUB_WORKSPACE/deploy-plan.txt"
+          pnpm exec wrangler deploy --dry-run | tee "$GITHUB_WORKSPACE/wrangler.txt"
 
-      - name: Refuse a rollback without a credential
-        if: steps.gate.outputs.secret != 'true' && inputs.rollback_run != ''
-        run: |
-          echo "A rollback reads the live manifest and the restored build's off the bucket, and the PAGEDECK_R2_* secrets are not set. Nothing was planned."
-          exit 1
-
-      - name: Fetch the build to restore
-        id: restore
-        if: steps.gate.outputs.secret == 'true' && inputs.rollback_run != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! [[ "$ROLLBACK_RUN" =~ ^[0-9]+$ ]]; then
-            echo "rollback_run is not a run id — pass the number gh run list --workflow deploy-landing.yml --branch main --status success shows for the run that deployed the build."
-            exit 1
-          fi
-          # Only an artifact a successful run of this workflow on main uploaded is restored.
-          run="$RUNNER_TEMP/rollback-run.json"
-          gh run view "$ROLLBACK_RUN" --repo "$GITHUB_REPOSITORY" --json workflowName,conclusion,headBranch > "$run"
-          node -e '
-            const run = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
-            const wanted = { workflowName: process.env.GITHUB_WORKFLOW, conclusion: "success", headBranch: "main" };
-            const wrong = Object.keys(wanted).filter((field) => run[field] !== wanted[field]);
-            if (wrong.length > 0) {
-              console.log(`Run ${process.env.ROLLBACK_RUN} is not a successful "${wanted.workflowName}" run on main (${wrong.map((field) => `${field} is ${JSON.stringify(run[field])}`).join(", ")}) — pass the id of an applying run gh run list --workflow deploy-landing.yml --branch main --status success shows.`);
-              process.exit(1);
-            }
-          ' "$run"
-          tree="$RUNNER_TEMP/rollback-site"
-          gh run download "$ROLLBACK_RUN" --repo "$GITHUB_REPOSITORY" --name landing-site --dir "$tree"
-          id=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).build.id' "$tree/manifest.json")
-          # The shape `pagedeck build` stamps (`randomUUID`), checked before the id is a key or an output.
-          if ! [[ "$id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]; then
-            echo "The build id in run $ROLLBACK_RUN's landing-site artifact is not one pagedeck build stamps — pass the id of a run whose artifact this workflow uploaded."
-            exit 1
-          fi
-          echo "Restoring build $id, which run $ROLLBACK_RUN deployed."
-          echo "tree=$tree" >> "$GITHUB_OUTPUT"
-          echo "id=$id" >> "$GITHUB_OUTPUT"
-
-      # The two keys every run reads, and for a rollback the restored build's document.
-      - name: Sign the reads
-        if: steps.gate.outputs.secret == 'true'
-        env:
-          PAGEDECK_S3_ENDPOINT: https://${{ secrets.PAGEDECK_R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          PAGEDECK_S3_REGION: auto
-          PAGEDECK_S3_BUCKET: ${{ secrets.PAGEDECK_R2_BUCKET }}
-          PAGEDECK_S3_ACCESS_KEY_ID: ${{ secrets.PAGEDECK_R2_ACCESS_KEY_ID }}
-          PAGEDECK_S3_SECRET_ACCESS_KEY: ${{ secrets.PAGEDECK_R2_SECRET_ACCESS_KEY }}
-          RESTORE_ID: ${{ steps.restore.outputs.id }}
-        run: |
-          reads="$RUNNER_TEMP/signing/reads.json"
-          node -e '
-            const keys = ["/manifest.json", "/.pagedeck/deploy-history.json"];
-            if (process.env.RESTORE_ID) keys.push(`/.pagedeck/manifests/${process.env.RESTORE_ID}.json`);
-            const get = Object.fromEntries(keys.map((key) => [key, {}]));
-            require("node:fs").writeFileSync(process.argv[1], JSON.stringify({ get }));
-          ' "$reads"
-          node "$PRESIGN_BIN" "$reads" "$RUNNER_TEMP/signing/reads-signed.json"
-
-      - name: Plan against the live bucket
-        if: steps.gate.outputs.secret == 'true'
-        env:
-          RESTORE_ID: ${{ steps.restore.outputs.id }}
-          RESTORE_TREE: ${{ steps.restore.outputs.tree }}
-        run: |
-          set -o pipefail
-          restore=()
-          if [ -n "$RESTORE_ID" ]; then restore=(--rollback "$RESTORE_ID" --out "$RESTORE_TREE"); fi
-          PAGEDECK_DEPLOY_URLS="$RUNNER_TEMP/signing/reads-signed.json" node "$DEPLOY_BIN" \
-            "${restore[@]}" \
-            --staging "$PAGEDECK_DEPLOY_STAGING" \
-            --edge cloudflare-worker \
-            --requests "$RUNNER_TEMP/signing/requests.json" \
-            | tee "$GITHUB_WORKSPACE/deploy-plan.txt"
-
-      - name: Sign the writes
-        if: steps.gate.outputs.secret == 'true' && inputs.apply
-        env:
-          PAGEDECK_S3_ENDPOINT: https://${{ secrets.PAGEDECK_R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          PAGEDECK_S3_REGION: auto
-          PAGEDECK_S3_BUCKET: ${{ secrets.PAGEDECK_R2_BUCKET }}
-          PAGEDECK_S3_ACCESS_KEY_ID: ${{ secrets.PAGEDECK_R2_ACCESS_KEY_ID }}
-          PAGEDECK_S3_SECRET_ACCESS_KEY: ${{ secrets.PAGEDECK_R2_SECRET_ACCESS_KEY }}
-        run: node "$PRESIGN_BIN" "$RUNNER_TEMP/signing/requests.json" "$RUNNER_TEMP/signing/signed.json"
-
-      # No `--prune`: it needs a third signing pass this workflow does not run
-      # (docs/deploy-recipe.md). No input for `--force`: an override a CI file can set is
-      # one nobody reads.
-      - name: Apply
-        id: apply
-        if: steps.gate.outputs.secret == 'true' && inputs.apply
-        env:
-          RESTORE_ID: ${{ steps.restore.outputs.id }}
-          RESTORE_TREE: ${{ steps.restore.outputs.tree }}
-        run: |
-          set -o pipefail
-          restore=()
-          if [ -n "$RESTORE_ID" ]; then restore=(--rollback "$RESTORE_ID" --out "$RESTORE_TREE"); fi
-          PAGEDECK_DEPLOY_URLS="$RUNNER_TEMP/signing/signed.json" node "$DEPLOY_BIN" \
-            "${restore[@]}" \
-            --staging "$PAGEDECK_DEPLOY_STAGING" \
-            --edge cloudflare-worker \
-            --apply | tee -a "$GITHUB_WORKSPACE/deploy-plan.txt"
-
-      # After the apply, never before or without it: the routing compiled into worker.js
-      # belongs to the build the apply just made live (docs/deploy-recipe.md).
       - name: Publish the Worker
-        if: steps.apply.outcome == 'success'
+        if: inputs.apply
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -208,30 +65,22 @@ jobs:
             if [ -z "${!name}" ]; then missing+=("$name"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::warning title=Worker not published::Not set: ${missing[*]}. The bucket holds the new build and the Worker was not published. To publish this run's, from the repository root: gh run download $GITHUB_RUN_ID --name deploy-plan --dir .deploy/run-$GITHUB_RUN_ID && mkdir -p .deploy/staging && cp .deploy/run-$GITHUB_RUN_ID/.deploy/staging/worker.js .deploy/staging/worker.js && cd packages/landing && pnpm exec wrangler deploy"
-            exit 0
+            echo "::error title=Worker not published::Not set: ${missing[*]}. Nothing was published. Add each as a repository secret (docs/deploy-recipe.md, \"The secrets\") and run again with apply."
+            exit 1
           fi
-          pnpm exec wrangler deploy
+          set -o pipefail
+          pnpm exec wrangler deploy | tee "$GITHUB_WORKSPACE/wrangler.txt"
 
-      # What a later rollback uploads: `pagedeck build` keeps the manifest, not the bytes.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: steps.apply.outcome == 'success' && inputs.rollback_run == ''
-        with:
-          name: landing-site
-          path: packages/landing/site
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 90
-
-      # The plan and the staged worker.js. The signed URLs stay in $RUNNER_TEMP.
+      # What was built and what wrangler said about it.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: deploy-plan
+          name: landing-deploy
           path: |
-            deploy-plan.txt
-            .deploy/staging
-          # `.deploy` is hidden, and is excluded without this.
+            wrangler.txt
+            packages/landing/site
+            packages/landing/.pagedeck/budget-report.json
+          # `.assetsignore` and `.pagedeck` are hidden, and are excluded without this.
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 30
