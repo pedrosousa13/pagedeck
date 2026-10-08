@@ -30,7 +30,8 @@ build: {
 `origin` is the scheme and host of the default output tree, and nothing else —
 no path, no trailing slash, no query, no fragment. A locale with its own
 `domain` still uses that domain; the origin supplies the scheme, and the port if
-it has one.
+it has one. The same origin makes the `og:image` of a card the build draws an
+absolute URL (see [Page head](/reference/page-head/#cards-the-build-draws)).
 
 **Declare no `origin` and no links are written.** The documents are exactly what
 they would be without this feature. An origin is a decision about the site's

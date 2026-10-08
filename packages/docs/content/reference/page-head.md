@@ -57,10 +57,24 @@ written from the size the renderer reported. Core ships no renderer —
 `@pagedeck/social-image` is the reference one. Return `undefined` from `inputs` for a
 page that gets no card.
 
+**Declare `build.origin` with your cards.** With an origin, a drawn card's
+`og:image` is an absolute URL: the origin followed by the card's path, as
+`https://example.com/social/en.1a2b3c4d.png`, on the domain of the page's own
+locale when that locale declares one. Without an origin it is the path alone,
+`/social/en.1a2b3c4d.png`. The Open Graph protocol asks for an absolute URL, and
+most platforms show no image for a path. See
+[Canonicals and hreflang](/reference/canonicals-and-hreflang/#declaring-the-origin).
+
+**Upgrade, or add or change `origin`, and run a full build.** An incremental
+build reuses each page that did not change, and has no way to see that the
+framework or a config value moved, so a reused page keeps the `og:image` an
+earlier build wrote.
+
 **A page's components can show its own card.** The build draws every card
 before it renders any page, so `useSocialCard()` from `@pagedeck/core/tree` hands a
-component its page's card: `href`, the same URL the page's `og:image` names, and
-the `width` and `height` the renderer reported. It answers `undefined` on a page
+component its page's card: `href`, the card's path, which is the page's
+`og:image` without the origin, and the `width` and `height` the renderer
+reported. It answers `undefined` on a page
 that gets no card, on a site with no `build.socialImages`, under `pagedeck dev`, which
 draws no cards, and in preview. It works only in a component the page renders
 on the server: an island that calls it fails the build, because the browser
