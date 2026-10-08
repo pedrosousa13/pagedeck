@@ -304,19 +304,45 @@ normal case for this host.
 
 If a full sync is too slow for your content source, keep `content.db` between
 builds the way "Keep the content store and `.pagedeck/` between CI runs" above
-describes, by setting the build command to:
+describes. `PAGEDECK_SNAPSHOT_URL` is a credential (see
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
+that has it can overwrite the snapshot production builds start from. In the
+project's Settings > Variables and Secrets, add it to the Production
+environment only, and select **Encrypt** so it is stored as a secret
+([Cloudflare Pages bindings](https://developers.cloudflare.com/pages/functions/bindings/)).
+
+Then run the snapshot steps only on a production build. Cloudflare sets
+`CF_PAGES_BRANCH` to the name of the branch being deployed
+([build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/)),
+so compare it with the project's production branch, `main` here. Commit this
+script beside `pagedeck.config.ts` and set the build command to
+`sh build.sh`:
+
+`build.sh`:
 
 ```sh
-npx pagedeck store pull
-npx pagedeck sync --incremental
-npx pagedeck build
-npx pagedeck store push
+set -e
+if [ "$CF_PAGES_BRANCH" = main ]; then
+  npx pagedeck store pull
+  npx pagedeck sync --incremental
+  npx pagedeck build
+  npx pagedeck store push
+else
+  npx pagedeck sync
+  npx pagedeck build
+fi
 ```
 
-with `PAGEDECK_SNAPSHOT_URL` set as an environment variable on the project. On
-the first run there is no snapshot to pull and no cursor for `--incremental`
-to start from: run `pagedeck sync` and `pagedeck store push` once first, the
-same as that section describes for any CI runner.
+A preview build gets no `PAGEDECK_SNAPSHOT_URL`, so it neither reads nor
+writes the snapshot: it syncs every entry from the content source and builds
+the whole site. It cannot run the production steps instead: `pagedeck store
+pull` with no URL stops with a usage error that names `PAGEDECK_SNAPSHOT_URL`,
+and `pagedeck sync --incremental` on an empty store stops with "no cursor to
+sync since — run a full sync first".
+
+On the first production run there is no snapshot to pull and no cursor for
+`--incremental` to start from: run `pagedeck sync` and `pagedeck store push`
+once first, the same as that section describes for any CI runner.
 
 ## Vercel
 
@@ -357,22 +383,44 @@ the normal case for this host, and it is always a full build —
 Vercel's build container does not carry over.
 
 If a full sync is too slow for your content source, keep `content.db` between
-builds with `npx pagedeck store pull` and `npx pagedeck store push`, setting
-`PAGEDECK_SNAPSHOT_URL` as an Environment Variable on the project, and
-changing the Build Command to:
+builds with `npx pagedeck store pull` and `npx pagedeck store push`.
+`PAGEDECK_SNAPSHOT_URL` is a credential (see
+[PAGEDECK_SNAPSHOT_URL](/reference/cli/#pagedecksnapshoturl)), and any build
+that has it can overwrite the snapshot production builds start from. In the
+project's Environment Variables settings, add it with the type **Secret**,
+which Vercel describes as "write-only after saving" (it replaced the type
+Vercel called Sensitive), and with Production as its only target environment
+([Config and Secret environment variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables)).
+
+Then run the snapshot steps only on a production build. Vercel sets
+`VERCEL_ENV` to "the environment that the app is deployed and running on",
+one of `production`, `preview` or `development`, at build time
+([system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables)).
+Commit this script beside `pagedeck.config.ts` and set the Build Command to
+`sh build.sh`:
+
+`build.sh`:
 
 ```sh
-npx pagedeck store pull
-npx pagedeck sync --incremental
-npx pagedeck build
-npx pagedeck store push
+set -e
+if [ "$VERCEL_ENV" = production ]; then
+  npx pagedeck store pull
+  npx pagedeck sync --incremental
+  npx pagedeck build
+  npx pagedeck store push
+else
+  npx pagedeck sync
+  npx pagedeck build
+fi
 ```
 
-The build itself stays a full build — `site/` is not carried over — but the
-sync no longer re-fetches every entry from the content source. On the first
-run there is no snapshot to pull and no cursor for `--incremental` to start
-from: run `pagedeck sync` and `pagedeck store push` once first, the same as
-that section describes for any CI runner.
+The build itself stays a full build — `site/` is not carried over — but a
+production sync no longer re-fetches every entry from the content source. A
+preview build gets no `PAGEDECK_SNAPSHOT_URL` and takes the `else` branch,
+which syncs every entry and touches no snapshot, as on Cloudflare Pages above.
+On the first production run there is no snapshot to pull and no cursor for
+`--incremental` to start from: run `pagedeck sync` and `pagedeck store push`
+once first, the same as that section describes for any CI runner.
 
 ## Netlify
 
@@ -433,3 +481,16 @@ builds, to sync and build incrementally instead, takes the same two pieces
 this page's section on CI already covers — a snapshot for the store, a cache
 for `.pagedeck/` — wired into that plugin or into `command` here, rather than
 into a plain CI job's own steps.
+
+If you keep the snapshot, set `PAGEDECK_SNAPSHOT_URL` in the site's
+environment variables with **Contains secret values** selected, and give it a
+value only in the Production deploy context. Netlify says "Secret values must
+be set to explicit deploy contexts and scopes to avoid unexpected exposure"
+([secrets controller](https://docs.netlify.com/build/environment-variables/secrets-controller/)).
+Run `pagedeck store pull` and `pagedeck store push` only when `CONTEXT`, the
+"name of the build's deploy context", is `production`; the other values are
+`deploy-preview`, `branch-deploy` and `dev`
+([environment variables](https://docs.netlify.com/build/configure-builds/environment-variables/)).
+The `build.sh` shown for Cloudflare Pages above works here with
+`"$CONTEXT" = production` as its test and `command = "sh build.sh"`. Deploy
+previews and branch deploys then sync in full and touch no snapshot.
