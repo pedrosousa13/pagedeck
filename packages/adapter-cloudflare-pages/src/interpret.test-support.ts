@@ -68,7 +68,11 @@ function headersFor(blocks: readonly Block[], path: string): HeaderField[] {
   const order: string[] = [];
   for (const block of blocks) {
     if (!path.startsWith(block.prefix)) continue;
-    for (const name of block.detach) value.delete(name);
+    for (const name of block.detach) {
+      value.delete(name);
+      const at = order.indexOf(name);
+      if (at !== -1) order.splice(at, 1);
+    }
     for (const field of block.set) {
       const lower = field.name.toLowerCase();
       const existing = value.get(lower);

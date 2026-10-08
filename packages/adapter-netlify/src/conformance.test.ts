@@ -7,4 +7,5 @@ describeConformance({
   adapter: netlify(),
   interpret: interpretNetlify,
   servedStatus: netlifyStatus,
+  policies: ["never", "always"],
 });

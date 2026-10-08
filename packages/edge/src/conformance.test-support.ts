@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "@pagedeck/core/exit";
@@ -17,7 +19,7 @@ import type { EdgeArtifact } from "./artifact.js";
 import { FIXTURE } from "./fixture.test-support.js";
 import { comparable } from "./interpret.test-support.js";
 import { compiledTree } from "./normalize.js";
-import { resolveRequest } from "./oracle.test-support.js";
+import { headersAt, resolveRequest } from "./oracle.test-support.js";
 import type { EdgeRequest, Resolution } from "./oracle.test-support.js";
 
 export interface AdapterUnderTest {
@@ -28,6 +30,48 @@ export interface AdapterUnderTest {
   ): Resolution | Promise<Resolution>;
   /** The status a host serves for one the document declares, where it narrows it (#10). */
   servedStatus?(status: RedirectStatus): RedirectStatus;
+  policies: readonly TrailingSlash[];
+  /**
+   * A 404 the host serves itself is checked for its kind (#559), and a proxied 404's headers only
+   * where the 404 page's set and the requested path's agree (#39).
+   */
+  unverifiedNotFound?: boolean;
+}
+
+interface Spelling {
+  page(path: string): string;
+  other(path: string): string;
+}
+
+// Takes a path as a "never" site spells it.
+function spellingOf(policy: TrailingSlash): Spelling {
+  return policy === "always"
+    ? { page: (path) => (path.endsWith("/") ? path : `${path}/`), other: (path) => path }
+    : { page: (path) => path, other: (path) => `${path}/` };
+}
+
+// Respells a "never" fixture as `planRouting` would: a file target keeps its spelling, and a header
+// prefix already ends in "/".
+function underPolicy(
+  manifest: RoutingManifest,
+  policy: TrailingSlash,
+): RoutingManifest {
+  if (policy === "never") return manifest;
+  const { page } = spellingOf(policy);
+  return {
+    ...manifest,
+    site: { ...manifest.site, trailingSlash: policy },
+    trees: manifest.trees.map((tree) => ({
+      ...tree,
+      redirects: tree.redirects.map((rule) => ({
+        ...rule,
+        from: page(rule.from),
+        to: rule.file === true ? rule.to : page(rule.to),
+        via: rule.via.map(page),
+      })),
+      ...(tree.notFound === undefined ? {} : { notFound: page(tree.notFound) }),
+    })),
+  };
 }
 
 export function textOf(adapter: EdgeAdapter, manifest: RoutingManifest): string {
@@ -58,58 +102,65 @@ export const HEADER_NAME_FIX =
 export const HEADER_VALUE_FIX =
   "remove the character; RFC 9110 forbids CR, LF and NUL in a field value, where a line break can write a second header, and a Worker's Headers refuses any character above U+00FF";
 
-export function withHeader(name: string, value: string): RoutingManifest {
+export function withHeader(
+  name: string,
+  value: string,
+  policy: TrailingSlash,
+): RoutingManifest {
   // Written by hand: `planRouting` refuses most of these, but a compiler is handed a document.
   return {
-    ...FIXTURE,
+    ...underPolicy(FIXTURE, policy),
     trees: [
       { redirects: [], headers: [{ prefix: "/", set: [{ name, value }] }] },
     ],
   };
 }
 
-const REQUESTS: readonly (EdgeRequest & { what: string })[] = [
-  { what: "an exact redirect", path: "/en/legacy", found: false },
+const requests = ({
+  page,
+  other,
+}: Spelling): readonly (EdgeRequest & { what: string })[] => [
+  { what: "an exact redirect", path: page("/en/legacy"), found: false },
   {
     what: "a redirect that kept its first hop's status",
-    path: "/en/old-docs",
+    path: page("/en/old-docs"),
     found: false,
   },
   {
     what: "a hop the chain flattened through",
-    path: "/en/docs-v1",
+    path: page("/en/docs-v1"),
     found: false,
   },
   {
     what: "the longer of two nested header prefixes",
-    path: "/en/docs/intro",
+    path: page("/en/docs/intro"),
     found: true,
   },
   {
     what: "the shorter of two nested header prefixes",
-    path: "/en/about",
+    path: page("/en/about"),
     found: true,
   },
   {
     what: "a sibling the longer prefix's slash scopes out",
-    path: "/en/docsearch",
+    path: page("/en/docsearch"),
     found: true,
   },
-  { what: "a path no prefix matches", path: "/de/index", found: true },
-  { what: "a missing document", path: "/missing", found: false },
+  { what: "a path no prefix matches", path: page("/de/index"), found: true },
+  { what: "a missing document", path: page("/missing"), found: false },
   {
     what: "a missing document under a longer prefix than the 404 page's",
-    path: "/en/docs/gone",
+    path: page("/en/docs/gone"),
     found: false,
   },
   {
     what: "the non-canonical spelling of a page",
-    path: "/en/about/",
+    path: other("/en/about"),
     found: true,
   },
   {
     what: "the non-canonical spelling of a redirect source",
-    path: "/en/legacy/",
+    path: other("/en/legacy"),
     found: true,
   },
   { what: "the live manifest", path: "/manifest.json", found: true },
@@ -126,19 +177,19 @@ const REQUESTS: readonly (EdgeRequest & { what: string })[] = [
   {
     what: "a redirect on the second tree",
     domain: "shop.example",
-    path: "/sale",
+    path: page("/sale"),
     found: false,
   },
   {
     what: "a header on the second tree",
     domain: "shop.example",
-    path: "/deals",
+    path: page("/deals"),
     found: true,
   },
   {
     what: "a missing document on the second tree",
     domain: "shop.example",
-    path: "/gone",
+    path: page("/gone"),
     found: false,
   },
 ];
@@ -168,14 +219,16 @@ export const ESCAPED: RoutingManifest = {
   ],
 };
 
-const ESCAPED_REQUESTS: readonly (EdgeRequest & { what: string })[] = [
-  { what: "an escaped redirect source", path: "/en/caf%C3%A9", found: false },
+const escapedRequests = ({
+  page,
+}: Spelling): readonly (EdgeRequest & { what: string })[] => [
+  { what: "an escaped redirect source", path: page("/en/caf%C3%A9"), found: false },
   {
     what: "a page under an escaped header prefix",
-    path: "/en/caf%C3%A9/menu",
+    path: page("/en/caf%C3%A9/menu"),
     found: true,
   },
-  { what: "a miss served by an escaped 404 page", path: "/gone", found: false },
+  { what: "a miss served by an escaped 404 page", path: page("/gone"), found: false },
 ];
 
 function manifestOf(trailingSlash: TrailingSlash): RoutingManifest {
@@ -202,22 +255,24 @@ function manifestOf(trailingSlash: TrailingSlash): RoutingManifest {
 }
 
 export const NEVER = manifestOf("never");
-const ALWAYS = manifestOf("always");
 
-const SPELLING_REQUESTS: readonly (EdgeRequest & { what: string })[] = [
+const spellingRequests = ({
+  page,
+  other,
+}: Spelling): readonly (EdgeRequest & { what: string })[] => [
   {
     what: "the non-canonical spelling of a redirect source",
-    path: "/en/legacy/",
+    path: other("/en/legacy"),
     found: true,
   },
   {
     what: "the non-canonical spelling of a live page",
-    path: "/en/about/",
+    path: other("/en/about"),
     found: true,
   },
   {
     what: "the canonical spelling of a live page",
-    path: "/en/about",
+    path: page("/en/about"),
     found: true,
   },
 ];
@@ -375,10 +430,12 @@ export const HARDENED: RoutingManifest = {
   ],
 };
 
-const HARDENED_REQUESTS: readonly (EdgeRequest & { what: string })[] = [
-  { what: "a page", path: "/new", found: true },
-  { what: "a redirect", path: "/old", found: false },
-  { what: "a missing page", path: "/gone", found: false },
+const hardenedRequests = ({
+  page,
+}: Spelling): readonly (EdgeRequest & { what: string })[] => [
+  { what: "a page", path: page("/new"), found: true },
+  { what: "a redirect", path: page("/old"), found: false },
+  { what: "a missing page", path: page("/gone"), found: false },
   { what: "a reserved deploy key", path: "/manifest.json", found: true },
 ];
 
@@ -386,23 +443,81 @@ export function describeConformance({
   adapter,
   interpret,
   servedStatus = (status) => status,
+  policies,
+  unverifiedNotFound = false,
 }: AdapterUnderTest): void {
+  for (const policy of policies) {
+    describe(`under trailingSlash "${policy}"`, () => {
+      describePolicy(
+        { adapter, interpret, servedStatus, unverifiedNotFound },
+        policy,
+      );
+    });
+  }
+}
+
+function describePolicy(
+  {
+    adapter,
+    interpret,
+    servedStatus,
+    unverifiedNotFound,
+  }: Required<Omit<AdapterUnderTest, "policies">>,
+  policy: TrailingSlash,
+): void {
   const { name } = adapter;
-  const answer = async (
-    manifest: RoutingManifest,
-    request: EdgeRequest,
-  ): Promise<Resolution> =>
-    comparable(await interpret(adapter.compile(manifest).artifacts, request));
+  const spelling = spellingOf(policy);
+  const fixture = underPolicy(FIXTURE, policy);
+  const escaped = underPolicy(ESCAPED, policy);
+  const spellings = manifestOf(policy);
+  const file = underPolicy(FILE, policy);
+  const bare = underPolicy(BARE, policy);
+  const hardened = underPolicy(HARDENED, policy);
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
   const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
     resolveRequest(manifest, request, servedStatus);
+  const check = (
+    manifest: RoutingManifest,
+    request: EdgeRequest,
+    resolution: Resolution,
+  ): void => {
+    const answer = comparable(resolution);
+    const claim = comparable(claimFor(manifest, request));
+    if (
+      !unverifiedNotFound ||
+      answer.kind !== "not-found" ||
+      claim.kind !== "not-found" ||
+      !("document" in claim)
+    ) {
+      expect(answer).toEqual(claim);
+    } else if (!("document" in answer)) {
+      expect(answer).toEqual({ kind: "not-found" });
+    } else if (
+      isDeepStrictEqual(
+        claim.headers,
+        comparable({ kind: "pass", headers: headersAt(manifest, request) }).headers,
+      )
+    ) {
+      expect(answer).toEqual(claim);
+    } else {
+      expect(answer.document).toBe(claim.document);
+    }
+  };
+  const expectAnswer = async (
+    manifest: RoutingManifest,
+    request: EdgeRequest,
+  ): Promise<void> => {
+    check(
+      manifest,
+      request,
+      await interpret(adapter.compile(manifest).artifacts, request),
+    );
+  };
 
   describe("one document, every target, one behavior", () => {
-    for (const request of REQUESTS) {
+    for (const request of requests(spelling)) {
       it(`${name} answers ${request.what} the way the document says`, async () => {
-        expect(await answer(FIXTURE, request)).toEqual(
-          comparable(claimFor(FIXTURE, request)),
-        );
+        await expectAnswer(fixture, request);
       });
     }
   });
@@ -411,104 +526,94 @@ export function describeConformance({
     // Same document, identical artifacts, or an unchanged document republishes a function on
     // every deploy.
     it(`compiles ${name} to identical text twice`, () => {
-      expect(adapter.compile(FIXTURE)).toEqual(adapter.compile(FIXTURE));
+      expect(adapter.compile(fixture)).toEqual(adapter.compile(fixture));
     });
   });
 
   describe("an escaped path answers the same on every target", () => {
-    for (const request of ESCAPED_REQUESTS) {
+    for (const request of escapedRequests(spelling)) {
       it(`${name} answers ${request.what}`, async () => {
-        expect(await answer(ESCAPED, request)).toEqual(
-          comparable(claimFor(ESCAPED, request)),
-        );
+        await expectAnswer(escaped, request);
       });
     }
   });
 
   describe("the site's trailing-slash policy reaches every target", () => {
+    // Not followed by "/": under "always" the other spelling is a prefix of the canonical one.
+    const alone = (path: string) => new RegExp(`${spelling.other(path)}(?!/)`);
+
     it(`${name} rules on the non-canonical spelling of a redirect source`, () => {
-      expect(textOf(adapter, NEVER)).toContain("/en/legacy/");
+      expect(textOf(adapter, spellings)).toMatch(alone("/en/legacy"));
     });
 
     it(`${name} rules on the non-canonical spelling of a page`, () => {
-      expect(textOf(adapter, NEVER)).toContain("/en/about/");
-    });
-
-    it(`${name} reads the policy rather than assuming one`, () => {
-      // Matched with the following character, since the canonical spelling ends in a slash here.
-      const text = textOf(adapter, ALWAYS);
-      expect(text).toMatch(/\/en\/legacy[^/]/);
-      expect(text).toMatch(/\/en\/about[^/]/);
+      expect(textOf(adapter, spellings)).toMatch(alone("/en/about"));
     });
   });
 
   describe("a non-canonical spelling answers the same on every target", () => {
-    for (const request of SPELLING_REQUESTS) {
+    for (const request of spellingRequests(spelling)) {
       it(`${name} answers ${request.what}`, async () => {
-        expect(await answer(NEVER, request)).toEqual(
-          comparable(claimFor(NEVER, request)),
-        );
+        await expectAnswer(spellings, request);
       });
     }
   });
 
   describe("a file target has no other spelling", () => {
     it(`${name} writes no rule for the slashed file`, () => {
-      expect(textOf(adapter, FILE)).not.toContain("/sitemap.xml/");
+      expect(textOf(adapter, file)).not.toContain("/sitemap.xml/");
     });
 
     it(`${name} answers the slashed file as the claim does`, async () => {
-      expect(await answer(FILE, SLASHED_FILE)).toEqual(
-        comparable(claimFor(FILE, SLASHED_FILE)),
-      );
+      await expectAnswer(file, SLASHED_FILE);
     });
   });
 
-  describe("under trailingSlash always, a file target is not redirected to itself", () => {
-    const tree = ALWAYS_FILE.trees[0];
-    if (tree === undefined) throw new Error("expected one tree");
-    const paths = [
-      ...new Set([
-        ...compiledTree(tree, "always").redirects.flatMap((rule) => [
-          rule.from,
-          rule.to,
+  if (policy === "always") {
+    describe("a file target is not redirected to itself", () => {
+      const tree = ALWAYS_FILE.trees[0];
+      if (tree === undefined) throw new Error("expected one tree");
+      const paths = [
+        ...new Set([
+          ...compiledTree(tree, "always").redirects.flatMap((rule) => [
+            rule.from,
+            rule.to,
+          ]),
+          "/sitemap.xml",
+          "/sitemap.xml/",
         ]),
-        "/sitemap.xml",
-        "/sitemap.xml/",
-      ]),
-    ];
-    const resolve = async (request: EdgeRequest): Promise<Resolution> =>
-      interpret(adapter.compile(ALWAYS_FILE).artifacts, request);
+      ];
+      const resolve = async (request: EdgeRequest): Promise<Resolution> =>
+        interpret(adapter.compile(ALWAYS_FILE).artifacts, request);
 
-    it(`${name} redirects no path to itself, and serves the file`, async () => {
-      for (const path of paths) {
-        const request = { path, found: ALWAYS_FILE_HELD.has(path) };
-        const resolution = await resolve(request);
-        expect(comparable(resolution)).toEqual(
-          comparable(claimFor(ALWAYS_FILE, request)),
+      it(`${name} redirects no path to itself, and serves the file`, async () => {
+        for (const path of paths) {
+          const request = { path, found: ALWAYS_FILE_HELD.has(path) };
+          const resolution = await resolve(request);
+          check(ALWAYS_FILE, request, resolution);
+          if (resolution.kind === "redirect") expect(resolution.to).not.toBe(path);
+        }
+        expect((await resolve({ path: "/sitemap.xml", found: true })).kind).toBe(
+          "pass",
         );
-        if (resolution.kind === "redirect") expect(resolution.to).not.toBe(path);
-      }
-      expect((await resolve({ path: "/sitemap.xml", found: true })).kind).toBe(
-        "pass",
-      );
+      });
     });
-  });
+  }
 
   describe("every target answers a reserved deploy key with the site's 404", () => {
     for (const request of KEYS) {
       it(`${name}, for ${request.what}`, async () => {
-        const claim = claimFor(FIXTURE, request);
+        const claim = claimFor(fixture, request);
         expect(claim.kind).toBe("not-found");
-        expect(await answer(FIXTURE, request)).toEqual(comparable(claim));
+        await expectAnswer(fixture, request);
       });
     }
 
     for (const request of NEIGHBOURS) {
       it(`${name}, and serves ${request.what} as the site file it is`, async () => {
-        const claim = claimFor(FIXTURE, request);
+        const claim = claimFor(fixture, request);
         expect(claim.kind).toBe("pass");
-        expect(await answer(FIXTURE, request)).toEqual(comparable(claim));
+        await expectAnswer(fixture, request);
       });
     }
   });
@@ -516,18 +621,14 @@ export function describeConformance({
   describe("a site with no 404 page", () => {
     for (const request of KEYS.filter((key) => key.domain === undefined)) {
       it(`gets a bare 404 from ${name} for ${request.what}, whatever header rule covers it`, async () => {
-        expect(claimFor(BARE, request)).toEqual({ kind: "not-found" });
-        expect(await answer(BARE, request)).toEqual(
-          comparable({ kind: "not-found" }),
-        );
+        expect(claimFor(bare, request)).toEqual({ kind: "not-found" });
+        await expectAnswer(bare, request);
       });
     }
 
     it(`still gets its headers on a page from ${name}`, async () => {
-      const request = { path: "/about", found: true };
-      expect(await answer(BARE, request)).toEqual(
-        comparable(claimFor(BARE, request)),
-      );
+      const request = { path: spelling.page("/about"), found: true };
+      await expectAnswer(bare, request);
     });
   });
 
@@ -535,7 +636,7 @@ export function describeConformance({
     it(`is compiled by ${name} into a tree that declares nothing at all`, () => {
       const empty: RoutingManifest = {
         version: ROUTING_VERSION,
-        site: { trailingSlash: "never" },
+        site: { trailingSlash: policy },
         trees: [{ redirects: [], headers: [] }],
       };
       expect(adapter.compile(empty).artifacts.length, name).toBeGreaterThan(0);
@@ -543,9 +644,9 @@ export function describeConformance({
   });
 
   describe("a site's whole security set, HSTS and CSP included, on every target", () => {
-    for (const request of HARDENED_REQUESTS) {
+    for (const request of hardenedRequests(spelling)) {
       it(`answers ${request.what} on ${name} with all five fields, as the document says`, async () => {
-        const claim = comparable(claimFor(HARDENED, request));
+        const claim = comparable(claimFor(hardened, request));
         expect(
           (("headers" in claim ? claim.headers : undefined) ?? []).map(
             (field) => field.name,
@@ -557,7 +658,7 @@ export function describeConformance({
           "x-content-type-options",
           "x-frame-options",
         ]);
-        expect(await answer(HARDENED, request)).toEqual(claim);
+        await expectAnswer(hardened, request);
       });
     }
   });
@@ -565,7 +666,7 @@ export function describeConformance({
   describe("compile refusals", () => {
     it(`refuses a header name holding a space on ${name}`, () => {
       expect(() =>
-        adapter.compile(withHeader("X-Frame Options", "DENY")),
+        adapter.compile(withHeader("X-Frame Options", "DENY", policy)),
       ).toThrow(
         new ConfigError(
           `Edge target "${name}": 1 header name is not a token — ${HEADER_NAME_FIX}:
@@ -583,7 +684,7 @@ export function describeConformance({
     ] as const) {
       it(`refuses a header value holding ${what} on ${name}, never quoting the value`, () => {
         expect(() =>
-          adapter.compile(withHeader("X-Note", `a${character}b`)),
+          adapter.compile(withHeader("X-Note", `a${character}b`, policy)),
         ).toThrow(
           new ConfigError(
             `Edge target "${name}": 1 header value cannot be sent — ${HEADER_VALUE_FIX}:
@@ -595,7 +696,7 @@ export function describeConformance({
 
     it(`compiles a header value holding "é", below U+0100, on ${name}`, () => {
       expect(() =>
-        adapter.compile(withHeader("X-Note", "café")),
+        adapter.compile(withHeader("X-Note", "café", policy)),
       ).not.toThrow();
     });
   });

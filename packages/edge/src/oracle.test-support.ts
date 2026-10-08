@@ -119,3 +119,12 @@ function notFound(tree: RoutingTree): Resolution {
         headers: headersFor(tree, tree.notFound),
       };
 }
+
+/** The set the document gives the requested path itself, whatever the request resolves to. */
+export function headersAt(
+  manifest: RoutingManifest,
+  request: EdgeRequest,
+): readonly HeaderField[] {
+  const tree = treeFor(manifest, request.domain);
+  return tree === undefined ? [] : headersFor(tree, request.path);
+}
