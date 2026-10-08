@@ -153,7 +153,7 @@ position from a field its types do not declare.
 **The public set** is the fifteen packages a site author installs (#690),
 the six edge adapters among them (#19), and `create-pagedeck`, which writes a
 new site (#691), listed in
-`packages/core/src/public-packages.test-support.ts`. Each is `0.1.0`, MIT,
+`packages/core/src/public-packages.test-support.ts`. Each is `0.2.0`, MIT,
 with `repository`, `engines.node` and `publishConfig.access`; every other
 package stays `private` (#689).
 `engines.node` is the lowest Node the package and its dependencies need:
