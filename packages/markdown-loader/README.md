@@ -98,9 +98,10 @@ as `TocEntry.slug` (issue #327).
   heading adds nothing, so `## <a name="solution"></a>The solution` is
   anchored at `#the-solution` and still carries the author's own `solution`
   anchor. A link adds its text and not its URL, and an image adds nothing.
-  `TocEntry.text` is read the same way, so the outline lists that heading as
-  `The solution`. The title keeps its own reading: only `*`, `_` and backticks
-  are removed from it.
+  `TocEntry.text` and the title a level-1 heading supplies are read the same
+  way, so the outline lists that heading as `The solution`. An underscore
+  inside a word, a code span's contents and an escaped marker stay (issue
+  #88).
 - **Lowercase letters and digits, any script**, with every other run of
   characters turned into one hyphen and none at either end.
 - **Apostrophes are dropped**, straight and curly, so `## What's next` is

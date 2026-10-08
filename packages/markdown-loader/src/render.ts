@@ -18,7 +18,7 @@ export interface TocEntry {
   readonly depth: number;
   /**
    * What a reader sees in the heading: markup gives only its text, an image nothing (#542).
-   * Text, not HTML. Curled like the heading under `smartQuotes`; `title` keeps its own reading.
+   * Text, not HTML. Curled like the heading under `smartQuotes`.
    */
   readonly text: string;
   /** The `id` of the heading element this render emitted for it. */
@@ -112,34 +112,6 @@ function curlBlock(token: Token): void {
   }
 }
 
-// Curling changes no length, so each token's `raw` is found in `source` in order.
-function curledSource(source: string, tokens: readonly Token[]): string {
-  let at = 0;
-  let spelled = "";
-  for (const token of tokens) {
-    const index = source.indexOf(token.raw, at);
-    if (index === -1) return source;
-    const children = (token as Tokens.Generic).tokens;
-    let own = token.raw;
-    if (token.type === "text" && children === undefined) {
-      own = (token as Tokens.Text).text;
-    } else if (
-      children !== undefined &&
-      token.type !== "image" &&
-      !(token.type === "link" && !token.raw.startsWith("["))
-    ) {
-      own = curledSource(token.raw, children);
-    }
-    spelled += source.slice(at, index) + own;
-    at = index + token.raw.length;
-  }
-  return spelled + source.slice(at);
-}
-
-function curledHeadingText(token: Tokens.Heading): string {
-  return curledSource(token.text, token.tokens).replace(/[*_`]/g, "").trim();
-}
-
 // `walkTokens` may be async and the renderer may not, so highlighting happens in the walk.
 interface HighlightedCode extends Tokens.Code {
   fwHighlighted?: string;
@@ -171,10 +143,6 @@ function unknownLanguageReport(file: string, unknown: Set<string>): string {
   return `Markdown "${file}": ${subject} — add each to the loader's languages, or drop the language from the fence:\n${languages
     .map((language) => `  ${language}`)
     .join("\n")}`;
-}
-
-function headingText(token: Tokens.Heading): string {
-  return token.text.replace(/[*_`]/g, "").trim();
 }
 
 // Raw HTML and images give nothing, a link its text. `curled` picks a text token's `text`
@@ -249,6 +217,7 @@ export async function createMarkdownRenderer(
     async render(body, file) {
       // Per render: a shared set would report a language on every later file.
       const unknown = new Set<string>();
+      let titleSeen = false;
       let title: string | undefined;
       const toc: TocEntry[] = [];
       const taken = new Set<string>();
@@ -260,8 +229,9 @@ export async function createMarkdownRenderer(
           if (token.type === "heading") {
             // Narrowing on `type` alone leaves the `Generic` member's fields optional.
             const heading = token as TitleHeading;
-            if (heading.depth === 1 && title === undefined) {
-              title = smartQuotes ? curledHeadingText(heading) : headingText(heading);
+            if (heading.depth === 1 && !titleSeen) {
+              titleSeen = true;
+              title = textContent(heading.tokens, smartQuotes) || undefined;
               heading.fwTitle = true;
             }
           }
