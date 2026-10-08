@@ -224,7 +224,7 @@ test("every target a packed manifest exports is a file in its tarball", () => {
   expect(faults).toEqual([]);
 });
 
-test("every packed manifest is 0.1.0 and depends on no private or unversioned package", () => {
+test("every packed manifest is PUBLIC_VERSION and depends on no private or unversioned package", () => {
   const privateNames = new Set(
     readdirSync(join(REPO, "packages"))
       .map((dir) => join(REPO, "packages", dir, "package.json"))
