@@ -37,7 +37,7 @@ export function reachableFrom(
   return seen;
 }
 
-function chainsFromEntries(graph: ModuleGraph): Map<string, string> {
+export function chainsFromEntries(graph: ModuleGraph): Map<string, string> {
   const via = new Map<string, string>();
   const queue: string[] = [];
   for (const entry of [...graph.entries].sort()) {
@@ -57,7 +57,7 @@ function chainsFromEntries(graph: ModuleGraph): Map<string, string> {
   return via;
 }
 
-function chainTo(module: string, via: ReadonlyMap<string, string>): string[] {
+export function chainTo(module: string, via: ReadonlyMap<string, string>): string[] {
   const chain = [module];
   let at = module;
   for (;;) {

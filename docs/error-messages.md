@@ -15,7 +15,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 113 below, 100 of them
+`x` at/from `path`, outside fenced blocks — there are 114 below, 101 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -29,8 +29,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 274 messages fenced
-below, 218 are checked that way and 56 are not**, and that test lists the 56
+literal interpolates left as holes it cannot read. **Of the 275 messages fenced
+below, 219 are checked that way and 56 are not**, and that test lists the 56
 one by one with the reason each is out: 54 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 218 checked messages pin 34017 of the 84670 fenced characters, and
+below**: the 219 checked messages pin 34093 of the 85232 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3495,24 +3495,24 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty-two, and each says what it cannot promise; a twenty-third is
+writes twenty-three, and each says what it cannot promise; a twenty-fourth is
 written by `pagedeck sync` rather than by a build and is the last one described
 below; three more are the browser's and are argued in this rule's closing
 section, where they sit among the browser's refusals rather than after them.
 
-**All twenty-two reach `io.err`, and four of them only through one verb**, and
+**All twenty-three reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-third is reachable too, by the same shape through the other verb:
+The twenty-fourth is reachable too, by the same shape through the other verb:
 `syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
-is described after the twenty-two below, and kept out of their count because
-`pagedeck sync` is what writes it and no build ever does. Eighteen —
+is described after the twenty-three below, and kept out of their count because
+`pagedeck sync` is what writes it and no build ever does. Nineteen —
 `resourcePlacerWarning`, `unlinkedStylesheetWarning`,
-`workerFallbackWarning`, `workerConsentWarning`,
+`unregisteredClientWarning`, `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
 `checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
 `compileIslands`' two — are collected into `SiteBuild.warnings` by `buildSite`
-and written by `runBuildVerb`. All eighteen are reachable; one of them was not
+and written by `runBuildVerb`. All nineteen are reachable; one of them was not
 until #270, and its own section below records what closed it — a site's
 redirects now reach `planRouting` through `build.routing`. The last two travel
 one stage further to get there, and #242 is that stage: a bundler plugin has no
@@ -3523,8 +3523,8 @@ The four #29 adds, `driftWarnings`' two and `compileSupplements`' two, are
 strings shaped for that same field, and #281 gave them the caller they were
 waiting on: `buildSite` (`packages/core/src/build.ts`) runs `checkDrift` and
 `compileSupplements` on a run given `incremental: true`, and puts both sets of
-warnings into the same `warnings` list the eighteen above go into. So all
-twenty-two are reachable, and the four reach a reader through
+warnings into the same `warnings` list the nineteen above go into. So all
+twenty-three are reachable, and the four reach a reader through
 `pagedeck build --incremental` and through nothing else — a full build cannot drift by
 construction, since the class manifest it would check against is the one it is
 writing, so it makes no plan, takes no check and produces none of these four.
@@ -4320,7 +4320,7 @@ stylesheet reaches no page. Before #71 the build said nothing, and the missing
 styles were the only sign:
 
 ```
-Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
+Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import each stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
   "/site/components/landing.css" — imported by "/site/components/Landing.js"
   "/site/components/legal.css" — imported by "/site/components/Legal.js", "/site/components/Terms.js"
 ```
@@ -4335,7 +4335,32 @@ that asked for it. Linking the stylesheet into the pages that render its
 importer was the other answer #71 offered; the maintainer ruled it a separate
 feature, and this warning goes when it lands.
 
-**The twenty-third is not a build's at all, and it is `colorFailureWarning`**
+The twenty-third is `unregisteredClientWarning`
+(`packages/core/src/island-facts.ts`, #72): a `"use client"` module that a
+module outside every island imports, and that `build.components` does not
+register. An island is `CONTEXT.md`'s **Island**, as in the twenty-second. The
+scan finds every reachable `"use client"` module, but only a registered one
+becomes an island, so an unregistered one renders as static HTML with no
+JavaScript: it looks interactive and does nothing. Before #72 the build said
+nothing. The warning takes the twenty-second's route, so `pagedeck dev` prints
+it too, and names each module with the import chain from a registered
+component to it:
+
+```
+Island scan: 2 modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript — register each under build.components, or import each only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:
+  "/site/components/Knob.js" — /site/components/Frame.js → /site/components/Knob.js
+  "/site/components/Toggle.js" — /site/components/Shell.js → /site/components/Toggle.js
+```
+
+Not a refusal: the scan sees imports, not renders, and a package that marks
+every file `"use client"` can render correctly as static HTML. Only the
+outermost module is reported, the one some module outside every `"use client"`
+closure and every island imports. A client module nested inside a reported one
+is not reported, because registering the outer module brings the inner one
+into its island. Neither is a client module that only a registered island
+imports, with or without the directive: it is already part of that island.
+
+**The twenty-fourth is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
 fetch a dominant color for. It is written by `pagedeck sync` and reaches `io.err`
 through `runSyncVerb`, which writes `SyncReport.warnings` before the failures —
