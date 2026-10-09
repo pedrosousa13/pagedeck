@@ -1,8 +1,8 @@
 "use client";
 
-// Registered `idle`, yet fetches nothing until touched (#62): focus warms the shard ranges,
-// and typing fetches shards.
-import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+// Registered `interaction`, and fetches nothing until touched (#62): focus warms the shard
+// ranges, and typing fetches shards.
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { reportBrowserFault } from "@pagedeck/islands/browser-report";
 import { createSearchClient } from "./query.js";
 import type { SearchHit } from "./query.js";
@@ -15,6 +15,10 @@ interface Typed {
 interface Clickable {
   click(): void;
 }
+interface Browser {
+  document: { activeElement: unknown };
+}
+const browser = globalThis as unknown as Browser;
 
 export default function SearchIsland({
   locale,
@@ -86,6 +90,13 @@ export default function SearchIsland({
     setQuery(typed);
     run(typed);
   }, [run]);
+
+  // The focus that hydrates an `interaction` island lands before `onFocus` is attached.
+  useEffect(() => {
+    if (field.current !== null && field.current === browser.document.activeElement) {
+      client.warm().catch(report);
+    }
+  }, [client, report]);
 
   const showing = open && hits !== undefined && hits.length > 0;
 

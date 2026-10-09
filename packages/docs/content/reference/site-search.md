@@ -147,13 +147,20 @@ carried over unchanged.
 ## The search island
 
 Declare the island in the site's `components` by its package specifier, with
-`hydrate: "idle"`. Hydrating fetches no index file, so the island can be ready
-before the reader reaches it without costing a request:
+`hydrate: "interaction"`. The page then loads no React and no island code for
+search until the reader focuses the box or presses inside it:
 
 ```ts
 // In `components`:
-search: { path: "@pagedeck/search/island", hydrate: "idle" },
+search: { path: "@pagedeck/search/island", hydrate: "interaction" },
 ```
+
+The box works before it hydrates. Text typed into it is kept and searched when
+the island hydrates, and a box focused before it hydrates fetches the shard
+ranges as soon as it does. The focus or press that hydrates the island is not
+replayed afterwards. If search must answer the first keystroke with no wait,
+declare `hydrate: "idle"` instead: the island hydrates soon after the page
+loads, and hydrating still fetches no index file.
 
 Then place it as a node of the page's entry tree, as the sites in this
 repository do:
@@ -193,7 +200,7 @@ If an index file cannot be fetched, the island reports the error to the
 browser console and shows `emptyLabel`. The message names the file and the
 status.
 
-Fold strategy does not change an `idle` island. See
+Fold strategy does not change an `interaction` or `idle` island. See
 [Fold strategy](/reference/fold-strategy/).
 
 ## Loading on focus

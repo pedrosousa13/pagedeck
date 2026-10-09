@@ -24,8 +24,12 @@ To show a search box, declare the island by its package specifier:
 
 ```ts
 // In the site's config, inside build.components:
-search: { path: "@pagedeck/search/island", hydrate: "idle" },
+search: { path: "@pagedeck/search/island", hydrate: "interaction" },
 ```
+
+`interaction` hydrates the island on the first focus or press inside it, so a
+page pays for no search JavaScript until a reader uses the box. Text typed
+before then is kept, and the event that hydrates the island is not replayed.
 
 Then render it from a page's tree. It takes three props, all required:
 

@@ -132,6 +132,21 @@ test("idle is never altered in either direction", () => {
   }
 });
 
+test("interaction is never altered in either direction", () => {
+  for (const position of [0, 99]) {
+    const tuned = tuneHydration({
+      component: "search",
+      resolved: { mode: "interaction", source: "declared" },
+      position,
+      treeSize: PAGE_SIZED,
+      strategy: AT_TEN,
+    });
+
+    expect(tuned.mode).toBe("interaction");
+    expect(tuned.adjustment).toBeUndefined();
+  }
+});
+
 test("nothing is ever promoted past load", () => {
   const tuned = tuneHydration({
     component: "lead_form",

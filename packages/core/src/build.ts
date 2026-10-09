@@ -34,7 +34,7 @@ import { installClientReferences } from "./client-reference-loader.js";
 import { inlineStyleElements, inlinedPages } from "./critical-css.js";
 import { checkDrift, driftWarnings } from "./drift.js";
 import { planEntries, runtimeImports } from "./entries.js";
-import type { EntryPlan, PageDemand, PageEntry } from "./entries.js";
+import type { EntryPlan, IslandInstance, PageDemand, PageEntry } from "./entries.js";
 import { ConfigError, describeError, printable } from "./exit.js";
 import { absentFaviconWarning, faviconFiles } from "./favicon.js";
 import { feedFiles, feedUrl } from "./feed.js";
@@ -1696,7 +1696,7 @@ interface RenderedRow {
   page: Page;
   html: string;
   absorbed: readonly AbsorbedMetadata[];
-  islands: readonly { component: string; mode: "load" | "visible" | "idle" }[];
+  islands: readonly IslandInstance[];
   foldTuning: readonly FoldAdjustment[];
   chrome?: ChromeMarkup;
 }

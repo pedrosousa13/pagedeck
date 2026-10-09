@@ -38,6 +38,7 @@ interface TestElement {
   querySelector(selector: string): TestElement | null;
   querySelectorAll(selector: string): Iterable<TestElement>;
   click(): void;
+  dispatchEvent(event: object): boolean;
 }
 declare const document: { body: TestElement };
 
@@ -146,7 +147,7 @@ interface IslandFixture {
   component: string;
   render: ComponentType<never>;
   props?: Readonly<Record<string, unknown>>;
-  mode: "load" | "visible" | "idle";
+  mode: "load" | "visible" | "idle" | "interaction";
   prefix: string;
 }
 
@@ -488,6 +489,127 @@ test("a visible island with no element children falls back to idle", async () =>
   await runIdleCallbacks();
 
   expect(mounted).toEqual(["text-only"]);
+});
+
+async function interact(
+  target: TestElement | null | undefined,
+  type: "focusin" | "pointerdown",
+): Promise<void> {
+  if (target === null || target === undefined) {
+    throw new Error(`nothing to dispatch ${type} on`);
+  }
+  await act(async () => {
+    target.dispatchEvent(new Event(type, { bubbles: true }));
+  });
+}
+
+async function interactionPage(): Promise<{
+  resolve: ReturnType<typeof vi.fn<(name: string) => Promise<ComponentType<never>>>>;
+  marker: TestElement;
+  outside: TestElement;
+}> {
+  const built = await buildPage([
+    { component: "Reveal", render: Reveal, mode: "interaction", prefix: "isearch" },
+  ]);
+  document.body.innerHTML += '<p id="outside"><button type="button">elsewhere</button></p>';
+  return {
+    resolve: vi.fn(built),
+    marker: markers()[0] as TestElement,
+    outside: document.body.querySelector("#outside button") as TestElement,
+  };
+}
+
+test("an interaction island hydrates on the first focus inside it, and only once", async () => {
+  fakeBrowser({ idle: true });
+  const { resolve, marker, outside } = await interactionPage();
+
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+  await runIdleCallbacks();
+  await interact(outside, "focusin");
+  await interact(outside, "pointerdown");
+
+  expect(resolve).not.toHaveBeenCalled();
+
+  await interact(marker.querySelector("button"), "focusin");
+  await interact(marker.querySelector("button"), "pointerdown");
+  await interact(marker.querySelector("button"), "focusin");
+
+  expect(resolve).toHaveBeenCalledTimes(1);
+  await click(marker);
+  expect(marker.textContent).toBe("1");
+});
+
+test("an interaction island hydrates on the first press inside it", async () => {
+  fakeBrowser({ idle: true });
+  const { resolve, marker } = await interactionPage();
+
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+  await interact(marker.querySelector("button"), "pointerdown");
+
+  expect(resolve).toHaveBeenCalledTimes(1);
+});
+
+test("the press that hydrates an interaction island is not replayed", async () => {
+  fakeBrowser({ idle: true });
+  const { resolve, marker } = await interactionPage();
+
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+  await act(async () => {
+    const button = marker.querySelector("button");
+    button?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    button?.click();
+  });
+
+  expect(resolve).toHaveBeenCalledTimes(1);
+  expect(marker.textContent).toBe("0");
+});
+
+test("an interaction island with no element children falls back to idle", async () => {
+  fakeBrowser({ idle: true });
+  const resolve = await buildPage([
+    {
+      component: "Notice",
+      render: Notice,
+      props: { id: "text-only" },
+      mode: "interaction",
+      prefix: "inotice",
+    },
+  ]);
+
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+
+  expect(mounted).toEqual([]);
+
+  await runIdleCallbacks();
+
+  expect(mounted).toEqual(["text-only"]);
+});
+
+test("an all-interaction page starts the runtime only when an island is touched", async () => {
+  fakeBrowser({ idle: true });
+  const { resolve, marker, outside } = await interactionPage();
+  const start = startsRuntime(resolve);
+
+  await act(async () => {
+    hydrateOnTrigger(start);
+  });
+  await runIdleCallbacks();
+  await interact(outside, "pointerdown");
+
+  expect(start).not.toHaveBeenCalled();
+
+  await interact(marker.querySelector("button"), "focusin");
+
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(resolve).toHaveBeenCalledTimes(1);
 });
 
 test("a page with no markers does nothing and registers nothing", async () => {

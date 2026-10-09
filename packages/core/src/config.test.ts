@@ -2113,6 +2113,23 @@ test("a component declared by path loads as a loader for the render and an entry
   }
 });
 
+test("build.components takes a component that hydrates on interaction", async () => {
+  const dir = componentSite();
+  writeConfig(
+    dir,
+    "pagedeck.config.ts",
+    buildSectionSource(`{ ${COMPONENT_BUILD},
+      components: {
+        lead: { path: "./components/Lead.js", hydrate: "interaction" },
+      },
+    }`),
+  );
+
+  const config = await loadConfig(dir);
+
+  expect(config.build?.components.lead?.hydrate).toBe("interaction");
+});
+
 test("a relative or absolute component path is resolved against the config file's directory, however it is spelled", async () => {
   const dir = componentSite();
   writeConfig(

@@ -91,8 +91,12 @@ registry row says when, with `hydrate`:
 - **`"load"`** hydrates as soon as the page's script runs. Pick it for
   something a visitor uses the moment the page opens.
 - **`"idle"`** hydrates when the browser has finished loading the page. Pick
-  it for something a visitor needs soon but not first. The
-  [site search](/reference/site-search/) box hydrates on `idle`.
+  it for something a visitor needs soon but not first.
+- **`"interaction"`** hydrates on the first focus or press inside the island.
+  Pick it for something many visitors never touch. The
+  [site search](/reference/site-search/) box hydrates on `interaction`. The
+  press that hydrates the island is not replayed, so a button pressed before
+  hydration must be pressed again.
 - **`"visible"`** hydrates when the island scrolls into view. This is what
   `"use client"` gives you with no `hydrate`. Pick it for anything below the
   first screen.

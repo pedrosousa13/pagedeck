@@ -50,13 +50,14 @@ Seven consequences are worth stating outright:
 
 - **Only `hydrate: "load"` islands' own chunks count.** An island hydrating on
   `load` has its module fetched the moment the page's entry runs, so it is part
-  of first render. `idle` and `visible` islands are not: `visible` waits for the
-  island to scroll into view, which for a page nobody scrolls is never, and
-  `idle` waits for the browser to finish the page's own load work, which is
+  of first render. `idle`, `visible` and `interaction` islands are not:
+  `visible` waits for the island to scroll into view, which for a page nobody
+  scrolls is never, `interaction` waits for a focus or press inside the island,
+  and `idle` waits for the browser to finish the page's own load work, which is
   after first render by definition. Moving an island from `load` to `visible`
   is therefore a real way to get a page back under its budget.
-- **A runtime loaded later still counts.** A page whose islands are all `idle`
-  or `visible` loads React and the island runtime only when its first island's
+- **A runtime loaded later still counts.** A page whose islands are all `idle`,
+  `visible` or `interaction` loads React and the island runtime only when its first island's
   trigger fires. Its budget charges them all the same, because a budget counts
   what a page downloads, not when. Moving every island off `load` saves the
   islands' own chunks and the work at load, not React's bytes.
@@ -320,8 +321,8 @@ island over the limit, gets no report.
 Every budgeted page appears, breaching or not, in route-table order, with its
 chunks largest first, and every critical-CSS page beside them. `actual` is the
 sum of `chunks` plus `jsInlined`, and `chunks` is the first-render set described
-above — a chunk this page fetches only when an `idle` or `visible` island
-hydrates is in neither. `css`, `cssInlined` and `html` sit beside `actual` and
+above — a chunk this page fetches only when an `idle`, `visible` or
+`interaction` island hydrates is in neither. `css`, `cssInlined` and `html` sit beside `actual` and
 are in no part of it, and `breach` is `actual > limit` and nothing else.
 `largestIslandProps` is the page's largest island props in bytes, 0 on a page
 with no island, and `islandPropsBreaches` lists each island over the limit,

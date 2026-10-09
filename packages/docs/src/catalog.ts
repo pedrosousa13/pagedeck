@@ -1,5 +1,5 @@
-// `search` hydrates on `idle`: hydrating it issues no request, and the
-// `visible` default would hydrate it the moment it scrolled into view.
+// `search` hydrates on `interaction`, so a page loads no React for it until a
+// reader focuses or presses the box.
 import { defineComponents } from "@pagedeck/islands";
 import type { ComponentDeclarations } from "@pagedeck/islands";
 
@@ -29,7 +29,7 @@ export const components: ComponentDeclarations<ComponentName> =
   defineComponents({
     doc_page: DOC_PAGE_MODULE,
     search_page: SEARCH_PAGE_MODULE,
-    search: { path: SEARCH_ISLAND_MODULE, hydrate: "idle" },
+    search: { path: SEARCH_ISLAND_MODULE, hydrate: "interaction" },
     site_header: SITE_HEADER_MODULE,
     site_footer: SITE_FOOTER_MODULE,
   });

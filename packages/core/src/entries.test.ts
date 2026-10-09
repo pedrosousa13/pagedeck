@@ -644,3 +644,21 @@ test("two pages whose outputs once spelled one entry name now plan without a ref
   );
   expect(entryOf(same, "en", "/").name).toBe(entryOf(same, "en", "/index").name);
 });
+
+test("an interaction island is not eager, so its page loads only the startup module", () => {
+  const entry = only(
+    planEntries(
+      [
+        {
+          page: page("en", "/", "/en"),
+          islands: [{ component: "Hero", mode: "interaction" }],
+        },
+      ],
+      { modules: MODULES },
+    ).entries,
+  );
+
+  expect(entry.components).toEqual([
+    { name: "Hero", module: "@ds/hero", eager: false },
+  ]);
+});

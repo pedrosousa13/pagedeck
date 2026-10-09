@@ -55,6 +55,7 @@ overruling the one person who has measured the page.
 | `hydrate: 'visible'` | **unchanged** | unchanged |
 | `hydrate: 'load'` | unchanged | demoted to `visible` |
 | `hydrate: 'idle'` | unchanged | unchanged |
+| `hydrate: 'interaction'` | unchanged | unchanged |
 | `hydrate: 'none'`, or no directive | unchanged | unchanged |
 
 Nothing is ever promoted past `load`, and a static component is never made into

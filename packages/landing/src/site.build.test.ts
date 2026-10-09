@@ -802,7 +802,7 @@ describe("/features", () => {
       island_load: "load",
       island_idle: "idle",
       island_visible: "visible",
-      search: "idle",
+      search: "interaction",
     });
     const islands = section("islands");
     expect(islands).toContain('data-probe="static"');

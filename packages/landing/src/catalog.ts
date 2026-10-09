@@ -83,7 +83,7 @@ export const components: ComponentDeclarations<ComponentName> =
       hydrate: "visible",
     },
     static_probe: "@pagedeck/landing/components/static_probe",
-    search: { path: "@pagedeck/search/island", hydrate: "idle" },
+    search: { path: "@pagedeck/search/island", hydrate: "interaction" },
     consent_banner: "@pagedeck/design-system/components/consent_banner",
     embed_frame: "@pagedeck/landing/components/embed_frame",
     responsive_image: "@pagedeck/landing/components/responsive_image",

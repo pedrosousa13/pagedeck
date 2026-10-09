@@ -70,7 +70,7 @@ const COPY = {
   search: {
     heading: "Search",
     body: [
-      "At build time, @pagedeck/search indexes the text of every page on this site into a few small static files. The box is an island that hydrates on idle and fetches nothing until you focus it.",
+      "At build time, @pagedeck/search indexes the text of every page on this site into a few small static files. The box is an island that hydrates when you first focus or press it, and fetches nothing until you focus it.",
       'Try "island", "budget" or "consent".',
     ],
     docs: "Site search",
