@@ -11,6 +11,8 @@ const BIN = join(PACKAGE, "..", "core", "dist", "bin.js");
 // Inside the package, so the site resolves `@pagedeck/*` and React from its node_modules (#77).
 const SITE = mkdtempSync(join(PACKAGE, ".pagedeck-template-build-test-"));
 
+let buildStderr = "";
+
 interface Manifest {
   pages: { path: string; output: string }[];
 }
@@ -18,9 +20,8 @@ interface Manifest {
 beforeAll(async () => {
   cpSync(join(PACKAGE, "template"), SITE, { recursive: true });
   renameSync(join(SITE, "_gitignore"), join(SITE, ".gitignore"));
-  for (const verb of ["sync", "build"]) {
-    await execFileAsync(process.execPath, [BIN, verb], { cwd: SITE });
-  }
+  await execFileAsync(process.execPath, [BIN, "sync"], { cwd: SITE });
+  ({ stderr: buildStderr } = await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE }));
 }, 120_000);
 
 afterAll(() => {
@@ -39,4 +40,14 @@ test("every page the template builds declares one viewport in <head>", () => {
     ).toBe(1);
     expect(html.split('name="viewport"').length - 1, page.path).toBe(1);
   }
+});
+
+test("the template's build prints no favicon warning", () => {
+  expect(buildStderr.split("\n").filter((line) => line.includes("Favicon:"))).toEqual([]);
+});
+
+test("the template's build writes the template's favicon.ico at /favicon.ico, byte for byte", () => {
+  expect(readFileSync(join(SITE, "site", "favicon.ico"))).toEqual(
+    readFileSync(join(PACKAGE, "template", "favicon.ico")),
+  );
 });

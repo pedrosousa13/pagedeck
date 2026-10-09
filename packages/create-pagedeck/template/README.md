@@ -15,3 +15,5 @@ npx pagedeck build   # write the finished site to site/
   `components: [counter]` in its frontmatter.
 - `build.routing` spreads `SECURITY_HEADERS` into a rule over `/`, so every
   page ships those three headers.
+- `favicon.ico` is the site's icon. `build.favicon` writes it to
+  `/favicon.ico`; replace the file with your own icon.

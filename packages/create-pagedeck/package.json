@@ -33,6 +33,7 @@
     "template/content/about.md",
     "template/content/counter.md",
     "template/content/index.md",
+    "template/favicon.ico",
     "template/pagedeck.config.ts",
     "template/tsconfig.json"
   ],

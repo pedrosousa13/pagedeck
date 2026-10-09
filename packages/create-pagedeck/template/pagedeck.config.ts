@@ -16,6 +16,7 @@ export default defineConfig({
       layout: "./components/layout.tsx",
       counter: "./components/counter.tsx",
     },
+    favicon: { src: "./favicon.ico" },
     routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },
   },
 });
