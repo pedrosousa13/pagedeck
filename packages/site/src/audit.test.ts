@@ -9,6 +9,7 @@ import {
   reductionPercent,
   runtimeSplit,
   runtimeVerdict,
+  servedUrl,
   totalBytes,
 } from "./audit.js";
 
@@ -385,5 +386,31 @@ describe("runtimeVerdict", () => {
       ceiling,
     });
     expect(verdict.failures).toEqual([]);
+  });
+});
+
+describe("servedUrl", () => {
+  test("a budget report row's route becomes the URL the site serves, under its trailing slash", () => {
+    const rows = [
+      { locale: "en", path: "/" },
+      { locale: "de", path: "/" },
+      { locale: "en", path: "/pricing" },
+      { locale: "en", path: "/legal/terms" },
+      { locale: "en", path: "/pricing/" },
+    ];
+    expect(rows.map((row) => servedUrl(row, "always"))).toEqual([
+      "/en/",
+      "/de/",
+      "/en/pricing/",
+      "/en/legal/terms/",
+      "/en/pricing/",
+    ]);
+    expect(rows.map((row) => servedUrl(row, "never"))).toEqual([
+      "/en",
+      "/de",
+      "/en/pricing",
+      "/en/legal/terms",
+      "/en/pricing",
+    ]);
   });
 });

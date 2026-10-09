@@ -233,16 +233,16 @@ test("every page of the representative set is inside its script budget and over 
 test("the build's own byte count and the browser's agree about which pages ship JavaScript", () => {
   expect(
     payloads.filter((page) => page.total.raw > 0).map((page) => page.url),
-  ).toEqual(["/en/pricing"]);
+  ).toEqual(["/en/pricing/"]);
   expect(runs.filter((run) => run.scriptBytes > 0).map((run) => run.url)).toEqual(
-    ["/en/pricing"],
+    ["/en/pricing/"],
   );
   expect(payloads.map((page) => page.url).sort()).toEqual([...AUDIT_URLS].sort());
 
   expect(reductions.map((one) => one.url).sort()).toEqual([...AUDIT_URLS].sort());
   expect(
     reductions.filter((one) => one.raw === 100 && one.gzip === 100).map((one) => one.url),
-  ).toEqual(["/de", "/en", "/en/legal/terms"]);
+  ).toEqual(["/de/", "/en/", "/en/legal/terms/"]);
 });
 
 test("the timing metrics are recorded and nothing asserts on them", () => {

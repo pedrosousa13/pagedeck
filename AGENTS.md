@@ -721,8 +721,8 @@ over the uncompressed local origin, not the Brotli of `build.budget`:
 
 | Page | Bytes limit | Measured | Requests |
 | --- | --- | --- | --- |
-| `/de`, `/en`, `/en/legal/terms` | 0 | 0 | 0 |
-| `/en/pricing` | 230400 | 196744 (196230 B of chunk on disk, `fw-core` 193914 B, `fw-startup` 1921 B, plus 514 B of headers) | 4 |
+| `/de/`, `/en/`, `/en/legal/terms/` | 0 | 0 | 0 |
+| `/en/pricing/` | 230400 | 196744 (196230 B of chunk on disk, `fw-core` 193914 B, `fw-startup` 1921 B, plus 514 B of headers) | 4 |
 
 Zeros and request counts take no headroom: a request is a decision.
 `/en/pricing`'s 17.1% is for a `react-dom` patch release walking `fw-core`.
