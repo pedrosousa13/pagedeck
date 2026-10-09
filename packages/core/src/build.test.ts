@@ -39,6 +39,7 @@ interface SiteOptions {
   useServer?: boolean;
   preinitInEffect?: boolean;
   globalCss?: boolean;
+  staticCss?: boolean;
   noIslands?: boolean;
   workerScripts?: boolean;
   noHeaders?: boolean;
@@ -206,8 +207,14 @@ export default function Wrap() {
       `"use client";\nexport default function Badge() { return "marker-badge-9e55"; }\n`,
     );
   }
-  if (options.globalCss === true) {
+  if (options.globalCss === true || options.staticCss === true) {
     writeFileSync(join(ROOT, "global.css"), `.fw-global { color: red; }\n`);
+  }
+  if (options.staticCss === true) {
+    writeFileSync(
+      join(ROOT, "components", "Copy.js"),
+      `import "../global.css";\n${COMPONENTS["Copy.js"] as string}`,
+    );
   }
   const markets = marketsOf(options);
   for (const market of markets) {
@@ -876,6 +883,33 @@ test("a preinit import inside a client closure warns and still builds", async ()
     ].join("\n"),
   );
   expect(existsSync(join(dir, "dist", "index.html"))).toBe(true);
+}, 120_000);
+
+test("a stylesheet only a static component imports warns and still builds", async () => {
+  const dir = site({ staticCss: true });
+  await run(dir, "sync");
+
+  const result = await run(dir, "build");
+
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(result.err).toBe(
+    [
+      "Island scan: 1 stylesheet is imported only by modules outside every island's import closure, so no page links it — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:",
+      `  "${join(dir, "global.css")}" — imported by "${join(dir, "components", "Copy.js")}"`,
+      ABSENT_FAVICON,
+    ].join("\n"),
+  );
+  expect(existsSync(join(dir, "dist", "index.html"))).toBe(true);
+}, 120_000);
+
+test("a stylesheet a static component imports and build.css lists does not warn", async () => {
+  const dir = site({ staticCss: true, globalCss: true });
+  await run(dir, "sync");
+
+  const result = await run(dir, "build");
+
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(result.err).toBe(ABSENT_FAVICON);
 }, 120_000);
 
 test("a site with no islands compiles and links its global stylesheet, and ships no JavaScript", async () => {

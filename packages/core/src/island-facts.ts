@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { runBundle } from "./bundler.js";
 import {
   UNRESOLVED_FIX,
@@ -10,17 +11,19 @@ import type {
   UnparsedModule,
 } from "./directive-scan.js";
 import { UNPARSABLE_REFUSAL } from "./directive-source.js";
-import { resolveBoundaries } from "./directives.js";
+import { reachableFrom, resolveBoundaries } from "./directives.js";
 import type { ModuleGraph } from "./directives.js";
 import { serveGeneratedEntries } from "./entry-modules.js";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
-import type { ModuleFacts } from "@pagedeck/islands";
+import type { HydrationMode, ModuleFacts } from "@pagedeck/islands";
 
 export interface IslandFactsInput {
   root: string;
   origin: string;
   modules: ModuleMap;
+  css?: readonly string[];
+  components?: Readonly<Record<string, { readonly hydrate?: HydrationMode }>>;
 }
 
 export interface IslandFacts {
@@ -155,8 +158,20 @@ export async function scanIslandFacts(
 
   const clientModules = new Set(boundaries.clientModules);
   const placers = resourceImporters.filter(({ id }) => clientModules.has(id));
-  const warnings =
-    placers.length === 0 ? [] : [resourcePlacerWarning(placers)];
+  const islandModules = new Set(clientModules);
+  for (const name of names) {
+    const hydrate = input.components?.[name]?.hydrate;
+    const id = ids[input.modules[name] as string];
+    if (hydrate === undefined || hydrate === "none" || id === undefined) continue;
+    for (const module of reachableFrom(id, graph.imports)) {
+      islandModules.add(module);
+    }
+  }
+  const unlinked = unlinkedStylesheets(graph, islandModules, input.css ?? []);
+  const warnings = [
+    ...(placers.length === 0 ? [] : [resourcePlacerWarning(placers)]),
+    ...(unlinked.length === 0 ? [] : [unlinkedStylesheetWarning(unlinked)]),
+  ];
   const facts: Record<string, ModuleFacts> = {};
   const namesByModule = new Map<string, string[]>();
   for (const name of names) {
@@ -191,6 +206,57 @@ function resourcePlacerWarning(placers: readonly ResourceImporter[]): string {
       ? '1 module in a "use client" closure imports'
       : `${String(placers.length)} modules in a "use client" closure import`;
   return `Island scan: ${subject} preinit or preinitModule from react-dom — a preinit call places a stylesheet past the <head> tiers the build owns, which the build refuses when the rendered HTML shows it; this is a warning and not a refusal because a call made from an effect leaves nothing in the HTML to see, and an import reached through a re-export or an alias leaves nothing here to see either:\n${lines}`;
+}
+
+interface UnlinkedStylesheet {
+  id: string;
+  importers: readonly string[];
+}
+
+function unlinkedStylesheets(
+  graph: ModuleGraph,
+  islandModules: ReadonlySet<string>,
+  globalCss: readonly string[],
+): UnlinkedStylesheet[] {
+  const linked = new Set(globalCss.map(realPath));
+  const importersBySheet = new Map<string, Set<string>>();
+  for (const [importer, imported] of graph.imports) {
+    for (const id of imported) {
+      if (!id.endsWith(".css")) continue;
+      if (islandModules.has(importer)) linked.add(id);
+      const importers = importersBySheet.get(id) ?? new Set<string>();
+      importers.add(importer);
+      importersBySheet.set(id, importers);
+    }
+  }
+  return [...importersBySheet]
+    .filter(([path]) => !linked.has(path))
+    .sort(([left], [right]) => (left < right ? -1 : 1))
+    .map(([id, importers]) => ({ id, importers: [...importers].sort() }));
+}
+
+function realPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+function unlinkedStylesheetWarning(
+  unlinked: readonly UnlinkedStylesheet[],
+): string {
+  const lines = unlinked
+    .map(
+      ({ id, importers }) =>
+        `  "${id}" — imported by ${importers.map((importer) => `"${importer}"`).join(", ")}`,
+    )
+    .join("\n");
+  const subject =
+    unlinked.length === 1
+      ? "1 stylesheet is imported only by modules outside every island's import closure, so no page links it"
+      : `${String(unlinked.length)} stylesheets are imported only by modules outside every island's import closure, so no page links them`;
+  return `Island scan: ${subject} — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
 }
 
 function sharedModuleReport(

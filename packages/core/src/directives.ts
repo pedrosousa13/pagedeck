@@ -19,7 +19,7 @@ export interface BoundarySet {
   clientModules: readonly string[];
 }
 
-function reachableFrom(
+export function reachableFrom(
   from: string,
   imports: ReadonlyMap<string, readonly string[]>,
 ): Set<string> {

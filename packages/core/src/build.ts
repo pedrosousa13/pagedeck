@@ -830,10 +830,15 @@ async function stageSite(input: {
   const foldStrategy = resolveFoldStrategy(section.foldStrategy);
 
   // Before the renders: the client build is downstream of them (#167).
+  const globalCss = (section.css ?? []).map((path) =>
+    resolve(dirname(config.configPath), path),
+  );
   const { facts, clientComponents, warnings } = await scanIslandFacts({
     root: dirname(config.configPath),
     origin: config.configPath,
     modules: section.componentModules,
+    components: section.components,
+    css: globalCss,
   });
 
   const previewEntry =
@@ -958,9 +963,7 @@ async function stageSite(input: {
     origin: config.configPath,
     plan,
     tiers,
-    globalCss: (section.css ?? []).map((path) =>
-      resolve(dirname(config.configPath), path),
-    ),
+    globalCss,
     ...(section.vite?.plugins === undefined
       ? {}
       : { plugins: section.vite.plugins }),
