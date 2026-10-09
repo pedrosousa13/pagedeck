@@ -58,6 +58,12 @@ function referencedUrls(html: string): string[] {
   ].map((match) => match[1] as string);
 }
 
+function modulePreloads(html: string): string[] {
+  return [...html.matchAll(/<link rel="modulepreload" href="([^"]*)">/g)].map(
+    (match) => match[1] as string,
+  );
+}
+
 let html = "";
 let manifest: Manifest;
 const scripts = new Map<string, string>();
@@ -118,7 +124,7 @@ test("the build islands it from its own directive", () => {
     "@pagedeck/design-system/components/consent_banner",
   );
   expect(page?.entryChunk).toBeDefined();
-  expect(referencedUrls(html)).toEqual([page?.entryChunk]);
+  expect(referencedUrls(html)).toEqual([...modulePreloads(html), page?.entryChunk]);
 });
 
 test("the document reaches no host at all", () => {

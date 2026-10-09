@@ -345,6 +345,7 @@ test("a site that declares no social images emits the bytes it emitted before ca
     <html lang="en" dir="ltr">
     <head>
     <meta charset="utf-8">
+    <link rel="modulepreload" href="/assets/<chunk>">
     </head>
     <body>
     <main>
@@ -358,6 +359,7 @@ test("a site that declares no social images emits the bytes it emitted before ca
     <html lang="en" dir="ltr">
     <head>
     <meta charset="utf-8">
+    <link rel="modulepreload" href="/assets/<chunk>">
     </head>
     <body>
     <main>

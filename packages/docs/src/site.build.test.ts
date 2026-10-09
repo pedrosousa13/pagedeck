@@ -111,6 +111,12 @@ function nonStyleAssetUrls(html: string): string[] {
   return assetUrls(html).filter((url) => !url.endsWith(".css"));
 }
 
+function modulePreloads(html: string): string[] {
+  return [...html.matchAll(/<link rel="modulepreload" href="([^"]*)">/g)].map(
+    (match) => deployKey(match[1] as string),
+  );
+}
+
 // Escapes twice: once as the sheet writes the selector, then the result for
 // `RegExp`, where an unescaped `.` or `[` compiles and silently mis-matches.
 function selectorPattern(name: string): string {
@@ -254,6 +260,7 @@ test("every content page of the site ships 0 bytes of JavaScript", () => {
     const html = document(row.output);
     expect(html).not.toContain("<script");
     expect(nonStyleAssetUrls(html)).toEqual([]);
+    expect(modulePreloads(html)).toEqual([]);
     expect(row.entryChunk).toBeUndefined();
     expect(row.components).toEqual([]);
   }
@@ -414,9 +421,9 @@ test("/search ships the search island, and it is the only page with an entry chu
   expect(
     manifest.pages.filter((row) => row.entryChunk !== undefined).map((row) => row.path),
   ).toEqual([SEARCH]);
-  expect(nonStyleAssetUrls(html)).toEqual([
-    deployKey(search.entryChunk as string),
-  ]);
+  const entry = deployKey(search.entryChunk as string);
+  expect(nonStyleAssetUrls(html)).toEqual([entry, ...modulePreloads(html)]);
+  expect(jsClosure(entry)).toEqual(expect.arrayContaining(modulePreloads(html)));
 });
 
 test("the search index is written into the site's output and hashed into the manifest", () => {

@@ -52,6 +52,7 @@ export function headElements(input: {
   noindex?: boolean;
   feed?: { readonly href: string; readonly title: string };
   fontPreloads?: readonly string[];
+  modulePreloads?: readonly string[];
   prePaint?: readonly string[];
   absorbed: readonly AbsorbedMetadata[];
   supplement?: string;
@@ -67,6 +68,7 @@ export function headElements(input: {
     noindex,
     feed,
     fontPreloads,
+    modulePreloads,
     prePaint,
     absorbed,
     supplement,
@@ -129,6 +131,9 @@ export function headElements(input: {
   }
 
   if (fontPreloads !== undefined) children.push(...fontPreloads);
+  for (const href of modulePreloads ?? []) {
+    children.push(`<link rel="modulepreload" href="${escapeAttributeValue(href)}">`);
+  }
 
   // The site's own text, deliberately unescaped: `pre-paint.ts` refuses what it
   // cannot hold.

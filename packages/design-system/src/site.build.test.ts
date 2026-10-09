@@ -59,6 +59,12 @@ function nonStyleAssetUrls(html: string): string[] {
   return assetUrls(html).filter((url) => !url.endsWith(".css"));
 }
 
+function modulePreloads(html: string): string[] {
+  return [...html.matchAll(/<link rel="modulepreload" href="([^"]*)">/g)].map(
+    (match) => match[1] as string,
+  );
+}
+
 // Escapes twice: once as the sheet writes the selector, then the result for
 // `RegExp`, where an unescaped `.` or `[` compiles and silently mis-matches.
 function selectorPattern(name: string): string {
@@ -150,11 +156,14 @@ test("an islanded page ships the entry chunk the manifest names for it", () => {
   // Nothing in the build compares the document's script to the manifest's entry
   // chunk; `checkSiteLinks` would pass on another page's chunk.
   expect(row.entryChunk).toBeDefined();
-  expect(nonStyleAssetUrls(html)).toEqual([row.entryChunk]);
+  expect(nonStyleAssetUrls(html)).toEqual([row.entryChunk, ...modulePreloads(html)]);
   expect(manifest.files.some((file) => file.path === row.entryChunk)).toBe(true);
 
   const other = page(manifest, "de", "/");
-  expect(nonStyleAssetUrls(document("de"))).toEqual([other.entryChunk]);
+  expect(nonStyleAssetUrls(document("de"))).toEqual([
+    other.entryChunk,
+    ...modulePreloads(document("de")),
+  ]);
   expect(other.entryChunk).toBe(row.entryChunk);
 });
 
@@ -172,7 +181,7 @@ test("a real `use client` component of the catalog islands through the executabl
   );
 
   expect(row.entryChunk).toBeDefined();
-  expect(nonStyleAssetUrls(html)).toEqual([row.entryChunk]);
+  expect(nonStyleAssetUrls(html)).toEqual([row.entryChunk, ...modulePreloads(html)]);
   expect(manifest.files.some((file) => file.path === row.entryChunk)).toBe(true);
 
   const home = page(manifest, "en", "/");

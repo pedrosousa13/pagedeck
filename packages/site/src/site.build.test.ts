@@ -109,6 +109,12 @@ function nonFontAssetUrls(html: string): string[] {
   );
 }
 
+function modulePreloads(html: string): string[] {
+  return [...html.matchAll(/<link rel="modulepreload" href="([^"]*)">/g)].map(
+    (match) => deployKey(match[1] as string),
+  );
+}
+
 // Escaped twice, once for the sheet's backslash and once for the regex. Both
 // spellings compile, so a mistake is silent.
 function selectorPattern(name: string): string {
@@ -286,7 +292,9 @@ test("the interactive page carries exactly one island, server-rendered before an
   expect(html).toContain("Billed monthly");
   expect(html).toContain("<td>Starter</td>");
 
-  expect(nonFontAssetUrls(html)).toEqual([deployKey(pricing.entryChunk as string)]);
+  const entry = deployKey(pricing.entryChunk as string);
+  expect(nonFontAssetUrls(html)).toEqual([entry, ...modulePreloads(html)]);
+  expect(jsClosure(entry)).toEqual(expect.arrayContaining(modulePreloads(html)));
 });
 
 test("the island's cost is confined to the page that asked for it", () => {

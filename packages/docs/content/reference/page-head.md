@@ -230,6 +230,13 @@ The page a `build.routing.notFound` rule names gets neither link. It gets
 `<meta name="robots" content="noindex">` in their place, with or without an
 origin. See [Routing](/reference/routing/#the-404-page).
 
+A page with islands also gets one `<link rel="modulepreload">` for each chunk
+its entry script imports statically, after any font preloads, so the browser
+fetches them alongside the entry instead of one after another. A chunk the page
+loads through `import()` is not preloaded: an island that waits for its
+trigger, or React and the islands runtime on a page whose islands all wait. A
+page with no islands gets no such link.
+
 ## Code that has to run before the paint
 
 One slot in the head is yours: `build.prePaint` is a list of scripts, and the
