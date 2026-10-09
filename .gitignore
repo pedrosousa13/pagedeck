@@ -381,3 +381,7 @@ packages/cms-example/.pagedeck/
 # The copy of the CMS example `packages/docs/src/connect-a-cms.build.test.ts` builds
 # (#697). The test removes it after each run.
 packages/cms-example/.pagedeck-how-to-cms-test-*/
+
+# The template copy `packages/create-pagedeck/src/template.build.test.ts` builds
+# (#77). The test removes it after each run.
+packages/create-pagedeck/.pagedeck-template-build-test-*/
