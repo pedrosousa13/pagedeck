@@ -377,9 +377,19 @@ test.each([
     `Markdown root "/site/content": the loader's "languages" option is "ts", not a list — ${LANGUAGES_FIX}`,
   ],
   [
-    "a list holding a number",
-    ["ts", 1],
-    `Markdown root "/site/content": the loader's "languages" option holds 1, which is not a language name — ${LANGUAGES_FIX}`,
+    "a bigint",
+    1n,
+    `Markdown root "/site/content": the loader's "languages" option is 1n, not a list — ${LANGUAGES_FIX}`,
+  ],
+  [
+    "a list holding a number and a boolean",
+    ["ts", 1, true],
+    `Markdown root "/site/content": 2 entries of the loader's "languages" option are not language names — ${LANGUAGES_FIX}:\n  languages[1] is 1, not a string\n  languages[2] is true, not a string`,
+  ],
+  [
+    "a list holding a bigint",
+    ["ts", 1n],
+    `Markdown root "/site/content": 1 entry of the loader's "languages" option is not a language name — ${LANGUAGES_FIX}:\n  languages[1] is 1n, not a string`,
   ],
 ])("languages %s is refused when the loader is defined", (_, languages, message) => {
   const options = { root: "/site/content", locale: "en", languages } as unknown as MarkdownLoaderOptions;

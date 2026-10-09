@@ -82,6 +82,14 @@ function refuseMissingRoot(root: string): void {
 const LANGUAGES_FIX =
   "pass languages: [...] naming the code-fence languages the site uses, or [] for none";
 
+function describe(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "bigint") return `${String(value)}n`;
+  if (typeof value === "function") return "a function";
+  if (typeof value === "object" && value !== null) return "an object";
+  return String(value);
+}
+
 function refuseUnusableLanguages(root: string, languages: unknown): void {
   const prefix = `Markdown root "${root}":`;
   if (languages === undefined) {
@@ -89,13 +97,21 @@ function refuseUnusableLanguages(root: string, languages: unknown): void {
   }
   if (!Array.isArray(languages)) {
     throw new Error(
-      `${prefix} the loader's "languages" option is ${String(JSON.stringify(languages))}, not a list — ${LANGUAGES_FIX}`,
+      `${prefix} the loader's "languages" option is ${describe(languages)}, not a list — ${LANGUAGES_FIX}`,
     );
   }
-  const stray = languages.findIndex((language) => typeof language !== "string");
-  if (stray === -1) return;
+  const faults = languages.flatMap((language: unknown, index) =>
+    typeof language === "string"
+      ? []
+      : [`languages[${String(index)}] is ${describe(language)}, not a string`],
+  );
+  if (faults.length === 0) return;
+  const subject =
+    faults.length === 1
+      ? `1 entry of the loader's "languages" option is not a language name`
+      : `${String(faults.length)} entries of the loader's "languages" option are not language names`;
   throw new Error(
-    `${prefix} the loader's "languages" option holds ${String(JSON.stringify(languages[stray]))}, which is not a language name — ${LANGUAGES_FIX}`,
+    `${prefix} ${subject} — ${LANGUAGES_FIX}:\n${faults.map((fault) => `  ${fault}`).join("\n")}`,
   );
 }
 
