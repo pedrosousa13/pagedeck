@@ -464,7 +464,8 @@ island taxes only itself" is a claim about the other pages; `/features` is the
 showcase (#551), each addition in `src/features.ts` scoped so `/` keeps `0b`;
 `/server-data` (#625) hands a `"use client"` picker only the fields it needs
 from a 67 kB entry, and `site.build.test.ts` keeps the entry's sentinel field
-out of every emitted file.
+out of every emitted file. It declares `build.origin` as its workers.dev address
+(#99), so its pages carry canonical links and an absolute `og:image`.
 
 - **Every file the showcase fetches is this build's own.** Its embed script and
   image candidates are same-origin stand-ins from `public/`, so `CONTEXT.md`'s

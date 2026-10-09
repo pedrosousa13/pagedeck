@@ -4746,9 +4746,10 @@ schema failure to the schema guide, the snapshot scheme failure to the snapshot
 how-to. Until then, do not add a link to a page nobody can open; a dead URL in
 a build failure is worse than no URL.
 
-Two lines name a page instead, by the title, and heading where one helps, that
+Three lines name a page instead, by the title, and heading where one helps, that
 the docs site shows. The twenty-first warning above names the Favicon page
-(#76). `pagedeck build` prints the other after its summary when the site
+(#76), and the twenty-fourth names the Page head page's "Cards the build draws"
+heading (#99). `pagedeck build` prints the third after its summary when the site
 declares `build.preview` (#713):
 
 ```

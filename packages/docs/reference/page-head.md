@@ -64,6 +64,7 @@ locale when that locale declares one. Without an origin it is the path alone,
 `/social/en.1a2b3c4d.png`. The Open Graph protocol asks for an absolute URL, and
 most platforms show no image for a path. See
 [Canonicals and hreflang](./canonicals-and-hreflang.md#declaring-the-origin).
+
 A build whose output holds a card and whose config declares no `origin` prints
 one warning:
 

@@ -43,7 +43,7 @@ const INTERACTIVE = "/interactive/";
 const FEATURES = "/features/";
 const SERVER_DATA = "/server-data/";
 
-// The live address, spelled again rather than imported from `site.ts`.
+// The live address (#99), spelled again rather than imported from `site.ts`.
 const ORIGIN = "https://pagedeck-landing.pedrodsousa.workers.dev";
 
 // Only a proxied instance writes a census row, which tells a proxy from a tree
