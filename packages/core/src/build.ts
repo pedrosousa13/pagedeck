@@ -52,6 +52,7 @@ import type {
   SocialImageResult,
   SocialImagesSetting,
 } from "./social-image.js";
+import { relativeCardWarning } from "./social-image.js";
 import { localeAlternates, pageLinks, variantUrl } from "./alternates.js";
 import type { PageLinks } from "./alternates.js";
 import {
@@ -1269,6 +1270,10 @@ async function stageSite(input: {
   }
 
   const absentFavicon = absentFaviconWarning(section.favicon !== undefined, files);
+  const relativeCard = relativeCardWarning(
+    section.origin !== undefined,
+    socialImages?.files ?? [],
+  );
 
   const referenced = contentRelativeReferences({
     documents: files,
@@ -1522,6 +1527,7 @@ async function stageSite(input: {
         ...(undeclaredHeaders === undefined ? [] : [undeclaredHeaders]),
         ...(undeclaredContentRoot === undefined ? [] : [undeclaredContentRoot]),
         ...(absentFavicon === undefined ? [] : [absentFavicon]),
+        ...(relativeCard === undefined ? [] : [relativeCard]),
         ...linkNotes,
         ...(drift === undefined ? [] : driftWarnings(drift)),
         ...(supplements?.warnings ?? []),

@@ -238,6 +238,7 @@ export function landingSiteConfig(): SiteConfig {
     build: {
       // Not `./dist`, which `pnpm build` writes and would wipe.
       outDir: "./site",
+      origin: "https://pagedeck-landing.pedrodsousa.workers.dev",
       adapter: cloudflarePages(),
       // No `Strict-Transport-Security`: it is a promise about a domain this
       // repository does not own.

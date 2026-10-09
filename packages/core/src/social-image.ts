@@ -1,4 +1,5 @@
 import type { ContentStoreReader } from "@pagedeck/content";
+import type { EmittedFile } from "./manifest.js";
 import type { Page } from "./pages.js";
 import { quote } from "./quote.js";
 
@@ -97,4 +98,12 @@ export function socialImagesFaultReport(
   }
 
   return sections.length === 0 ? undefined : sections.join("\n\n");
+}
+
+export function relativeCardWarning(
+  originDeclared: boolean,
+  cards: readonly EmittedFile[],
+): string | undefined {
+  if (originDeclared || cards.length === 0) return undefined;
+  return `Social image: this site draws share cards with build.socialImages and declares no build.origin, so each card's og:image is a path and not an absolute URL — the Open Graph protocol asks for an absolute URL, and most social platforms drop a relative og:image and show no share image; this is a warning and not a refusal because every page and every card this build emitted is correct — declare the site's address in build.origin, as origin: "https://example.com" (Pagedeck documentation: Page head, Cards the build draws)`;
 }

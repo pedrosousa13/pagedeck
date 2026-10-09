@@ -43,6 +43,9 @@ const INTERACTIVE = "/interactive/";
 const FEATURES = "/features/";
 const SERVER_DATA = "/server-data/";
 
+// The live address (#99), spelled again rather than imported from `site.ts`.
+const ORIGIN = "https://pagedeck-landing.pedrodsousa.workers.dev";
+
 // Only a proxied instance writes a census row, which tells a proxy from a tree
 // child. A scratch directory, because the file is appended to.
 const CENSUS_DIR = mkdtempSync(join(tmpdir(), "pagedeck-landing-census-"));
@@ -101,7 +104,7 @@ function deployKey(url: string): string {
 function assetUrls(html: string): string[] {
   return [
     ...html.matchAll(/<script\b[^>]*\bsrc="([^"]*)"/g),
-    ...html.matchAll(/<link\b[^>]*\bhref="([^"]*)"/g),
+    ...html.matchAll(/<link\b(?![^>]*\brel="canonical")[^>]*\bhref="([^"]*)"/g),
   ].map((match) => deployKey(match[1] as string));
 }
 
@@ -239,6 +242,14 @@ test("the site is the four pages its claims need, and no more", () => {
   expect(manifest.pages.every((row) => row.domain === undefined)).toBe(true);
   for (const row of manifest.pages) {
     expect(document(row.output)).toMatch(/<title>[^<]+<\/title>/);
+  }
+});
+
+test("every page names its own canonical URL at the site's origin", () => {
+  for (const row of manifest.pages) {
+    expect(document(row.output), row.path).toContain(
+      `<link rel="canonical" href="${ORIGIN}${row.output}">`,
+    );
   }
 });
 
@@ -865,13 +876,17 @@ describe("/features", () => {
         expect(card, row.path).toBeNull();
         continue;
       }
-      expect(card?.[1]).toMatch(/^\/social\/[\w.-]+\.png$/);
-      expect(existsSync(join(OUT, card?.[1] as string))).toBe(true);
+      expect(card?.[1]?.startsWith(`${ORIGIN}/social/`)).toBe(true);
+      const path = new URL(String(card?.[1])).pathname;
+      expect(path).toMatch(/^\/social\/[\w.-]+\.png$/);
+      expect(existsSync(join(OUT, path))).toBe(true);
     }
   });
 
   test("the social cards section shows this page's own card, the file its og:image names", () => {
-    const og = /<meta property="og:image" content="([^"]+)"/.exec(html())?.[1];
+    const image = /<meta property="og:image" content="([^"]+)"/.exec(html())?.[1];
+    expect(image?.startsWith(`${ORIGIN}/social/`)).toBe(true);
+    const og = new URL(String(image)).pathname;
     expect(og).toMatch(/^\/social\/[\w.-]+\.png$/);
     const img = /<img\b[^>]*>/.exec(section("social-cards"))?.[0] ?? "";
     expect(img).toContain(`src="${String(og)}"`);
@@ -890,7 +905,7 @@ describe("/features", () => {
 
   test("nothing the document loads is on another origin", () => {
     const fetched = [
-      ...html().matchAll(/<(?:script|img|link|source|iframe)\b[^>]*\s(?:src|href|srcset)="([^"]+)"/g),
+      ...html().matchAll(/<(?:script|img|link(?![^>]*\brel="canonical")|source|iframe)\b[^>]*\s(?:src|href|srcset)="([^"]+)"/g),
     ].map((match) => match[1] as string);
     expect(fetched.length).toBeGreaterThan(0);
     expect(fetched.filter((url) => /^(?:[a-z]+:)?\/\//i.test(url))).toEqual([]);
