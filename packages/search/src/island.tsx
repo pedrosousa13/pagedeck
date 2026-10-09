@@ -20,11 +20,13 @@ export default function SearchIsland({
   locale,
   label,
   emptyLabel,
+  placeholder,
 }: {
   locale: string;
   /** Required copy: a control announced only as "search box" passes a build and a sighted review. */
   label: string;
   emptyLabel: string;
+  placeholder?: string;
 }) {
   const client = useMemo(() => createSearchClient({ locale }), [locale]);
 
@@ -132,6 +134,7 @@ export default function SearchIsland({
             setActive(-1);
           }
         }}
+        placeholder={placeholder}
         ref={field}
         role="combobox"
         type="search"

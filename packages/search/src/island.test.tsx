@@ -19,6 +19,8 @@ interface El {
   setSelectionRange(start: number, end: number): void;
   textContent: string | null;
   getAttribute(name: string): string | null;
+  hasAttribute(name: string): boolean;
+  readonly labels: ArrayLike<El> | null;
   focus(): void;
   click(): void;
   dispatchEvent(event: object): boolean;
@@ -107,22 +109,24 @@ function setValue(element: El, text: string): void {
 }
 
 function mount({
+  props = PROPS,
   beforeHydrating = () => undefined,
   onRecoverableError = () => undefined,
 }: {
+  props?: Parameters<typeof SearchIsland>[0];
   beforeHydrating?: (container: Container) => void;
   onRecoverableError?: (error: unknown) => void;
 } = {}): Container {
   const container = document.createElement("div");
   container.innerHTML = renderToStaticMarkup(
-    createElement(SearchIsland, PROPS),
+    createElement(SearchIsland, props),
   );
   document.body.appendChild(container);
   beforeHydrating(container);
   act(() => {
     mounted.root = hydrateRoot(
       container as never,
-      createElement(SearchIsland, PROPS),
+      createElement(SearchIsland, props),
       { onRecoverableError },
     );
   });
@@ -242,6 +246,42 @@ test("an empty input hydrates with no search run", async () => {
   expect(container.querySelector('[role="status"]')).toBeNull();
   expect(input(container).getAttribute("aria-expanded")).toBe("false");
   expect(faults).toEqual([]);
+});
+
+test("a placeholder is on the server input and the hydrated one, with no mismatch", () => {
+  const faults: unknown[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    faults.push(args);
+  });
+  let served: string | null = null;
+  const container = mount({
+    props: { ...PROPS, placeholder: "Type a word" },
+    beforeHydrating: (html) => {
+      served = input(html).getAttribute("placeholder");
+    },
+    onRecoverableError: (error) => faults.push(error),
+  });
+
+  expect(served).toBe("Type a word");
+  expect(input(container).getAttribute("placeholder")).toBe("Type a word");
+  expect(faults).toEqual([]);
+});
+
+test("without a placeholder the input carries no placeholder attribute", () => {
+  const container = mount();
+
+  expect(input(container).hasAttribute("placeholder")).toBe(false);
+});
+
+test("with a placeholder the input is still named by its label", () => {
+  const container = mount({ props: { ...PROPS, placeholder: "Type a word" } });
+  const box = input(container);
+
+  expect(Array.from(box.labels ?? []).map((label) => label.textContent)).toEqual([
+    "Search the docs",
+  ]);
+  expect(box.getAttribute("aria-label")).toBeNull();
+  expect(box.getAttribute("aria-labelledby")).toBeNull();
 });
 
 test("focusing the input fetches the shard ranges and no shard", async () => {

@@ -170,13 +170,19 @@ repository do:
 },
 ```
 
-The island takes three props, and all three are required:
+The island takes three required props and one optional prop:
 
 | Prop | What it is |
 | --- | --- |
-| `locale` | Which locale's index to search: the `<locale>` directory under `/search/`. |
-| `label` | The text of the input's `<label>`, and the accessible name of the results list. |
-| `emptyLabel` | The message shown when a query finds nothing. |
+| `locale` | Required. Which locale's index to search: the `<locale>` directory under `/search/`. |
+| `label` | Required. The text of the input's `<label>`, and the accessible name of the results list. |
+| `emptyLabel` | Required. The message shown when a query finds nothing. |
+| `placeholder` | Optional. The input's `placeholder` attribute. With no value, the input has no `placeholder`. |
+
+The placeholder does not replace `label`. The input's accessible name is still
+`label`. The island ships no styles, so a site that sets `placeholder` must
+style the input's `::placeholder` to meet text contrast. The browser's default
+placeholder colour can be below 4.5:1.
 
 The island renders a search input with `role="combobox"` and, when a query
 matches, a list with `role="listbox"` whose options are links. Each result
