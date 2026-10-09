@@ -3506,7 +3506,8 @@ The twenty-third is reachable too, by the same shape through the other verb:
 `syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
 is described after the twenty-two below, and kept out of their count because
 `pagedeck sync` is what writes it and no build ever does. Eighteen —
-`resourcePlacerWarning`, `unlinkedStylesheetWarning`, `workerFallbackWarning`, `workerConsentWarning`,
+`resourcePlacerWarning`, `unlinkedStylesheetWarning`,
+`workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
 `checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
@@ -4307,13 +4308,16 @@ A site whose `build.passthrough.root` already publishes `/favicon.ico` is not
 warned, because nothing at that address 404s.
 
 The twenty-second is `unlinkedStylesheetWarning`
-(`packages/core/src/island-facts.ts`, #71), the island scan's second answer on
-this route: a stylesheet that only modules outside every island's import
-closure import. An island is a component whose module carries `"use client"`
-or whose registry entry declares a `hydrate` mode other than `"none"`. Render
-replaces each `.css` import with an empty module, and the client build starts
-from `build.css` and the island modules, so that stylesheet reaches no page. Before #71 the build said nothing, and the missing styles were
-the only sign:
+(`packages/core/src/island-facts.ts`, #71): a stylesheet that only modules
+outside every island's import closure import. It takes the island scan's route,
+`IslandFacts.warnings` to `SiteBuild.warnings` to `runBuildVerb`, and
+`pagedeck dev` prints it too, since the dev server writes the scan's warnings.
+An island is `CONTEXT.md`'s **Island**, whether its module carries
+`"use client"` or its registry entry declares a `hydrate` mode other than
+`"none"`. Render replaces each `.css` import with an empty module, and the
+client build starts from `build.css` and the island modules, so that
+stylesheet reaches no page. Before #71 the build said nothing, and the missing
+styles were the only sign:
 
 ```
 Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
@@ -4323,11 +4327,13 @@ Island scan: 2 stylesheets are imported only by modules outside every island's i
 
 Not a refusal, on `undeclaredHeadersWarning`'s argument: every page is correct
 HTML, and a site may link the stylesheet itself. A stylesheet that a module in
-an island's import closure also imports, or that `build.css` lists, is not reported,
-and a query is dropped from a stylesheet's id before either match. Linking the
-stylesheet into the pages that render its importer was the other answer #71
-offered; the maintainer ruled it a separate feature, and this warning goes when
-it lands.
+an island's import closure also imports, or that `build.css` lists, is not
+reported; a `build.css` path is matched by its real path, so a symbolic link
+in it does not hide the match. Only a plain import is a candidate: an import
+with a query, such as `?inline` or `?url`, hands the stylesheet to the module
+that asked for it. Linking the stylesheet into the pages that render its
+importer was the other answer #71 offered; the maintainer ruled it a separate
+feature, and this warning goes when it lands.
 
 **The twenty-third is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not

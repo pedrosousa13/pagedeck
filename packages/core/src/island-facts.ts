@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { runBundle } from "./bundler.js";
 import {
   UNRESOLVED_FIX,
@@ -217,22 +218,29 @@ function unlinkedStylesheets(
   islandModules: ReadonlySet<string>,
   globalCss: readonly string[],
 ): UnlinkedStylesheet[] {
-  const linked = new Set(globalCss);
+  const linked = new Set(globalCss.map(realPath));
   const importersBySheet = new Map<string, Set<string>>();
   for (const [importer, imported] of graph.imports) {
     for (const id of imported) {
-      const path = id.split("?")[0] ?? id;
-      if (!path.endsWith(".css")) continue;
-      if (islandModules.has(importer)) linked.add(path);
-      const importers = importersBySheet.get(path) ?? new Set<string>();
+      if (!id.endsWith(".css")) continue;
+      if (islandModules.has(importer)) linked.add(id);
+      const importers = importersBySheet.get(id) ?? new Set<string>();
       importers.add(importer);
-      importersBySheet.set(path, importers);
+      importersBySheet.set(id, importers);
     }
   }
   return [...importersBySheet]
     .filter(([path]) => !linked.has(path))
     .sort(([left], [right]) => (left < right ? -1 : 1))
     .map(([id, importers]) => ({ id, importers: [...importers].sort() }));
+}
+
+function realPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
 }
 
 function unlinkedStylesheetWarning(

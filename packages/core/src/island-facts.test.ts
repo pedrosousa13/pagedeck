@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { ConfigError } from "./exit.js";
@@ -16,7 +16,8 @@ const FIXTURE: Record<string, string> = {
   "Late.js": `"use client";\nimport { useEffect } from "react";\nimport { preinit } from "react-dom";\nexport default function Late() {\n  useEffect(() => { preinit("/late.css", { as: "style" }); }, []);\n  return "late";\n}\n`,
   "Eager.js": `import { preinit } from "react-dom";\nexport default function Eager() { preinit("/eager.css", { as: "style" }); return "eager"; }\n`,
   "Styled.js": `import "./styled.css";\nexport default function Styled() { return "styled"; }\n`,
-  "Twice.js": `import "./styled.css";\nimport "./other.css?inline";\nexport default function Twice() { return "twice"; }\n`,
+  "Twice.js": `import "./styled.css";\nimport "./other.css";\nexport default function Twice() { return "twice"; }\n`,
+  "Inline.js": `import "./other.css?inline";\nexport default function Inline() { return "inline"; }\n`,
   "Hydrated.js": `import "./styled.css";\nexport default function Hydrated() { return "hydrated"; }\n`,
   "Lit.js": `"use client";\nimport "./styled.css";\nexport default function Lit() { return "lit"; }\n`,
   "styled.css": `.styled { color: red; }\n`,
@@ -29,6 +30,8 @@ beforeAll(() => {
     writeFileSync(`${SRC}${file}`, source);
   }
   writeFileSync(ORIGIN, "export default {};\n");
+  rmSync(`${FIXTURE_DIR}linked`, { force: true });
+  symlinkSync(SRC, `${FIXTURE_DIR}linked`);
 });
 
 afterAll(() => {
@@ -176,7 +179,7 @@ test("a stylesheet build.css lists is not reported", async () => {
   expect(warnings).toEqual([]);
 }, 120_000);
 
-test("two unlinked stylesheets are one warning naming both, each id without its query", async () => {
+test("two unlinked stylesheets are one warning naming both", async () => {
   const { warnings } = await scanIslandFacts({
     root: FIXTURE_DIR,
     origin: ORIGIN,
@@ -188,4 +191,25 @@ test("two unlinked stylesheets are one warning naming both, each id without its 
       `  "${SRC}other.css" — imported by "${SRC}Twice.js"\n` +
       `  "${SRC}styled.css" — imported by "${SRC}Styled.js", "${SRC}Twice.js"`,
   ]);
+}, 120_000);
+
+test("a stylesheet build.css lists through a symbolic link is not reported", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Styled: "./src/Styled.js" },
+    css: [`${FIXTURE_DIR}linked/styled.css`],
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test("a stylesheet imported with a query is not reported", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Inline: "./src/Inline.js" },
+  });
+
+  expect(warnings).toEqual([]);
 }, 120_000);
