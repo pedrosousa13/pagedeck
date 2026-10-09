@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { ConfigError } from "./exit.js";
 import { imageAttributes, urlTemplate } from "./images.js";
 import type { EmittedFile } from "./manifest.js";
@@ -606,25 +606,41 @@ test("the limit caps one build's requests, and what it did not reach is reported
 });
 
 test("requests are spaced by the declared interval, and nothing waits after the last", async () => {
-  const probe = async (): Promise<number> => 200;
-  const references = ["a", "b", "c"].map((name) => ({
-    url: `https://example.com/${name}`,
-    pages: ["en /"],
-  }));
+  vi.useFakeTimers();
+  try {
+    const started: number[] = [];
+    const probe = async (): Promise<number> => {
+      started.push(Date.now());
+      return 200;
+    };
+    let settled = false;
+    const run = probeExternalLinks({
+      references: ["a", "b", "c"].map((name) => ({
+        url: `https://example.com/${name}`,
+        pages: ["en /"],
+      })),
+      external: { probe, intervalMs: 20 },
+    }).then(() => {
+      settled = true;
+    });
 
-  const started = Date.now();
-  await probeExternalLinks({
-    references,
-    external: { probe, intervalMs: 20 },
-  });
-  expect(Date.now() - started).toBeGreaterThanOrEqual(40);
+    await vi.advanceTimersByTimeAsync(19);
+    expect(started).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(started).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(19);
+    expect(started).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(started).toHaveLength(3);
+    expect(started.map((at, index) => at - (started[index - 1] ?? at))).toEqual([0, 20, 20]);
 
-  const alone = Date.now();
-  await probeExternalLinks({
-    references: [references[0] as { url: string; pages: string[] }],
-    external: { probe, intervalMs: 1_000 },
-  });
-  expect(Date.now() - alone).toBeLessThan(500);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    await run;
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("external references are probed one at a time", async () => {
