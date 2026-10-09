@@ -22,8 +22,9 @@ npm create pagedeck@latest my-site
 This writes a new site into `my-site`, which must not exist yet or must be
 empty. The site has a config, three markdown pages in `content/`, a layout
 component and a counter component in `components/`, an icon, `favicon.ico`,
-and a `package.json` that depends on the Pagedeck packages and React. `npm create pagedeck` then prints
-the next steps, which the rest of this page follows.
+and a `package.json` that depends on the Pagedeck packages and React.
+`npm create pagedeck` then prints the next steps, which the rest of this page
+follows.
 
 Pass `--host vercel`, `--host cloudflare-pages` or `--host netlify` to also set
 the site up to deploy there — [Deploy a site](/how-to/deploy-a-site/) covers
