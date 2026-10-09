@@ -27,7 +27,7 @@ To show a search box, declare the island by its package specifier:
 search: { path: "@pagedeck/search/island", hydrate: "idle" },
 ```
 
-Then render it from a page's tree. It takes three props, all required:
+Then render it from a page's tree. It takes three required props:
 
 ```ts
 {
@@ -35,6 +35,11 @@ Then render it from a page's tree. It takes three props, all required:
   props: { locale: "en", label: "Search the site", emptyLabel: "No pages match" },
 },
 ```
+
+It also takes an optional `placeholder`, the text in the empty input. The
+placeholder does not replace `label`: `label` stays the input's accessible
+name. The island ships no styles, so the site must style the input's
+`::placeholder` to meet text contrast.
 
 [Site search](https://pagedeck-docs.pedrodsousa.workers.dev/reference/site-search/) covers what the island
 does with each prop, and what the index holds.
