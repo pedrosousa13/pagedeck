@@ -1,4 +1,4 @@
-export type HydrationMode = "none" | "load" | "visible" | "idle";
+export type HydrationMode = "none" | "load" | "visible" | "idle" | "interaction";
 
 export interface ComponentDefinition {
   import: () => Promise<unknown>;
@@ -46,9 +46,10 @@ const HYDRATION_MODES: readonly HydrationMode[] = [
   "load",
   "visible",
   "idle",
+  "interaction",
 ];
 
-const MODE_LIST = '"none", "load", "visible" or "idle"';
+const MODE_LIST = '"none", "load", "visible", "idle" or "interaction"';
 
 const PATH_FIX =
   'name its module by a path relative to the config file, such as "./components/<module>.tsx", or by a package specifier, such as "<package>/<module>"';

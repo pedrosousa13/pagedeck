@@ -51,7 +51,8 @@ JavaScript. The whole config is in [`@pagedeck/core`'s README](https://www.npmjs
 An island hydrates when it scrolls into view, unless it sits near the top of
 the page, where the build hydrates it on load. To choose for yourself, declare
 it as `{ path: "./components/counter.tsx", hydrate: "load" }`, with `"load"`,
-`"idle"`, `"visible"` or `"none"`. The build can still move a declared `"load"`
+`"idle"`, `"visible"`, `"interaction"` or `"none"`. `"interaction"` hydrates on
+the first focus or press inside the island, and does not replay that event. The build can still move a declared `"load"`
 to `"visible"` on a page where the island sits far down. `"none"` renders a component on the server only, and the build
 refuses it for a module that starts with `"use client"`.
 

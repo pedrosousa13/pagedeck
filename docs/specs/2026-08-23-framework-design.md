@@ -265,7 +265,8 @@ The findings below marked **(#68)** are that prototype's, not inference.
   therefore runs as a build-time plugin over the module graph
   (`moduleParsed`/`importedIds`, AST-checked rather than regex-matched) and
   emits a boundary manifest.
-- `hydrate: 'none' | 'load' | 'visible' | 'idle'` is an **optional override**.
+- `hydrate: 'none' | 'load' | 'visible' | 'idle' | 'interaction'` is an
+  **optional override**.
   Absent it, a module carrying `"use client"` defaults to `visible`; a module
   without the directive is `none`. `"use client"` plus an explicit
   `hydrate: 'none'` is always an authoring error and fails the build. An
@@ -280,6 +281,12 @@ The findings below marked **(#68)** are that prototype's, not inference.
   have no observable target at all — a marker whose children are **text nodes
   only**, and an **empty** marker — and the runtime must fall back to `idle`
   for them rather than register an observer that can never fire.
+- **`interaction` hydrates on the first `focusin` or `pointerdown` inside the
+  marker (#75).** It is explicit-only: no directive defaults to it, and fold
+  score never moves it. The event that fires it is **not replayed** after
+  hydration: focus survives hydration and a field keeps its value, while a
+  replayed click could run an action twice. A marker with no element children
+  falls back to `idle`, as `visible` does.
 - `"use server"` marks a *server function*, not a server component. It requires
   a runtime request handler, which non-goal §3 rules out, and fails the build
   naming the file.
