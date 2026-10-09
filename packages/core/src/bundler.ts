@@ -1,5 +1,5 @@
 import { build } from "vite";
-import type { InlineConfig, Plugin, PluginOption } from "vite";
+import type { InlineConfig, Plugin, PluginOption, Rolldown } from "vite";
 
 export interface HookFault {
   plugin: string;
@@ -79,6 +79,24 @@ function guardPlugin(
   return guarded;
 }
 
+type OnLog = NonNullable<Rolldown.InputOptions["onLog"]>;
+
+// Rolldown names the directive only inside the message (#74).
+const OWN_DIRECTIVE = /module level directive "use (?:client|server)"/;
+
+function droppingOwnDirectives(site: OnLog | undefined): OnLog {
+  return (level, log, handler) => {
+    if (
+      log.code === "MODULE_LEVEL_DIRECTIVE" &&
+      OWN_DIRECTIVE.test(log.message)
+    ) {
+      return;
+    }
+    if (site === undefined) handler(level, log);
+    else site(level, log, handler);
+  };
+}
+
 export interface BundleOptions {
   plugins: readonly Plugin[];
   /**
@@ -99,11 +117,21 @@ export async function runBundle(
     options.onFault?.(fault);
   };
 
+  const { rollupOptions, ...buildConfig } = options.config.build ?? {};
+  const bundlerOptions = buildConfig.rolldownOptions ?? rollupOptions;
+
   let failure: unknown;
   let result: Awaited<ReturnType<typeof build>> | undefined;
   try {
     result = await build({
       ...options.config,
+      build: {
+        ...buildConfig,
+        rolldownOptions: {
+          ...bundlerOptions,
+          onLog: droppingOwnDirectives(bundlerOptions?.onLog),
+        },
+      },
       plugins: [
         ...options.plugins.map((plugin) => guardPlugin(plugin, record)),
         ...(options.sitePlugins ?? []),

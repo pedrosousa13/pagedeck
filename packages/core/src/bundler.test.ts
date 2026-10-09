@@ -1,5 +1,5 @@
-import { build } from "vite";
-import type { Plugin } from "vite";
+import { build, createLogger } from "vite";
+import type { Logger, Plugin } from "vite";
 import { expect, test } from "vitest";
 import { runBundle } from "./bundler.js";
 import { ConfigError } from "./exit.js";
@@ -271,4 +271,123 @@ test("a build nothing faulted in returns what the bundler emitted", async () => 
       : [],
   );
   expect(chunks.map((chunk) => chunk.name)).toEqual(["entry"]);
+}, 120_000);
+
+const ISLAND = "\0fw:bundler-test/island";
+
+function serveDirective(directive: string): Plugin {
+  return {
+    name: "pagedeck:bundler-test-directive",
+    resolveId(source) {
+      return source === ENTRY || source === ISLAND ? source : undefined;
+    },
+    load(id) {
+      if (id === ENTRY) {
+        return `import island from "${ISLAND}";\nconsole.log(island);\n`;
+      }
+      if (id === ISLAND) {
+        return `"${directive}";\nexport default function island() { return 1; }\n`;
+      }
+      return undefined;
+    },
+  };
+}
+
+function warnOnce(message: string): Plugin {
+  return {
+    name: "pagedeck:bundler-test-warns",
+    buildStart() {
+      this.warn(message);
+    },
+  };
+}
+
+function capturingLogger(): { logger: Logger; warnings: string[] } {
+  const warnings: string[] = [];
+  const logger = createLogger("silent");
+  logger.warn = (message) => {
+    warnings.push(message);
+  };
+  logger.warnOnce = logger.warn;
+  return { logger, warnings };
+}
+
+test.each(["use client", "use server"])(
+  'a "%s" directive prints no bundler warning',
+  async (directive) => {
+    const { logger, warnings } = capturingLogger();
+    await runBundle({
+      plugins: [serveDirective(directive)],
+      config: { ...CONFIG, customLogger: logger },
+    });
+
+    expect(
+      warnings.filter((warning) => warning.includes("MODULE_LEVEL_DIRECTIVE")),
+    ).toEqual([]);
+  },
+  120_000,
+);
+
+test("any other directive still warns", async () => {
+  const { logger, warnings } = capturingLogger();
+  await runBundle({
+    plugins: [serveDirective("use strange")],
+    config: { ...CONFIG, customLogger: logger },
+  });
+
+  expect(warnings).toEqual([
+    expect.stringMatching(/MODULE_LEVEL_DIRECTIVE[\s\S]*"use strange"/),
+  ]);
+}, 120_000);
+
+test("an ordinary warning reaches the default handler", async () => {
+  const { logger, warnings } = capturingLogger();
+  await runBundle({
+    plugins: [
+      serveDirective("use client"),
+      warnOnce("Bundler test: an ordinary warning"),
+    ],
+    config: { ...CONFIG, customLogger: logger },
+  });
+
+  expect(warnings).toEqual([
+    expect.stringContaining("Bundler test: an ordinary warning"),
+  ]);
+}, 120_000);
+
+test("a site's own onLog sees every log but the dropped directives", async () => {
+  const { logger, warnings } = capturingLogger();
+  const seen: string[] = [];
+  for (const directive of ["use client", "use strange"]) {
+    await runBundle({
+      plugins: [
+        serveDirective(directive),
+        warnOnce(`Bundler test: beside ${directive}`),
+      ],
+      config: {
+        ...CONFIG,
+        customLogger: logger,
+        build: {
+          ...CONFIG.build,
+          rolldownOptions: {
+            ...CONFIG.build.rolldownOptions,
+            onLog(level, log, handler) {
+              seen.push(log.code ?? "");
+              handler(level, log);
+            },
+          },
+        },
+      },
+    });
+  }
+
+  expect(seen.sort()).toEqual([
+    "MODULE_LEVEL_DIRECTIVE",
+    "PLUGIN_WARNING",
+    "PLUGIN_WARNING",
+  ]);
+  expect(warnings).toHaveLength(3);
+  expect(
+    warnings.filter((warning) => warning.includes('"use client"')),
+  ).toEqual([]);
 }, 120_000);
