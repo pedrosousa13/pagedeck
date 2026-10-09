@@ -18,7 +18,7 @@ import {
   PUBLIC_PACKAGES,
   PUBLIC_VERSION,
 } from "./public-packages.test-support.js";
-import { fences, TUTORIAL } from "../../docs/src/tutorial.test-support.js";
+import { fences, TUTORIAL } from "../../docs-site/src/tutorial.test-support.js";
 
 const run = promisify(execFile);
 
@@ -389,7 +389,7 @@ test("following the tutorial with create-pagedeck's tarball reaches a built site
       return;
     }
     throw new Error(
-      `Tutorial "packages/docs/content/tutorials/your-first-site.md": the harness cannot follow the shell line "${line}" — it runs npm create pagedeck, cd, npm install and npx pagedeck lines; follow the new command here, or write the step without it`,
+      `Tutorial "packages/docs-site/content/tutorials/your-first-site.md": the harness cannot follow the shell line "${line}" — it runs npm create pagedeck, cd, npm install and npx pagedeck lines; follow the new command here, or write the step without it`,
     );
   };
 
@@ -403,7 +403,7 @@ test("following the tutorial with create-pagedeck's tarball reaches a built site
       }
       if (file === undefined) {
         throw new Error(
-          `Tutorial "packages/docs/content/tutorials/your-first-site.md": a ${lang === "" ? "plain" : lang} fence starting "${code.split("\n")[0] ?? ""}" names no file, so the harness cannot tell where to write it — end the line before it with the file's path in backticks and a colon`,
+          `Tutorial "packages/docs-site/content/tutorials/your-first-site.md": a ${lang === "" ? "plain" : lang} fence starting "${code.split("\n")[0] ?? ""}" names no file, so the harness cannot tell where to write it — end the line before it with the file's path in backticks and a colon`,
         );
       }
       const path = join(cwd, file);

@@ -3,9 +3,9 @@
 import { defineComponents } from "@pagedeck/islands";
 import type { ComponentDeclarations } from "@pagedeck/islands";
 
-export const DOC_PAGE_MODULE = "@pagedeck/docs/components/doc_page";
+export const DOC_PAGE_MODULE = "@pagedeck/docs-site/components/doc_page";
 
-export const SEARCH_PAGE_MODULE = "@pagedeck/docs/components/search_page";
+export const SEARCH_PAGE_MODULE = "@pagedeck/docs-site/components/search_page";
 
 export const SEARCH_ISLAND_MODULE = "@pagedeck/search/island";
 
@@ -13,8 +13,8 @@ export const SEARCH_ISLAND = "search";
 
 export const SEARCH_PAGE = "search_page";
 
-export const SITE_HEADER_MODULE = "@pagedeck/docs/components/site_header";
-export const SITE_FOOTER_MODULE = "@pagedeck/docs/components/site_footer";
+export const SITE_HEADER_MODULE = "@pagedeck/docs-site/components/site_header";
+export const SITE_FOOTER_MODULE = "@pagedeck/docs-site/components/site_footer";
 export const SITE_HEADER = "site_header";
 export const SITE_FOOTER = "site_footer";
 

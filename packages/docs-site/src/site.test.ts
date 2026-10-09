@@ -278,10 +278,10 @@ test("one unclassified entry reads as one", async () => {
 });
 
 const SEARCH_SAMPLES: readonly (readonly string[])[] = [
-  ["packages/docs/src/site.ts"],
+  ["packages/docs-site/src/site.ts"],
   [
-    "packages/docs/src/components/shell.ts",
-    "packages/docs/src/components/nav.tsx",
+    "packages/docs-site/src/components/shell.ts",
+    "packages/docs-site/src/components/nav.tsx",
   ],
   ["packages/landing/src/catalog.ts"],
   ["packages/landing/src/features.ts"],

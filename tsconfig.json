@@ -41,11 +41,11 @@
     "packages/core/vitest.pack-harness.config.ts",
     "packages/site/vitest.a11y.config.ts",
     "packages/landing/vitest.a11y.config.ts",
-    "packages/docs/vitest.a11y.config.ts",
+    "packages/docs-site/vitest.a11y.config.ts",
     "packages/site/vitest.lighthouse.config.ts",
     "packages/site/vitest.origin.config.ts",
     "packages/cms-example/pagedeck.config.ts",
-    "packages/docs/pagedeck.config.ts",
+    "packages/docs-site/pagedeck.config.ts",
     "packages/landing/pagedeck.config.ts",
     "packages/site/pagedeck.config.ts"
   ]

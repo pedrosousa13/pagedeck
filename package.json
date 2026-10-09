@@ -16,7 +16,7 @@
     "test:aria-harness": "vitest run --config packages/islands/vitest.aria-engine.config.ts",
     "test:a11y-harness": "vitest run --config packages/site/vitest.a11y.config.ts",
     "test:landing-a11y-harness": "vitest run --config packages/landing/vitest.a11y.config.ts",
-    "test:docs-a11y-harness": "vitest run --config packages/docs/vitest.a11y.config.ts",
+    "test:docs-a11y-harness": "vitest run --config packages/docs-site/vitest.a11y.config.ts",
     "test:lighthouse-harness": "vitest run --config packages/site/vitest.lighthouse.config.ts",
     "test:origin-harness": "pnpm build && vitest run --config packages/site/vitest.origin.config.ts",
     "test:compiler-crash-harness": "vitest run --config packages/core/vitest.crash-harness.config.ts",

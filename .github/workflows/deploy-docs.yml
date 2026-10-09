@@ -24,7 +24,7 @@ jobs:
   deploy:
     uses: ./.github/workflows/deploy-worker.yml
     with:
-      site: docs
+      site: docs-site
       apply: ${{ inputs.apply }}
     # Read by the publish step alone.
     secrets:

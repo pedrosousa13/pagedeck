@@ -139,7 +139,7 @@ never packed or written, and fails `create-pagedeck`'s own suite. Add a new
 template file to `files`. The template's
 `.gitignore` is stored as `_gitignore`, because npm and pnpm leave every file
 named `.gitignore` out of a tarball, and is renamed when the site is written.
-**`packages/docs` takes the uniform `files` by choice**: its config and content
+**`packages/docs-site` takes the uniform `files` by choice**: its config and content
 stay out of a tarball nothing consumes; if it ever ships, argue its own
 `files` here rather than widen the rule. **`packages/brand`'s `brand.css` and
 `favicon.ico` are not packed** (#547, #549); packing them needs a copy step or
@@ -337,17 +337,17 @@ test riding on a site's content is retired by the next change to that content.
 
 ### The docs site
 
-`packages/docs` writes to `site`, because `dist` is its emitted JavaScript. Its
-content is `packages/docs/content` and the published part of the repo's
+`packages/docs-site` writes to `site`, because `dist` is its emitted JavaScript. Its
+content is `packages/docs-site/content` and the published part of the repo's
 `docs/` (#576). `pagedeck sync` fails, with the fix in the message, on:
 
 - **a file or directory added directly under `docs/`** until it is in
-  `published` or `excluded` in `REPOSITORY_DOCS` (`packages/docs/src/site.ts`);
+  `published` or `excluded` in `REPOSITORY_DOCS` (`packages/docs-site/src/site.ts`);
 - **a published directory with no row** in `SECTION_OF_DIRECTORY`
-  (`packages/docs/src/sections.ts`), unless the file's frontmatter has a
+  (`packages/docs-site/src/sections.ts`), unless the file's frontmatter has a
   `section`;
 - **a new code-fence language** until it is in `LANGUAGES`
-  (`packages/docs/src/site.ts`);
+  (`packages/docs-site/src/site.ts`);
 - **a `description` missing, blank, a list or over `DESCRIPTION_LIMIT`**
   (#565). It is the page's meta description: one sentence for that page.
 
@@ -377,7 +377,7 @@ lines and figures into the page.
 flags and the run stops at loading the config. Each inline `pagedeck` mention
 runs the same way, failing only on an unknown option or command, since it may
 leave out the arguments. Every verb and flag the page names must also be in
-the usage text `pagedeck` prints for `--help`. It compiles the page's one `ts` fence inside `packages/docs`. A
+the usage text `pagedeck` prints for `--help`. It compiles the page's one `ts` fence inside `packages/docs-site`. A
 new verb or flag needs no edit there; a renamed one fails it.
 
 `content/reference/preview.md` holds the preview app's security guidance, and
@@ -589,7 +589,7 @@ entry passed as props.
 | --- | --- | --- |
 | `packages/landing` | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
 | `packages/site` | 163 B | `pricing_page` on `/en/pricing` |
-| `packages/docs` | 94 B | `search` on `/search` |
+| `packages/docs-site` | 94 B | `search` on `/search` |
 
 If an island starts to fail the default, measure again and give a reason
 before changing it; never raise it to make the failure go away.
@@ -624,7 +624,7 @@ pnpm test:pack-harness
 `packages/core/src/pack.harness.ts` packs the public set with `pnpm pack`,
 installs the tarballs in a temporary directory outside the repository, imports
 every subpath from there, and follows
-`packages/docs/content/tutorials/your-first-site.md` from `create-pagedeck`'s
+`packages/docs-site/content/tutorials/your-first-site.md` from `create-pagedeck`'s
 tarball to a built site. `ci.yml` runs it on every push, and `release.yml`
 before publishing. It fails on a tarball file outside
 `package.json`, `README*`, `LICENSE`, `dist` and, for `create-pagedeck` alone,
@@ -654,7 +654,7 @@ ending `` `path`: ``, and a fence that names none fails the run. A file the
 site already holds must match the fence, and any other is written. While
 `pagedeck dev` runs, each written `content/*.md` must be served at its route.
 Every page under `content/` must be built.
-`packages/docs/src/tutorial.test.ts` checks the same fences in the suite, with
+`packages/docs-site/src/tutorial.test.ts` checks the same fences in the suite, with
 no install: each starter file the page quotes matches
 `packages/create-pagedeck/template` byte for byte, and every other file is a
 new markdown page.
@@ -766,7 +766,7 @@ per proxied client-component instance it renders
 because an incremental build skips renders:
 
 ```sh
-cd packages/docs
+cd packages/docs-site
 rm -rf site .pagedeck
 node ../core/dist/bin.js sync
 PAGEDECK_PROXY_CENSUS="$PWD/census.jsonl" node ../core/dist/bin.js build

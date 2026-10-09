@@ -266,7 +266,7 @@ importers:
         specifier: ^8.2.2
         version: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)
 
-  packages/docs:
+  packages/docs-site:
     dependencies:
       '@pagedeck/adapter-cloudflare-pages':
         specifier: workspace:*

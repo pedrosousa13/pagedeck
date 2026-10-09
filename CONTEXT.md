@@ -279,7 +279,7 @@ state one module graph makes one store of
 (`docs/adr/0007-islands-are-built-in-one-module-graph.md`), the stored state the
 **Pre-paint script**, below, reads before the first paint. That sense is
 something kept, and it is what this one is not: the framework holds no consent
-state of its own (`packages/docs/content/reference/third-party-scripts.md` says
+state of its own (`packages/docs-site/content/reference/third-party-scripts.md` says
 so to a site's author), the loader asks the site's source again at every
 decision and remembers nothing, and what this attribute carries is a reading of
 an answer somebody else owns. Every other sense is compounded already —
@@ -840,7 +840,7 @@ It is **not** a page's **dependencies**, and the distinction is the reason the
 field exists rather than a shade of one. `dependsOn` is defined as what a page's
 render *reads*, which an incremental build uses to decide what to rebuild; a
 page may read an entry it never links, and link a page its render never reads.
-`packages/docs` declares `sharedDependsOn: everyDocument` for rebuild
+`packages/docs-site` declares `sharedDependsOn: everyDocument` for rebuild
 correctness alone, so reading one as the other gave all 45 of its pages a rules
 block naming the first documents in collection order — wrong output rather than
 absent output. `dedupeRefs` flattens both callbacks with no provenance, so the
@@ -1402,7 +1402,7 @@ key, heading path
 A document's headings in order, each with its **heading slug** and the text it
 reads as (`RenderedMarkdown.toc`, `TocEntry`, #327). The loader reports one and
 emits no markup for it; where it goes on a page, what it is called and which
-levels it shows are a template's (`packages/docs/src/components/doc_page.tsx`
+levels it shows are a template's (`packages/docs-site/src/components/doc_page.tsx`
 renders this site's).
 
 *Outline* rather than *table of contents* because the two are not the same
@@ -1536,7 +1536,7 @@ the section below: `packages/core/src/publishable-packages.test.ts` walks
 `packages/` off disk and packs whatever it finds, so a new package is held to
 all of it the day it lands, with no list to add itself to. `AGENTS.md` under
 "The published tarball" carries the three fields and the argument for each,
-including where `packages/docs` makes uniformity a choice; do not restate them
+including where `packages/docs-site` makes uniformity a choice; do not restate them
 here. Ruled on #185.
 
 Each package's `tsconfig.build.json` holds to the same rule. Only `references`
@@ -2514,7 +2514,7 @@ categories onto those four, which is the half the ruling was reaching for and
 is what keeps the swap small.
 
 The two worked adapters in
-`packages/docs/content/reference/third-party-scripts.md` stay the only place in
+`packages/docs-site/content/reference/third-party-scripts.md` stay the only place in
 this repository a consent manager is named — a reference page describing a
 vendor's code, which **A site describes a vendor's code, never core's** already
 permits. Ruled on #212, narrowed on #384, with that one departure recorded here
@@ -2553,7 +2553,7 @@ current page, and its nodes go through the page's own render: the registry, the
 root providers, the island passes, the page's entry and its class manifest.
 Until #409 there was no such field. "The whole rendered tree" admitted no exception,
 so a top-level `<nav>`, banner or `contentinfo` was a descendant of `<main>`
-rather than a sibling, and `packages/docs`' own navigation still is until it
+rather than a sibling, and `packages/docs-site`' own navigation still is until it
 moves onto the chrome. The ruling on #409 chose the field over the two answers that
 make the landmark depend on what a site rendered: a marker a component carries
 to opt out, which a site can forget, and skipping the wrap when the tree already
@@ -2766,7 +2766,7 @@ stdout what it published and that the app authenticates nothing.
 
 The reason is what a preview app is. It renders arbitrary draft JSON posted to
 it and authenticates none of it, by design: the preview reference page,
-`packages/docs/content/reference/preview.md`, says so under **Security**, and
+`packages/docs-site/content/reference/preview.md`, says so under **Security**, and
 #54 scoped hardening past a bridge's origin allowlist out. So the failure to
 design against is a production deploy shipping one unasked, and declared-or-absent makes that impossible by construction rather
 than by an operator remembering. A fixed address on every build was the
@@ -2986,7 +2986,7 @@ An example that feeds a contract hand-written input and asserts the echo is
 refused for the same reason: it stays green whatever the contract does (#270).
 A listed contract is executed by a test that can make its claim, usually a
 `*.build.test.ts`, and its reference page under
-`packages/docs/content/reference/` carries the config the example would have
+`packages/docs-site/content/reference/` carries the config the example would have
 shown. It moves into `packages/examples` when the harness gains what it lacked:
 a build, a DOM or a second build.
 
