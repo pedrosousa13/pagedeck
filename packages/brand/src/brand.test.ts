@@ -38,7 +38,7 @@ test("the dark theme redeclares every colour the light theme states outright", (
 });
 
 test("each of the three sites imports this one token source", () => {
-  for (const site of ["landing", "docs", "site"]) {
+  for (const site of ["landing", "docs-site", "site"]) {
     const sheet = join(PACKAGES, site, "styles", "global.css");
     const imports = [
       ...readFileSync(sheet, "utf8").matchAll(/@import\s+"([^"]+)"/g),
