@@ -342,6 +342,7 @@ test("the head's children are written in the documented order", async () => {
     'meta property="og:title"',
     'meta property="og:description"',
     'meta property="og:image"',
+    'link rel="modulepreload"',
     'link rel="stylesheet"',
     'script type="application/ld+json"',
   ]);

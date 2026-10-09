@@ -996,11 +996,16 @@ async function stageSite(input: {
   const undeclaredHeaders = undeclaredHeadersWarning(section.routing);
 
   const scriptByPage = new Map<string, string>();
+  const preloadsByPage = new Map<string, readonly string[]>();
   const stylesByPage = new Map<string, readonly string[]>();
   for (const entry of plan.entries) {
     const script = client.entryScripts.get(entry.name);
     if (script !== undefined) {
       scriptByPage.set(`${entry.locale} ${entry.path}`, script);
+      preloadsByPage.set(
+        `${entry.locale} ${entry.path}`,
+        staticImportClosure(script, client.imports),
+      );
     }
     const styles = client.entryStyles.get(entry.name);
     if (styles !== undefined) {
@@ -1099,6 +1104,7 @@ async function stageSite(input: {
         absorbed,
         ...(chrome === undefined ? {} : { chrome }),
         script: scriptByPage.get(key),
+        modulePreloads: preloadsByPage.get(key) ?? [],
         styles: pageStyles.get(key)?.linked ?? [],
         inlineStyles: inlineTags.get(key) ?? [],
         head:
@@ -1516,6 +1522,25 @@ async function stageSite(input: {
       ],
     },
   };
+}
+
+/** Static imports only: a chunk behind `import()` waits for its trigger (#95). */
+function staticImportClosure(
+  entry: string,
+  imports: ReadonlyMap<string, readonly string[]>,
+): string[] {
+  const seen = new Set<string>([entry]);
+  const pending = [entry];
+  while (pending.length > 0) {
+    const path = pending.pop() as string;
+    for (const next of imports.get(path) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      pending.push(next);
+    }
+  }
+  seen.delete(entry);
+  return [...seen].sort();
 }
 
 /**
@@ -2315,6 +2340,7 @@ interface DocumentInput {
   absorbed: readonly AbsorbedMetadata[];
   chrome?: ChromeMarkup;
   script: string | undefined;
+  modulePreloads?: readonly string[];
   styles: readonly string[];
   inlineStyles: readonly string[];
   head: PageHead | undefined;
@@ -2334,6 +2360,7 @@ export function documentHtml(input: DocumentInput): string {
     absorbed,
     chrome,
     script,
+    modulePreloads,
     styles,
     inlineStyles,
     head,
@@ -2387,6 +2414,7 @@ export function documentHtml(input: DocumentInput): string {
             },
           }),
       ...(fontPreloads === undefined ? {} : { fontPreloads }),
+      ...(modulePreloads === undefined ? {} : { modulePreloads }),
       ...(section.prePaint === undefined ? {} : { prePaint: section.prePaint }),
       absorbed,
       ...(supplement === undefined ? {} : { supplement }),

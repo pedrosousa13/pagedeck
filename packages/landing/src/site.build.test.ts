@@ -120,6 +120,12 @@ function nonStyleAssetUrls(html: string): string[] {
   return assetUrls(html).filter((url) => !url.endsWith(".css"));
 }
 
+function modulePreloads(html: string): string[] {
+  return [...html.matchAll(/<link rel="modulepreload" href="([^"]*)">/g)].map(
+    (match) => deployKey(match[1] as string),
+  );
+}
+
 // Escapes twice: once as the sheet writes the selector, then the result for
 // `RegExp`, where an unescaped `.` or `[` compiles and silently mis-matches.
 function selectorPattern(name: string): string {
@@ -263,6 +269,7 @@ test("the content page ships 0 bytes of JavaScript, with the island page in the 
   const html = document(page(CONTENT).output);
   expect(html).not.toContain("<script");
   expect(nonStyleAssetUrls(html)).toEqual([]);
+  expect(modulePreloads(html)).toEqual([]);
   expect(page(CONTENT).entryChunk).toBeUndefined();
   expect(page(CONTENT).components).toEqual([]);
 
@@ -287,9 +294,10 @@ test("the island page carries exactly one island, server-rendered before any scr
   expect(html).toContain("<output>");
   expect(html).toContain("Press me");
 
-  expect(nonStyleAssetUrls(html)).toEqual([
-    deployKey(interactive.entryChunk as string),
-  ]);
+  const entry = deployKey(interactive.entryChunk as string);
+  expect(nonStyleAssetUrls(html)).toEqual([entry, ...modulePreloads(html)]);
+  expect(jsClosure(entry)).toEqual(expect.arrayContaining(modulePreloads(html)));
+  expect(modulePreloads(html).some((key) => key.includes("/fw-core-"))).toBe(true);
 });
 
 test("the islands' cost is confined to the pages that asked for them", () => {
@@ -1053,6 +1061,7 @@ describe("/server-data", () => {
     expect(page(SERVER_DATA).inlineScriptHashes ?? []).toEqual([]);
     expect(nonStyleAssetUrls(document)).toEqual([
       deployKey(page(SERVER_DATA).entryChunk as string),
+      ...modulePreloads(document),
     ]);
   });
 });
