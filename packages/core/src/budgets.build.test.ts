@@ -14,6 +14,7 @@ import { afterEach, expect, test } from "vitest";
 import { budgetReportPath, islandPropsLimit } from "./budgets.js";
 import type { BudgetReport } from "./budgets.js";
 import { EXIT_CODES } from "./exit.js";
+import { ABSENT_FAVICON } from "./favicon.test-support.js";
 import { readManifest } from "./manifest.js";
 
 const SITES = fileURLToPath(new URL("../node_modules/", import.meta.url));
@@ -270,7 +271,7 @@ test("a content-only page reports 0 bytes and passes a zero budget", async () =>
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = reportIn(dir).pages.find(
@@ -296,7 +297,7 @@ test("the report weighs the stylesheets a page links and its own document, and n
   await run(dir, "sync");
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const dist = join(dir, "dist");
@@ -386,7 +387,7 @@ test("a page carrying both a loader and a beacon is charged for both, once each"
   await run(dir, "sync");
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const dist = join(dir, "dist");
@@ -440,7 +441,7 @@ test("a carried page is charged for the document on the tree, not for a config i
   );
   const result = await run(rebuilt, "build", "--incremental");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const dist = join(rebuilt, "dist");
@@ -560,7 +561,7 @@ test("an island handed only the fields it renders builds, and a site with no bud
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
   expect(existsSync(budgetReportPath(dir))).toBe(false);
 }, 60_000);

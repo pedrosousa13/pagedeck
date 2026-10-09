@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { DIAGNOSTIC_MARKER, readManifest } from "@pagedeck/core";
 import type { Manifest } from "@pagedeck/core";
+import { ABSENT_FAVICON } from "../../core/src/favicon.test-support.js";
 import { generateSyntheticSite } from "./generate.js";
 import type { SyntheticSite } from "./generate.js";
 
@@ -30,7 +31,7 @@ async function run(verb: string): Promise<void> {
       .split("\n")
       .filter((line) => line.startsWith(`${DIAGNOSTIC_MARKER} `))
       .join("\n"),
-  ).toBe("");
+  ).toBe(verb === "build" ? `${DIAGNOSTIC_MARKER} ${ABSENT_FAVICON}` : "");
 }
 
 let site: SyntheticSite;

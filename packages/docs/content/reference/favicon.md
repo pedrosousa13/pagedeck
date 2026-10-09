@@ -22,7 +22,15 @@ was run from. A path that names no file refuses the build before a page is
 rendered, naming the config and the path it resolved to.
 
 **A site that declares no `favicon` gets exactly the build it got before the
-field existed.** No file is written and no manifest row appears.
+field existed.** No file is written and no manifest row appears. `pagedeck build`
+warns about it, on one line:
+
+```
+Favicon: this site declares no build.favicon, so no output tree has a file at /favicon.ico — a browser requests that address on its own, whether or not a page links to it, and the 404 it gets is logged as a console error and fails Lighthouse's errors-in-console audit; this is a warning and not a refusal because every page this build emitted is correct — set build.favicon to the site's icon file, as favicon: { src: "./favicon.ico" } (Pagedeck documentation: Favicon)
+```
+
+A site whose [passthrough files](./passthrough.md) already include a
+`favicon.ico` at the root is not warned.
 
 ## Why the field exists at all
 

@@ -15,7 +15,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 111 below, 98 of them
+`x` at/from `path`, outside fenced blocks — there are 112 below, 99 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -29,8 +29,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 272 messages fenced
-below, 216 are checked that way and 56 are not**, and that test lists the 56
+literal interpolates left as holes it cannot read. **Of the 273 messages fenced
+below, 217 are checked that way and 56 are not**, and that test lists the 56
 one by one with the reason each is out: 54 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 216 checked messages pin 33314 of the 83653 fenced characters, and
+below**: the 217 checked messages pin 33750 of the 84122 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3495,23 +3495,24 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty, and each says what it cannot promise; a twenty-first is written
+writes twenty-one, and each says what it cannot promise; a twenty-second is written
 by `pagedeck sync` rather than by a build and is the last one described below; three
 more are the browser's and are argued in this rule's closing section, where they
 sit among the browser's refusals rather than after them.
 
-**All twenty reach `io.err`, and four of them only through one verb**, and
+**All twenty-one reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-first is reachable too, by the same shape through the other verb: `syncSite`
+The twenty-second is reachable too, by the same shape through the other verb: `syncSite`
 returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It is described
-after the twenty below, and kept out of their count because `pagedeck sync` is what
-writes it and no build ever does. Sixteen — `resourcePlacerWarning`,
+after the twenty-one below, and kept out of their count because `pagedeck sync` is what
+writes it and no build ever does. Seventeen — `resourcePlacerWarning`,
 `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
-`undeclaredContentRootWarning`, `unprunedTreeWarning`, `checkSiteLinks`' two,
+`undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
+`checkSiteLinks`' two,
 `probeExternalLinks`' three, `retainManifest`'s two and `compileIslands`' two —
 are collected into `SiteBuild.warnings` by `buildSite` and written by
-`runBuildVerb`. All sixteen are reachable; one of them was not until #270, and
+`runBuildVerb`. All seventeen are reachable; one of them was not until #270, and
 its own section below records what closed it — a site's redirects now reach
 `planRouting` through `build.routing`. The last two travel one stage further to
 get there, and #242 is that stage: a bundler plugin has no `io.err` to write
@@ -3522,8 +3523,8 @@ The four #29 adds, `driftWarnings`' two and `compileSupplements`' two, are
 strings shaped for that same field, and #281 gave them the caller they were
 waiting on: `buildSite` (`packages/core/src/build.ts`) runs `checkDrift` and
 `compileSupplements` on a run given `incremental: true`, and puts both sets of
-warnings into the same `warnings` list the sixteen above go into. So all
-twenty are reachable, and the four reach a reader through
+warnings into the same `warnings` list the seventeen above go into. So all
+twenty-one are reachable, and the four reach a reader through
 `pagedeck build --incremental` and through nothing else — a full build cannot drift by
 construction, since the class manifest it would check against is the one it is
 writing, so it makes no plan, takes no check and produces none of these four.
@@ -4289,7 +4290,23 @@ The fix is a full build, and not an edit to the document: that build warns as
 above, prunes nothing, and leaves a manifest of its own, which is the one the
 next incremental run plans against.
 
-**The twenty-first is not a build's at all, and it is `colorFailureWarning`**
+The twenty-first is `absentFaviconWarning` (`packages/core/src/favicon.ts`),
+and its subject is a request nobody wrote (#76). A browser asks for
+`/favicon.ico` on its own, so a site that declares no `build.favicon` answers
+every first visit with a 404, which the browser logs as a console error and
+Lighthouse counts against best practices. Before #76 nothing said so:
+
+```
+Favicon: this site declares no build.favicon, so no output tree has a file at /favicon.ico — a browser requests that address on its own, whether or not a page links to it, and the 404 it gets is logged as a console error and fails Lighthouse's errors-in-console audit; this is a warning and not a refusal because every page this build emitted is correct — set build.favicon to the site's icon file, as favicon: { src: "./favicon.ico" } (Pagedeck documentation: Favicon)
+```
+
+Not a refusal, on `undeclaredHeadersWarning`'s argument: every page is
+correct, and a host may answer `/favicon.ico` itself. Not a default icon
+either, which the maintainer ruled out: the bytes would be the framework's
+and not the site's. A site whose `build.passthrough.root` already publishes
+`/favicon.ico` is not warned, because nothing at that address 404s.
+
+**The twenty-second is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
 fetch a dominant color for. It is written by `pagedeck sync` and reaches `io.err`
 through `runSyncVerb`, which writes `SyncReport.warnings` before the failures —
@@ -4655,14 +4672,15 @@ schema failure to the schema guide, the snapshot scheme failure to the snapshot
 how-to. Until then, do not add a link to a page nobody can open; a dead URL in
 a build failure is worse than no URL.
 
-One line names a page instead, by the title and heading the docs site shows.
-`pagedeck build` prints it after its summary when the site declares
-`build.preview` (#713):
+Two lines name a page instead, by the title, and heading where one helps,
+that the docs site shows. The twenty-first warning above names the Favicon
+page (#76). `pagedeck build` prints the other after its summary when the site
+declares `build.preview` (#713):
 
 ```
 preview: /_preview — this app authenticates nothing and renders any draft posted to it; put the deployment behind whatever the drafts need (Pagedeck documentation: Preview app, Security)
 ```
 
-It used to name a README path in this repository, which an installed site does
+The preview line used to name a README path in this repository, which an installed site does
 not have and which belongs to a private package. A page title survives the move
 to an origin. When the site has one, the URL goes beside the title.

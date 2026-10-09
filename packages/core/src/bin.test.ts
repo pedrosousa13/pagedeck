@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import { afterEach, expect, test } from "vitest";
 import { DIAGNOSTIC_MARKER } from "./diagnostic-marker.js";
 import { EXIT_CODES } from "./exit.js";
+import { ABSENT_FAVICON } from "./favicon.test-support.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -162,7 +163,7 @@ export default defineConfig({
   );
 
   expect(stdout.trim()).toContain(`built 1 pages,`);
-  expect(markedLines(stderr)).toEqual([]);
+  expect(markedLines(stderr)).toEqual([`${DIAGNOSTIC_MARKER} ${ABSENT_FAVICON}`]);
   const passedThrough = stderr
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER));

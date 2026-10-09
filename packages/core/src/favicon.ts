@@ -36,6 +36,16 @@ export function faviconFaultReport(
 
 const FAVICON_PATH = "/favicon.ico";
 
+export function absentFaviconWarning(
+  declared: boolean,
+  emitted: readonly EmittedFile[],
+): string | undefined {
+  if (declared || emitted.some((file) => file.path === FAVICON_PATH)) {
+    return undefined;
+  }
+  return `Favicon: this site declares no build.favicon, so no output tree has a file at /favicon.ico — a browser requests that address on its own, whether or not a page links to it, and the 404 it gets is logged as a console error and fails Lighthouse's errors-in-console audit; this is a warning and not a refusal because every page this build emitted is correct — set build.favicon to the site's icon file, as ${SHAPE_FIX} (Pagedeck documentation: Favicon)`;
+}
+
 export interface FaviconInput {
   bytes: Uint8Array;
   locales: LocaleSet;
