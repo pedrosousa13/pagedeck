@@ -1856,8 +1856,9 @@ The blocks, in the order `headElements` writes them:
     `entryStyles` fixed, and contiguous: the cascade is the order of this
     block, so nothing that is not a stylesheet goes into the middle of it. On a
     site that asked for view transitions it opens with
-    `@view-transition { navigation: auto; }`, so a site's own rule comes later
-    and wins (#42).
+    `@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }`,
+    so a site's own rule comes later and wins (#42), and a reader who asked
+    for reduced motion gets no transition (#121).
 7. **The JSON-LD block** (`head:json-ld`). Often the largest element, and a
     browser's preload scanner should not step over it to reach the CSS.
 8. **The speculation rules block** (`head:speculation`, #42). Last, because it

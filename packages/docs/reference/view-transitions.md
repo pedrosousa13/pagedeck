@@ -28,12 +28,21 @@ got before the field existed.** No element is written and no page's bytes move.
 One element, first in the `<head>`'s stylesheet block, on every page:
 
 ```
-<style>@view-transition { navigation: auto; }</style>
+<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
 ```
 
 That is the whole of what the framework writes. `@view-transition` is a CSS
 at-rule, so this adds no JavaScript, no chunk and no event listener — the
 transition is run by the browser.
+
+## Reduced motion
+
+The rule sits inside `@media (prefers-reduced-motion: no-preference)`, so a
+reader whose system asks for reduced motion gets no transition at all: the
+browser swaps the pages the way it does with the feature off. There is
+no setting to keep the transition for that reader. A browser harness proves both
+cases in Chromium: following a link runs a view transition with no motion
+preference and runs none under `prefers-reduced-motion: reduce`.
 
 **Both documents need it**, which is why it is on every page rather than on the
 pages you name: a cross-document transition is an agreement between the page

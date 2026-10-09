@@ -38,6 +38,7 @@
     "packages/core/vitest.lazy-runtime-harness.config.ts",
     "packages/core/vitest.hydration-task-harness.config.ts",
     "packages/core/vitest.consent-facade-harness.config.ts",
+    "packages/core/vitest.view-transitions-harness.config.ts",
     "packages/core/vitest.pack-harness.config.ts",
     "packages/site/vitest.a11y.config.ts",
     "packages/landing/vitest.a11y.config.ts",

@@ -738,11 +738,12 @@ again and set `CRASH_DEPTH` from it.
 | `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `fw-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-fw-consent` without a reload, and a denied press loads nothing (#460) |
+| `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
 
 The singleton, lazy runtime and hydration task harnesses run emitted chunks
 from `packages/islands/dist`, because jsdom ignores `<script type="module">`,
-so build first; none can detect a stale `dist`. The consent facade harness
-drives `runCli` in process and needs no build. Under a CSP, poll with
+so build first; none can detect a stale `dist`. The consent facade and view
+transitions harnesses drive `runCli` in process and need no build. Under a CSP, poll with
 `page.evaluate`: `page.waitForFunction` runs its predicate through `eval`,
 which the policy refuses (#586).
 
