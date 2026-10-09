@@ -66,12 +66,9 @@ const BUILD_CEILING = 61 * 1024;
 // `vitest run` tests the last build, not the working tree.
 const BIN = join(SITE, "..", "core", "dist", "bin.js");
 
-// A run that warns fails (#184), and `loadsOtherTools` asserts a third-party line
-// survived. The marker's trailing space matters: this repo's plugins are named `pagedeck:…`.
-async function run(
-  verb: string,
-  loadsOtherTools: boolean,
-): Promise<void> {
+// A run that warns fails (#184). The marker's trailing space matters: this repo's plugins are
+// named `pagedeck:…`.
+async function run(verb: string): Promise<void> {
   const { stderr } = await execFileAsync(process.execPath, [BIN, verb], {
     cwd: SITE,
   });
@@ -79,11 +76,6 @@ async function run(
   expect(
     lines.filter((line) => line.startsWith(`${DIAGNOSTIC_MARKER} `)),
   ).toEqual([]);
-  if (!loadsOtherTools) return;
-  const passedThrough = lines.filter(
-    (line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER),
-  );
-  expect(passedThrough.length).toBeGreaterThan(0);
 }
 
 function deployKey(url: string): string {
@@ -207,8 +199,8 @@ beforeAll(async () => {
   rmSync(RETAINED, { recursive: true, force: true });
   rmSync(BUDGET_REPORT, { force: true });
 
-  await run("sync", false);
-  await run("build", true);
+  await run("sync");
+  await run("build");
 
   manifest = readManifest(
     readFileSync(join(OUT, "manifest.json"), "utf8"),

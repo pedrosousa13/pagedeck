@@ -10,6 +10,16 @@ import type { Plugin } from "vite";
 
 const SCRIPT = /\.[cm]?[jt]sx?$/;
 
+const REACT_RUNTIME = new Set(["react", "react-dom", "scheduler"]);
+
+function packageOf(path: string): string | undefined {
+  const segments = path.split("/");
+  const last = segments.lastIndexOf("node_modules");
+  if (last === -1) return undefined;
+  const name = segments[last + 1];
+  return name?.startsWith("@") === true ? `${name}/${segments[last + 2] ?? ""}` : name;
+}
+
 /** No JSX for `.ts`: there `<T>value` is a type assertion, not an element. */
 function parserPlugins(path: string): ("jsx" | "typescript")[] {
   if (path.endsWith(".ts") || path.endsWith(".mts") || path.endsWith(".cts")) {
@@ -101,6 +111,8 @@ export function compileIslands(): IslandCompilation {
     transform(code, id) {
       const path = id.split("?")[0] ?? id;
       if (!SCRIPT.test(path)) return null;
+      // Compiling React itself changes nothing and makes Babel print a note (#70).
+      if (REACT_RUNTIME.has(packageOf(path) ?? "")) return null;
 
       const options: PluginOptions = {
         target: "19",

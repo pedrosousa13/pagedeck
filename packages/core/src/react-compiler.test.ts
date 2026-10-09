@@ -215,3 +215,39 @@ test("a bailout inside a dependency is compiled but not warned about", async () 
   expect(compiler.taken()).toEqual([]);
   expect(code).toContain("VendorWidget");
 }, 60_000);
+
+const COMPILABLE = [
+  `export default function Widget({ items }) {`,
+  `  const shouted = items.map((item) => item.toUpperCase());`,
+  `  return <ul>{shouted.map((item) => <li key={item}>{item}</li>)}</ul>;`,
+  `}`,
+  "",
+].join("\n");
+
+function transformed(id: string): unknown {
+  const transform = compileIslands().plugin.transform;
+  if (typeof transform !== "function") {
+    throw new Error("compileIslands no longer has a plain transform hook");
+  }
+  return transform.call({} as never, COMPILABLE, id, undefined);
+}
+
+test.each([
+  "/site/node_modules/.pnpm/react@19.2.8/node_modules/react/cjs/react.production.js",
+  "/site/node_modules/.pnpm/react-dom@19.2.8_react@19.2.8/node_modules/react-dom/cjs/react-dom-client.production.js",
+  "/site/node_modules/.pnpm/scheduler@0.27.0/node_modules/scheduler/cjs/scheduler.production.js",
+  "/site/node_modules/react/cjs/react.production.js",
+  "/site/node_modules/react-dom/cjs/react-dom-client.production.js",
+  "/site/node_modules/scheduler/cjs/scheduler.production.js",
+])("React's own runtime module %s passes through untransformed", (id) => {
+  expect(transformed(id)).toBeNull();
+});
+
+test.each([
+  "/site/node_modules/.pnpm/react-aria@3.0.0/node_modules/react-aria/dist/index.jsx",
+  "/site/node_modules/react-dom-extra/index.jsx",
+  "/site/node_modules/@scope/react/index.jsx",
+  "/site/node_modules/react/node_modules/vendor-widget/index.jsx",
+])("a module of another package, %s, is still compiled", (id) => {
+  expect(String((transformed(id) as { code: string }).code)).toMatch(MEMO_CACHE_INIT);
+});

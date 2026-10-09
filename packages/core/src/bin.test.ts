@@ -114,7 +114,12 @@ test("the pagedeck executable builds a real site end to end", async () => {
   mkdirSync(join(dir, "content", "en"), { recursive: true });
   writeFileSync(
     join(dir, "components", "Hero.js"),
-    `export default function Hero() { return "marker-hero-bin-6f31"; }\n`,
+    `import { rows } from "./rows.js";\nexport default function Hero() { return "marker-hero-bin-6f31" + rows.length; }\n`,
+  );
+  // Past Babel's 500KB, so the build writes Babel's note: a line of another tool's to pass through.
+  writeFileSync(
+    join(dir, "components", "rows.js"),
+    `export const rows = ${JSON.stringify(Array.from({ length: 50_000 }, (_, index) => `row-${String(index)}`))};\n`,
   );
   writeFileSync(
     join(dir, "content", "en", "home.json"),
