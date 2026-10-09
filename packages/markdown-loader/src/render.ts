@@ -147,7 +147,8 @@ function unknownLanguageReport(file: string, unknown: Set<string>): string {
 }
 
 // Raw HTML and images give nothing, a link its text. `curled` picks a text token's `text`
-// over its straight `raw`. Strict, because marked shows a reference with no `;` literally.
+// over its straight `raw`. Strict, because marked shows a reference with no `;` literally
+// (#101).
 function textContent(tokens: readonly Token[], curled: boolean): string {
   let text = "";
   for (const token of tokens) {

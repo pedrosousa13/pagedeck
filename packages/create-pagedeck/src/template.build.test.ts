@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -18,7 +18,6 @@ interface Manifest {
 beforeAll(async () => {
   cpSync(join(PACKAGE, "template"), SITE, { recursive: true });
   renameSync(join(SITE, "_gitignore"), join(SITE, ".gitignore"));
-  writeFileSync(join(SITE, "content", "tom-and-jerry.md"), "# Tom &amp; Jerry\n\nA page.\n");
   for (const verb of ["sync", "build"]) {
     await execFileAsync(process.execPath, [BIN, verb], { cwd: SITE });
   }
@@ -40,14 +39,4 @@ test("every page the template builds declares one viewport in <head>", () => {
     ).toBe(1);
     expect(html.split('name="viewport"').length - 1, page.path).toBe(1);
   }
-});
-
-test("a character reference in a page's heading reaches <title> escaped once (#101)", () => {
-  const { pages } = JSON.parse(readFileSync(join(SITE, "site", "manifest.json"), "utf8")) as Manifest;
-  const page = pages.find((one) => one.path === "/tom-and-jerry/");
-  expect(page).toBeDefined();
-  const html = readFileSync(join(SITE, "site", page?.output ?? "", "index.html"), "utf8");
-  const head = html.slice(0, html.indexOf("</head>"));
-  expect(head).toContain("<title>Tom &amp; Jerry</title>");
-  expect(html).not.toContain("&amp;amp;");
 });

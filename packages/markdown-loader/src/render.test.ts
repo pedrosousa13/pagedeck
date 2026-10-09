@@ -378,6 +378,7 @@ test("a named, a decimal and a hex reference each give the character", async () 
     );
     expect(rendered.title, reference).toBe("A © B");
     expect(rendered.toc[0]?.text, reference).toBe("A © B");
+    expect(rendered.toc[0]?.slug, reference).toBe("a-b");
   }
 });
 
@@ -398,13 +399,6 @@ test("a character reference is decoded once, and a code span keeps it as written
     "&amp; escaped",
     "&copy 2026 &bogus;",
   ]);
-});
-
-test("smartQuotes curls a typed quote and leaves a referenced one straight, as the heading renders them", async () => {
-  const rendered = await curly.render('# &quot;A&quot; "B"\n\n## &quot;A&quot; "B"\n', "d.md");
-  expect(rendered.title).toBe('"A" “B”');
-  expect(rendered.toc[0]?.text).toBe('"A" “B”');
-  expect(rendered.html).toContain(">&quot;A&quot; “B”</h2>");
 });
 
 test("the outline names exactly the headings the body anchors, in order", async () => {
@@ -517,6 +511,13 @@ test("smartQuotes changes no slug, and the outline and title read like the headi
     "its-here",
   ]);
   expect(curled.html).toContain("<code>don&#39;t</code>");
+});
+
+test("smartQuotes curls a typed quote and leaves a referenced one straight, as the heading renders them", async () => {
+  const rendered = await curly.render('# &quot;A&quot; "B"\n\n## &quot;A&quot; "B"\n', "d.md");
+  expect(rendered.title).toBe('"A" “B”');
+  expect(rendered.toc[0]?.text).toBe('"A" “B”');
+  expect(rendered.html).toContain(">&quot;A&quot; “B”</h2>");
 });
 
 test("smartQuotes starts every block afresh", async () => {

@@ -553,6 +553,13 @@ importers:
       shiki:
         specifier: ^4.4.3
         version: 4.4.3
+    devDependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      react:
+        specifier: ^19.2.0
+        version: 19.2.8
 
   packages/preview:
     dependencies:
