@@ -396,18 +396,21 @@ describe("servedUrl", () => {
       { locale: "de", path: "/" },
       { locale: "en", path: "/pricing" },
       { locale: "en", path: "/legal/terms" },
+      { locale: "en", path: "/pricing/" },
     ];
     expect(rows.map((row) => servedUrl(row, "always"))).toEqual([
       "/en/",
       "/de/",
       "/en/pricing/",
       "/en/legal/terms/",
+      "/en/pricing/",
     ]);
     expect(rows.map((row) => servedUrl(row, "never"))).toEqual([
       "/en",
       "/de",
       "/en/pricing",
       "/en/legal/terms",
+      "/en/pricing",
     ]);
   });
 });
