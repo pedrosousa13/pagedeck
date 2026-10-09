@@ -1,0 +1,73 @@
+[
+  {
+    "label": "Overview",
+    "pages": [
+      "index.md"
+    ]
+  },
+  {
+    "label": "Tutorials",
+    "pages": [
+      "tutorials/your-first-site.md"
+    ]
+  },
+  {
+    "label": "How-to guides",
+    "pages": [
+      "how-to/add-an-island.md",
+      "how-to/connect-a-cms.md",
+      "how-to/deploy-a-site.md",
+      "how-to/write-a-loader.md"
+    ]
+  },
+  {
+    "label": "Reference",
+    "pages": [
+      "deploy-recipe.md",
+      "error-messages.md",
+      "reference/canonicals-and-hreflang.md",
+      "reference/cli.md",
+      "reference/critical-css.md",
+      "reference/deploy-serialization.md",
+      "reference/favicon.md",
+      "reference/feeds.md",
+      "reference/fold-strategy.md",
+      "reference/fonts.md",
+      "reference/global-css.md",
+      "reference/images.md",
+      "reference/javascript-budgets.md",
+      "reference/link-checking.md",
+      "reference/page-body.md",
+      "reference/page-head.md",
+      "reference/paged-lists.md",
+      "reference/passthrough.md",
+      "reference/preview.md",
+      "reference/publication-window.md",
+      "reference/robots.md",
+      "reference/routing.md",
+      "reference/shared-store.md",
+      "reference/site-config.md",
+      "reference/site-search.md",
+      "reference/sitemaps.md",
+      "reference/speculation-rules.md",
+      "reference/third-party-scripts.md",
+      "reference/view-transitions.md",
+      "reference/web-vitals-beacon.md"
+    ]
+  },
+  {
+    "label": "Explanation",
+    "pages": [
+      "adr/0001-routing-without-a-router-package.md",
+      "adr/0002-no-production-sourcemaps.md",
+      "adr/0003-one-canonical-path-spelling.md",
+      "adr/0004-the-entry-id-contract-holds-on-write.md",
+      "adr/0005-slot-re-render-is-not-detectable.md",
+      "adr/0006-slot-ids-are-not-authenticated.md",
+      "adr/0007-islands-are-built-in-one-module-graph.md",
+      "adr/0008-when-the-manifest-version-moves.md",
+      "adr/0009-one-package-per-edge-adapter.md",
+      "explanation/why-this-site-ships-no-javascript.md"
+    ]
+  }
+]

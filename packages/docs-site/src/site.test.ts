@@ -2,7 +2,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -18,11 +17,14 @@ import { createMarkdownRenderer, parseFrontmatter } from "@pagedeck/markdown-loa
 import {
   docsSiteConfig,
   documentSchema,
+  isGuide,
   LANGUAGES,
   repositoryLoader,
+  routedLinks,
 } from "./site.js";
 import type { DocumentEntry } from "./site.js";
 import type { SectionName } from "./sections.js";
+import { guideFiles, GUIDES } from "./guides.test-support.js";
 
 // A hand-written store, so the document count can vary.
 function collectAgainst(perCollection: number): {
@@ -143,13 +145,10 @@ test("the schema narrows description to a string every document has", () => {
 });
 
 test("no docs page loses a byte to the reserved-name strip", async () => {
-  const root = join(import.meta.dirname, "..", "content");
   const renderer = await createMarkdownRenderer({ languages: [...LANGUAGES] });
   const losses: string[] = [];
-  for (const file of readdirSync(root, { recursive: true, encoding: "utf8" })
-    .filter((name) => name.endsWith(".md"))
-    .sort()) {
-    const source = readFileSync(join(root, file), "utf8");
+  for (const file of guideFiles()) {
+    const source = readFileSync(join(GUIDES, file), "utf8");
     const { body } = parseFrontmatter(source, file);
     const { html } = await renderer.render(body, file);
     const stripped = unescapedHtml(html).dangerouslySetInnerHTML.__html;
@@ -278,10 +277,10 @@ test("one unclassified entry reads as one", async () => {
 });
 
 const SEARCH_SAMPLES: readonly (readonly string[])[] = [
-  ["packages/docs/src/site.ts"],
+  ["packages/docs-site/src/site.ts"],
   [
-    "packages/docs/src/components/shell.ts",
-    "packages/docs/src/components/nav.tsx",
+    "packages/docs-site/src/components/shell.ts",
+    "packages/docs-site/src/components/nav.tsx",
   ],
   ["packages/landing/src/catalog.ts"],
   ["packages/landing/src/features.ts"],
@@ -298,7 +297,7 @@ function unsourcedSampleLines(
   samples: readonly (readonly string[])[],
 ): string[] {
   const repo = join(import.meta.dirname, "..", "..", "..");
-  const page = join(import.meta.dirname, "..", "content", "reference", name);
+  const page = join(import.meta.dirname, "..", "..", "docs", "reference", name);
   expect(existsSync(page), page).toBe(true);
   const fences = [
     ...readFileSync(page, "utf8").matchAll(/^```[a-z]*\n([\s\S]*?)^```$/gm),
@@ -330,4 +329,36 @@ test("every code sample on the site search page is a line of a site that builds 
 
 test("every code sample on the fonts page is a line of a site that builds with it", () => {
   expect(unsourcedSampleLines("fonts.md", FONTS_SAMPLES)).toEqual([]);
+});
+
+test("a relative link to a page renders as that page's route, fragment kept", () => {
+  expect(
+    routedLinks(
+      '<a href="../reference/cli.md#flags">a</a> <a href="./write-a-loader.md">b</a> <a href="../index.md">c</a>',
+      "how-to/deploy-a-site.md",
+    ),
+  ).toBe('<a href="/reference/cli/#flags">a</a> <a href="/how-to/write-a-loader/">b</a> <a href="/">c</a>');
+  expect(routedLinks('<a href="adr/0001-a.md">x</a>', "deploy-recipe.md")).toBe(
+    '<a href="/adr/0001-a/">x</a>',
+  );
+});
+
+test("a link that is not a relative link to a page is left as written", () => {
+  const html =
+    '<a href="https://example.com/a.md">a</a><a href="#top">b</a><a href="/reference/cli/">c</a><a href="./logo.png">d</a><code>href="./x.md"</code>';
+  expect(routedLinks(html, "reference/cli.md")).toBe(html);
+});
+
+test("a guide is a page of the docs package that is not its readme or a copy of docs/", () => {
+  expect(
+    [
+      "index.md",
+      "how-to/add-an-island.md",
+      "README.md",
+      "adr/0001-routing-without-a-router-package.md",
+      "deploy-recipe.md",
+      "error-messages.md",
+      "node_modules/marked/README.md",
+    ].filter(isGuide),
+  ).toEqual(["index.md", "how-to/add-an-island.md"]);
 });

@@ -14,11 +14,12 @@ import { dirname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
+  packedAsDocs,
   packedBesideDist,
   PUBLIC_PACKAGES,
   PUBLIC_VERSION,
 } from "./public-packages.test-support.js";
-import { fences, TUTORIAL } from "../../docs/src/tutorial.test-support.js";
+import { fences, TUTORIAL } from "../../docs-site/src/tutorial.test-support.js";
 
 const run = promisify(execFile);
 
@@ -164,12 +165,12 @@ test("every tarball holds its manifest, readme, licence and emitted dist, and no
   for (const { manifest, entries } of packed) {
     const stowaways = entries.filter(
       (entry) =>
-        (!ALLOWED.test(entry) && !packedBesideDist(manifest).has(entry)) ||
+        (!ALLOWED.test(entry) && !packedBesideDist(manifest).has(entry) && !packedAsDocs(manifest, entry)) ||
         NOT_EMITTED_FOR_CONSUMERS.test(entry),
     );
     if (stowaways.length > 0) {
       faults.push(
-        `Package "${manifest.name}": its tarball carries ${String(stowaways.length)} file(s) outside package.json, README*, LICENSE, dist and, for create-pagedeck alone, the template/ files its "files" names one by one, or a build cache, test, harness or source map inside dist — ${stowaways.join(", ")} — narrow its "files", or keep the file out of the emitted dist in its tsconfig.build.json`,
+        `Package "${manifest.name}": its tarball carries ${String(stowaways.length)} file(s) outside package.json, README*, LICENSE, dist, for create-pagedeck alone the template/ files its "files" names one by one, and for @pagedeck/docs alone its markdown, nav.json and assets/, or a build cache, test, harness or source map inside dist — ${stowaways.join(", ")} — narrow its "files", or keep the file out of the emitted dist in its tsconfig.build.json`,
       );
     }
     if (!entries.includes("LICENSE")) {
@@ -389,7 +390,7 @@ test("following the tutorial with create-pagedeck's tarball reaches a built site
       return;
     }
     throw new Error(
-      `Tutorial "packages/docs/content/tutorials/your-first-site.md": the harness cannot follow the shell line "${line}" — it runs npm create pagedeck, cd, npm install and npx pagedeck lines; follow the new command here, or write the step without it`,
+      `Tutorial "packages/docs/tutorials/your-first-site.md": the harness cannot follow the shell line "${line}" — it runs npm create pagedeck, cd, npm install and npx pagedeck lines; follow the new command here, or write the step without it`,
     );
   };
 
@@ -403,7 +404,7 @@ test("following the tutorial with create-pagedeck's tarball reaches a built site
       }
       if (file === undefined) {
         throw new Error(
-          `Tutorial "packages/docs/content/tutorials/your-first-site.md": a ${lang === "" ? "plain" : lang} fence starting "${code.split("\n")[0] ?? ""}" names no file, so the harness cannot tell where to write it — end the line before it with the file's path in backticks and a colon`,
+          `Tutorial "packages/docs/tutorials/your-first-site.md": a ${lang === "" ? "plain" : lang} fence starting "${code.split("\n")[0] ?? ""}" names no file, so the harness cannot tell where to write it — end the line before it with the file's path in backticks and a colon`,
         );
       }
       const path = join(cwd, file);

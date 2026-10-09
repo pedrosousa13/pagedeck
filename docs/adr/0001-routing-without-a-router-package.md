@@ -1,4 +1,5 @@
 ---
+title: 1. Routing without a router package
 description: Core ships no router package: route params come apart from the content store, and route templates exist only to check links at compile time.
 ---
 

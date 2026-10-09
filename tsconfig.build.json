@@ -33,7 +33,7 @@
     { "path": "./packages/core/tsconfig.build.json" },
     { "path": "./packages/create-pagedeck/tsconfig.build.json" },
     { "path": "./packages/design-system/tsconfig.build.json" },
-    { "path": "./packages/docs/tsconfig.build.json" },
+    { "path": "./packages/docs-site/tsconfig.build.json" },
     { "path": "./packages/edge/tsconfig.build.json" },
     { "path": "./packages/examples/tsconfig.build.json" },
     { "path": "./packages/fixtures/tsconfig.build.json" },

@@ -23,6 +23,7 @@ import { createSearchClient } from "@pagedeck/search/query";
 import { colourFaults, contrastRatio, pairFaults, readThemes } from "@pagedeck/brand";
 import { codeColours } from "./code-colours.test-support.js";
 import { CONTENT_SECURITY_POLICY } from "./csp.js";
+import { isGuide } from "./site.js";
 
 const ADAPTERS = { "cloudfront-function": cloudfront(), netlify: netlify(), nginx: nginx() };
 
@@ -33,7 +34,7 @@ const OUT = join(SITE, "site");
 const STORE = join(SITE, "content.db");
 const RETAINED = join(SITE, RETENTION_DIR);
 
-const ROOTS = [join(SITE, "content"), join(SITE, "..", "..", "docs")];
+const ROOTS = [join(SITE, "..", "docs"), join(SITE, "..", "..", "docs")];
 
 // Written here, not read from `REPOSITORY_DOCS`: a test reading the list it
 // checks would pass on any list.
@@ -223,7 +224,7 @@ test("every guide and every published repository document becomes a page, and no
     ),
   );
   const expected = [
-    ...documentPaths(ROOTS[0] as string).map((path) =>
+    ...documentPaths(ROOTS[0] as string).filter((path) => isGuide(`${path}.md`)).map((path) =>
       addressed(path === "index" ? "/" : `/${path}`),
     ),
     ...repository.map((path) => addressed(`/${path}`)),
@@ -314,6 +315,16 @@ test("every in-page link a document writes resolves to an anchor it holds", () =
   }
   expect(dangling).toEqual([]);
   expect(links).toBeGreaterThan(200);
+});
+
+test("no page links a .md file: a relative link to a page renders as the page's route", () => {
+  const links = manifest.pages.flatMap((row) =>
+    [...document(row.output).matchAll(/<a\b[^>]*\shref="([^"]*\.md(?:#[^"]*)?)"/g)].map(
+      (match) => `${row.path} → ${match[1] as string}`,
+    ),
+  );
+  expect(links).toEqual([]);
+  expect(document("/how-to/deploy-a-site/")).toContain('href="/reference/cli/"');
 });
 
 test("every page carries the whole navigation, grouped into sections", () => {
@@ -994,7 +1005,7 @@ test("no README links the docs' markdown in the repository instead of the deploy
   const repositoryLinks = linkingFiles().flatMap((file) =>
     [
       ...readFileSync(join(REPOSITORY, file), "utf8").matchAll(
-        /(?:\]\(|")([^)"\s]*packages\/docs\/content[^)"\s]*)/g,
+        /(?:\]\(|")([^)"\s]*packages\/docs\/[^)"\s]*\.md)/g,
       ),
     ].map((match) => `${file}: ${match[1] as string}`),
   );

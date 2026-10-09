@@ -1,4 +1,5 @@
 ---
+title: Deploy recipe
 description: How the dogfood site deploys through presigned uploads and the landing and docs sites through wrangler, with dry runs, rollbacks and proofs.
 ---
 
@@ -1332,9 +1333,9 @@ again.
 
 ## The docs site on Cloudflare
 
-The docs site (`packages/docs`) deploys the way the landing page does, as its
+The docs site (`packages/docs-site`) deploys the way the landing page does, as its
 own Workers Static Assets Worker, `pagedeck-docs` (#6). Everything in "The
-landing page on Cloudflare" holds for it, with `packages/docs` for
+landing page on Cloudflare" holds for it, with `packages/docs-site` for
 `packages/landing` and `deploy-docs.yml` for `deploy-landing.yml`: the same
 token and the same two secrets, wrangler pinned to the same version in this
 package's dev dependencies, the same rollback and the same steps to add a
@@ -1362,7 +1363,7 @@ proxy row's target through `html_handling`: `/manifest.json` gets `307` to
 `/404`, and `/404` serves the page with `200`. `site.build.test.ts` fails when
 a 404 page is declared while `.assetsignore` still names `/404.html`.
 
-`packages/docs/wrangler.jsonc` declares the Worker: `assets.directory`
+`packages/docs-site/wrangler.jsonc` declares the Worker: `assets.directory`
 `./site`, `html_handling` `auto-trailing-slash`, because the site's
 `trailingSlash` is `always` (`/reference/cli` answers `307` to
 `/reference/cli/`), `not_found_handling` `none`, no `main`, `workers_dev` on,

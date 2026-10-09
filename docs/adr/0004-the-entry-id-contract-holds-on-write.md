@@ -1,4 +1,5 @@
 ---
+title: 4. The entry-id contract holds on write
 description: The store refuses an unusable entry id when a sync writes it, so every read can trust the ids it gets back without checking them again.
 ---
 

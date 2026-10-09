@@ -31,7 +31,7 @@ build: {
 no path, no trailing slash, no query, no fragment. A locale with its own
 `domain` still uses that domain; the origin supplies the scheme, and the port if
 it has one. The same origin makes the `og:image` of a card the build draws an
-absolute URL (see [Page head](/reference/page-head/#cards-the-build-draws)).
+absolute URL (see [Page head](./page-head.md#cards-the-build-draws)).
 
 **Declare no `origin` and no links are written.** The documents are exactly what
 they would be without this feature. An origin is a decision about the site's
@@ -110,7 +110,7 @@ It carries `<meta name="robots" content="noindex">` in their place, and no other
 page lists it as an alternate. A canonical names the address a page is to be
 indexed at, and a 404 page is not to be indexed at any. The `noindex` is
 written whether or not you declared an `origin`, because the page's own address
-answers 200 on every host. See [Routing](/reference/routing/#the-404-page).
+answers 200 on every host. See [Routing](./routing.md#the-404-page).
 
 A page at the same path in another locale that no rule names is an ordinary
 page. It keeps its canonical, and the 404 pages are not in its `hreflang` set.

@@ -1,4 +1,5 @@
 ---
+title: 8. The manifest version moves only when a document can be misread
 description: The manifest version moves when two documents can be read as different facts, and not for an optional column every reader reads alike.
 ---
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { packedBesideDist } from "./public-packages.test-support.js";
+import { packedAsDocs, packedBesideDist } from "./public-packages.test-support.js";
 
 const DIST_ONLY = ["dist", "!dist/.tsbuildinfo"];
 
@@ -47,4 +47,18 @@ test("create-pagedeck's files admits its template file by file", () => {
   ) as { name: string; files: string[] };
 
   expect(packedBesideDist(manifest).has("template/pagedeck.config.ts")).toBe(true);
+});
+
+test("@pagedeck/docs packs its pages, nav.json and assets/ in place of dist", () => {
+  const docs = { name: "@pagedeck/docs" };
+  expect(
+    ["index.md", "adr/0001-a.md", "nav.json", "assets/grid.png", "src/assemble.ts", "notes.txt", "dist/index.js"].filter(
+      (entry) => packedAsDocs(docs, entry),
+    ),
+  ).toEqual(["index.md", "adr/0001-a.md", "nav.json", "assets/grid.png"]);
+});
+
+test("no package but @pagedeck/docs packs markdown or nav.json beside dist", () => {
+  expect(packedAsDocs({ name: "@pagedeck/core" }, "index.md")).toBe(false);
+  expect(packedAsDocs({ name: "create-pagedeck" }, "nav.json")).toBe(false);
 });

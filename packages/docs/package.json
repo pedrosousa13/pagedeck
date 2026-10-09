@@ -1,57 +1,29 @@
 {
   "name": "@pagedeck/docs",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.2.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/docs"
+  },
   "type": "module",
   "engines": {
-    "node": ">=24"
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./components/*": {
-      "source": "./src/components/*.tsx",
-      "types": "./dist/components/*.d.ts",
-      "default": "./dist/components/*.js"
-    }
+    "node": ">=22.0.0"
   },
   "files": [
-    "dist",
-    "!dist/.tsbuildinfo"
+    "**/*.md",
+    "nav.json",
+    "assets"
   ],
   "scripts": {
-    "prepack": "tsc -b tsconfig.build.json"
+    "prepack": "node src/assemble.ts"
   },
-  "dependencies": {
-    "@pagedeck/adapter-cloudflare-pages": "workspace:*",
-    "@pagedeck/brand": "workspace:*",
-    "@pagedeck/content": "workspace:*",
-    "@pagedeck/core": "workspace:*",
-    "@pagedeck/islands": "workspace:*",
-    "@pagedeck/markdown-loader": "workspace:*",
-    "@pagedeck/search": "workspace:*",
-    "react": "^19.2.0",
-    "zod": "^4.4.3"
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
-    "@pagedeck/adapter-cloudfront": "workspace:*",
-    "@pagedeck/adapter-netlify": "workspace:*",
-    "@pagedeck/adapter-nginx": "workspace:*",
-    "@pagedeck/preview": "workspace:*",
-    "@pagedeck/site": "workspace:*",
-    "@tailwindcss/vite": "4.3.3",
-    "@types/react": "^19.2.0",
-    "axe-core": "^4.13.0",
-    "playwright": "^1.62.1",
-    "react-dom": "^19.2.0",
-    "smol-toml": "^1.9.0",
-    "tailwindcss": "4.3.3",
-    "vite": "^8.2.2",
-    "wrangler": "4.148.0"
+    "@pagedeck/markdown-loader": "workspace:*",
+    "marked": "^18.0.11"
   }
 }

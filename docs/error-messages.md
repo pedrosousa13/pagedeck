@@ -1,4 +1,5 @@
 ---
+title: Error messages
 description: Pagedeck error messages follow eight rules, from naming the failing thing first to writing through the run's channel, each shown with real messages.
 ---
 
@@ -54,7 +55,7 @@ binding, is skipped rather than checked.
 **The catalogue is scoped, and the scope is a boundary rather than a backlog.**
 Quoted below are `@pagedeck/core`, `@pagedeck/content`, `@pagedeck/islands`, `@pagedeck/edge`
 and its adapters (#19), `@pagedeck/search`, the docs site's refusal of an unlisted
-`docs/` entry from `@pagedeck/docs` (#576), the deploy's refusal of an origin that lost
+`docs/` entry from `@pagedeck/docs-site` (#576), the deploy's refusal of an origin that lost
 its manifest from `@pagedeck/site` (#561), its refusal of an `--edge` target no adapter
 names (#19), its refusals of a file of presigned URLs (#652) and the
 signing step's refusals (#665), and the `@pagedeck/fixtures` and `@pagedeck/examples` scaffolding the
@@ -349,7 +350,7 @@ The fix names both ways out, and the second is what the message is for. A
 site-wide chat widget whose mount point exists only on post pages is a script
 that should have been scoped to post pages — the "Off broadly, on narrowly"
 layering in
-`packages/docs/content/reference/third-party-scripts.md` — and the alternative
+`packages/docs/reference/third-party-scripts.md` — and the alternative
 reading, that every page now owes the site an empty element, is the one a
 message naming only the first fix would leave. There is no fallback to the
 default placement: a facade emitted somewhere other than where the site put it
@@ -632,7 +633,7 @@ Config "/site/pagedeck.config.ts": 2 components declare a module that does not r
 ```
 
 The docs site collects the same way over the repository's `docs/` tree (#576).
-`refuseUnclassified` in `packages/docs/src/site.ts` names every entry directly
+`refuseUnclassified` in `packages/docs-site/src/site.ts` names every entry directly
 under that tree which `REPOSITORY_DOCS` neither puts on the site nor excludes,
 so a new directory and a new file beside it cost one run and not two. `pagedeck sync`
 reports it as the cause of `Collection "repository": loader syncAll failed`:
@@ -3718,7 +3719,7 @@ made without opening the source. Rule 6 reaches none of it — three fixed names
 and three fixed values, none of them the site's.
 
 Two headers are deliberately not in that constant, and the reference page at
-`packages/docs/content/reference/routing.md` carries both arguments in full.
+`packages/docs/reference/routing.md` carries both arguments in full.
 `Strict-Transport-Security` is left out because a browser told once to refuse
 plain HTTP keeps refusing, so a site not yet fully on HTTPS — or one sharing a
 domain — can lock itself and its siblings out, and none of that is knowable from
@@ -4716,7 +4717,7 @@ question matches `pagedeck: `, with the space `markDiagnostic` always writes.
 §14b also asks that errors link to the relevant doc. None do, and that still
 holds after #61.
 
-The docs site now exists — `packages/docs` builds this file, the ADRs and the
+The docs site now exists — `packages/docs-site` builds this file, the ADRs and the
 deploy recipe into pages (#576) — but it is not deployed anywhere, so there
 is no URL to put in a message. A path is not enough: a build failure is read in
 a CI log, where `/error-messages` resolves to nothing.

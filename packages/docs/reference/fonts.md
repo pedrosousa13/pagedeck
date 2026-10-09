@@ -145,7 +145,7 @@ that match one of its patterns. The landing site scopes its one face to its
 features page, `/features/`, which is the only page that sets text in it.
 
 The patterns are the page patterns that
-[critical CSS](/reference/critical-css/) uses: a path glob that starts with
+[critical CSS](./critical-css.md) uses: a path glob that starts with
 `/`, optionally prefixed with a locale and `:`. `*` matches any characters
 inside one path segment, and `**` as a whole segment matches any number of
 segments. `"/features"`, `"/blog/**"` and `"en:/pricing"` are all patterns.

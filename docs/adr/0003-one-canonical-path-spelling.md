@@ -1,4 +1,5 @@
 ---
+title: 3. One canonical spelling for a path, minted once
 description: One function spells every path the build emits, in RFC 3986 normalized form, and it decodes only unreserved characters.
 ---
 

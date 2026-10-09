@@ -9,6 +9,7 @@ export const PUBLIC_PACKAGES = [
   "content",
   "core",
   "create-pagedeck",
+  "docs",
   "edge",
   "font-subset",
   "islands",
@@ -32,4 +33,16 @@ export function packedBesideDist(manifest: {
 }): ReadonlySet<string> {
   if (manifest.name !== "create-pagedeck") return new Set();
   return new Set((manifest.files ?? []).filter((file) => file.startsWith("template/")));
+}
+
+export const DOCS_PACKAGE = "@pagedeck/docs";
+
+export const DOCS_PREPACK = "node src/assemble.ts";
+
+/**
+ * `@pagedeck/docs` emits no code: it packs its pages, `nav.json` and `assets/`
+ * in place of `dist` (#108).
+ */
+export function packedAsDocs(manifest: { name: string }, entry: string): boolean {
+  return manifest.name === DOCS_PACKAGE && /^(nav\.json|assets\/.+|.+\.md)$/.test(entry);
 }

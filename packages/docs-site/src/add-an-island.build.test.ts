@@ -7,7 +7,7 @@ import { fences, STARTER_TEMPLATE } from "./tutorial.test-support.js";
 
 const execFileAsync = promisify(execFile);
 
-const HOW_TO = join(import.meta.dirname, "..", "content", "how-to", "add-an-island.md");
+const HOW_TO = join(import.meta.dirname, "..", "..", "docs", "how-to", "add-an-island.md");
 const BIN = join(import.meta.dirname, "..", "..", "core", "dist", "bin.js");
 // Inside the package, so the site resolves `@pagedeck/*` and React from its node_modules.
 const SITE = mkdtempSync(join(import.meta.dirname, "..", ".pagedeck-how-to-island-test-"));

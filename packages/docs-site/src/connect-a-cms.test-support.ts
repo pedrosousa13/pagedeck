@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-export const HOW_TO = join(import.meta.dirname, "..", "content", "how-to", "connect-a-cms.md");
+export const HOW_TO = join(import.meta.dirname, "..", "..", "docs", "how-to", "connect-a-cms.md");
 
 export const EXAMPLE = join(import.meta.dirname, "..", "..", "cms-example");
 

@@ -132,6 +132,30 @@ test("in release.yml only the publish job, which needs verify, can mint an OIDC 
   expect(jobs[PUBLISH_JOB]?.needs, needsReport(jobs[PUBLISH_JOB]?.needs ?? [])).toContain(VERIFY_JOB);
 });
 
+const NOTIFY_JOB = "notify";
+
+function jobSource(source: string, name: string): string {
+  const lines = source.split("\n");
+  const start = lines.indexOf(`  ${name}:`);
+  if (start === -1) return "";
+  const end = lines.findIndex((line, index) => index > start && /^ {2}[\w-]+:/.test(line));
+  return lines.slice(start, end === -1 ? undefined : end).join("\n");
+}
+
+test("release.yml tells deck-cool from its own notify job, which needs publish and only reads", () => {
+  const source = readFileSync(RELEASE, "utf8");
+  const { jobs } = workflow(source);
+
+  expect(jobs[NOTIFY_JOB]?.needs, `Release permissions: "${NOTIFY_JOB}" in ${RELEASE} must need "${PUBLISH_JOB}", so deck-cool hears of a version only once it is on npm (#108)`).toContain(PUBLISH_JOB);
+  expect(jobs[NOTIFY_JOB]?.permissions, `Release permissions: "${NOTIFY_JOB}" in ${RELEASE} must declare contents: read alone; its token comes from the deck-cool App, not from this job (#108)`).toEqual({ contents: "read" });
+  expect(jobSource(source, NOTIFY_JOB)).toContain("DECK_APP_PRIVATE_KEY");
+  expect(jobSource(source, NOTIFY_JOB)).toContain("event_type=deck-released");
+  expect(
+    jobSource(source, PUBLISH_JOB),
+    `Release permissions: "${PUBLISH_JOB}" in ${RELEASE} names the deck-cool App, whose key does not belong beside id-token: write (#108); move the dispatch to "${NOTIFY_JOB}"`,
+  ).not.toMatch(/DECK_APP|create-github-app-token|dispatches/);
+});
+
 function jobsReport(names: readonly string[]): string {
   return `Release permissions: ${RELEASE} declares the jobs ${JSON.stringify(names)}, not both "${VERIFY_JOB}" and "${PUBLISH_JOB}" — the release is split so the install, the tag check and the pack harness run in "${VERIFY_JOB}" and only "${PUBLISH_JOB}" holds id-token: write (#58); restore the two jobs, or fix workflow() here if it has stopped reading the jobs: mapping`;
 }

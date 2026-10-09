@@ -4,7 +4,7 @@ import ts from "typescript";
 import { expect, test } from "vitest";
 import { fences } from "./tutorial.test-support.js";
 
-const REFERENCE = join(import.meta.dirname, "..", "content", "reference", "preview.md");
+const REFERENCE = join(import.meta.dirname, "..", "..", "docs", "reference", "preview.md");
 const DOCS = join(import.meta.dirname, "..");
 const BASE_CONFIG = join(DOCS, "..", "..", "tsconfig.base.json");
 // Its fence is held to the producer in `packages/core/src/cli.ts` by `catalogued-messages.test.ts`.

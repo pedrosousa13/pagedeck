@@ -63,7 +63,7 @@ page that gets no card.
 locale when that locale declares one. Without an origin it is the path alone,
 `/social/en.1a2b3c4d.png`. The Open Graph protocol asks for an absolute URL, and
 most platforms show no image for a path. See
-[Canonicals and hreflang](/reference/canonicals-and-hreflang/#declaring-the-origin).
+[Canonicals and hreflang](./canonicals-and-hreflang.md#declaring-the-origin).
 
 **Upgrade, or add or change `origin`, and run a full build.** An incremental
 build reuses each page that did not change, and has no way to see that the
@@ -228,7 +228,7 @@ of the head's children is fixed: adding a field here never moves one of them.
 
 The page a `build.routing.notFound` rule names gets neither link. It gets
 `<meta name="robots" content="noindex">` in their place, with or without an
-origin. See [Routing](/reference/routing/#the-404-page).
+origin. See [Routing](./routing.md#the-404-page).
 
 A page with islands also gets one `<link rel="modulepreload">` for each chunk
 its entry script imports statically, after any font preloads, so the browser

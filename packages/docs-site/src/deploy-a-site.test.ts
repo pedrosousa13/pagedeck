@@ -7,7 +7,7 @@ import { afterAll, expect, test } from "vitest";
 import { runCli } from "@pagedeck/core";
 import { fences } from "./tutorial.test-support.js";
 
-const HOW_TO = join(import.meta.dirname, "..", "content", "how-to", "deploy-a-site.md");
+const HOW_TO = join(import.meta.dirname, "..", "..", "docs", "how-to", "deploy-a-site.md");
 const DOCS = join(import.meta.dirname, "..");
 const BASE_CONFIG = join(DOCS, "..", "..", "tsconfig.base.json");
 const ADAPTER_NETLIFY_PACKAGE = join(DOCS, "..", "adapter-netlify", "package.json");

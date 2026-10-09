@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
+import { DOCS_PACKAGE } from "./public-packages.test-support.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -10,6 +11,9 @@ const PACKAGES = join(import.meta.dirname, "..", "..");
 
 interface Manifest {
   name: string;
+  main?: string;
+  types?: string;
+  bin?: unknown;
   exports?: Record<string, unknown>;
 }
 
@@ -44,6 +48,17 @@ test("every workspace package is configured to emit JavaScript", () => {
 
   const faults: string[] = [];
   for (const { dir, manifest } of packages) {
+    if (manifest.name === DOCS_PACKAGE) {
+      const entryPoints = (["main", "types", "bin", "exports"] as const).filter(
+        (field) => manifest[field] !== undefined,
+      );
+      if (entryPoints.length > 0) {
+        faults.push(
+          `Package "${manifest.name}": declares ${entryPoints.join(", ")}, but it is markdown and emits no code (#108) — remove the field`,
+        );
+      }
+      continue;
+    }
     if (!existsSync(join(PACKAGES, dir, "tsconfig.build.json"))) {
       faults.push(
         `Package "${manifest.name}": has no tsconfig.build.json, so pnpm build cannot emit it — copy the one beside any other package, add { "path": "packages/${dir}/tsconfig.build.json" } to the root tsconfig.build.json, and give its "references" the workspace packages this package's emitted source imports, which is narrower than its dependencies: a package the tests alone import must be left out, or tsc -b refuses the reference cycle`,

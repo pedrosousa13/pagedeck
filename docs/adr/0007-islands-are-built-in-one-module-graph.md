@@ -1,4 +1,5 @@
 ---
+title: 7. Islands are built in one module graph, and the singleton guarantee is per invocation
 description: All island code is bundled in one module graph, so a shared module stays single within a build, and a build whose graph is open is refused.
 ---
 

@@ -146,26 +146,26 @@ packages/design-system/.pagedeck-build-twice-check/
 # measurement; this entry is what stops any of it from being committed.
 packages/design-system/.pagedeck-island-scan/
 
-# The docs site's own build output and store: `packages/docs` is a site as
+# The docs site's own build output and store: `packages/docs-site` is a site as
 # well as a package, and `pagedeck build` writes into it. `outDir` is `./site` rather
 # than `./dist` precisely so the two trees stay distinguishable — `dist` above
 # is what `pnpm build` emits from `src`.
-packages/docs/site/
-packages/docs/content.db
+packages/docs-site/site/
+packages/docs-site/content.db
 
 # The retention store the same builds write (#32, `packages/core/src/retention.ts`):
 # every `pagedeck build` keeps its manifest under `<site root>/.pagedeck/manifests/` so that
 # a later run can roll back to it. Deliberately outside `outDir` — a store
 # inside it would be uploaded to the CDN with the site — which is what puts it
-# beside the two entries above rather than under either. `packages/docs`,
+# beside the two entries above rather than under either. `packages/docs-site`,
 # `packages/landing` and `packages/site` are the sites in this repo that are not
 # themselves ignored already; every other one a test builds is written under
 # `node_modules` or under a `.pagedeck-*` directory this file already names.
-packages/docs/.pagedeck/
+packages/docs-site/.pagedeck/
 
 # The starter copy `add-an-island.build.test.ts` follows the island how-to in
 # (#696). The test removes it after each run.
-packages/docs/.pagedeck-how-to-island-test-*/
+packages/docs-site/.pagedeck-how-to-island-test-*/
 
 # The landing site's own build output, store and retention store: `packages/landing`
 # is a site as well as a package (#189), and `pagedeck build` writes all three into it.
@@ -197,8 +197,8 @@ packages/landing/.pagedeck/
 # wrangler's own scratch directory beside `packages/landing/wrangler.jsonc` (#52).
 packages/landing/.wrangler/
 
-# The same directory beside `packages/docs/wrangler.jsonc` (#6).
-packages/docs/.wrangler/
+# The same directory beside `packages/docs-site/wrangler.jsonc` (#6).
+packages/docs-site/.wrangler/
 
 # Everything `pnpm bench:scaling` writes
 # (`packages/bench/src/scaling.harness.ts`, #60): one generated site per rung of
@@ -378,7 +378,7 @@ packages/cms-example/site/
 packages/cms-example/content.db
 packages/cms-example/.pagedeck/
 
-# The copy of the CMS example `packages/docs/src/connect-a-cms.build.test.ts` builds
+# The copy of the CMS example `packages/docs-site/src/connect-a-cms.build.test.ts` builds
 # (#697). The test removes it after each run.
 packages/cms-example/.pagedeck-how-to-cms-test-*/
 
@@ -389,3 +389,8 @@ packages/create-pagedeck/.pagedeck-template-build-test-*/
 # The site `packages/markdown-loader/src/title.build.test.ts` builds (#101). The
 # test removes it after each run.
 packages/markdown-loader/.pagedeck-title-build-test-*/
+
+# The published part of `docs/`, which `@pagedeck/docs` copies in when it is packed (#108).
+packages/docs/adr/
+packages/docs/deploy-recipe.md
+packages/docs/error-messages.md

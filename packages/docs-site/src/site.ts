@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 // The site's own CSS toolkit, a `devDependency` of this package; nothing in the
 // framework imports it.
 import tailwindcss from "@tailwindcss/vite";
@@ -222,12 +222,34 @@ function refuseUnclassified(root: string): void {
   );
 }
 
-// Filtered at the writer, so an excluded document never reaches the store that
-// `pagedeck push` uploads, while every fence under `docs/` is still checked.
-export function repositoryLoader(root: string): Loader<MarkdownEntry> {
-  const loader = markdownLoader(root);
-  const published = (file: string): boolean =>
-    listed(file.split("/")[0] ?? file, REPOSITORY_DOCS.published);
+const PAGE_LINK = / href="(?![a-z][a-z0-9+.-]*:|\/|#)([^"#]*\.md)(#[^"]*)?"/gi;
+
+// The docs package links pages by relative `.md` path (#108), and core never
+// rewrites an href, so each becomes the route of the page it names.
+export function routedLinks(html: string, file: string): string {
+  return html.replace(PAGE_LINK, (_, path: string, fragment: string | undefined) => {
+    const page = posix.join(posix.dirname(file), path).slice(0, -".md".length);
+    const route = page === "index" ? "/" : `/${page.replace(/\/index$/, "")}/`;
+    return ` href="${route}${fragment ?? ""}"`;
+  });
+}
+
+// The docs package's own pages: not its readme, its dependencies or the copies
+// of docs/ its prepack writes, which the repository collection reads at source.
+export function isGuide(file: string): boolean {
+  const top = file.split("/")[0] ?? file;
+  return (
+    file !== "README.md" &&
+    top !== "node_modules" &&
+    !listed(top, REPOSITORY_DOCS.published)
+  );
+}
+
+function filtered(
+  loader: Loader<MarkdownEntry>,
+  keep: (file: string) => boolean,
+  after: () => void = () => undefined,
+): Loader<MarkdownEntry> {
   const sync = async (
     run: (
       filtered: CollectionWriter<MarkdownEntry>,
@@ -237,23 +259,42 @@ export function repositoryLoader(root: string): Loader<MarkdownEntry> {
     const written = new Set<string>();
     const result = await run({
       upsert(entry) {
-        if (!published(entry.data.file)) return;
+        if (!keep(entry.data.file)) return;
         written.add(entry.path);
-        writer.upsert(entry);
+        writer.upsert({
+          ...entry,
+          data: { ...entry.data, html: routedLinks(entry.data.html, entry.data.file) },
+        });
       },
       delete: (id) => writer.delete(id),
     });
-    refuseUnclassified(root);
+    after();
     return {
       ...result,
       changed: result.changed.filter((id) => written.has(id.path)),
     };
   };
   return {
-    syncAll: (writer) => sync((filtered) => loader.syncAll(filtered), writer),
+    syncAll: (writer) => sync((inner) => loader.syncAll(inner), writer),
     syncSince: (writer, cursor) =>
-      sync((filtered) => loader.syncSince(filtered, cursor), writer),
+      sync((inner) => loader.syncSince(inner, cursor), writer),
   };
+}
+
+function guidesLoader(root: string): Loader<MarkdownEntry> {
+  return filtered(markdownLoader(root), isGuide);
+}
+
+// Filtered at the writer, so an excluded document never reaches the store that
+// `pagedeck push` uploads, while every fence under `docs/` is still checked.
+export function repositoryLoader(root: string): Loader<MarkdownEntry> {
+  return filtered(
+    markdownLoader(root),
+    (file) => listed(file.split("/")[0] ?? file, REPOSITORY_DOCS.published),
+    () => {
+      refuseUnclassified(root);
+    },
+  );
 }
 
 function documents(
@@ -276,7 +317,7 @@ function collections(): {
   repository: Collection<DocumentEntry, MarkdownEntry>;
 } {
   return {
-    guides: documents("guides", markdownLoader(join(PACKAGE, "content"))),
+    guides: documents("guides", guidesLoader(join(PACKAGE, "..", "docs"))),
     repository: documents(
       "repository",
       repositoryLoader(join(PACKAGE, "..", "..", "docs")),
