@@ -287,7 +287,7 @@ test("the view-transition rule is on every page, including one linking no sheet"
   expect(transitions.documents.size).toBe(5);
   for (const html of transitions.documents.values()) {
     expect(html).toContain(
-      "<style>@view-transition { navigation: auto; }</style>",
+      "<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>",
     );
     expect(html).not.toContain('<link rel="stylesheet"');
   }

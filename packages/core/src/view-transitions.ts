@@ -1,5 +1,5 @@
 export const VIEW_TRANSITION_STYLE =
-  "<style>@view-transition { navigation: auto; }</style>";
+  "<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>";
 
 export function viewTransitionsFaultReport(
   value: unknown,

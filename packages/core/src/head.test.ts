@@ -628,7 +628,7 @@ test("the view-transition rule opens the stylesheet block", () => {
     }),
   ).toEqual([
     CHARSET,
-    "<style>@view-transition { navigation: auto; }</style>",
+    "<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>",
     '<link rel="stylesheet" href="/assets/core.css">',
     '<link rel="stylesheet" href="/assets/pricing.css">',
   ]);

@@ -6,9 +6,9 @@ import {
 
 const WHERE = 'Config "/site/pagedeck.config.ts"';
 
-test("the emitted element is the cross-document at-rule and nothing else", () => {
+test("the emitted element is the cross-document at-rule, only for a reader with no motion preference", () => {
   expect(VIEW_TRANSITION_STYLE).toBe(
-    "<style>@view-transition { navigation: auto; }</style>",
+    "<style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>",
   );
 });
 

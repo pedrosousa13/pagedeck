@@ -24,6 +24,7 @@
     "test:lazy-runtime-harness": "vitest run --config packages/core/vitest.lazy-runtime-harness.config.ts",
     "test:hydration-task-harness": "vitest run --config packages/core/vitest.hydration-task-harness.config.ts",
     "test:consent-facade-harness": "vitest run --config packages/core/vitest.consent-facade-harness.config.ts",
+    "test:view-transitions-harness": "vitest run --config packages/core/vitest.view-transitions-harness.config.ts",
     "test:pack-harness": "pnpm build && vitest run --config packages/core/vitest.pack-harness.config.ts"
   },
   "devDependencies": {
