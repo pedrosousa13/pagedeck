@@ -183,6 +183,14 @@ test("the React ranges a site is given are the ones the public packages and the 
   );
 });
 
+test("writes favicon.ico byte for byte", async () => {
+  await create(["my-site"], cwd, notTTY());
+
+  expect(readFileSync(join(cwd, "my-site", "favicon.ico"))).toEqual(
+    readFileSync(join(PACKAGE, "template", "favicon.ico")),
+  );
+});
+
 test("writes into a directory that exists and is empty", async () => {
   mkdirSync(join(cwd, "my-site"));
 

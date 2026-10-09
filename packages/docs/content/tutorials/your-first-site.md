@@ -21,9 +21,10 @@ npm create pagedeck@latest my-site
 
 This writes a new site into `my-site`, which must not exist yet or must be
 empty. The site has a config, three markdown pages in `content/`, a layout
-component and a counter component in `components/`, and a `package.json` that
-depends on the Pagedeck packages and React. `npm create pagedeck` then prints
-the next steps, which the rest of this page follows.
+component and a counter component in `components/`, an icon, `favicon.ico`,
+and a `package.json` that depends on the Pagedeck packages and React.
+`npm create pagedeck` then prints the next steps, which the rest of this page
+follows.
 
 Pass `--host vercel`, `--host cloudflare-pages` or `--host netlify` to also set
 the site up to deploy there — [Deploy a site](/how-to/deploy-a-site/) covers
@@ -67,6 +68,7 @@ export default defineConfig({
       layout: "./components/layout.tsx",
       counter: "./components/counter.tsx",
     },
+    favicon: { src: "./favicon.ico" },
     routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },
   },
 });
@@ -131,6 +133,10 @@ its frontmatter, which the last section comes back to.
 
 `routing.headers` spreads `SECURITY_HEADERS` into a rule over `/`, so every
 page this site builds ships those three headers.
+
+`favicon` writes `favicon.ico` to `/favicon.ico` in the built site, the address
+a browser requests for a site's icon. Replace the file with your own icon;
+[Favicon](/reference/favicon/) covers the setting.
 
 ## 4. Start the dev server
 
