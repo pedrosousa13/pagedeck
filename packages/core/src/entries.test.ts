@@ -197,6 +197,106 @@ test("the criterion-4 probe is the dev server's alone", () => {
   );
 });
 
+const ALL_DEFERRED: PageDemand = {
+  page: page("en", "/", "/en"),
+  islands: [
+    { component: "NewsletterSignup", mode: "visible" },
+    { component: "Hero", mode: "idle" },
+  ],
+};
+
+test("a page with no load island imports only the startup module, and the runtime on a trigger", () => {
+  const plan = planEntries([ALL_DEFERRED], { modules: MODULES });
+
+  expect(renderEntryModule(only(plan.entries))).toBe(
+    [
+      `import { hydrateOnTrigger } from "@pagedeck/islands/startup";`,
+      `const modules = {`,
+      `  "Hero": () => import("@ds/hero"),`,
+      `  "NewsletterSignup": () => import("@ds/newsletter-signup"),`,
+      `};`,
+      `hydrateOnTrigger(async (schedule) => {`,
+      `  const [{ hydrateIslands }] = await Promise.all([`,
+      `    import("@pagedeck/islands/runtime"),`,
+      `  ]);`,
+      `  hydrateIslands({`,
+      `    resolve: (name) => modules[name]().then((module) => module.default),`,
+      `    schedule,`,
+      `  });`,
+      `});`,
+      "",
+    ].join("\n"),
+  );
+});
+
+test("a page with no load island imports its provider stack and its checks on the trigger too", () => {
+  const plan = planEntries([ALL_DEFERRED], {
+    modules: MODULES,
+    providers: "@site/providers",
+    providersDigest: "stack[0] store=object",
+  });
+
+  expect(renderEntryModule(only(plan.entries))).toBe(
+    [
+      `import { hydrateOnTrigger } from "@pagedeck/islands/startup";`,
+      `const modules = {`,
+      `  "Hero": () => import("@ds/hero"),`,
+      `  "NewsletterSignup": () => import("@ds/newsletter-signup"),`,
+      `};`,
+      `hydrateOnTrigger(async (schedule) => {`,
+      `  const [{ hydrateIslands }, { default: providers }, { checkRootProviders }, { checkSharedStore, markRootsMounting }] = await Promise.all([`,
+      `    import("@pagedeck/islands/runtime"),`,
+      `    import("@site/providers"),`,
+      `    import("@pagedeck/islands/root-provider-check"),`,
+      `    import("@pagedeck/islands/store-stamp"),`,
+      `  ]);`,
+      `  checkRootProviders(providers, "stack[0] store=object");`,
+      `  checkSharedStore(providers, import.meta.env.PROD);`,
+      `  markRootsMounting();`,
+      `  hydrateIslands({`,
+      `    resolve: (name) => modules[name]().then((module) => module.default),`,
+      `    schedule,`,
+      `    providers,`,
+      `  });`,
+      `});`,
+      "",
+    ].join("\n"),
+  );
+});
+
+test("a global stylesheet is imported at startup beside a load island, and on the trigger without one", () => {
+  const eager = only(planEntries([TWO_ISLANDS], { modules: MODULES }).entries);
+  const deferred = only(
+    planEntries([ALL_DEFERRED], { modules: MODULES }).entries,
+  );
+  const globalCss = ["/site/global.css"];
+
+  expect(
+    renderEntryModule(eager, { globalCss }).split("\n").slice(0, 2),
+  ).toEqual([
+    `import "/site/global.css";`,
+    `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
+  ]);
+  const text = renderEntryModule(deferred, { globalCss });
+  expect(text).not.toContain(`import "/site/global.css";`);
+  expect(text).toContain(
+    [
+      `    import("@pagedeck/islands/runtime"),`,
+      `    import("/site/global.css"),`,
+      `  ]);`,
+    ].join("\n"),
+  );
+});
+
+test("the dev server's hot entry loads the runtime at startup whatever the modes", () => {
+  const plan = planEntries([ALL_DEFERRED], { modules: MODULES });
+
+  const text = renderEntryModule(only(plan.entries), { hot: true });
+
+  expect(text).toContain(`import { hydrateIslands } from "@pagedeck/islands/runtime";`);
+  expect(text).not.toContain("hydrateOnTrigger");
+});
+
 test("a site with no stack writes neither the check nor the probe", () => {
   const plan = planEntries([TWO_ISLANDS], { modules: MODULES });
 
@@ -452,11 +552,17 @@ test("the name keys on the entry text, so a difference the text does not carry s
     [
       {
         page: page("en", "/", "/en"),
-        islands: [{ component: "Hero", mode: "load" }],
+        islands: [
+          { component: "Hero", mode: "load" },
+          { component: "Quote", mode: "visible" },
+        ],
       },
       {
         page: page("en", "/blog", "/en/blog"),
-        islands: [{ component: "Hero", mode: "visible" }],
+        islands: [
+          { component: "Hero", mode: "visible" },
+          { component: "Quote", mode: "load" },
+        ],
       },
     ],
     { modules: MODULES },
@@ -468,6 +574,26 @@ test("the name keys on the entry text, so a difference the text does not carry s
   expect(home.name).toBe(blog.name);
   expect(home.components[0]?.eager).toBe(true);
   expect(blog.components[0]?.eager).toBe(false);
+});
+
+test("a page with no load island names a different entry from one with a load island", () => {
+  const plan = planEntries(
+    [
+      {
+        page: page("en", "/", "/en"),
+        islands: [{ component: "Hero", mode: "load" }],
+      },
+      {
+        page: page("en", "/blog", "/en/blog"),
+        islands: [{ component: "Hero", mode: "visible" }],
+      },
+    ],
+    { modules: MODULES },
+  );
+
+  expect(entryOf(plan, "en", "/").name).not.toBe(
+    entryOf(plan, "en", "/blog").name,
+  );
 });
 
 test("a difference the text does carry names a different entry", () => {

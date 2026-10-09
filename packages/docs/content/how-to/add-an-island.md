@@ -139,14 +139,15 @@ The build fails with exit code 2, and prints:
 
 ```
 pagedeck: JavaScript budget: 2 pages transfer more JavaScript for first render than their budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
-pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 52942 B over 3 chunks:
-pagedeck:     /assets/fw-core-tlOnvz1B.js — 52507 B
-pagedeck:     /assets/counter-C6YLeuqV.js — 234 B
-pagedeck:     /assets/entry-a27097e6f58ba949-CW-ZVPNX.js — 201 B
+pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53595 B over 4 chunks, the 3 largest:
+pagedeck:     /assets/fw-core-DDGHZVhO.js — 52145 B
+pagedeck:     /assets/fw-startup-DtWrQx5C.js — 992 B
+pagedeck:     /assets/counter-DjZBwrr6.js — 238 B
 pagedeck:     fold strategy promoted "counter" at tree position 1 from "visible" to "load" — position 1 is above the fold threshold of 4
-pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 52717 B over 2 chunks:
-pagedeck:     /assets/fw-core-tlOnvz1B.js — 52507 B
-pagedeck:     /assets/entry-d3fdfeec9a92e6f4-DBM_-oC7.js — 210 B
+pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53430 B over 3 chunks:
+pagedeck:     /assets/fw-core-DDGHZVhO.js — 52145 B
+pagedeck:     /assets/fw-startup-DtWrQx5C.js — 992 B
+pagedeck:     /assets/entry-8c8b51d5ffe9bbeb-BAEKmaf-.js — 293 B
 ```
 
 The message names every page over its limit, the pattern that set the limit,
@@ -155,13 +156,15 @@ it, because they ship 0 B.
 
 Read the two pages against step 3. The counter has no `hydrate`, so fold
 strategy promoted it to `load`, and its chunk counts. The greeting hydrates on
-`idle`, so its own chunk is not on the list. Both pages still pay for
-`fw-core`, which holds React and the island runtime. Every page with an island
-loads it. Moving an island off `load` saves the island's own chunk, not
-React.
+`idle`, so its own chunk is not on the list. Both pages pay for `fw-core`,
+which holds React and the island runtime, and for `fw-startup`, which waits for
+each island's trigger. `/counter/` loads `fw-core` at once. `/greet/` has no
+`load` island, so it loads `fw-core` only when the greeting's trigger fires,
+and the budget charges it all the same. Moving an island off `load` saves the
+island's own chunk, not React.
 
 Give each page with an island a limit of its own. Size it from the figure the
-build printed, plus room for drift: about 16% over 52942 B, rounded to a whole
+build printed, plus room for drift: about 15% over 53595 B, rounded to a whole
 kilobyte, is `60kb`. Replace the budget in `pagedeck.config.ts`:
 
 ```ts
@@ -196,15 +199,16 @@ It has one row per budgeted page. This is the row for the greeting's page:
   "pattern": "/greet/",
   "limitText": "60kb",
   "limit": 61440,
-  "actual": 52717,
+  "actual": 53430,
   "jsInlined": 0,
   "css": 0,
   "cssInlined": 0,
-  "html": 267,
+  "html": 280,
   "breach": false,
   "chunks": [
-    { "path": "/assets/fw-core-tlOnvz1B.js", "bytes": 52507 },
-    { "path": "/assets/entry-d3fdfeec9a92e6f4-DBM_-oC7.js", "bytes": 210 }
+    { "path": "/assets/fw-core-DDGHZVhO.js", "bytes": 52145 },
+    { "path": "/assets/fw-startup-DtWrQx5C.js", "bytes": 992 },
+    { "path": "/assets/entry-8c8b51d5ffe9bbeb-BAEKmaf-.js", "bytes": 293 }
   ],
   "causes": [],
   "largestIslandProps": 2,

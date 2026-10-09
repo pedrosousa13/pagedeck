@@ -177,28 +177,79 @@ export function planEntries(
   return { entries, contentOnly };
 }
 
+export const ISLANDS_STARTUP = "@pagedeck/islands/startup";
+
+interface Binding {
+  names: string;
+  from: string;
+  default: boolean;
+}
+
+const RUNTIME_BINDING: Binding = {
+  names: "{ hydrateIslands }",
+  from: "@pagedeck/islands/runtime",
+  default: false,
+};
+
+function providerBindings(entry: EntryText): Binding[] {
+  const bindings: Binding[] = [];
+  if (entry.providers !== undefined) {
+    bindings.push({ names: "providers", from: entry.providers, default: true });
+    if (entry.providersDigest !== undefined) {
+      bindings.push({
+        names: "{ checkRootProviders }",
+        from: "@pagedeck/islands/root-provider-check",
+        default: false,
+      });
+    }
+    bindings.push({
+      names: "{ checkSharedStore, markRootsMounting }",
+      from: "@pagedeck/islands/store-stamp",
+      default: false,
+    });
+  }
+  return bindings;
+}
+
 /**
- * Every component is imported dynamically, whatever its `eager` bit says. Under
- * `hot` the hydrate is guarded: Vite re-executes this module on each update.
+ * What a page's entry imports to hydrate, besides its components: at startup
+ * when a component is eager, on the first island's trigger otherwise.
+ */
+export function runtimeImports(entry: EntryText): readonly string[] {
+  return [RUNTIME_BINDING, ...providerBindings(entry)].map(
+    (binding) => binding.from,
+  );
+}
+
+/**
+ * Every component is imported dynamically. With no eager component, so is
+ * everything `runtimeImports` names, on the first island's trigger, and so is
+ * each `globalCss` sheet, which a static import would pull the core chunk in
+ * with: the page links the sheet itself. The dev server's `hot` entry always
+ * loads the runtime at startup, and guards the hydrate: Vite re-executes this
+ * module on each update.
  */
 export function renderEntryModule(
   entry: EntryText,
-  options: { hot?: boolean } = {},
+  options: { hot?: boolean; globalCss?: readonly string[] } = {},
 ): string {
   const hot = options.hot === true;
-  const lines = [`import { hydrateIslands } from "@pagedeck/islands/runtime";`];
+  const deferred =
+    !hot && !entry.components.some((component) => component.eager);
+  const staticImport = (binding: Binding): string =>
+    `import ${binding.names} from ${JSON.stringify(binding.from)};`;
+
+  const globalCss = options.globalCss ?? [];
+  const lines = deferred
+    ? [`import { hydrateOnTrigger } from "${ISLANDS_STARTUP}";`]
+    : [
+        ...globalCss.map((path) => `import ${JSON.stringify(path)};`),
+        staticImport(RUNTIME_BINDING),
+      ];
   if (hot) lines.push(`import { hotIslands } from "@pagedeck/islands/hmr";`);
-  if (entry.providers !== undefined) {
-    lines.push(`import providers from ${JSON.stringify(entry.providers)};`);
-    if (entry.providersDigest !== undefined) {
-      lines.push(
-        `import { checkRootProviders } from "@pagedeck/islands/root-provider-check";`,
-      );
-    }
-    lines.push(
-      `import { checkSharedStore, markRootsMounting } from "@pagedeck/islands/store-stamp";`,
-    );
-    if (hot) {
+  if (!deferred) {
+    lines.push(...providerBindings(entry).map(staticImport));
+    if (hot && entry.providers !== undefined) {
       lines.push(
         `import { rootProviderProbe } from "@pagedeck/islands/root-provider-probe";`,
       );
@@ -233,13 +284,29 @@ export function renderEntryModule(
       ? "  resolve: hot.resolve,"
       : "  resolve: (name) => modules[name]().then((module) => module.default),",
   );
+  if (deferred) hydrate.push("  schedule,");
   if (entry.providers !== undefined) hydrate.push("  providers,");
   if (hot && entry.providers !== undefined) {
     hydrate.push("  probe: rootProviderProbe(),");
   }
   hydrate.push("});");
 
-  if (hot) {
+  if (deferred) {
+    const bindings = [RUNTIME_BINDING, ...providerBindings(entry)];
+    const names = bindings.map((binding) =>
+      binding.default ? `{ default: ${binding.names} }` : binding.names,
+    );
+    lines.push(
+      "hydrateOnTrigger(async (schedule) => {",
+      `  const [${names.join(", ")}] = await Promise.all([`,
+      ...[...bindings.map((binding) => binding.from), ...globalCss].map(
+        (from) => `    import(${JSON.stringify(from)}),`,
+      ),
+      "  ]);",
+      ...hydrate.map((line) => `  ${line}`),
+      "});",
+    );
+  } else if (hot) {
     lines.push(
       "if (!hot.hydrated) {",
       ...hydrate.map((line) => `  ${line}`),

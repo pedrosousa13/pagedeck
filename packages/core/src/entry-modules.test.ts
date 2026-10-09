@@ -186,7 +186,7 @@ test("two pages with one entry text are one input, and one chunk", async () => {
       {
         page: page("de", "/", "/de"),
         islands: [
-          { component: "Newsletter", mode: "idle" },
+          { component: "Newsletter", mode: "load" },
           { component: "Hero", mode: "visible" },
         ],
       },

@@ -442,15 +442,18 @@ kilobyte.
 | Page | Limit | Basis | Latest | Made of (latest) |
 | --- | --- | --- | --- | --- |
 | `/` | `0b` | 0 B | 0 B | no chunks |
-| `/interactive` | `60kb` (61440 B) | 52918 B (#189) | 52955 B (#694) | `fw-core` 52470 B, `counter` 270 B, entry 215 B |
-| `/features` | `62kb` (63488 B) | 54326 B (#551) | 53744 B (#694) | `fw-core` 52470 B, `hydration_probe` 426 B, entry 346 B, `island_load` 136 B, the facade loader inlined 366 B |
-| `/server-data` | `60kb` (61440 B) | 52762 B (#625) | 52697 B (#694) | `fw-core` 52470 B, entry 227 B |
+| `/interactive` | `60kb` (61440 B) | 52918 B (#189) | 53595 B (#95) | `fw-core` 52089 B, `fw-startup` 992 B, `counter` 276 B, entry 238 B |
+| `/features` | `62kb` (63488 B) | 54326 B (#551) | 54376 B (#95) | `fw-core` 52089 B, `fw-startup` 992 B, `hydration_probe` 425 B, entry 370 B, `island_load` 134 B, the facade loader inlined 366 B |
+| `/server-data` | `60kb` (61440 B) | 52762 B (#625) | 53401 B (#95) | `fw-core` 52089 B, `fw-startup` 992 B, entry 320 B |
 
 The counter is charged because fold tuning (#24) promotes it to `load`. Since
-#694, React's JSX and compiler runtimes are in `fw-core`. The
-whole-build ceiling is 66 kB Brotli (67584 B) against 59457 B measured on
-#625, counting the `slot` chunk and the lazy islands, each file compressed on
-its own.
+#694, React's JSX and compiler runtimes are in `fw-core`. Since #95, every
+page with an island also loads `fw-startup`, which holds the hydrate triggers
+and Vite's preload helper. `/server-data` has no `load` island, so it fetches
+`fw-core` on its picker's trigger, and its budget charges `fw-core` all the
+same. The whole-build ceiling is 66 kB Brotli (67584 B) against 59504 B
+measured on #95, counting the `slot` chunk and the lazy islands, each file
+compressed on its own.
 
 ```
 pnpm build && pnpm test:landing-a11y-harness
@@ -475,17 +478,17 @@ Its fonts (#45) are static `ofl/firasans/` files from `google/fonts` at
 `e345593da2a4d596212542edbd28f2ed08fe6cbe`; a variable binary would serve one
 weight.
 
-**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 14.9% over
+**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 14.1% over
 its figure. Every locale is keyed: a page no pattern matches is unbudgeted, not
 free.
 
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 53460 B | `fw-core` chunk 52888 B, entry chunk 207 B, the inline script loader 365 B |
+| `en /pricing` | `60kb` (61440 B) | 53857 B | `fw-core` chunk 52377 B, `fw-startup` chunk 882 B, entry chunk 233 B, the inline script loader 365 B |
 
-The whole-build ceiling is 61 kB Brotli (62464 B) against 53998 B of `js`
-measured, 15.7% over it, counting the 903 B `slot` chunk and not the inline
+The whole-build ceiling is 61 kB Brotli (62464 B) against 54425 B of `js`
+measured, 14.8% over it, counting the 933 B `slot` chunk and not the inline
 loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):
@@ -556,17 +559,22 @@ dependencies pass. A new public contract gets an example or joins the list in
 
 ### The islands runtime budgets
 
-`packages/islands/src/runtime.size.test.ts` holds `runtime.ts` to 2048 B and
-`slot.size.test.ts` holds `slot.ts` to 1280 B, bundled with `react` and
-`react-dom/client` external, Brotli at quality 11. The runtime's 2 kB is spec
-§8's product decision; the slot ceiling is a ratchet.
+`packages/islands/src/runtime.size.test.ts` holds `runtime.ts` to 2048 B,
+`slot.size.test.ts` holds `slot.ts` to 1280 B, and `startup.size.test.ts`
+holds `startup.ts` to 640 B, each bundled with `react` and `react-dom/client`
+external, Brotli at quality 11. The runtime's 2 kB is spec §8's product
+decision; the slot and startup ceilings are ratchets. The runtime imports the
+startup module's triggers, so its figure includes them. A page whose islands
+are all `idle` or `visible` loads only the startup module at first, and the
+runtime on the first trigger (#95).
 
-| Module | Limit | Measured (#114) |
+| Module | Limit | Measured |
 | --- | --- | --- |
-| `runtime.js` | 2048 B | 1503 B |
-| `slot.js` | 1280 B | 992 B |
+| `runtime.js` | 2048 B | 1618 B (#95) |
+| `slot.js` | 1280 B | 992 B (#114) |
+| `startup.js` | 640 B | 514 B (#95) |
 
-Re-measure before editing either. A ratchet on one module cannot see bytes
+Re-measure before editing any of them. A ratchet on one module cannot see bytes
 moved into the other, and every page with an island pays `runtime.js`.
 
 ### The island props budget
@@ -676,13 +684,15 @@ again and set `CRASH_DEPTH` from it.
 | Command | Runs | Claim |
 | --- | --- | --- |
 | `pnpm build && pnpm test:singleton-harness` | `packages/core/src/singleton.harness.ts` | two islands in two tier groups share one store module (#64) |
+| `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `fw-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-fw-consent` without a reload, and a denied press loads nothing (#460) |
 
-The singleton harness runs emitted chunks from `packages/islands/dist`, because
-jsdom ignores `<script type="module">`, so build first; it cannot detect a
-stale `dist`. The consent facade harness drives `runCli` in process and needs
-no build. Under a CSP, poll with `page.evaluate`: `page.waitForFunction` runs
-its predicate through `eval`, which the policy refuses (#586).
+The singleton and lazy runtime harnesses run emitted chunks from
+`packages/islands/dist`, because jsdom ignores `<script type="module">`, so
+build first; neither can detect a stale `dist`. The consent facade harness
+drives `runCli` in process and needs no build. Under a CSP, poll with
+`page.evaluate`: `page.waitForFunction` runs its predicate through `eval`,
+which the policy refuses (#586).
 
 ### The site audit harnesses
 
@@ -704,12 +714,14 @@ over the uncompressed local origin, not the Brotli of `build.budget`:
 | Page | Bytes limit | Measured | Requests |
 | --- | --- | --- | --- |
 | `/de`, `/en`, `/en/legal/terms` | 0 | 0 | 0 |
-| `/en/pricing` | 230400 | 196168 (195825 B of chunk on disk, `fw-core` 195495 B, plus 343 B of headers) | 3 |
+| `/en/pricing` | 230400 | 196744 (196230 B of chunk on disk, `fw-core` 193914 B, `fw-startup` 1921 B, plus 514 B of headers) | 4 |
 
 Zeros and request counts take no headroom: a request is a decision.
-`/en/pricing`'s 17.4% is for a `react-dom` patch release walking `fw-core`. Its
-third request is the consent manager at `consent.example`, which resolves
-nowhere; a real vendor there means re-measuring the row.
+`/en/pricing`'s 17.1% is for a `react-dom` patch release walking `fw-core`.
+`fw-startup` is one more request, the cost of #95's chunk split, which the
+maintainer ruled accepted. Another request is the consent manager at
+`consent.example`, which resolves nowhere; a real vendor there means
+re-measuring the row.
 
 ### The origin harness
 

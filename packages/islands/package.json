@@ -24,6 +24,11 @@
       "types": "./dist/runtime.d.ts",
       "default": "./dist/runtime.js"
     },
+    "./startup": {
+      "source": "./src/startup.ts",
+      "types": "./dist/startup.d.ts",
+      "default": "./dist/startup.js"
+    },
     "./hmr": {
       "source": "./src/hmr.ts",
       "types": "./dist/hmr.d.ts",

@@ -22,6 +22,9 @@ import { wrapInProviders } from "./providers.js";
 import { RegistryError } from "./registry.js";
 import type { RootProvider } from "./providers.js";
 import { hydrateIslands } from "./runtime.js";
+import type { IslandRoot } from "./runtime.js";
+import { hydrateOnTrigger } from "./startup.js";
+import type { Schedule } from "./startup.js";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
@@ -743,4 +746,108 @@ test("a visible island with two element children leaves nothing observed", async
   );
 
   expect(stillWatched).toEqual([]);
+});
+
+function startsRuntime(
+  resolve: (name: string) => Promise<ComponentType<never>>,
+): (schedule: Schedule) => Promise<void> {
+  return vi.fn(async (schedule: Schedule) => {
+    hydrateIslands({ resolve, schedule });
+  });
+}
+
+test("an all-idle page starts the runtime on its first trigger, once, and each island hydrates on its own", async () => {
+  fakeBrowser({ idle: true });
+  const resolve = await buildPage([
+    { component: "Notice", render: Notice, props: { id: "idle" }, mode: "idle", prefix: "iidle" },
+    { component: "Pair", render: Pair, props: { id: "below" }, mode: "visible", prefix: "ibelow" },
+  ]);
+  const start = startsRuntime(resolve);
+
+  await act(async () => {
+    hydrateOnTrigger(start);
+  });
+
+  expect(start).not.toHaveBeenCalled();
+  expect(mounted).toEqual([]);
+
+  await runIdleCallbacks();
+
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(mounted).toEqual(["idle"]);
+
+  await scrollTo(markers()[1]?.children[0] as TestElement);
+
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(mounted).toEqual(["idle", "below"]);
+});
+
+test("an island whose trigger fires while the runtime loads hydrates once it has loaded", async () => {
+  fakeBrowser({ idle: true });
+  const resolve = await buildPage([
+    { component: "Notice", render: Notice, props: { id: "one" }, mode: "idle", prefix: "ione" },
+    { component: "Notice", render: Notice, props: { id: "two" }, mode: "idle", prefix: "itwo" },
+  ]);
+  let loaded: () => void = () => undefined;
+  const start = vi.fn(async (schedule: Schedule) => {
+    await new Promise<void>((resolveLoad) => {
+      loaded = resolveLoad;
+    });
+    hydrateIslands({ resolve, schedule });
+  });
+  hydrateOnTrigger(start);
+
+  await runIdleCallbacks();
+  expect(mounted).toEqual([]);
+
+  await act(async () => {
+    loaded();
+  });
+
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(mounted).toEqual(["one", "two"]);
+});
+
+test("a page started on a trigger reports an unreadable marker once and still hydrates the rest", async () => {
+  fakeBrowser({ idle: true });
+  const resolve = await buildPage([
+    { component: "Notice", render: Notice, props: { id: "one" }, mode: "idle", prefix: "ione" },
+    { component: "Notice", render: Notice, props: { id: "two" }, mode: "idle", prefix: "itwo" },
+  ]);
+  document.body.innerHTML =
+    handWritten(`${ISLAND_MODE_ATTRIBUTE}="idle"`) + document.body.innerHTML;
+
+  hydrateOnTrigger(startsRuntime(resolve));
+  await runIdleCallbacks();
+
+  expect(mounted).toEqual(["one", "two"]);
+  expect(reported).toEqual([
+    expect.stringContaining("RegistryError: Island marker #1: carries no"),
+  ]);
+});
+
+// A container's re-mounted slot hands the runtime markers that did not exist
+// when the startup module read the page.
+test("a marker the startup module never saw is scheduled on its own trigger", async () => {
+  fakeBrowser({ idle: true });
+  const resolve = await buildPage([
+    { component: "Notice", render: Notice, props: { id: "seen" }, mode: "idle", prefix: "iseen" },
+  ]);
+  const fresh = (
+    document as unknown as { createElement(tag: string): TestElement }
+  ).createElement("div");
+  fresh.innerHTML = await markerFor(
+    { component: "Notice", render: Notice, props: { id: "later" }, mode: "idle", prefix: "ilater" },
+    [],
+  );
+  hydrateOnTrigger(async (schedule) => {
+    hydrateIslands({ resolve, schedule });
+    hydrateIslands({ resolve, schedule, root: fresh as unknown as IslandRoot });
+  });
+
+  await runIdleCallbacks();
+  expect(mounted).toEqual(["seen"]);
+
+  await runIdleCallbacks();
+  expect(mounted).toEqual(["seen", "later"]);
 });
