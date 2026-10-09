@@ -1,6 +1,6 @@
 import { CONTENT_VERSION } from "@pagedeck/content";
 
-export const CORE_VERSION = "0.2.2";
+export const CORE_VERSION = "0.2.3";
 
 export function workspaceVersions(): { core: string; content: string } {
   return { core: CORE_VERSION, content: CONTENT_VERSION };

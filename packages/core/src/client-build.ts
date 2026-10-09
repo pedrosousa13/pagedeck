@@ -3,7 +3,11 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
 import type { EntryPlan } from "./entries.js";
-import { entryInputs, serveEntryModules } from "./entry-modules.js";
+import {
+  entryInputs,
+  serveEntryModules,
+  serveGeneratedEntries,
+} from "./entry-modules.js";
 import { ConfigError } from "./exit.js";
 import type { EmittedFile, FileKind, ManifestChunk } from "./manifest.js";
 import { compileIslands } from "./react-compiler.js";
@@ -369,11 +373,14 @@ export async function buildClient(
   input: ClientBuildInput,
 ): Promise<ClientBuild> {
   if (input.plan.entries.length === 0) {
+    const globalStyles =
+      (input.globalCss ?? []).length === 0
+        ? { files: [], globalStyles: [] }
+        : await buildGlobalStyles(input);
     return {
-      files: [],
+      ...globalStyles,
       entryScripts: new Map(),
       entryStyles: new Map(),
-      globalStyles: [],
       modules: new Map(),
       imports: new Map(),
       ids: {},
@@ -580,6 +587,70 @@ export async function buildClient(
     ids,
     warnings: compiler.taken(),
   };
+}
+
+const GLOBAL_STYLES_ENTRY = "\0fw:global-styles";
+
+/** With no island to import `build.css`, the sheets get their own entry; its
+ * JavaScript chunk holds only those imports, so it is dropped (#104). */
+async function buildGlobalStyles(
+  input: ClientBuildInput,
+): Promise<Pick<ClientBuild, "files" | "globalStyles">> {
+  const naming = contentNaming();
+  const source = (input.globalCss ?? [])
+    .map((path) => `import ${JSON.stringify(path)};\n`)
+    .join("");
+  const result = await inProductionEnv(async () =>
+    runBundle({
+      config: {
+        configFile: false,
+        envDir: false,
+        logLevel: "warn",
+        mode: "production",
+        root: input.root,
+        build: {
+          write: false,
+          assetsDir: ASSET_DIR,
+          rolldownOptions: {
+            input: { [CORE_GROUP]: GLOBAL_STYLES_ENTRY },
+            output: {
+              entryFileNames: `${ASSET_DIR}/[name]-[hash].js`,
+              assetFileNames: naming.assetFileNames,
+            },
+          },
+        },
+      },
+      plugins: [
+        serveGeneratedEntries(
+          new Map([[GLOBAL_STYLES_ENTRY, source]]),
+          input.origin,
+        ),
+      ],
+      sitePlugins: input.plugins,
+    }),
+  );
+
+  const files: EmittedFile[] = [];
+  const globalStyles: string[] = [];
+  const outputs = Array.isArray(result) ? result : [result];
+  for (const one of outputs) {
+    if (!("output" in one)) continue;
+    for (const emitted of one.output) {
+      if (emitted.type === "chunk") {
+        for (const css of emitted.viteMetadata?.importedCss ?? []) {
+          globalStyles.push(chunkPath(css));
+        }
+        continue;
+      }
+      files.push({
+        path: chunkPath(emitted.fileName),
+        kind: assetKind(emitted.fileName),
+        ...(naming.hashed(emitted) ? { hashed: true as const } : {}),
+        contents: emitted.source,
+      });
+    }
+  }
+  return { files, globalStyles: globalStyles.sort() };
 }
 
 function planGlobalStyles(

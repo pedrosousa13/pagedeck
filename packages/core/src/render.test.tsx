@@ -2835,6 +2835,38 @@ test("absorbing a title does not absorb the stylesheet beside it", async () => {
   );
 });
 
+function Iconed() {
+  return (
+    <main>
+      <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      <p>deck</p>
+    </main>
+  );
+}
+
+test("a component's icon links are absorbed without a claim", async () => {
+  const { html, absorbed } = await renderPage({
+    page: PAGE,
+    tree: [{ component: "Iconed" }],
+    registry: { Iconed: component(Iconed) },
+  });
+
+  expect(absorbed).toEqual([
+    { tag: '<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>' },
+    { tag: '<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>' },
+  ]);
+  expect(html).toBe("<main><p>deck</p></main>");
+});
+
+test("a link that is not an icon stays where it was rendered", () => {
+  const html = '<div><link rel="preload" href="/a.woff2" as="font"/></div>';
+  const { absorbed, body } = faultsInEmittedHtml(html, new Map());
+
+  expect(absorbed).toEqual([]);
+  expect(body).toBe(html);
+});
+
 test("an unclosed title in rich text is left where it is", () => {
   const html = "<div><title>never closed</div>";
   const { absorbed, body } = faultsInEmittedHtml(html, new Map());

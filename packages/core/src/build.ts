@@ -206,18 +206,6 @@ const NO_CONTENT_ENTRY =
 const UNHELD_FIX =
   "check the module map names a module this build bundles, and report it with the id below if it does";
 
-function uncompiledGlobalCssWarning(
-  css: readonly string[],
-): string | undefined {
-  if (css.length === 0) return undefined;
-  const lines = css.map((path) => `  "${path}"`).join("\n");
-  const subject =
-    css.length === 1
-      ? "1 declared stylesheet is not in this build, so no page links it"
-      : `${String(css.length)} declared stylesheets are not in this build, so no page links them`;
-  return `Global CSS: ${subject} — a declared stylesheet reaches the bundler through a page's generated entry module, and this site hydrates no island on any page, so there is no entry module to import it from; this is a warning and not a refusal because every page this build emitted is otherwise correct, and the sheets compile as soon as one page mounts one interactive component — island a component anywhere on the site, or drop the declaration until the site has one:\n${lines}`;
-}
-
 function contentReferenceLine(reference: ContentRelativeReference): string {
   return `  ${reference.page} — ${quote(reference.href)} → ${quote(reference.address)} — ${
     reference.entry === undefined
@@ -994,11 +982,6 @@ async function stageSite(input: {
             : { plugins: section.vite.plugins }),
         });
 
-  const uncompiledCss =
-    plan.entries.length === 0
-      ? uncompiledGlobalCssWarning(section.css ?? [])
-      : undefined;
-
   const workerFallback = workerFallbackWarning(section.scripts);
 
   const workerConsent = workerConsentWarning(section.scripts);
@@ -1522,7 +1505,6 @@ async function stageSite(input: {
       warnings: [
         ...warnings,
         ...client.warnings,
-        ...(uncompiledCss === undefined ? [] : [uncompiledCss]),
         ...(workerFallback === undefined ? [] : [workerFallback]),
         ...(workerConsent === undefined ? [] : [workerConsent]),
         ...(unloadedScript === undefined ? [] : [unloadedScript]),
