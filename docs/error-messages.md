@@ -3420,18 +3420,19 @@ only says the fault is not the site's wiring.
 A message follows rules 1 to 7 and still fails its reader if the reader cannot
 tell it apart from the output of everything else in the process. A spawned
 `pagedeck build` loads Babel and the bundler into itself, and they write to the same
-stderr:
+stderr. Until #70 stopped compiling React's own packages, every build printed:
 
 ```
 [BABEL] Note: The code generator has deoptimised the styling of .../react-dom/cjs/react-dom-client.production.js as it exceeds the max of 500KB.
 ```
 
 So "did this build cleanly?" cannot be answered by asking whether stderr is
-empty — a fully successful build's stderr is not empty, and the set of tools
+empty — a fully successful build's stderr need not be empty, and the set of tools
 loaded is not something this repo controls. Issue #184 ruled that the promise
 to keep is "nothing of *mine*", and rejected suppressing other people's
 advisories: enumerating their prefixes is a treadmill, and they are worth
-reading in a CI log.
+reading in a CI log. `packages/core/src/bin.test.ts` holds the passthrough: its
+fixture provokes Babel's note, and the build must write it unmarked.
 
 Two halves follow, and new code has to hold both.
 

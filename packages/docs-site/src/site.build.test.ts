@@ -59,12 +59,8 @@ function contentPages(): ManifestPage[] {
 
 const BIN = join(SITE, "..", "core", "dist", "bin.js");
 
-// Only marked lines are faults, and a verb that loads other tools must pass one
-// of their lines through, so silencing them fails too (#184).
-async function run(
-  verb: string,
-  loadsOtherTools: boolean,
-): Promise<string> {
+// Only marked lines are faults (#184).
+async function run(verb: string): Promise<string> {
   const { stdout, stderr } = await execFileAsync(process.execPath, [BIN, verb], {
     cwd: SITE,
   });
@@ -72,13 +68,6 @@ async function run(
   expect(
     lines.filter((line) => line.startsWith(`${DIAGNOSTIC_MARKER} `)),
   ).toEqual([]);
-  if (!loadsOtherTools) return stdout;
-  // The bare marker, wider than the filter above: a line naming
-  // `pagedeck:compile-islands` is not evidence that another tool's output survived.
-  const passedThrough = lines.filter(
-    (line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER),
-  );
-  expect(passedThrough.length).toBeGreaterThan(0);
   return stdout;
 }
 
@@ -199,8 +188,8 @@ beforeAll(async () => {
   rmSync(STORE, { force: true });
   rmSync(RETAINED, { recursive: true, force: true });
 
-  await run("sync", false);
-  await run("build", true);
+  await run("sync");
+  await run("build");
 
   manifest = readManifest(
     readFileSync(join(OUT, "manifest.json"), "utf8"),
