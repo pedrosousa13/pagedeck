@@ -570,8 +570,8 @@ runtime on the first trigger (#95).
 
 | Module | Limit | Measured |
 | --- | --- | --- |
-| `runtime.js` | 2048 B | 1618 B (#95) |
-| `slot.js` | 1280 B | 992 B (#114) |
+| `runtime.js` | 2048 B | 1621 B (#97) |
+| `slot.js` | 1280 B | 1063 B (re-measured on main 2026-10-09) |
 | `startup.js` | 640 B | 514 B (#95) |
 
 Re-measure before editing any of them. A ratchet on one module cannot see bytes
@@ -685,14 +685,22 @@ again and set `CRASH_DEPTH` from it.
 | --- | --- | --- |
 | `pnpm build && pnpm test:singleton-harness` | `packages/core/src/singleton.harness.ts` | two islands in two tier groups share one store module (#64) |
 | `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `fw-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
+| `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-fw-consent` without a reload, and a denied press loads nothing (#460) |
 
-The singleton and lazy runtime harnesses run emitted chunks from
-`packages/islands/dist`, because jsdom ignores `<script type="module">`, so
-build first; neither can detect a stale `dist`. The consent facade harness
+The singleton, lazy runtime and hydration task harnesses run emitted chunks
+from `packages/islands/dist`, because jsdom ignores `<script type="module">`,
+so build first; none can detect a stale `dist`. The consent facade harness
 drives `runCli` in process and needs no build. Under a CSP, poll with
 `page.evaluate`: `page.waitForFunction` runs its predicate through `eval`,
 which the policy refuses (#586).
+
+The hydration task harness backs a measurement (#97): at 4x CPU throttle, the
+longest main-thread task during a 5000-row `load` island's hydration fell from
+138.3 ms to 45.3 ms (median of 3), "before" being main's runtime rebuilt into
+`packages/islands/dist`. The hydration span grew from about 150 ms to 270 to
+350 ms; paint is unchanged, because the server HTML is already there. Re-run it
+on a React or Chromium upgrade.
 
 ### The site audit harnesses
 

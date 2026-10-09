@@ -22,7 +22,7 @@ settle it.
 | # | Spec §15 criterion | Verdict | The number it rests on |
 | --- | --- | --- | --- |
 | 1 | Content-only pages: **0 kB JS** | **met** | 0 B raw, gzip and Brotli on all three content pages; the twin's floor is 452,538 B raw / 133,120 B gzip |
-| 2 | Island pages: the framework's own JS at or under **6,685 B raw / 3,389 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95) | **met** | 6,685 B raw / 3,389 B gzip on `/en/pricing`, React set apart: at the recorded ceiling, which is today's figure. From `pnpm build && npx vitest run packages/site/src/runtime.build.test.ts` |
+| 2 | Island pages: the framework's own JS at or under **6,714 B raw / 3,404 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95 and #97) | **met** | 6,714 B raw / 3,404 B gzip on `/en/pricing`, React set apart: at the recorded ceiling, which is today's figure. From `pnpm build && npx vitest run packages/site/src/runtime.build.test.ts` |
 | 3 | Core Web Vitals better on every metric, in production (CrUX/RUM) | **not measurable here** | no production, no RUM, no CrUX — the comparison plan is below. The landing page's field data is #56 |
 | 4 | Publish-to-live for a content edit **< 60 s** | **met** | 15.2 s, 16.2 s and 17.3 s from `wrangler deploy` starting to the live landing page serving the edit, three runs on 2026-10-08 (#2). The build before the deploy is not in the figure |
 | 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **not measurable here** | Lighthouse mobile performance 99 or 100 on every run over the four live landing pages (#2), but the landing page loads no third-party script, so there is no loadout for the score to survive |
@@ -133,9 +133,15 @@ this criterion's verdict, and 80 % is no longer a target.
 **2026-10-09, #95: the ceiling is re-measured to 6,685 B raw and 3,389 B gzip
 (3,039 B Brotli).** Moving the hydrate triggers and Vite's preload helper into
 a startup chunk of their own costs the names each chunk imports and exports.
-The maintainer ruled that cost accepted on #95. It is the one exception to
-"never raised" below, and the table above keeps the figures the ruling on #292
-recorded.
+The maintainer ruled that cost accepted on #95. It and #97 below are the
+exceptions to "never raised" below, and the table above keeps the figures the
+ruling on #292 recorded.
+
+**2026-10-09, #97: the ceiling is re-measured to 6,714 B raw and 3,404 B gzip
+(3,052 B Brotli).** The islands runtime hydrates each island inside React's
+`startTransition`, so a large island hydrates in slices and yields to input,
+and the import and the wrapper cost 29 B raw and 15 B gzip. The maintainer
+ruled that cost accepted on #97.
 
 **2026-09-28, #547: the gzip column is measured with content hashes
 normalised.** Before this date it read 3,154 B and 58,995 B. A CSS-only change
