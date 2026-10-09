@@ -13,7 +13,7 @@ import {
 } from "@pagedeck/content";
 import type { Collection, ContentStore } from "@pagedeck/content";
 import { defineMarkdownLoader } from "./loader.js";
-import type { MarkdownEntry } from "./loader.js";
+import type { MarkdownEntry, MarkdownLoaderOptions } from "./loader.js";
 
 const stores: ContentStore[] = [];
 const tempDirs: string[] = [];
@@ -360,4 +360,34 @@ test("smartQuotes reaches the stored body and outline through the loader's own o
   const entry = getEntry(store, collection, { locale: "en", path: "guide" });
   expect(entry?.data.html).toContain("<p>It’s “here”.</p>");
   expect(entry?.data.toc).toEqual([{ depth: 2, text: "What’s next", slug: "whats-next" }]);
+});
+
+const LANGUAGES_FIX =
+  "pass languages: [...] naming the code-fence languages the site uses, or [] for none";
+
+test.each([
+  [
+    "omitted",
+    undefined,
+    `Markdown root "/site/content": the loader has no "languages" option — ${LANGUAGES_FIX}`,
+  ],
+  [
+    "a string",
+    "ts",
+    `Markdown root "/site/content": the loader's "languages" option is "ts", not a list — ${LANGUAGES_FIX}`,
+  ],
+  [
+    "a list holding a number",
+    ["ts", 1],
+    `Markdown root "/site/content": the loader's "languages" option holds 1, which is not a language name — ${LANGUAGES_FIX}`,
+  ],
+])("languages %s is refused when the loader is defined", (_, languages, message) => {
+  const options = { root: "/site/content", locale: "en", languages } as unknown as MarkdownLoaderOptions;
+  expect(() => defineMarkdownLoader(options)).toThrow(message);
+});
+
+test.each([[[]], [["ts"]]])("languages %j is accepted when the loader is defined", (languages) => {
+  expect(() =>
+    defineMarkdownLoader({ root: "/site/content", locale: "en", languages } as MarkdownLoaderOptions),
+  ).not.toThrow();
 });

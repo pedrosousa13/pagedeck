@@ -79,6 +79,26 @@ function refuseMissingRoot(root: string): void {
   );
 }
 
+const LANGUAGES_FIX =
+  "pass languages: [...] naming the code-fence languages the site uses, or [] for none";
+
+function refuseUnusableLanguages(root: string, languages: unknown): void {
+  const prefix = `Markdown root "${root}":`;
+  if (languages === undefined) {
+    throw new Error(`${prefix} the loader has no "languages" option — ${LANGUAGES_FIX}`);
+  }
+  if (!Array.isArray(languages)) {
+    throw new Error(
+      `${prefix} the loader's "languages" option is ${String(JSON.stringify(languages))}, not a list — ${LANGUAGES_FIX}`,
+    );
+  }
+  const stray = languages.findIndex((language) => typeof language !== "string");
+  if (stray === -1) return;
+  throw new Error(
+    `${prefix} the loader's "languages" option holds ${String(JSON.stringify(languages[stray]))}, which is not a language name — ${LANGUAGES_FIX}`,
+  );
+}
+
 function untitledMessage(file: string): string {
   return `Markdown "${file}": has no title — give it a "title" in its frontmatter, or open it with a level-1 heading that has text`;
 }
@@ -194,6 +214,7 @@ async function sync(
 export function defineMarkdownLoader(
   options: MarkdownLoaderOptions,
 ): Loader<MarkdownEntry> {
+  refuseUnusableLanguages(options.root, options.languages);
   // Lazy, so an incremental sync over an unchanged tree loads no grammar; the promise is kept
   // so concurrent syncs share one load.
   let loading: Promise<MarkdownRenderer> | undefined;
