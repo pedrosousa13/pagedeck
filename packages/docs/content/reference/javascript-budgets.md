@@ -135,10 +135,14 @@ A setting out of range fails the build, and every such setting is reported at
 once.
 
 **A component no page hydrates on `load` is never grouped**, whatever its
-share. Its code goes in the bundler's own split, as if it were in `exclude`,
-and the manifest records it as `tail`. This is decided after
-[fold strategy](./fold-strategy.md) has moved islands. A component that hydrates
-on `load` on at least one page is grouped by the settings above. The reason is
+share. Its code goes in the bundler's own split, as an excluded component's
+does. Unlike an excluded component, it keeps its row in the manifest, as
+`tail` with no group, and its usages still count towards other components'
+usage share. This is decided after [fold strategy](./fold-strategy.md) has
+moved islands. A component that hydrates on `load` on at least one page is
+grouped by the settings above. The decision is made per module, so two
+registry names on one module are grouped together if either hydrates on
+`load`. The reason is
 the bill above: `fw-core` counts against every page that loads it on first
 render, so an `idle` or `visible` component inside it would add its bytes to
 every page with a `load` island, including pages that never render it. Left

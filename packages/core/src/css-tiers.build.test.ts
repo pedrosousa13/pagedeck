@@ -55,10 +55,12 @@ const SITE = join(SITES, ".pagedeck-css-tiers-test");
 const TAILWIND_SITE = join(SITES, ".pagedeck-css-tiers-tailwind-test");
 const GLOBAL_SITE = join(SITES, ".pagedeck-css-tiers-global-test");
 const CRITICAL_SITE = join(SITES, ".pagedeck-css-tiers-critical-test");
+const DEFERRED_SITE = join(SITES, ".pagedeck-css-tiers-deferred-test");
 
 interface SiteExtras {
   imports?: string;
   build?: string;
+  heroHydrate?: "load" | "visible";
 }
 
 function site(
@@ -115,7 +117,7 @@ export default defineConfig({
       ],
     }),
     components: {
-      Hero: { path: "./components/Hero.js", hydrate: "load" },
+      Hero: { path: "./components/Hero.js", hydrate: ${JSON.stringify(extras.heroHydrate ?? "load")} },
       Panel: { path: "./components/Panel.js", hydrate: "load" },
       Chart: { path: "./components/Chart.js", hydrate: "load" },
       Copy: "./components/Copy.js",
@@ -145,6 +147,7 @@ afterAll(() => {
   rmSync(TAILWIND_SITE, { recursive: true, force: true });
   rmSync(GLOBAL_SITE, { recursive: true, force: true });
   rmSync(CRITICAL_SITE, { recursive: true, force: true });
+  rmSync(DEFERRED_SITE, { recursive: true, force: true });
 });
 
 const TAILWIND_EXTRAS: SiteExtras = {
@@ -154,6 +157,12 @@ const TAILWIND_EXTRAS: SiteExtras = {
 
 const GLOBAL_EXTRAS: SiteExtras = {
   build: `css: ["./components/global.css"],`,
+};
+
+// Fold strategy off: it would promote `Hero`, first in every tree, to `load`.
+const DEFERRED_EXTRAS: SiteExtras = {
+  build: `css: ["./components/global.css"], foldStrategy: false,`,
+  heroHydrate: "visible",
 };
 
 const CRITICAL_EXTRAS: SiteExtras = {
@@ -275,6 +284,31 @@ test("a component's CSS lands in the tier its JS tier implies", async () => {
 
   expect(hrefsOf(htmlOf.get("/blog") ?? "")[0]).toBe(core);
   expect(hrefsOf(htmlOf.get("/pricing") ?? "")).toEqual([core, mid]);
+}, 120_000);
+
+test("a component no page hydrates on load keeps its CSS out of the core sheet", async () => {
+  const { dist, htmlOf } = await build(
+    DEFERRED_SITE,
+    GLOBAL_COMPONENTS,
+    DEFERRED_EXTRAS,
+  );
+
+  const core = hrefsOf(htmlOf.get("/") ?? "").find((href) =>
+    /^\/assets\/fw-core-[\w-]+\.css$/.test(href),
+  );
+  expect(core).toBeDefined();
+  expect(read(dist, core as string)).toContain(GLOBAL_RULE);
+  expect(read(dist, core as string)).not.toContain(".fw-hero");
+
+  const carrying = stylesheets(dist).filter((href) =>
+    read(dist, href).includes(".fw-hero"),
+  );
+  expect(carrying).toHaveLength(1);
+  const hero = carrying[0] as string;
+  for (const path of ["/", "/pricing", "/blog", "/careers"]) {
+    expect(hrefsOf(htmlOf.get(path) ?? ""), path).toContain(hero);
+  }
+  expect(hrefsOf(htmlOf.get("/about") ?? "")).toEqual([core]);
 }, 120_000);
 
 test("a content-only page of a site declaring no global CSS links no stylesheet at all", async () => {
