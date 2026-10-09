@@ -79,7 +79,7 @@ function demands(): readonly PageDemand[] {
     page,
     islands: (ISLANDS[page.path] ?? []).map((component) => ({
       component,
-      mode: "visible" as const,
+      mode: "load" as const,
     })),
   }));
 }

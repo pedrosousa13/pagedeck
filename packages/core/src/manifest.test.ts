@@ -50,7 +50,7 @@ function demand(page: Page, components: readonly string[]): PageDemand {
     page,
     islands: components.map((component) => ({
       component,
-      mode: "visible" as const,
+      mode: "load" as const,
     })),
   };
 }
@@ -256,7 +256,7 @@ test("the manifest serializes to the golden shape", () => {
       `        {`,
       `          "name": "Hero",`,
       `          "module": "@ds/Hero",`,
-      `          "eager": false`,
+      `          "eager": true`,
       `        }`,
       `      ],`,
       `      "entryChunk": "/assets/en-a1b2c3.js",`,

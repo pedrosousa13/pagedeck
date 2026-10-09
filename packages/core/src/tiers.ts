@@ -186,6 +186,7 @@ interface Demand {
   module: string;
   pageCount: number;
   usages: number;
+  eager: boolean;
 }
 
 export function planTiers(input: TierPlanInput): TierPlan {
@@ -215,9 +216,15 @@ export function planTiers(input: TierPlanInput): TierPlan {
       if (excluded.has(component.name)) continue;
       let seen = demand.get(component.module);
       if (seen === undefined) {
-        seen = { module: component.module, pageCount: 0, usages: 0 };
+        seen = {
+          module: component.module,
+          pageCount: 0,
+          usages: 0,
+          eager: false,
+        };
         demand.set(component.module, seen);
       }
+      seen.eager ||= component.eager;
       components.set(component.name, seen);
       if (reached.has(component.module)) continue;
       reached.add(component.module);
@@ -236,7 +243,10 @@ export function planTiers(input: TierPlanInput): TierPlan {
   const assignments: TierAssignment[] = [];
   const coreModules = new Set(pinned);
   const midModules = new Set<string>();
-  for (const [component, { module, pageCount: pages, usages }] of components) {
+  for (const [
+    component,
+    { module, pageCount: pages, usages, eager },
+  ] of components) {
     const pageShare = pages / pageCount;
     // `0` promotes nothing only because the policy check forbids a threshold
     // of 0.
@@ -247,8 +257,11 @@ export function planTiers(input: TierPlanInput): TierPlan {
         : pages >= policy.midMinPages
           ? "mid"
           : "tail";
-    const tier: Tier =
-      onPages === "mid" && usageShare >= policy.coreMinUsageShare
+    // Grouping a component no page hydrates on load would put its bytes on
+    // every load page's critical path (#105).
+    const tier: Tier = !eager
+      ? "tail"
+      : onPages === "mid" && usageShare >= policy.coreMinUsageShare
         ? "core"
         : onPages;
     if (tier === "core") coreModules.add(module);

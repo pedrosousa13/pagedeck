@@ -94,7 +94,7 @@ function demand(
     page,
     islands: components.map((component) => ({
       component,
-      mode: "visible" as const,
+      mode: component === "Hero" ? ("load" as const) : ("visible" as const),
     })),
   };
 }

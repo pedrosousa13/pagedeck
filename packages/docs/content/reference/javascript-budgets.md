@@ -82,6 +82,77 @@ Seven consequences are worth stating outright:
   their own — a page with no islands at all can breach. They are reported
   separately as `jsInlined`, because there is no chunk path to name them by.
 
+## Tier chunks
+
+`pagedeck build` groups island components that many pages share into tier
+chunks, so a visitor downloads them once for the whole site:
+
+- **`fw-core`** holds the island runtime, React, the root providers and every
+  component on enough of the site's pages. Every page with an island fetches
+  it.
+- **`fw-mid`** holds components that several pages share but not enough to be
+  core.
+
+Any other component goes in a chunk the bundler splits by its own rules,
+usually one for that component alone.
+
+`build.tierPolicy` sets where the lines fall. Every setting is optional:
+
+```ts
+build: {
+  outDir: "./site",
+  tierPolicy: {
+    coreMinShare: 0.6,
+    coreMinUsageShare: 0.25,
+    midMinPages: 2,
+    exclude: ["search"],
+    minSize: 20_000,
+    minShareCount: 1,
+  },
+  // ...
+}
+```
+
+The values shown are the defaults, except `exclude`, which is `[]`.
+
+- **`coreMinShare`**: a component on at least this share of the pages that
+  have islands goes in `fw-core`. Greater than 0, at most 1.
+- **`coreMinUsageShare`**: a component that qualifies for `fw-mid` goes in
+  `fw-core` instead when it accounts for at least this share of the content's
+  usages of the components pages ship. Greater than 0, at most 1.
+- **`midMinPages`**: a component on at least this many pages goes in `fw-mid`.
+  A whole number, at least 1.
+- **`exclude`**: component registry names that are never grouped. Their code
+  goes in the bundler's own split, and their usages do not count towards any
+  other component's usage share.
+- **`minSize`**: a tier chunk smaller than this many bytes, before compression,
+  is not made, and its modules go in the bundler's own split. A whole number,
+  at least 0.
+- **`minShareCount`**: the number of entry chunks that must share a module
+  before the bundler splits it out. A whole number, at least 1.
+
+A setting out of range fails the build, and every such setting is reported at
+once.
+
+**A component no page hydrates on `load` is never grouped**, whatever its
+share. Its code goes in the bundler's own split, as if it were in `exclude`,
+and the manifest records it as `tail`. This is decided after
+[fold strategy](./fold-strategy.md) has moved islands. A component that hydrates
+on `load` on at least one page is grouped by the settings above. The reason is
+the bill above: `fw-core` counts against every page that loads it on first
+render, so an `idle` or `visible` component inside it would add its bytes to
+every page with a `load` island, including pages that never render it. Left
+out, it costs a page that uses it one more request when its island's trigger
+fires. Its stylesheet follows its code, out of the core sheet.
+
+`exclude` is for a component the rule does not catch: one that hydrates on
+`load` somewhere but that you want out of the shared chunks all the same.
+
+Each component's tier is recorded in `tiers.assignments` in the build's
+`manifest.json`, with the page count and shares it was decided from. A
+component with no `group` is in no tier chunk. An incremental build reuses the
+previous build's tiers, and a full build plans them again.
+
 ## What a `<script>` is not
 
 A `<script>` element is not always code. The JSON-LD block a page emits for

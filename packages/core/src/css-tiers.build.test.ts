@@ -115,9 +115,9 @@ export default defineConfig({
       ],
     }),
     components: {
-      Hero: { path: "./components/Hero.js", hydrate: "visible" },
-      Panel: { path: "./components/Panel.js", hydrate: "visible" },
-      Chart: { path: "./components/Chart.js", hydrate: "visible" },
+      Hero: { path: "./components/Hero.js", hydrate: "load" },
+      Panel: { path: "./components/Panel.js", hydrate: "load" },
+      Chart: { path: "./components/Chart.js", hydrate: "load" },
       Copy: "./components/Copy.js",
     },
     // Rolldown ignores a group whose modules do not reach \`minSize\`.

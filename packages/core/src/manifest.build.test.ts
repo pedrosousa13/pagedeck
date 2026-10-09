@@ -64,7 +64,7 @@ function demands(): readonly PageDemand[] {
   return PAGES.map((page) => ({
     page,
     islands: (ISLANDS[`${page.locale} ${page.path}`] ?? []).map(
-      (component) => ({ component, mode: "visible" as const }),
+      (component) => ({ component, mode: "load" as const }),
     ),
   }));
 }

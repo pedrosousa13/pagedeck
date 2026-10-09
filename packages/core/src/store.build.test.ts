@@ -74,7 +74,7 @@ function demand(
     page,
     islands: components.map((component) => ({
       component,
-      mode: "visible" as const,
+      mode: "load" as const,
     })),
   };
 }
