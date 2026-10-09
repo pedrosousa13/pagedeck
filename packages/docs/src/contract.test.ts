@@ -20,12 +20,13 @@ const ALLOWED_SCHEME = /^(https?|mailto):/i;
 let packed: string[] = [];
 
 beforeAll(async () => {
-  const { stdout } = await execFileAsync("npm", ["pack", "--dry-run", "--json"], {
+  const { stdout } = await execFileAsync("pnpm", ["pack", "--dry-run", "--json"], {
     cwd: PACKAGE,
     maxBuffer: 32 * 1024 * 1024,
   });
-  const [tarball] = JSON.parse(stdout) as { files: { path: string }[] }[];
-  packed = (tarball?.files ?? []).map(({ path }) => path).sort();
+  // pnpm echoes the prepack command before the JSON.
+  const tarball = JSON.parse(stdout.slice(stdout.indexOf("{"))) as { files: { path: string }[] };
+  packed = tarball.files.map(({ path }) => path).sort();
 }, 120_000);
 
 function pages(): string[] {
@@ -57,7 +58,7 @@ function tokensOf(page: string): Token[] {
   return found;
 }
 
-test("npm pack lists only markdown, nav.json, assets, package.json and LICENSE", () => {
+test("pnpm pack lists only markdown, nav.json, assets, package.json and LICENSE", () => {
   expect(
     packed.filter(
       (path) => !/^(package\.json|LICENSE|nav\.json|assets\/.+|.+\.md)$/.test(path),

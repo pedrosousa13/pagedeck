@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-// Run by `prepack` in this package's directory. Writes only what differs, so a
-// docs site syncing from this directory meanwhile never sees a file vanish.
+// Run by `prepack` in this package's directory.
 const PACKAGE = process.cwd();
 const DOCS = join(PACKAGE, "..", "..", "docs");
 

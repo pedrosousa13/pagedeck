@@ -159,10 +159,15 @@ test("every workspace package packs a tarball its entry points resolve inside", 
               `Package "${manifest.name}": declares no "files", so npm decides what a tarball carries from its own defaults and the tarball ships this package's src and tests — add "files": ["dist", "!dist/.tsbuildinfo"], which is what every other package here declares`,
             );
           }
-          const prepack = manifest.name === DOCS_PACKAGE ? DOCS_PREPACK : PREPACK;
-          if (manifest.scripts?.prepack !== prepack) {
+          if (manifest.name === DOCS_PACKAGE) {
+            if (manifest.scripts?.prepack !== DOCS_PREPACK) {
+              faults.push(
+                `Package "${manifest.name}": its "prepack" script is ${JSON.stringify(manifest.scripts?.prepack)} rather than ${JSON.stringify(DOCS_PREPACK)}, so its tarball would lack the pages of docs/ it publishes (the ADRs, deploy-recipe.md and error-messages.md), which only that script copies in — set "prepack" to ${JSON.stringify(DOCS_PREPACK)}`,
+              );
+            }
+          } else if (manifest.scripts?.prepack !== PREPACK) {
             faults.push(
-              `Package "${manifest.name}": its "prepack" script is ${JSON.stringify(manifest.scripts?.prepack)} rather than ${JSON.stringify(prepack)}, so a tarball could be cut from a stale or absent dist — every package in this workspace declares that one command, and it must not be the root "pnpm build", which deletes every package's dist before it starts`,
+              `Package "${manifest.name}": its "prepack" script is ${JSON.stringify(manifest.scripts?.prepack)} rather than ${JSON.stringify(PREPACK)}, so a tarball could be cut from a stale or absent dist — every package in this workspace declares that one command, and it must not be the root "pnpm build", which deletes every package's dist before it starts`,
             );
           }
 

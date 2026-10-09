@@ -49,7 +49,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm -r publish --access public --provenance --no-git-checks
 
-  # Apart from `publish`, so the App's key never shares a job with id-token: write (#108).
   notify:
     needs: publish
     runs-on: ubuntu-latest

@@ -149,12 +149,15 @@ the root `tsconfig.build.json`. Its `files` is
 `["**/*.md", "nav.json", "assets"]`, and its `prepack` is
 `node src/assemble.ts`, which copies in each page of the repository's `docs/`
 that `nav.json` lists (the ADRs, `deploy-recipe.md` and `error-messages.md`),
-writing only what differs. `.gitignore` keeps those copies out of git, so
+writing only what differs and removing a copy `nav.json` no longer lists. The
+docs site's `src/nav-json.test.ts` holds those pages to
+`REPOSITORY_DOCS.published`, the list the site reads. `.gitignore` keeps those copies out of git, so
 `docs/` stays the one copy, where the agent skills expect it. `DOCS_PACKAGE`,
 `DOCS_PREPACK` and `packedAsDocs` in `public-packages.test-support.ts` are the
 exception in `workspace-packages.test.ts`, `publishable-packages.test.ts` and
 the pack harness, and admit nothing to any other package.
-`packages/docs/src/contract.test.ts` runs `npm pack --dry-run` and holds what
+`packages/docs/src/contract.test.ts` runs `pnpm pack --dry-run`, which applies
+`.pnpmfile.mjs` as a publish does, and holds what
 it lists to deck-cool's docs contract (`docs/docs-contract.md` in
 pedrosousa13/deck-cool): markdown, `nav.json`, `assets/`, `package.json` and
 `LICENSE` only; a `title` and a `description` on every page; every page in
@@ -171,9 +174,11 @@ versions**, because a patch release may change the bytes they emit. Core pins
 `.jsx` (#702): rolldown marks it experimental, and core reads a compile error's
 position from a field its types do not declare.
 
-**The public set** is the fifteen packages a site author installs (#690),
-the six edge adapters among them (#19), `create-pagedeck`, which writes a
-new site (#691), and `@pagedeck/docs`, the documentation (#108), listed in
+**The public set** is seventeen packages: the fifteen a site author installs
+(#690), the six edge adapters among them (#19); `create-pagedeck`, which
+writes a new site (#691); and `@pagedeck/docs`, Pagedeck's documentation as
+markdown, which deck.cool's docs site reads at build time (#108). They are
+listed in
 `packages/core/src/public-packages.test-support.ts`. Each is `0.2.3`, MIT,
 with `repository`, `engines.node` and `publishConfig.access`; every other
 package stays `private` (#689).
@@ -252,7 +257,7 @@ short-lived granular token with publish rights on the `@pagedeck` scope and on
 `.npmrc` that `setup-node` writes from `registry-url` reads.
 
 **Then switch to trusted publishing.** After 0.1.0 is on npm, add a trusted
-publisher to each of the sixteen packages on npmjs.com: GitHub Actions, repository
+publisher to each of the seventeen packages on npmjs.com: GitHub Actions, repository
 `pedrosousa13/pagedeck`, workflow `release.yml`. npm matches the workflow
 filename exactly, so renaming the file breaks every publish until each package
 is updated. Then delete the token on npm and the `NPM_TOKEN` secret.
