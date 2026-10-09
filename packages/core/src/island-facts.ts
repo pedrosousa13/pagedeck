@@ -21,6 +21,7 @@ export interface IslandFactsInput {
   root: string;
   origin: string;
   modules: ModuleMap;
+  css?: readonly string[];
 }
 
 export interface IslandFacts {
@@ -155,8 +156,11 @@ export async function scanIslandFacts(
 
   const clientModules = new Set(boundaries.clientModules);
   const placers = resourceImporters.filter(({ id }) => clientModules.has(id));
-  const warnings =
-    placers.length === 0 ? [] : [resourcePlacerWarning(placers)];
+  const unlinked = unlinkedStylesheets(graph, clientModules, input.css ?? []);
+  const warnings = [
+    ...(placers.length === 0 ? [] : [resourcePlacerWarning(placers)]),
+    ...(unlinked.length === 0 ? [] : [unlinkedStylesheetWarning(unlinked)]),
+  ];
   const facts: Record<string, ModuleFacts> = {};
   const namesByModule = new Map<string, string[]>();
   for (const name of names) {
@@ -191,6 +195,50 @@ function resourcePlacerWarning(placers: readonly ResourceImporter[]): string {
       ? '1 module in a "use client" closure imports'
       : `${String(placers.length)} modules in a "use client" closure import`;
   return `Island scan: ${subject} preinit or preinitModule from react-dom — a preinit call places a stylesheet past the <head> tiers the build owns, which the build refuses when the rendered HTML shows it; this is a warning and not a refusal because a call made from an effect leaves nothing in the HTML to see, and an import reached through a re-export or an alias leaves nothing here to see either:\n${lines}`;
+}
+
+interface UnlinkedStylesheet {
+  id: string;
+  importers: readonly string[];
+}
+
+function unlinkedStylesheets(
+  graph: ModuleGraph,
+  clientModules: ReadonlySet<string>,
+  globalCss: readonly string[],
+): UnlinkedStylesheet[] {
+  const linked = new Set(globalCss);
+  const importersBySheet = new Map<string, Set<string>>();
+  for (const [importer, imported] of graph.imports) {
+    for (const id of imported) {
+      const path = id.split("?")[0] ?? id;
+      if (!path.endsWith(".css")) continue;
+      if (clientModules.has(importer)) linked.add(path);
+      const importers = importersBySheet.get(path) ?? new Set<string>();
+      importers.add(importer);
+      importersBySheet.set(path, importers);
+    }
+  }
+  return [...importersBySheet]
+    .filter(([path]) => !linked.has(path))
+    .sort(([left], [right]) => (left < right ? -1 : 1))
+    .map(([id, importers]) => ({ id, importers: [...importers].sort() }));
+}
+
+function unlinkedStylesheetWarning(
+  unlinked: readonly UnlinkedStylesheet[],
+): string {
+  const lines = unlinked
+    .map(
+      ({ id, importers }) =>
+        `  "${id}" — imported by ${importers.map((importer) => `"${importer}"`).join(", ")}`,
+    )
+    .join("\n");
+  const subject =
+    unlinked.length === 1
+      ? '1 stylesheet is imported only by modules outside every "use client" closure, so no page links it'
+      : `${String(unlinked.length)} stylesheets are imported only by modules outside every "use client" closure, so no page links them`;
+  return `Island scan: ${subject} — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
 }
 
 function sharedModuleReport(

@@ -15,6 +15,11 @@ const FIXTURE: Record<string, string> = {
   "Copy.js": `export default function Copy() { return "copy"; }\n`,
   "Late.js": `"use client";\nimport { useEffect } from "react";\nimport { preinit } from "react-dom";\nexport default function Late() {\n  useEffect(() => { preinit("/late.css", { as: "style" }); }, []);\n  return "late";\n}\n`,
   "Eager.js": `import { preinit } from "react-dom";\nexport default function Eager() { preinit("/eager.css", { as: "style" }); return "eager"; }\n`,
+  "Styled.js": `import "./styled.css";\nexport default function Styled() { return "styled"; }\n`,
+  "Twice.js": `import "./styled.css";\nimport "./other.css?inline";\nexport default function Twice() { return "twice"; }\n`,
+  "Lit.js": `"use client";\nimport "./styled.css";\nexport default function Lit() { return "lit"; }\n`,
+  "styled.css": `.styled { color: red; }\n`,
+  "other.css": `.other { color: blue; }\n`,
 };
 
 beforeAll(() => {
@@ -109,4 +114,55 @@ test("the scan names each component whose module does not resolve", async () => 
       `  "Phantom" — "@pagedeck/phantom/widget", resolved against "${ORIGIN}"`,
     ].join("\n"),
   );
+}, 120_000);
+
+const UNLINKED_FIX =
+  ' — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:';
+
+test("the scan warns about a stylesheet only a static component imports", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Styled: "./src/Styled.js" },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 1 stylesheet is imported only by modules outside every "use client" closure, so no page links it${UNLINKED_FIX}\n` +
+      `  "${SRC}styled.css" — imported by "${SRC}Styled.js"`,
+  ]);
+}, 120_000);
+
+test("a stylesheet an island module also imports is not reported", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Styled: "./src/Styled.js", Lit: "./src/Lit.js" },
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test("a stylesheet build.css lists is not reported", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Styled: "./src/Styled.js" },
+    css: [`${SRC}styled.css`],
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test("two unlinked stylesheets are one warning naming both, each id without its query", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Styled: "./src/Styled.js", Twice: "./src/Twice.js" },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 2 stylesheets are imported only by modules outside every "use client" closure, so no page links them${UNLINKED_FIX}\n` +
+      `  "${SRC}other.css" — imported by "${SRC}Twice.js"\n` +
+      `  "${SRC}styled.css" — imported by "${SRC}Styled.js", "${SRC}Twice.js"`,
+  ]);
 }, 120_000);

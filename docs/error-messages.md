@@ -15,7 +15,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 112 below, 99 of them
+`x` at/from `path`, outside fenced blocks — there are 113 below, 100 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -29,8 +29,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 273 messages fenced
-below, 217 are checked that way and 56 are not**, and that test lists the 56
+literal interpolates left as holes it cannot read. **Of the 274 messages fenced
+below, 218 are checked that way and 56 are not**, and that test lists the 56
 one by one with the reason each is out: 54 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 217 checked messages pin 33747 of the 84119 fenced characters, and
+below**: the 218 checked messages pin 34020 of the 84670 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3495,23 +3495,23 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty-one, and each says what it cannot promise; a twenty-second is
+writes twenty-two, and each says what it cannot promise; a twenty-third is
 written by `pagedeck sync` rather than by a build and is the last one described
 below; three more are the browser's and are argued in this rule's closing
 section, where they sit among the browser's refusals rather than after them.
 
-**All twenty-one reach `io.err`, and four of them only through one verb**, and
+**All twenty-two reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-second is reachable too, by the same shape through the other verb:
+The twenty-third is reachable too, by the same shape through the other verb:
 `syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
-is described after the twenty-one below, and kept out of their count because
-`pagedeck sync` is what writes it and no build ever does. Seventeen —
-`resourcePlacerWarning`, `workerFallbackWarning`, `workerConsentWarning`,
+is described after the twenty-two below, and kept out of their count because
+`pagedeck sync` is what writes it and no build ever does. Eighteen —
+`resourcePlacerWarning`, `unlinkedStylesheetWarning`, `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
 `checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
 `compileIslands`' two — are collected into `SiteBuild.warnings` by `buildSite`
-and written by `runBuildVerb`. All seventeen are reachable; one of them was not
+and written by `runBuildVerb`. All eighteen are reachable; one of them was not
 until #270, and its own section below records what closed it — a site's
 redirects now reach `planRouting` through `build.routing`. The last two travel
 one stage further to get there, and #242 is that stage: a bundler plugin has no
@@ -3522,8 +3522,8 @@ The four #29 adds, `driftWarnings`' two and `compileSupplements`' two, are
 strings shaped for that same field, and #281 gave them the caller they were
 waiting on: `buildSite` (`packages/core/src/build.ts`) runs `checkDrift` and
 `compileSupplements` on a run given `incremental: true`, and puts both sets of
-warnings into the same `warnings` list the seventeen above go into. So all
-twenty-one are reachable, and the four reach a reader through
+warnings into the same `warnings` list the eighteen above go into. So all
+twenty-two are reachable, and the four reach a reader through
 `pagedeck build --incremental` and through nothing else — a full build cannot drift by
 construction, since the class manifest it would check against is the one it is
 writing, so it makes no plan, takes no check and produces none of these four.
@@ -4306,7 +4306,29 @@ the maintainer ruled out: the bytes would be the framework's and not the site's.
 A site whose `build.passthrough.root` already publishes `/favicon.ico` is not
 warned, because nothing at that address 404s.
 
-**The twenty-second is not a build's at all, and it is `colorFailureWarning`**
+The twenty-second is `unlinkedStylesheetWarning`
+(`packages/core/src/island-facts.ts`, #71), the island scan's second answer on
+this route: a stylesheet that only modules outside every `"use client"` closure
+import. Render replaces each `.css` import with an empty module, and the client
+build starts from `build.css` and the island modules, so that stylesheet
+reaches no page. Before #71 the build said nothing, and the missing styles were
+the only sign:
+
+```
+Island scan: 2 stylesheets are imported only by modules outside every "use client" closure, so no page links them — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
+  "/site/components/landing.css" — imported by "/site/components/Landing.js"
+  "/site/components/legal.css" — imported by "/site/components/Legal.js", "/site/components/Terms.js"
+```
+
+Not a refusal, on `undeclaredHeadersWarning`'s argument: every page is correct
+HTML, and a site may link the stylesheet itself. A stylesheet that a
+`"use client"` module also imports, or that `build.css` lists, is not reported,
+and a query is dropped from a stylesheet's id before either match. Linking the
+stylesheet into the pages that render its importer was the other answer #71
+offered; the maintainer ruled it a separate feature, and this warning goes when
+it lands.
+
+**The twenty-third is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
 fetch a dominant color for. It is written by `pagedeck sync` and reaches `io.err`
 through `runSyncVerb`, which writes `SyncReport.warnings` before the failures —

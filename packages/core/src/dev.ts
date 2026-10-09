@@ -90,6 +90,7 @@ export async function startDevServer(
     root,
     origin: config.configPath,
     modules: section.componentModules,
+    css: (section.css ?? []).map((path) => resolvePath(root, path)),
   });
   for (const warning of warnings) input.err(warning);
   reportScriptWarnings(section, input.err);
