@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, startTransition } from "react";
 import type { ComponentType } from "react";
 import { hydrateRoot } from "react-dom/client";
 import {
@@ -238,13 +238,17 @@ async function mount(
         },
       })
     : [];
-  hydrateRoot(
-    marker,
-    wrapInProviders(
-      createElement(component as AnyComponent, island.props, ...children),
-      options.providers ?? [],
-      options.probe,
-    ),
-    { identifierPrefix: island.prefix },
-  );
+  // A transition is time-sliced, so a large island yields to input as it
+  // hydrates; a default-priority hydration runs in one task (#97).
+  startTransition(() => {
+    hydrateRoot(
+      marker,
+      wrapInProviders(
+        createElement(component as AnyComponent, island.props, ...children),
+        options.providers ?? [],
+        options.probe,
+      ),
+      { identifierPrefix: island.prefix },
+    );
+  });
 }

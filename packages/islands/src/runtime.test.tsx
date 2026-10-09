@@ -851,3 +851,68 @@ test("a marker the startup module never saw is scheduled on its own trigger", as
   await runIdleCallbacks();
   expect(mounted).toEqual(["seen", "later"]);
 });
+
+const renders: string[] = [];
+let onFirstChild: (() => void) | undefined;
+
+function Busy({ index }: { index: number }) {
+  const start = performance.now();
+  while (performance.now() - start < 10);
+  renders.push(`child ${String(index)}`);
+  if (index === 0) {
+    onFirstChild?.();
+    onFirstChild = undefined;
+  }
+  return <i>{index}</i>;
+}
+
+function Heavy() {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <button type="button" onClick={() => setCount(count + 1)}>
+        {count}
+      </button>
+      {Array.from({ length: 6 }, (_, index) => (
+        <Busy key={index} index={index} />
+      ))}
+    </div>
+  );
+}
+
+// Outside `act`, which would flush the whole render in one go: the test needs
+// React's own scheduler, yielding or not.
+async function hydrateHeavy(whenFirstChildRenders: () => void): Promise<void> {
+  fakeBrowser();
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  const resolve = await buildPage([
+    { component: "Heavy", render: Heavy, mode: "load", prefix: "iheavy" },
+  ]);
+  renders.length = 0;
+  onFirstChild = whenFirstChildRenders;
+  hydrateIslands({ resolve });
+  await vi.waitFor(() => {
+    expect(renders).toContain("child 5");
+  });
+}
+
+test("a large island hydrates in slices, so a task queued during hydration runs before it finishes", async () => {
+  await hydrateHeavy(() => {
+    setTimeout(() => renders.push("task"));
+  });
+  await vi.waitFor(() => {
+    expect(renders).toContain("task");
+  });
+
+  expect(renders.indexOf("task")).toBeLessThan(renders.indexOf("child 5"));
+});
+
+test("a click during hydration is still handled", async () => {
+  await hydrateHeavy(() => {
+    setTimeout(() => markers()[0]?.querySelector("button")?.click());
+  });
+
+  await vi.waitFor(() => {
+    expect(markers()[0]?.querySelector("button")?.textContent).toBe("1");
+  });
+});
