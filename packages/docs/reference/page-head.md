@@ -64,6 +64,12 @@ locale when that locale declares one. Without an origin it is the path alone,
 `/social/en.1a2b3c4d.png`. The Open Graph protocol asks for an absolute URL, and
 most platforms show no image for a path. See
 [Canonicals and hreflang](./canonicals-and-hreflang.md#declaring-the-origin).
+A build whose output holds a card and whose config declares no `origin` prints
+one warning:
+
+```
+Social image: this site draws share cards with build.socialImages and declares no build.origin, so each card's og:image is a path and not an absolute URL — the Open Graph protocol asks for an absolute URL, and most social platforms drop a relative og:image and show no share image; this is a warning and not a refusal because every page and every card this build emitted is correct — declare the site's address in build.origin, as origin: "https://example.com" (Pagedeck documentation: Page head, Cards the build draws)
+```
 
 **Upgrade, or add or change `origin`, and run a full build.** An incremental
 build reuses each page that did not change, and has no way to see that the

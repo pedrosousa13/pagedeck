@@ -314,8 +314,10 @@ async function driveDemos(browser: Browser, origin: string): Promise<Demos> {
       .map((face) => face.status))`)) as string[];
   const font = { statuses, fetched: count(/^\/fonts\/.+\.woff2$/) };
 
-  const href = await page.locator('meta[property="og:image"]').getAttribute("content");
-  const response = await context.request.get(`${origin}${href ?? "/missing"}`);
+  // The page names the card at the live origin; this harness serves it locally.
+  const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
+  const href = ogImage === null ? "/missing" : new URL(ogImage).pathname;
+  const response = await context.request.get(`${origin}${href}`);
   const body = await response.body();
   const social = {
     href,

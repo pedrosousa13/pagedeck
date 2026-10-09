@@ -47,6 +47,8 @@ const DROPPED_TREE_SITE = join(SITES, ".pagedeck-social-dropped-tree-test");
 const ORIGIN_SITE = join(SITES, ".pagedeck-social-origin-test");
 const ORIGIN_TREES_SITE = join(SITES, ".pagedeck-social-origin-trees-test");
 const CARRIED_ORIGIN_SITE = join(SITES, ".pagedeck-social-carried-origin-test");
+const NO_CARDS_SITE = join(SITES, ".pagedeck-social-no-cards-test");
+const CARRIED_WARNING_SITE = join(SITES, ".pagedeck-social-carried-warning-test");
 
 const ONE_TREE = `en: { label: "en", direction: "ltr" },`;
 const TWO_TREES = `en: { label: "en", direction: "ltr", domain: "example.com" },
@@ -145,6 +147,19 @@ const DOUBLE_CARDS = `socialImages: {
     }),`;
 
 const ORIGIN = `origin: "https://example.com",`;
+
+const NO_CARDS = `socialImages: {
+      adapter: ${STUB_ADAPTER},
+      inputs: () => undefined,
+    },`;
+
+const NO_ORIGIN =
+  'Social image: this site draws share cards with build.socialImages and declares no build.origin, so each card\'s og:image is a path and not an absolute URL — the Open Graph protocol asks for an absolute URL, and most social platforms drop a relative og:image and show no share image; this is a warning and not a refusal because every page and every card this build emitted is correct — declare the site\'s address in build.origin, as origin: "https://example.com" (Pagedeck documentation: Page head, Cards the build draws)';
+
+function originWarnings(err: string | readonly string[]): readonly string[] {
+  const lines = typeof err === "string" ? err.split("\n") : err;
+  return lines.filter((line) => line.startsWith("Social image: this site"));
+}
 
 const CONTENT: Record<string, string> = {
   home: "Home",
@@ -248,6 +263,7 @@ async function ok(cwd: string, ...argv: string[]): Promise<Run> {
 }
 
 const built = new Map<string, Promise<string>>();
+const buildErr = new Map<string, string>();
 
 function build(
   root: string,
@@ -271,7 +287,8 @@ async function buildOnce(
 ): Promise<string> {
   const dir = site(root, declaration, COMPONENT, locales, contentLocales);
   await ok(dir, "sync");
-  await ok(dir, "build");
+  const { err } = await ok(dir, "build");
+  buildErr.set(root, err);
   return join(dir, "dist");
 }
 
@@ -295,6 +312,8 @@ afterAll(() => {
     ORIGIN_SITE,
     ORIGIN_TREES_SITE,
     CARRIED_ORIGIN_SITE,
+    NO_CARDS_SITE,
+    CARRIED_WARNING_SITE,
   ]) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -811,4 +830,59 @@ test("with an origin, a carried page's card is kept on the tree and not pruned",
   expect(existsSync(join(dist, path.slice(1)))).toBe(true);
   expect(patch.pruned.map((one) => one.path)).not.toContain(path);
   expect(patch.written.map((file) => file.path)).not.toContain(path);
+}, 240_000);
+
+test("a build that draws cards with no origin is warned once and still succeeds", async () => {
+  await build(DECLARED_SITE, DECLARED_CARDS);
+
+  expect(originWarnings(buildErr.get(DECLARED_SITE) ?? "")).toEqual([NO_ORIGIN]);
+}, 180_000);
+
+test("a build that draws cards with an origin is not warned about one", async () => {
+  await build(ORIGIN_SITE, `${ORIGIN}\n    ${DECLARED_CARDS}`);
+
+  expect(originWarnings(buildErr.get(ORIGIN_SITE) ?? "x")).toEqual([]);
+}, 180_000);
+
+test("a site that declares no social images is not warned about an origin", async () => {
+  await build(PLAIN_SITE);
+
+  expect(originWarnings(buildErr.get(PLAIN_SITE) ?? "x")).toEqual([]);
+}, 180_000);
+
+test("a site whose inputs return undefined for every page draws no card and is not warned", async () => {
+  const dist = await build(NO_CARDS_SITE, NO_CARDS);
+
+  expect(existsSync(join(dist, "social"))).toBe(false);
+  expect(originWarnings(buildErr.get(NO_CARDS_SITE) ?? "x")).toEqual([]);
+}, 180_000);
+
+test("an incremental build that carries a card and draws none is still warned with no origin", async () => {
+  const dir = site(CARRIED_WARNING_SITE, DECLARED_CARDS);
+  await ok(dir, "sync");
+  await ok(dir, "build");
+
+  writeFileSync(
+    join(dir, "content", "en", "about.json"),
+    `${JSON.stringify({ rev: 2, data: { title: "Edited" } })}\n`,
+  );
+  await ok(dir, "sync");
+  const { loadConfig } = await import("./config.js");
+  const { buildSite } = await import("./build.js");
+  const built = await buildSite({
+    config: await loadConfig(dir),
+    incremental: true,
+    stamp: { id: "social-carried-warning", createdAt: "2026-09-01T00:00:00.000Z" },
+  });
+  const patch = built.patch;
+  if (patch === undefined) throw new Error("the run produced no patch");
+
+  expect(patch.stats.reused).toBe(1);
+  expect(
+    patch.written.filter((file) => file.path.startsWith("/social/")),
+  ).toEqual([]);
+  expect(
+    built.manifest.files.filter((row) => row.path.startsWith("/social/")),
+  ).toHaveLength(1);
+  expect(originWarnings(built.warnings)).toEqual([NO_ORIGIN]);
 }, 240_000);

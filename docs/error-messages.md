@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 114 below, 101 of them
+`x` at/from `path`, outside fenced blocks — there are 115 below, 102 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 275 messages fenced
-below, 219 are checked that way and 56 are not**, and that test lists the 56
+literal interpolates left as holes it cannot read. **Of the 276 messages fenced
+below, 220 are checked that way and 56 are not**, and that test lists the 56
 one by one with the reason each is out: 54 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 219 checked messages pin 34093 of the 85232 fenced characters, and
+below**: the 220 checked messages pin 34612 of the 85751 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3497,24 +3497,24 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty-three, and each says what it cannot promise; a twenty-fourth is
+writes twenty-four, and each says what it cannot promise; a twenty-fifth is
 written by `pagedeck sync` rather than by a build and is the last one described
 below; three more are the browser's and are argued in this rule's closing
 section, where they sit among the browser's refusals rather than after them.
 
-**All twenty-three reach `io.err`, and four of them only through one verb**, and
+**All twenty-four reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-fourth is reachable too, by the same shape through the other verb:
+The twenty-fifth is reachable too, by the same shape through the other verb:
 `syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
-is described after the twenty-three below, and kept out of their count because
-`pagedeck sync` is what writes it and no build ever does. Nineteen —
+is described after the twenty-four below, and kept out of their count because
+`pagedeck sync` is what writes it and no build ever does. Twenty —
 `resourcePlacerWarning`, `unlinkedStylesheetWarning`,
 `unregisteredClientWarning`, `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
-`checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
+`relativeCardWarning`, `checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
 `compileIslands`' two — are collected into `SiteBuild.warnings` by `buildSite`
-and written by `runBuildVerb`. All nineteen are reachable; one of them was not
+and written by `runBuildVerb`. All twenty are reachable; one of them was not
 until #270, and its own section below records what closed it — a site's
 redirects now reach `planRouting` through `build.routing`. The last two travel
 one stage further to get there, and #242 is that stage: a bundler plugin has no
@@ -3525,8 +3525,8 @@ The four #29 adds, `driftWarnings`' two and `compileSupplements`' two, are
 strings shaped for that same field, and #281 gave them the caller they were
 waiting on: `buildSite` (`packages/core/src/build.ts`) runs `checkDrift` and
 `compileSupplements` on a run given `incremental: true`, and puts both sets of
-warnings into the same `warnings` list the nineteen above go into. So all
-twenty-three are reachable, and the four reach a reader through
+warnings into the same `warnings` list the twenty above go into. So all
+twenty-four are reachable, and the four reach a reader through
 `pagedeck build --incremental` and through nothing else — a full build cannot drift by
 construction, since the class manifest it would check against is the one it is
 writing, so it makes no plan, takes no check and produces none of these four.
@@ -4362,7 +4362,25 @@ is not reported, because registering the outer module brings the inner one
 into its island. Neither is a client module that only a registered island
 imports, with or without the directive: it is already part of that island.
 
-**The twenty-fourth is not a build's at all, and it is `colorFailureWarning`**
+The twenty-fourth is `relativeCardWarning`
+(`packages/core/src/social-image.ts`, #99): a site that draws share cards with
+`build.socialImages` and declares no `build.origin`. Without an origin each card's `og:image` is a path such as
+`/social/en.1a2b3c4d.png`, and most social platforms drop a relative
+`og:image`, so a shared link shows no image. Before #99 the build said nothing.
+The build writes it once, when its output holds at least one card, whether this
+run drew it or an incremental build carried it:
+
+```
+Social image: this site draws share cards with build.socialImages and declares no build.origin, so each card's og:image is a path and not an absolute URL — the Open Graph protocol asks for an absolute URL, and most social platforms drop a relative og:image and show no share image; this is a warning and not a refusal because every page and every card this build emitted is correct — declare the site's address in build.origin, as origin: "https://example.com" (Pagedeck documentation: Page head, Cards the build draws)
+```
+
+Not a refusal, on `undeclaredHeadersWarning`'s argument: every page and card is
+correct, and only the platforms that read the page are let down. A site whose
+`inputs` returns `undefined` for every page draws no card and is not warned. A
+relative `og:image` that the site's own `build.head` returns is the site's to
+write and is not warned either.
+
+**The twenty-fifth is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
 fetch a dominant color for. It is written by `pagedeck sync` and reaches `io.err`
 through `runSyncVerb`, which writes `SyncReport.warnings` before the failures —
