@@ -35,21 +35,23 @@ That is the whole of what the framework writes. `@view-transition` is a CSS
 at-rule, so this adds no JavaScript, no chunk and no event listener — the
 transition is run by the browser.
 
-## Reduced motion
-
-The rule sits inside `@media (prefers-reduced-motion: no-preference)`, so a
-reader whose system asks for reduced motion gets no transition at all: the
-browser swaps the pages the way it does with the feature off. There is
-no setting to keep the transition for that reader. A browser harness proves both
-cases in Chromium: following a link runs a view transition with no motion
-preference and runs none under `prefers-reduced-motion: reduce`.
-
 **Both documents need it**, which is why it is on every page rather than on the
 pages you name: a cross-document transition is an agreement between the page
 being left and the page being entered, and a navigation where only one side
 carries the rule is a navigation that does not animate. It is written inline
 rather than linked for the same reason — a page that links no stylesheet at all
 still gets it.
+
+## Reduced motion
+
+The rule sits inside `@media (prefers-reduced-motion: no-preference)`, so a
+reader whose system asks for reduced motion gets no transition at all: the
+browser swaps the pages the way it does with the feature off. The framework
+has no setting to keep the transition for that reader: a site that wants it
+regardless writes its own `@view-transition { navigation: auto; }` rule, with no
+media query, in its own stylesheet. A browser harness proves both cases in
+Chromium: following a link runs a view transition with no motion preference and
+runs none under `prefers-reduced-motion: reduce`.
 
 ## Making it yours
 

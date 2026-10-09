@@ -5,7 +5,8 @@ import root from "../../vitest.config.js";
 export default defineConfig({
   resolve: root.resolve,
   test: {
-    // Absolute: Vitest resolves a relative `root` against the working directory.
+    // Absolute: Vitest resolves a relative `root` against the working directory, and "no
+    // test files found" passes silently.
     root: resolve(import.meta.dirname, "../.."),
     include: ["packages/core/src/view-transitions.harness.ts"],
     testTimeout: 180_000,

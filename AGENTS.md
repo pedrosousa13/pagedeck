@@ -743,9 +743,9 @@ again and set `CRASH_DEPTH` from it.
 The singleton, lazy runtime and hydration task harnesses run emitted chunks
 from `packages/islands/dist`, because jsdom ignores `<script type="module">`,
 so build first; none can detect a stale `dist`. The consent facade and view
-transitions harnesses drive `runCli` in process and need no build. Under a CSP, poll with
-`page.evaluate`: `page.waitForFunction` runs its predicate through `eval`,
-which the policy refuses (#586).
+transitions harnesses drive `runCli` in process and need no build. Under a
+CSP, poll with `page.evaluate`: `page.waitForFunction` runs its predicate
+through `eval`, which the policy refuses (#586).
 
 The hydration task harness backs a measurement (#97): at 4x CPU throttle, the
 longest main-thread task during a 5000-row `load` island's hydration fell from
