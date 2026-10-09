@@ -453,6 +453,8 @@ It is `LOGLEVEL_WARN` (never an error), and `ExpressionStatement.shouldBeInclude
 
 Rolldown 1.2.5 (2026-08-19); Vite 8.0.0 (2026-03-12), latest 8.2.2 (2026-08-20). **On Vite 8 the warning does not fire at all**, so the suppression layer described in Option A is dead weight there. `@vitejs/plugin-react` still ships one (`packages/common/warning.ts`, filtering on `warning.code === 'MODULE_LEVEL_DIRECTIVE'`) for Rollup-based setups. If the framework ever needs to match this warning, **match on `warning.code`, never on message text** — the wording changed between Rollup 3 and 4.
 
+**Update (2026-10-09):** on Rolldown 1.2.13, `MODULE_LEVEL_DIRECTIVE` does fire, and its log names the directive only inside the message, so `runBundle` matches the code and then the message for `"use client"` and `"use server"` (#74).
+
 ### How to detect `"use client"` at build time
 
 The actively-maintained primitive is in `@vitejs/plugin-rsc` itself, importable **without adopting the RSC runtime**, via the `./transforms` export:
