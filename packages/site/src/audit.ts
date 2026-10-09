@@ -1,4 +1,6 @@
 import { gzipSync } from "node:zlib";
+import { normalizeOutputPath } from "@pagedeck/core";
+import type { TrailingSlash } from "@pagedeck/core";
 
 export interface AxeViolation {
   readonly id: string;
@@ -219,6 +221,13 @@ export function payloadReductions(input: {
       gzip: reductionPercent(twin.gzip, page.total.gzip),
     };
   });
+}
+
+export function servedUrl(
+  row: { readonly locale: string; readonly path: string },
+  trailingSlash: TrailingSlash,
+): string {
+  return normalizeOutputPath(`/${row.locale}${row.path}`, trailingSlash);
 }
 
 export interface PayloadBytes {

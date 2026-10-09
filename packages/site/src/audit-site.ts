@@ -5,8 +5,14 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { extname, join, normalize as normalizePath } from "node:path";
 import { promisify } from "node:util";
 import { brotliCompressSync, gzipSync } from "node:zlib";
-import { budgetReportPath } from "@pagedeck/core";
-import { emittedHashes, hashInsensitiveGzip, runtimeSplit, totalBytes } from "./audit.js";
+import { budgetReportPath, readManifest } from "@pagedeck/core";
+import {
+  emittedHashes,
+  hashInsensitiveGzip,
+  runtimeSplit,
+  servedUrl,
+  totalBytes,
+} from "./audit.js";
 import { BASELINE_URLS } from "./parity-baseline.js";
 import type {
   AuditBudget,
@@ -163,6 +169,8 @@ export function measurePayload(root: string, out: string): readonly PagePayload[
   const report = JSON.parse(readFileSync(budgetReportPath(root), "utf8")) as {
     pages: readonly BudgetRow[];
   };
+  const manifest = join(out, "manifest.json");
+  const { trailingSlash } = readManifest(readFileSync(manifest, "utf8"), manifest).site;
   return report.pages.map((row) => {
     const chunks = row.chunks.map((chunk) => {
       const bytes = readFileSync(
@@ -176,7 +184,7 @@ export function measurePayload(root: string, out: string): readonly PagePayload[
       };
     });
     return {
-      url: row.path === "/" ? `/${row.locale}` : `/${row.locale}${row.path}`,
+      url: servedUrl(row, trailingSlash),
       chunks,
       total: totalBytes(chunks),
     };
