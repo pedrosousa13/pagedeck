@@ -14,6 +14,7 @@ function entry(
   path: string,
   components: readonly string[],
   providers?: string,
+  deferred: readonly string[] = [],
 ): PageEntry {
   const name = path === "/" ? "index" : path.slice(1);
   return {
@@ -24,7 +25,7 @@ function entry(
     components: components.map((component) => ({
       name: component,
       module: `@ds/${component}`,
-      eager: false,
+      eager: !deferred.includes(component),
     })),
     ...(providers === undefined ? {} : { providers }),
   };
@@ -200,6 +201,85 @@ test("a ranked component no page imports does not dilute the boundary", () => {
   });
 
   expect(tierOf(withGhost.assignments, "Signup")?.tier).toBe("core");
+});
+
+test("a component that never hydrates on load is in no group, however many pages use it", () => {
+  const plan = planTiers({
+    entries: ENTRIES.map((one) =>
+      entry(
+        one.path,
+        [...one.components.map((component) => component.name), "Search"],
+        undefined,
+        ["Search"],
+      ),
+    ),
+    ranking: [...RANKING, ranked("Search", 5, 5, 0)],
+  });
+
+  expect(tierOf(plan.assignments, "Search")).toEqual({
+    component: "Search",
+    module: "@ds/Search",
+    tier: "tail",
+    pageCount: 5,
+    pageShare: 1,
+    totalUsages: 5,
+    usageShare: 5 / 24,
+    avgFoldScore: 0,
+  });
+  expect(plan.groups.flatMap((group) => group.modules)).not.toContain(
+    "@ds/Search",
+  );
+  expect(tierOf(plan.assignments, "Hero")?.tier).toBe("core");
+});
+
+test("one page hydrating it on load tiers a component as before", () => {
+  const plan = planTiers({
+    entries: ENTRIES.map((one) =>
+      entry(
+        one.path,
+        [...one.components.map((component) => component.name), "Search"],
+        undefined,
+        one.path === "/about" ? [] : ["Search"],
+      ),
+    ),
+    ranking: [...RANKING, ranked("Search", 5, 5, 0)],
+  });
+
+  expect(tierOf(plan.assignments, "Search")).toMatchObject({
+    tier: "core",
+    group: "fw-core",
+    pageCount: 5,
+  });
+  expect(
+    plan.groups.find((group) => group.name === "fw-core")?.modules,
+  ).toContain("@ds/Search");
+});
+
+test("an eager name tiers every name sharing its module", () => {
+  const pack = "@ds/pack";
+  const deferredPack = (path: string): PageEntry => {
+    const one = mapped(path, { Card: pack, CardFooter: pack });
+    return {
+      ...one,
+      components: one.components.map((component) => ({
+        ...component,
+        eager: path === "/" && component.name === "CardFooter",
+      })),
+    };
+  };
+  const plan = planTiers({
+    entries: ["/", "/pricing", "/about"].map(deferredPack),
+    ranking: [],
+  });
+
+  expect(tierOf(plan.assignments, "Card")).toMatchObject({
+    tier: "core",
+    group: "fw-core",
+  });
+  expect(tierOf(plan.assignments, "CardFooter")).toMatchObject({
+    tier: "core",
+    group: "fw-core",
+  });
 });
 
 test("a ranked component no page imports gets no assignment", () => {
@@ -602,7 +682,7 @@ test("a grouped module with no bundler id is refused", () => {
 test("a module id read off the prototype is not an id", () => {
   const shady: PageEntry = {
     ...entry("/", ["Hero"]),
-    components: [{ name: "Hero", module: "constructor", eager: false }],
+    components: [{ name: "Hero", module: "constructor", eager: true }],
   };
   const plan = planTiers({
     entries: [shady, { ...shady, path: "/pricing", name: "pricing" }],

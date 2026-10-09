@@ -442,17 +442,17 @@ kilobyte.
 | Page | Limit | Basis | Latest | Made of (latest) |
 | --- | --- | --- | --- | --- |
 | `/` | `0b` | 0 B | 0 B | no chunks |
-| `/interactive` | `60kb` (61440 B) | 52918 B (#189) | 53595 B (#95) | `fw-core` 52089 B, `fw-startup` 992 B, `counter` 276 B, entry 238 B |
-| `/features` | `62kb` (63488 B) | 54326 B (#551) | 54376 B (#95) | `fw-core` 52089 B, `fw-startup` 992 B, `hydration_probe` 425 B, entry 370 B, `island_load` 134 B, the facade loader inlined 366 B |
-| `/server-data` | `60kb` (61440 B) | 52762 B (#625) | 53401 B (#95) | `fw-core` 52089 B, `fw-startup` 992 B, entry 320 B |
+| `/interactive` | `60kb` (61440 B) | 52918 B (#189) | 53675 B (#105) | `fw-core` 52175 B, `fw-startup` 992 B, `counter` 270 B, entry 238 B |
+| `/features` | `62kb` (63488 B) | 54326 B (#551) | 54451 B (#105) | `fw-core` 52175 B, `fw-startup` 992 B, `hydration_probe` 420 B, entry 366 B, `island_load` 132 B, the facade loader inlined 366 B |
+| `/server-data` | `60kb` (61440 B) | 52762 B (#625) | 53492 B (#105) | `fw-core` 52175 B, `fw-startup` 992 B, entry 325 B |
 
 The counter is charged because fold tuning (#24) promotes it to `load`. Since
 #694, React's JSX and compiler runtimes are in `fw-core`. Since #95, every
 page with an island also loads `fw-startup`, which holds the hydrate triggers
 and Vite's preload helper. `/server-data` has no `load` island, so it fetches
 `fw-core` on its picker's trigger, and its budget charges `fw-core` all the
-same. The whole-build ceiling is 66 kB Brotli (67584 B) against 59504 B
-measured on #95, counting the `slot` chunk and the lazy islands, each file
+same. The whole-build ceiling is 66 kB Brotli (67584 B) against 59584 B
+measured on #105, counting the `slot` chunk and the lazy islands, each file
 compressed on its own.
 
 ```
@@ -485,10 +485,10 @@ free.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 53857 B | `fw-core` chunk 52377 B, `fw-startup` chunk 882 B, entry chunk 233 B, the inline script loader 365 B |
+| `en /pricing` | `60kb` (61440 B) | 53871 B | `fw-core` chunk 52392 B, `fw-startup` chunk 881 B, entry chunk 233 B, the inline script loader 365 B |
 
-The whole-build ceiling is 61 kB Brotli (62464 B) against 54425 B of `js`
-measured, 14.8% over it, counting the 933 B `slot` chunk and not the inline
+The whole-build ceiling is 61 kB Brotli (62464 B) against 54429 B of `js`
+measured, 14.8% over it, counting the 923 B `slot` chunk and not the inline
 loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):

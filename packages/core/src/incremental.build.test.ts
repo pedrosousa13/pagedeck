@@ -83,7 +83,7 @@ function renderedDemand(page: Page, components: readonly string[]): PageDemand {
     page,
     islands: components.map((component) => ({
       component,
-      mode: "visible" as const,
+      mode: "load" as const,
     })),
   };
 }

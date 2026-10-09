@@ -190,11 +190,11 @@ again and give the reason. Do not raise it to make the failure go away.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `/` | `0b` | 0 B (#694) | no chunks |
-| `/faq/` | `60kb` (61440 B) | 53612 B (#95) | `fw-core` 52092 B, `fw-startup` 882 B, `faq` 412 B, entry 226 B |
-| `/signup/` | `60kb` (61440 B) | 53756 B (#95) | `fw-core` 52092 B, `fw-startup` 882 B, `signup_form` 556 B, entry 226 B |
+| `/faq/` | `60kb` (61440 B) | 53581 B (#105) | `fw-core` 52065 B, `fw-startup` 881 B, `faq` 410 B, entry 225 B |
+| `/signup/` | `60kb` (61440 B) | 53719 B (#105) | `fw-core` 52065 B, `fw-startup` 881 B, `signup_form` 548 B, entry 225 B |
 
-The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 55323 B
-measured on #95, each file compressed on its own.
+The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 55276 B
+measured on #105, each file compressed on its own.
 
 ## Tests
 

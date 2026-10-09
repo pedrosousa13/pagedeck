@@ -22,6 +22,7 @@ const FIXTURE: Record<string, string> = {
   "Signup.js": `export default function Signup() { return "marker-signup-9ce3"; }\n`,
   "Chart.js": `export default function Chart() { return "marker-chart-2ad8"; }\n`,
   "Quote.js": `export default function Quote() { return "marker-quote-1f60"; }\n`,
+  "Search.js": `export default function Search() { return "marker-search-c05e"; }\n`,
 };
 
 beforeAll(() => {
@@ -46,6 +47,7 @@ const MODULES = {
   Signup: "./src/Signup.js",
   Chart: "./src/Chart.js",
   Quote: "./src/Quote.js",
+  Search: "./src/Search.js",
 };
 
 interface Chunk {
@@ -71,13 +73,20 @@ function demand(
   path: `/${string}`,
   output: string,
   components: readonly string[],
+  deferred: readonly string[] = [],
 ): PageDemand {
   return {
     page: page("en", path, output),
-    islands: components.map((component) => ({
-      component,
-      mode: "visible" as const,
-    })),
+    islands: [
+      ...components.map((component) => ({
+        component,
+        mode: "load" as const,
+      })),
+      ...deferred.map((component) => ({
+        component,
+        mode: "visible" as const,
+      })),
+    ],
   };
 }
 
@@ -90,6 +99,14 @@ const SHARED: readonly PageDemand[] = [
 
 const ONE = [...SHARED, demand("/blog/one", "/en/blog/one", ["Hero", "Chart"])];
 const TWO = [...SHARED, demand("/careers", "/en/careers", ["Hero", "Quote"])];
+
+const DEFERRED: readonly PageDemand[] = [
+  demand("/", "/en", ["Hero"], ["Search"]),
+  demand("/pricing", "/en/pricing", ["Hero"], ["Search"]),
+  demand("/about", "/en/about", ["Hero"], ["Search"]),
+  demand("/blog", "/en/blog", ["Hero"], ["Search"]),
+  demand("/careers", "/en/careers", ["Hero"]),
+];
 
 const ALIASED: readonly PageDemand[] = [
   demand("/", "/en", ["Hero", "Banner"]),
@@ -192,4 +209,39 @@ test("the core chunk survives two builds whose pages differ", async () => {
   const second = chunkNamed(two, "fw-core");
   expect(second?.path).toBe(first?.path);
   expect(second?.code).toBe(first?.code);
+}, 60_000);
+
+function staticClosure(built: ClientBuild, from: string): Set<string> {
+  const seen = new Set<string>();
+  const queue = [from];
+  while (queue.length > 0) {
+    const path = queue.pop() as string;
+    if (seen.has(path)) continue;
+    seen.add(path);
+    queue.push(...(built.imports.get(path) ?? []));
+  }
+  return seen;
+}
+
+test("a component no page hydrates on load stays out of core and off a load page's startup", async () => {
+  const { built, chunks, tiers } = await tieredBuild(DEFERRED);
+
+  expect(
+    tiers.assignments.find((one) => one.component === "Search"),
+  ).toMatchObject({ tier: "tail", pageCount: 4 });
+  const core = chunkNamed(chunks, "fw-core");
+  expect(core?.code).toContain("marker-hero-4b71");
+  expect(core?.code).not.toContain("marker-search-c05e");
+
+  const holders = chunks.filter((chunk) =>
+    chunk.code.includes("marker-search-c05e"),
+  );
+  expect(holders).toHaveLength(1);
+  const entry = (
+    planEntries(DEFERRED, { modules: MODULES }).entries
+  ).find((one) => one.path === "/");
+  const script = built.entryScripts.get(entry?.name ?? "") as string;
+  const startup = staticClosure(built, script);
+  expect(startup).toContain(core?.path);
+  expect(startup).not.toContain(holders[0]?.path);
 }, 60_000);

@@ -34,6 +34,7 @@ const written: string[] = [];
 function site(options: {
   foldStrategy?: string;
   budget?: Record<string, string>;
+  tierPolicy?: string;
 }): string {
   siteCount += 1;
   const root = join(SITES, `.pagedeck-fold-test-${String(siteCount)}`);
@@ -88,7 +89,10 @@ export default defineConfig({
     },
     // Rolldown ignores a group whose modules do not reach \`minSize\`.
     // The islands are excluded so each keeps its own chunk, which a report row needs.
-    tierPolicy: { minSize: 0, exclude: ["Widget", "Pinned", "Eager"] },${
+    tierPolicy: ${
+      options.tierPolicy ??
+      `{ minSize: 0, exclude: ["Widget", "Pinned", "Eager"] }`
+    },${
       options.foldStrategy === undefined
         ? ""
         : `\n    foldStrategy: ${options.foldStrategy},`
@@ -244,5 +248,30 @@ test("a promoted island's chunk is counted against the page's budget", async () 
   ).toHaveLength(0);
   expect(chunksOf("/").filter((path) => path.includes("/Eager-"))).toHaveLength(
     1,
+  );
+}, 60_000);
+
+test("an island fold strategy promotes to load is tiered", async () => {
+  const dir = site({ tierPolicy: `{ minSize: 0, exclude: ["Eager"] }` });
+  await run(dir, "sync");
+  expect((await run(dir, "build")).code).toBe(EXIT_CODES.success);
+
+  const dist = join(dir, "dist");
+  const manifest = manifestIn(dist);
+  expect(pageRow(manifest, "/").foldTuning).toContainEqual({
+    component: "Widget",
+    position: 0,
+    from: "visible",
+    to: "load",
+  });
+  expect(
+    manifest.tiers.assignments.find((one) => one.component === "Widget"),
+  ).toMatchObject({ tier: "core", group: "fw-core", pageCount: 2 });
+  const core = manifest.files.find((file) =>
+    /^\/assets\/fw-core-[\w-]+\.js$/.test(file.path),
+  );
+  expect(core).toBeDefined();
+  expect(readFileSync(join(dist, core?.path ?? ""), "utf8")).toContain(
+    "marker-widget-4a71",
   );
 }, 60_000);
