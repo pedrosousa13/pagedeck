@@ -266,6 +266,15 @@ importers:
         specifier: ^8.2.2
         version: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)
 
+  packages/docs:
+    devDependencies:
+      '@pagedeck/markdown-loader':
+        specifier: workspace:*
+        version: link:../markdown-loader
+      marked:
+        specifier: ^18.0.11
+        version: 18.0.11
+
   packages/docs-site:
     dependencies:
       '@pagedeck/adapter-cloudflare-pages':

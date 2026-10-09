@@ -27,7 +27,7 @@ and a `package.json` that depends on the Pagedeck packages and React.
 follows.
 
 Pass `--host vercel`, `--host cloudflare-pages` or `--host netlify` to also set
-the site up to deploy there — [Deploy a site](/how-to/deploy-a-site/) covers
+the site up to deploy there — [Deploy a site](../how-to/deploy-a-site.md) covers
 each host's build settings. This tutorial leaves it at the default,
 `--host none`. On a terminal, leaving out the directory or the host prompts
 for it instead of failing or defaulting silently.
@@ -93,7 +93,7 @@ the URL is not the path, such as a date prefix.
 The config leaves four settings at their defaults. The store is `./content.db`
 and the build writes to `./site`, both beside the config file. The site has one
 locale, `en`, written left to right, and its routes carry a trailing slash. The
-[site config reference](/reference/site-config/) lists each default and how to
+[site config reference](../reference/site-config.md) lists each default and how to
 override it.
 
 `layout: "layout"` renders every entry into the component registered as
@@ -136,7 +136,7 @@ page this site builds ships those three headers.
 
 `favicon` writes `favicon.ico` to `/favicon.ico` in the built site, the address
 a browser requests for a site's icon. Replace the file with your own icon;
-[Favicon](/reference/favicon/) covers the setting.
+[Favicon](../reference/favicon.md) covers the setting.
 
 ## 4. Start the dev server
 
@@ -220,23 +220,23 @@ config, and the layout renders it as a child. The counter is an island because
 `components/counter.tsx` starts with `"use client"`. The build bundles an
 island's JavaScript for the pages that name it and for no other page, which is
 why adding `/hello/` cost nothing. A
-[JavaScript budget](/reference/javascript-budgets/) keeps it that way, by
+[JavaScript budget](../reference/javascript-budgets.md) keeps it that way, by
 failing the build when a page ships more than you allow.
-[Add an island and hold it to a budget](/how-to/add-an-island/) sets one up.
+[Add an island and hold it to a budget](../how-to/add-an-island.md) sets one up.
 
 ## What happens next
 
-- [Add an island and hold it to a budget](/how-to/add-an-island/) writes an
+- [Add an island and hold it to a budget](../how-to/add-an-island.md) writes an
   island of your own, chooses when it hydrates, and reads what each page ships.
-- [Site config](/reference/site-config/) covers layouts, frontmatter
+- [Site config](../reference/site-config.md) covers layouts, frontmatter
   components, routes and every default this page relied on.
-- [The pagedeck command](/reference/cli/) lists each verb and its flags,
+- [The pagedeck command](../reference/cli.md) lists each verb and its flags,
   including `pagedeck sync --incremental`, which reads only what changed.
-- [Write a loader](/how-to/write-a-loader/) points the framework at a content
+- [Write a loader](../how-to/write-a-loader.md) points the framework at a content
   source of your own.
-- [Connect a CMS](/how-to/connect-a-cms/) walks through a site whose pages
+- [Connect a CMS](../how-to/connect-a-cms.md) walks through a site whose pages
   come from a headless CMS, from the loader to the JavaScript each page ships.
-- [Deploy a site](/how-to/deploy-a-site/) uploads `site/` to a host, then
+- [Deploy a site](../how-to/deploy-a-site.md) uploads `site/` to a host, then
   only what changed, and keeps the content store between CI runs.
-- [Why this site ships no JavaScript](/explanation/why-this-site-ships-no-javascript/)
+- [Why this site ships no JavaScript](../explanation/why-this-site-ships-no-javascript.md)
   explains where a script tag comes from.

@@ -1,4 +1,5 @@
 ---
+title: 6. Slot ids are not authenticated, and the content boundary is the defence
 description: Slot ids and island markers carry no authentication, and stripping the reserved names from content HTML is the defence instead.
 ---
 

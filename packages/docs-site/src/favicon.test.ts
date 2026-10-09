@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import { fences } from "./tutorial.test-support.js";
 
-const REFERENCE = join(import.meta.dirname, "..", "content", "reference", "favicon.md");
+const REFERENCE = join(import.meta.dirname, "..", "..", "docs", "reference", "favicon.md");
 const CATALOGUE = join(import.meta.dirname, "..", "..", "..", "docs", "error-messages.md");
 
 const warning = (markdown: string): string | undefined =>

@@ -1,4 +1,5 @@
 ---
+title: Error messages
 description: Pagedeck error messages follow eight rules, from naming the failing thing first to writing through the run's channel, each shown with real messages.
 ---
 
@@ -349,7 +350,7 @@ The fix names both ways out, and the second is what the message is for. A
 site-wide chat widget whose mount point exists only on post pages is a script
 that should have been scoped to post pages — the "Off broadly, on narrowly"
 layering in
-`packages/docs-site/content/reference/third-party-scripts.md` — and the alternative
+`packages/docs/reference/third-party-scripts.md` — and the alternative
 reading, that every page now owes the site an empty element, is the one a
 message naming only the first fix would leave. There is no fallback to the
 default placement: a facade emitted somewhere other than where the site put it
@@ -3718,7 +3719,7 @@ made without opening the source. Rule 6 reaches none of it — three fixed names
 and three fixed values, none of them the site's.
 
 Two headers are deliberately not in that constant, and the reference page at
-`packages/docs-site/content/reference/routing.md` carries both arguments in full.
+`packages/docs/reference/routing.md` carries both arguments in full.
 `Strict-Transport-Security` is left out because a browser told once to refuse
 plain HTTP keeps refusing, so a site not yet fully on HTTPS — or one sharing a
 domain — can lock itself and its siblings out, and none of that is knowable from

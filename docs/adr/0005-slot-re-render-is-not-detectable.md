@@ -1,4 +1,5 @@
 ---
+title: 5. A container re-rendering slotted content is not detected, and that is accepted
 description: A container re-rendering slotted content goes undetected, and the framework records that limit rather than guarding it with a check that misfires.
 ---
 

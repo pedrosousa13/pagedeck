@@ -3,7 +3,8 @@ import { join } from "node:path";
 export const TUTORIAL = join(
   import.meta.dirname,
   "..",
-  "content",
+  "..",
+  "docs",
   "tutorials",
   "your-first-site.md",
 );

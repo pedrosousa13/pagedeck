@@ -279,7 +279,7 @@ state one module graph makes one store of
 (`docs/adr/0007-islands-are-built-in-one-module-graph.md`), the stored state the
 **Pre-paint script**, below, reads before the first paint. That sense is
 something kept, and it is what this one is not: the framework holds no consent
-state of its own (`packages/docs-site/content/reference/third-party-scripts.md` says
+state of its own (`packages/docs/reference/third-party-scripts.md` says
 so to a site's author), the loader asks the site's source again at every
 decision and remembers nothing, and what this attribute carries is a reading of
 an answer somebody else owns. Every other sense is compounded already —
@@ -1554,6 +1554,17 @@ only that each package has one. Extended on #662.
 package. Its `files` names each template file one by one, and that list bounds
 what is packed, what is copied and what the tarball check admits (#731).
 
+**Amended by #108, 2026-10-09: `@pagedeck/docs` packs markdown in place of
+`dist`.** It is Pagedeck's documentation, published with every release so a
+docs site on deck.cool can build from it, and deck-cool's docs contract wants
+markdown, `nav.json` and `assets/` and no code. So it emits nothing, has no
+`tsconfig.build.json` or `types`, packs `**/*.md`, `nav.json` and `assets`,
+and its `prepack` copies the published part of `docs/` in rather than running
+`tsc -b`, because `npm pack` cannot reach a file outside the package and
+`docs/` stays the one copy in git. The exception is named once, by package
+name, and admits nothing to any other package; `AGENTS.md` under "The
+published tarball" carries it.
+
 ### The bundler is reached through one door, and every hook it is handed is guarded
 
 Outside a `*.test.ts` file, `build` is imported from `vite` by
@@ -2514,7 +2525,7 @@ categories onto those four, which is the half the ruling was reaching for and
 is what keeps the swap small.
 
 The two worked adapters in
-`packages/docs-site/content/reference/third-party-scripts.md` stay the only place in
+`packages/docs/reference/third-party-scripts.md` stay the only place in
 this repository a consent manager is named — a reference page describing a
 vendor's code, which **A site describes a vendor's code, never core's** already
 permits. Ruled on #212, narrowed on #384, with that one departure recorded here
@@ -2766,7 +2777,7 @@ stdout what it published and that the app authenticates nothing.
 
 The reason is what a preview app is. It renders arbitrary draft JSON posted to
 it and authenticates none of it, by design: the preview reference page,
-`packages/docs-site/content/reference/preview.md`, says so under **Security**, and
+`packages/docs/reference/preview.md`, says so under **Security**, and
 #54 scoped hardening past a bridge's origin allowlist out. So the failure to
 design against is a production deploy shipping one unasked, and declared-or-absent makes that impossible by construction rather
 than by an operator remembering. A fixed address on every build was the
@@ -2986,7 +2997,7 @@ An example that feeds a contract hand-written input and asserts the echo is
 refused for the same reason: it stays green whatever the contract does (#270).
 A listed contract is executed by a test that can make its claim, usually a
 `*.build.test.ts`, and its reference page under
-`packages/docs-site/content/reference/` carries the config the example would have
+`packages/docs/reference/` carries the config the example would have
 shown. It moves into `packages/examples` when the harness gains what it lacked:
 a build, a DOM or a second build.
 

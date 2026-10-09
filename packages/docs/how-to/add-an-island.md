@@ -8,7 +8,7 @@ description: Write a "use client" component, place it on one page, choose when i
 
 This page adds an island to the site `npm create pagedeck` writes, and then
 makes the build check how much JavaScript each page ships. If you have no site
-yet, [Your first site](/tutorials/your-first-site/) makes one. Every file below
+yet, [Your first site](../tutorials/your-first-site.md) makes one. Every file below
 is relative to the site's directory.
 
 The island is a greeting, a text box and a line that answers with what you
@@ -39,7 +39,7 @@ export default function Greeting() {
 The first line, `"use client"`, is the whole opt-in. It goes once, in the
 component's own module. A page that uses the component writes nothing extra,
 and a component without the line renders to HTML and ships no JavaScript.
-[Why this site ships no JavaScript](/explanation/why-this-site-ships-no-javascript/)
+[Why this site ships no JavaScript](../explanation/why-this-site-ships-no-javascript.md)
 explains where the build gets the script tag from.
 
 Register the component under a name, in `build.components` in `pagedeck.config.ts`:
@@ -67,7 +67,7 @@ Type your name, and the box below answers.
 ```
 
 The layout renders `greeting` after the page's text, where it puts its
-`children`. [Rendering a page](/reference/site-config/#rendering-a-page) covers
+`children`. [Rendering a page](../reference/site-config.md#rendering-a-page) covers
 the `components` list and the names it accepts.
 
 Sync the new page into the store, and build:
@@ -92,7 +92,7 @@ registry row says when, with `hydrate`:
   something a visitor uses the moment the page opens.
 - **`"idle"`** hydrates when the browser has finished loading the page. Pick
   it for something a visitor needs soon but not first. The
-  [site search](/reference/site-search/) box hydrates on `idle`.
+  [site search](../reference/site-search.md) box hydrates on `idle`.
 - **`"visible"`** hydrates when the island scrolls into view. This is what
   `"use client"` gives you with no `hydrate`. Pick it for anything below the
   first screen.
@@ -101,11 +101,11 @@ registry row says when, with `hydrate`:
   island shipping JavaScript, delete `"use client"` from its module.
 
 With no `hydrate`, the build also moves the island for you.
-[Fold strategy](/reference/fold-strategy/) promotes an island near the top of
+[Fold strategy](../reference/fold-strategy.md) promotes an island near the top of
 its page to `load`, which is what happens to the counter and to the greeting:
 each is the second node of its page. An explicit `hydrate` is never promoted,
 but an explicit `"load"` below the fold is demoted to `visible`.
-[What gets moved](/reference/fold-strategy/#what-gets-moved-and-what-never-does)
+[What gets moved](../reference/fold-strategy.md#what-gets-moved-and-what-never-does)
 has the full table.
 
 Pin the greeting to `idle`, so its JavaScript waits until the page has
@@ -180,10 +180,10 @@ npx pagedeck build
 ```
 
 The build passes. `"/counter/"` beats `"/**"` for `/counter/` because it is the
-more specific pattern; [which pattern wins](/reference/javascript-budgets/#which-pattern-wins)
+more specific pattern; [which pattern wins](../reference/javascript-budgets.md#which-pattern-wins)
 has the rules. Every other page is still held to 0 B, so the next page that
 starts to ship JavaScript fails the build until you give it a key.
-[JavaScript budgets](/reference/javascript-budgets/) covers what a page's cost
+[JavaScript budgets](../reference/javascript-budgets.md) covers what a page's cost
 includes and the size units.
 
 ## 5. Read the report
@@ -222,4 +222,4 @@ it and never count against the budget. `causes` lists what fold strategy moved
 on the page, and is empty here because the greeting's `hydrate` is explicit.
 Two builds of the same site write the same rows, so you can keep the report
 from each build and compare a page's `actual` over time.
-[The report](/reference/javascript-budgets/#the-report) describes every field.
+[The report](../reference/javascript-budgets.md#the-report) describes every field.

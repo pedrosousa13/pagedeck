@@ -1,4 +1,5 @@
 ---
+title: Deploy recipe
 description: How the dogfood site deploys through presigned uploads and the landing and docs sites through wrangler, with dry runs, rollbacks and proofs.
 ---
 

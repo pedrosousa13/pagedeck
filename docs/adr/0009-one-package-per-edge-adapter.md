@@ -1,4 +1,5 @@
 ---
+title: 9. One package per edge adapter, on a base that names no host
 description: Each edge host is its own public adapter package on a base that names no host, so a site installs only the host it deploys to.
 ---
 

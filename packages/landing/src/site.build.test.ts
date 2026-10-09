@@ -745,7 +745,7 @@ describe("/features", () => {
     }
   });
 
-  test("each section links its docs page, and every page it links exists in packages/docs-site/content", () => {
+  test("each section links its docs page, and every page it links exists in packages/docs", () => {
     for (const id of SECTIONS) {
       const docs = hrefsOf(section(id)).filter((href) =>
         href.startsWith(`${DOCS_ORIGIN}/`),
@@ -755,7 +755,7 @@ describe("/features", () => {
         `${DOCS_ORIGIN}/${expected}`,
       ]);
       expect(
-        existsSync(join(SITE, "..", "docs-site", "content", `${expected}.md`)),
+        existsSync(join(SITE, "..", "docs", `${expected}.md`)),
         expected,
       ).toBe(true);
     }
@@ -773,7 +773,7 @@ describe("/features", () => {
     expect(fragments.length).toBeGreaterThan(0);
     for (const href of fragments) {
       const [path, fragment] = href.slice(DOCS_ORIGIN.length + 1).split("#") as [string, string];
-      const file = join(SITE, "..", "docs-site", "content", `${path}.md`);
+      const file = join(SITE, "..", "docs", `${path}.md`);
       const { body } = parseFrontmatter(readFileSync(file, "utf8"), file);
       const unfenced = body.replace(/^```[\s\S]*?^```/gm, "");
       const { toc } = await renderer.render(unfenced, file);

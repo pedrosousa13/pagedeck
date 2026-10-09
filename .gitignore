@@ -389,3 +389,8 @@ packages/create-pagedeck/.pagedeck-template-build-test-*/
 # The site `packages/markdown-loader/src/title.build.test.ts` builds (#101). The
 # test removes it after each run.
 packages/markdown-loader/.pagedeck-title-build-test-*/
+
+# The published part of `docs/`, which `@pagedeck/docs` copies in when it is packed (#108).
+packages/docs/adr/
+packages/docs/deploy-recipe.md
+packages/docs/error-messages.md

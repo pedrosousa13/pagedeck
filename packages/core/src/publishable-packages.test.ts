@@ -6,6 +6,9 @@ import { join, posix, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
 import {
+  DOCS_PACKAGE,
+  DOCS_PREPACK,
+  packedAsDocs,
   packedBesideDist,
   PUBLIC_PACKAGES,
   PUBLIC_VERSION,
@@ -156,9 +159,10 @@ test("every workspace package packs a tarball its entry points resolve inside", 
               `Package "${manifest.name}": declares no "files", so npm decides what a tarball carries from its own defaults and the tarball ships this package's src and tests — add "files": ["dist", "!dist/.tsbuildinfo"], which is what every other package here declares`,
             );
           }
-          if (manifest.scripts?.prepack !== PREPACK) {
+          const prepack = manifest.name === DOCS_PACKAGE ? DOCS_PREPACK : PREPACK;
+          if (manifest.scripts?.prepack !== prepack) {
             faults.push(
-              `Package "${manifest.name}": its "prepack" script is ${JSON.stringify(manifest.scripts?.prepack)} rather than ${JSON.stringify(PREPACK)}, so a tarball could be cut from a stale or absent dist — every package in this workspace declares that one command, and it must not be the root "pnpm build", which deletes every package's dist before it starts`,
+              `Package "${manifest.name}": its "prepack" script is ${JSON.stringify(manifest.scripts?.prepack)} rather than ${JSON.stringify(prepack)}, so a tarball could be cut from a stale or absent dist — every package in this workspace declares that one command, and it must not be the root "pnpm build", which deletes every package's dist before it starts`,
             );
           }
 
@@ -176,6 +180,7 @@ test("every workspace package packs a tarball its entry points resolve inside", 
             (entry) =>
               !ALWAYS_PACKED.test(entry) &&
               !packedBesideDist(manifest).has(entry) &&
+              !packedAsDocs(manifest, entry) &&
               (!entry.startsWith("dist/") || entry === "dist/.tsbuildinfo"),
           );
           if (stowaways.length > 0) {

@@ -1,0 +1,29 @@
+{
+  "name": "@pagedeck/docs",
+  "version": "0.2.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/docs"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "files": [
+    "**/*.md",
+    "nav.json",
+    "assets"
+  ],
+  "scripts": {
+    "prepack": "node src/assemble.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@pagedeck/markdown-loader": "workspace:*",
+    "marked": "^18.0.11"
+  }
+}

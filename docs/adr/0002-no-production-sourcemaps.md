@@ -1,4 +1,5 @@
 ---
+title: 2. No sourcemaps in production output
 description: No sourcemap ships in production; the React Compiler's map only keeps the transform chain intact, and build.sourcemap alone decides what reaches disk.
 ---
 

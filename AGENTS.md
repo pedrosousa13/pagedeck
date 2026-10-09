@@ -80,7 +80,9 @@ config reaches must still be emitted: Node reaches it through its `exports`
 `default`, the hook leaves an installed copy under `node_modules` alone, and
 Node fails on a `.js` specifier with only a `.ts` beside it (#182).
 
-**Every directory under `packages/` that has a `package.json` is emitted.**
+**Every directory under `packages/` that has a `package.json` is emitted**,
+except `packages/docs`, which holds markdown and no code (see "The published
+tarball").
 `packages/core/src/workspace-packages.test.ts` checks every manifest against
 the rule and imports each package in a real Node process. Do not weaken an
 assertion there to admit a package.
@@ -95,7 +97,8 @@ assertion there to admit a package.
   wildcards included, needs all three.
 - **`pnpm test` runs `pnpm build` first**, so a spawned `pagedeck` is the
   working tree. `vitest run` alone does not.
-- **List every package in the root `tsconfig.build.json`.** Build order comes
+- **List every package in the root `tsconfig.build.json`**, `packages/docs`
+  aside. Build order comes
   from each package's own `tsconfig.build.json` `references`, which must name
   every workspace package its emitted source imports. Write them from the
   imports, not from a green build: a missing one passes while another package
@@ -128,7 +131,7 @@ and nothing else (#185). Every package declares the same three fields:
 - **`"types": "./dist/index.d.ts"`**, for a resolver that ignores `exports`.
 
 `packages/core/src/publishable-packages.test.ts` packs every package for real.
-**`create-pagedeck` is the one exception** (#691). It also packs `template/`,
+**`create-pagedeck` is one exception** (#691). It also packs `template/`,
 the site it copies, and its `files` names each template file one by one
 (#731). That one list decides three things: npm packs those files, `create()`
 copies those files, and `packedBesideDist` in
@@ -139,8 +142,26 @@ never packed or written, and fails `create-pagedeck`'s own suite. Add a new
 template file to `files`. The template's
 `.gitignore` is stored as `_gitignore`, because npm and pnpm leave every file
 named `.gitignore` out of a tarball, and is renamed when the site is written.
-**`packages/docs-site` takes the uniform `files` by choice**: its config and content
-stay out of a tarball nothing consumes; if it ever ships, argue its own
+**`@pagedeck/docs` is the other** (#108). It is the documentation as
+markdown, which a docs site reads at build time, and it emits no code: it has
+no `tsconfig.build.json`, `dist`, `main`, `types` or `exports`, and is not in
+the root `tsconfig.build.json`. Its `files` is
+`["**/*.md", "nav.json", "assets"]`, and its `prepack` is
+`node src/assemble.ts`, which copies in each page of the repository's `docs/`
+that `nav.json` lists (the ADRs, `deploy-recipe.md` and `error-messages.md`),
+writing only what differs. `.gitignore` keeps those copies out of git, so
+`docs/` stays the one copy, where the agent skills expect it. `DOCS_PACKAGE`,
+`DOCS_PREPACK` and `packedAsDocs` in `public-packages.test-support.ts` are the
+exception in `workspace-packages.test.ts`, `publishable-packages.test.ts` and
+the pack harness, and admit nothing to any other package.
+`packages/docs/src/contract.test.ts` runs `npm pack --dry-run` and holds what
+it lists to deck-cool's docs contract (`docs/docs-contract.md` in
+pedrosousa13/deck-cool): markdown, `nav.json`, `assets/`, `package.json` and
+`LICENSE` only; a `title` and a `description` on every page; every page in
+`nav.json` once; relative `.md` links that resolve; images under `assets/`;
+and no HTML but a demo marker, `<!-- demo:<name> -->`, on a line of its own.
+**`packages/docs-site` takes the uniform `files` by choice**: its config stays
+out of a tarball nothing consumes; if it ever ships, argue its own
 `files` here rather than widen the rule. **`packages/brand`'s `brand.css` and
 `favicon.ico` are not packed** (#547, #549); packing them needs a copy step or
 an amendment to the "packs only `dist`" standing decision, a maintainer call.
@@ -151,8 +172,8 @@ versions**, because a patch release may change the bytes they emit. Core pins
 position from a field its types do not declare.
 
 **The public set** is the fifteen packages a site author installs (#690),
-the six edge adapters among them (#19), and `create-pagedeck`, which writes a
-new site (#691), listed in
+the six edge adapters among them (#19), `create-pagedeck`, which writes a
+new site (#691), and `@pagedeck/docs`, the documentation (#108), listed in
 `packages/core/src/public-packages.test-support.ts`. Each is `0.2.3`, MIT,
 with `repository`, `engines.node` and `publishConfig.access`; every other
 package stays `private` (#689).
@@ -162,7 +183,8 @@ where Node loads `pagedeck.config.ts` with types stripped and no flag, and
 23.7 is the first Node 23 with `module.setSourceMapsSupport`, which `bin.ts`
 calls at startup through `installJsxLoader` (#702);
 `^22.13.0 || >=23.4.0` for content and the markdown loader, for an unflagged
-`node:sqlite`; `>=22.0.0` for islands, which uses no Node API. The scaffolder
+`node:sqlite`; `>=22.0.0` for islands, which uses no Node API, and for docs,
+which holds no code. The scaffolder
 `create-pagedeck` itself needs less, but it takes core's range because the site
 it writes needs core's. Raise a floor when new code needs a newer API, and say
 which.
@@ -170,7 +192,7 @@ which.
 ### Releasing
 
 `.github/workflows/release.yml` publishes the public set to npm when a tag
-`v<version>` is pushed (#7). It has two jobs (#58):
+`v<version>` is pushed (#7). It has three jobs (#58, #108):
 
 - **`verify`** holds `contents: read` only. It installs with
   `--frozen-lockfile`, checks the tag with `pnpm check:release-tag`, and runs
@@ -179,6 +201,14 @@ which.
   It checks out again, installs with `--frozen-lockfile --ignore-scripts`, and
   runs `pnpm -r publish --access public --provenance --no-git-checks` and
   nothing else.
+- **`notify`** `needs: publish` and holds `contents: read`. It gets a token
+  from the deck-cool-releases App (`vars.DECK_APP_ID`,
+  `secrets.DECK_APP_PRIVATE_KEY`) and sends pedrosousa13/deck-cool a
+  `repository_dispatch` of type `deck-released` with
+  `{"deck": "pagedeck", "version": "<tag without v>"}`, the steps deck-cool's
+  `AGENTS.md` gives under "Releasing a deck". deck-cool then bumps
+  `@pagedeck/*`, `@pagedeck/docs` among them. The App's key stays out of
+  `publish`, beside `id-token: write`.
 
 Any step in a job with `id-token: write` can mint an OIDC token, and npm's
 trusted publisher exchanges that token for publish rights to every public
@@ -187,8 +217,10 @@ the install scripts, the registry install or the site builds of the pack
 harness. `cleanEnv` in `pack.harness.ts` also strips
 `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` from what
 the harness spawns. `--ignore-scripts` is safe because `prepack`, which
-`pnpm publish` runs in each package, is `tsc -b` and needs no install script.
-`packages/core/src/release-permissions.test.ts` holds the split. pnpm skips
+`pnpm publish` runs in each package, is `tsc -b`, or `@pagedeck/docs`' copy
+step, and needs no install script.
+`packages/core/src/release-permissions.test.ts` holds the split and the
+`notify` job. pnpm skips
 every `private` package. `--no-git-checks` is there because a tag checkout is a
 detached HEAD, and pnpm's branch check refuses one. `pnpm publish` applies
 `.pnpmfile.mjs` the same way `pnpm pack` does, so the registry gets the
@@ -224,6 +256,11 @@ publisher to each of the sixteen packages on npmjs.com: GitHub Actions, reposito
 `pedrosousa13/pagedeck`, workflow `release.yml`. npm matches the workflow
 filename exactly, so renaming the file breaks every publish until each package
 is updated. Then delete the token on npm and the `NPM_TOKEN` secret.
+
+A package new to the public set, such as `@pagedeck/docs` (#108), is not on
+npm until its first publish, and npm sets up trusted publishing only for a
+package that exists. So its first publish needs the token, and its trusted
+publisher is added after.
 
 The workflow needs no edit at the switch. Since pnpm 11.0.7, `pnpm publish`
 tries OIDC first for each package of a recursive publish, and a token it gets
@@ -338,8 +375,16 @@ test riding on a site's content is retired by the next change to that content.
 ### The docs site
 
 `packages/docs-site` writes to `site`, because `dist` is its emitted JavaScript. Its
-content is `packages/docs-site/content` and the published part of the repo's
-`docs/` (#576). `pagedeck sync` fails, with the fix in the message, on:
+content is the pages of `@pagedeck/docs` (`packages/docs`, #108) and the
+published part of the repo's `docs/` (#576), read where git holds them: the
+guides collection skips the copies `@pagedeck/docs` packs. A page links
+another by its relative `.md` path, as the docs contract requires, and core
+never rewrites a link, so `routedLinks` (`packages/docs-site/src/site.ts`)
+rewrites each such `href` to the page's route as the site syncs.
+`src/nav-json.test.ts` holds `packages/docs/nav.json` to the site's own
+navigation: sections in `SECTIONS` order, pages by route. Add, move or
+re-section a page, and change `nav.json` with it. `pagedeck sync` fails, with
+the fix in the message, on:
 
 - **a file or directory added directly under `docs/`** until it is in
   `published` or `excluded` in `REPOSITORY_DOCS` (`packages/docs-site/src/site.ts`);
@@ -351,7 +396,7 @@ content is `packages/docs-site/content` and the published part of the repo's
 - **a `description` missing, blank, a list or over `DESCRIPTION_LIMIT`**
   (#565). It is the page's meta description: one sentence for that page.
 
-`src/add-an-island.build.test.ts` follows `content/how-to/add-an-island.md`
+`src/add-an-island.build.test.ts` follows `packages/docs/how-to/add-an-island.md`
 from a copy of the starter template (#696): it writes each file the page
 names, splices each `build` key it shows into the config, runs each
 `npx pagedeck` line, and requires the quoted budget failure and report row to
@@ -361,7 +406,7 @@ island page must stay under its `60kb`, and `/greet`'s real `actual` within 5%
 of the figure the page quotes: past that, build the page's site again and copy
 the new figures in.
 
-`content/how-to/connect-a-cms.md` quotes `packages/cms-example` (#697).
+`packages/docs/how-to/connect-a-cms.md` quotes `packages/cms-example` (#697).
 `src/connect-a-cms.test.ts` requires each fence's lead to name an example file
 and the fence to be a run of that file's lines, every line moved by one indent,
 and compiles the one file the page has the reader write, `src/token.ts`, whose
@@ -371,7 +416,7 @@ quoted budget report rows to its report, with chunk hashes and byte figures
 normalised and each `actual` within 5%. Edit the example, and copy the changed
 lines and figures into the page.
 
-`content/how-to/deploy-a-site.md` shows `pagedeck` commands (#698).
+`packages/docs/how-to/deploy-a-site.md` shows `pagedeck` commands (#698).
 `src/deploy-a-site.test.ts` runs each `pagedeck` line in its fences through
 `runCli` in an empty directory, so each verb's own parser takes or refuses the
 flags and the run stops at loading the config. Each inline `pagedeck` mention
@@ -380,7 +425,7 @@ leave out the arguments. Every verb and flag the page names must also be in
 the usage text `pagedeck` prints for `--help`. It compiles the page's one `ts` fence inside `packages/docs-site`. A
 new verb or flag needs no edit there; a renamed one fails it.
 
-`content/reference/preview.md` holds the preview app's security guidance, and
+`packages/docs/reference/preview.md` holds the preview app's security guidance, and
 `pagedeck build`'s `preview:` notice cites it by page title and heading (#713).
 `src/preview.test.ts` requires the notice the page quotes to name the page's
 `title` and one of its `##` headings, and compiles the `src/preview-bridge.ts`
@@ -624,11 +669,12 @@ pnpm test:pack-harness
 `packages/core/src/pack.harness.ts` packs the public set with `pnpm pack`,
 installs the tarballs in a temporary directory outside the repository, imports
 every subpath from there, and follows
-`packages/docs-site/content/tutorials/your-first-site.md` from `create-pagedeck`'s
+`packages/docs/tutorials/your-first-site.md` from `create-pagedeck`'s
 tarball to a built site. `ci.yml` runs it on every push, and `release.yml`
 before publishing. It fails on a tarball file outside
-`package.json`, `README*`, `LICENSE`, `dist` and, for `create-pagedeck` alone,
-the `template/` files its `files` names one by one, or a test, harness, source map
+`package.json`, `README*`, `LICENSE`, `dist`, for `create-pagedeck` alone
+the `template/` files its `files` names one by one, and for `@pagedeck/docs`
+alone its markdown, `nav.json` and `assets/`, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
 and on a packed manifest that still says
 `workspace:`, names a private package, or exports a file the tarball lacks.
