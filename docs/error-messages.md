@@ -3431,7 +3431,8 @@ empty — a fully successful build's stderr need not be empty, and the set of to
 loaded is not something this repo controls. Issue #184 ruled that the promise
 to keep is "nothing of *mine*", and rejected suppressing other people's
 advisories: enumerating their prefixes is a treadmill, and they are worth
-reading in a CI log.
+reading in a CI log. `packages/core/src/bin.test.ts` holds the passthrough: its
+fixture provokes Babel's note, and the build must write it unmarked.
 
 Two halves follow, and new code has to hold both.
 

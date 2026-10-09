@@ -172,7 +172,7 @@ export default defineConfig({
   const passedThrough = stderr
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER));
-  expect(passedThrough.length).toBeGreaterThan(0);
+  expect(passedThrough.filter((line) => line.startsWith("[BABEL]")).length).toBeGreaterThan(0);
   expect(existsSync(join(dir, "dist", "manifest.json"))).toBe(true);
   const html = readFileSync(join(dir, "dist", "index.html"), "utf8");
   expect(html).toContain("marker-hero-bin-6f31");

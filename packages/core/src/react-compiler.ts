@@ -13,7 +13,7 @@ const SCRIPT = /\.[cm]?[jt]sx?$/;
 const REACT_RUNTIME = new Set(["react", "react-dom", "scheduler"]);
 
 function packageOf(path: string): string | undefined {
-  const segments = path.split("/");
+  const segments = path.split(/[/\\]/);
   const last = segments.lastIndexOf("node_modules");
   if (last === -1) return undefined;
   const name = segments[last + 1];

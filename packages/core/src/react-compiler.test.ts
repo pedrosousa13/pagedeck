@@ -239,6 +239,7 @@ test.each([
   "/site/node_modules/react/cjs/react.production.js",
   "/site/node_modules/react-dom/cjs/react-dom-client.production.js",
   "/site/node_modules/scheduler/cjs/scheduler.production.js",
+  "C:\\site\\node_modules\\react-dom\\cjs\\react-dom-client.production.js",
 ])("React's own runtime module %s passes through untransformed", (id) => {
   expect(transformed(id)).toBeNull();
 });
@@ -248,6 +249,7 @@ test.each([
   "/site/node_modules/react-dom-extra/index.jsx",
   "/site/node_modules/@scope/react/index.jsx",
   "/site/node_modules/react/node_modules/vendor-widget/index.jsx",
+  "/site/src/react/Widget.tsx",
 ])("a module of another package, %s, is still compiled", (id) => {
   expect(String((transformed(id) as { code: string }).code)).toMatch(MEMO_CACHE_INIT);
 });
