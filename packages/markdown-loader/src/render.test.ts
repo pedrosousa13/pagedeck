@@ -357,6 +357,50 @@ test("the title keeps every character a reader sees, and drops only the markers"
   ]);
 });
 
+test("a character reference in a heading is the character a reader sees, in the title, the outline and the slug", async () => {
+  const rendered = await renderer.render(
+    "# Tom &amp; Jerry\n\n## Tom &amp; Jerry\n\n## Caf&eacute;\n",
+    "d.md",
+  );
+  expect(rendered.title).toBe("Tom & Jerry");
+  expect(rendered.toc).toEqual([
+    { depth: 2, slug: "tom-jerry", text: "Tom & Jerry" },
+    { depth: 2, slug: "café", text: "Café" },
+  ]);
+  expect(ids(rendered.html)).toEqual(["tom-jerry", "café"]);
+});
+
+test("a named, a decimal and a hex reference each give the character", async () => {
+  for (const reference of ["&copy;", "&#169;", "&#xA9;"]) {
+    const rendered = await renderer.render(
+      `# A ${reference} B\n\n## A ${reference} B\n`,
+      "d.md",
+    );
+    expect(rendered.title, reference).toBe("A © B");
+    expect(rendered.toc[0]?.text, reference).toBe("A © B");
+    expect(rendered.toc[0]?.slug, reference).toBe("a-b");
+  }
+});
+
+test("a character reference is decoded once, and a code span keeps it as written", async () => {
+  const titles = await Promise.all(
+    [
+      "# `&amp;` in code\n",
+      "# &amp;lt; stays text\n",
+      "# a & b\n",
+      "# \\&amp; escaped\n",
+      "# &copy 2026 &bogus;\n",
+    ].map(async (body) => (await renderer.render(body, "d.md")).title),
+  );
+  expect(titles).toEqual([
+    "&amp; in code",
+    "&lt; stays text",
+    "a & b",
+    "&amp; escaped",
+    "&copy 2026 &bogus;",
+  ]);
+});
+
 test("the outline names exactly the headings the body anchors, in order", async () => {
   const rendered = await renderer.render(
     "# Title\n\n## Install\n\n### Install\n\n## Use it\n",
@@ -467,6 +511,13 @@ test("smartQuotes changes no slug, and the outline and title read like the headi
     "its-here",
   ]);
   expect(curled.html).toContain("<code>don&#39;t</code>");
+});
+
+test("smartQuotes curls a typed quote and leaves a referenced one straight, as the heading renders them", async () => {
+  const rendered = await curly.render('# &quot;A&quot; "B"\n\n## &quot;A&quot; "B"\n', "d.md");
+  expect(rendered.title).toBe('"A" “B”');
+  expect(rendered.toc[0]?.text).toBe('"A" “B”');
+  expect(rendered.html).toContain(">&quot;A&quot; “B”</h2>");
 });
 
 test("smartQuotes starts every block afresh", async () => {
