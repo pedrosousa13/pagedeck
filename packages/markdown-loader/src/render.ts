@@ -1,5 +1,6 @@
 // Highlights at sync time, with colours inline, so a content page ships no script and no
 // stylesheet (spec §8). The HTML is trusted like rich text: there is no sanitizer.
+import { decodeHTMLStrict } from "entities";
 import { Marked } from "marked";
 import type { Token, Tokens } from "marked";
 import { createHighlighter } from "shiki";
@@ -146,14 +147,14 @@ function unknownLanguageReport(file: string, unknown: Set<string>): string {
 }
 
 // Raw HTML and images give nothing, a link its text. `curled` picks a text token's `text`
-// over its straight `raw`.
+// over its straight `raw`. Strict, because marked shows a reference with no `;` literally.
 function textContent(tokens: readonly Token[], curled: boolean): string {
   let text = "";
   for (const token of tokens) {
     if (token.type === "html" || token.type === "image") continue;
     const children = (token as Tokens.Generic).tokens;
     if (token.type === "text" && children === undefined) {
-      text += curled ? (token as Tokens.Text).text : token.raw;
+      text += decodeHTMLStrict(curled ? (token as Tokens.Text).text : token.raw);
     } else if (token.type === "codespan" || token.type === "escape") {
       text += (token as Tokens.Codespan | Tokens.Escape).text;
     } else if (children !== undefined) text += textContent(children, curled);

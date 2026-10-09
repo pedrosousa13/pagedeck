@@ -544,6 +544,9 @@ importers:
       '@pagedeck/content':
         specifier: workspace:*
         version: link:../content
+      entities:
+        specifier: ^8.0.0
+        version: 8.0.0
       marked:
         specifier: ^18.0.11
         version: 18.0.11

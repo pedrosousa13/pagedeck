@@ -101,7 +101,9 @@ as `TocEntry.slug` (issue #327).
   `TocEntry.text` and the title a level-1 heading supplies are read the same
   way, so the outline lists that heading as `The solution`. An underscore
   inside a word, a code span's contents and an escaped marker stay (issue
-  #88).
+  #88). A character reference ending in `;` is the character it names, so
+  `# Tom &amp; Jerry` gives the title `Tom & Jerry` and the slug
+  `tom-jerry`; inside a code span it stays as written (issue #101).
 - **Lowercase letters and digits, any script**, with every other run of
   characters turned into one hyphen and none at either end.
 - **Apostrophes are dropped**, straight and curly, so `## What's next` is
