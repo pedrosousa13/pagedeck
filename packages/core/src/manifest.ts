@@ -339,7 +339,7 @@ const DUPLICATE_KEY_FIX =
 const MISCLAIMED_PAGE_FIX =
   "tag only a page's own HTML file, in that page's output tree";
 const CONTESTED_CLAIM_FIX =
-  "emit one HTML file per page and one chunk per bundler name in each output tree, or drop the extra copy";
+  "emit one HTML file per page in each output tree; if none of the site's build.vite.plugins emits a second chunk under a generated entry's name, report it as a Pagedeck bug";
 const MISSING_HTML_FIX =
   "emit a file for each page and tag it with the page it renders, or drop the page from the route table";
 const UNPLANNED_PAGE_FIX =
@@ -453,6 +453,7 @@ export function buildManifest(input: ManifestInput): Manifest {
   const chunkSubjects = new Map<string, string>();
   const misclaims: string[] = [];
   const pageOfKey = new Map(input.pages.map((page) => [pageKey(page), page]));
+  const entryNames = new Set(input.entries.entries.map((entry) => entry.name));
 
   for (const emitted of input.outputs) {
     const key = fileKey(emitted.domain, emitted.path);
@@ -479,11 +480,11 @@ export function buildManifest(input: ManifestInput): Manifest {
       if (reason === undefined) claim(htmlClaims, pageKey(emitted.page), key);
       else misclaims.push(`  "${key}" — ${reason}`);
     }
-    if (emitted.name !== undefined) {
+    if (emitted.name !== undefined && entryNames.has(emitted.name)) {
       const claimed = chunkKey(emitted.domain, emitted.name);
       chunkSubjects.set(
         claimed,
-        `chunk name "${emitted.name}" in ${treeOf(emitted.domain)}`,
+        `entry chunk name "${emitted.name}" in ${treeOf(emitted.domain)}`,
       );
       claim(chunkClaims, claimed, key);
     }

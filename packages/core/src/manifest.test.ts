@@ -1044,7 +1044,7 @@ test("a page's HTML has to land in that page's own output tree", () => {
   );
 });
 
-test("two emitted files claiming one page or one chunk name are named", () => {
+test("two emitted files claiming one page or one entry chunk name are named", () => {
   const contested: readonly EmittedFile[] = [
     ...OUTPUTS,
     {
@@ -1066,8 +1066,8 @@ test("two emitted files claiming one page or one chunk name are named", () => {
 
   expect(message).toBe(
     [
-      "Build manifest: 2 claims are made by more than one emitted file — emit one HTML file per page and one chunk per bundler name in each output tree, or drop the extra copy:",
-      `  chunk name "${HERO}" in the default tree — "/assets/en-9z8y7x.js", "/assets/en-a1b2c3.js"`,
+      "Build manifest: 2 claims are made by more than one emitted file — emit one HTML file per page in each output tree; if none of the site's build.vite.plugins emits a second chunk under a generated entry's name, report it as a Pagedeck bug:",
+      `  entry chunk name "${HERO}" in the default tree — "/assets/en-9z8y7x.js", "/assets/en-a1b2c3.js"`,
       '  page en / — "/en/index-copy.html", "/en/index.html"',
     ].join("\n"),
   );
@@ -1075,6 +1075,30 @@ test("two emitted files claiming one page or one chunk name are named", () => {
     failureOf(() => buildManifest(input({ outputs: [...contested].reverse() })))
       .message,
   ).toBe(message);
+});
+
+test("two chunks no page entry names may share a bundler name in one tree", () => {
+  const fade: readonly EmittedFile[] = [
+    {
+      path: "/assets/fade-a1a1a1.js",
+      kind: "js",
+      name: "fade",
+      contents: "export const a = 1;",
+    },
+    {
+      path: "/assets/fade-b2b2b2.js",
+      kind: "js",
+      name: "fade",
+      contents: "export const b = 2;",
+    },
+  ];
+  const manifest = buildManifest(input({ outputs: [...OUTPUTS, ...fade] }));
+
+  expect(
+    manifest.files
+      .filter((file) => file.path.startsWith("/assets/fade-"))
+      .map((file) => file.path),
+  ).toEqual(["/assets/fade-a1a1a1.js", "/assets/fade-b2b2b2.js"]);
 });
 
 test("one chunk name in two output trees is two files, not a contested claim", () => {
