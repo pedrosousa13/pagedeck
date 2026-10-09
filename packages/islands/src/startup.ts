@@ -26,11 +26,17 @@ export type Schedule = (
 // Safari has never shipped `requestIdleCallback`, so every iPhone takes this.
 const IDLE_FALLBACK_MS = 200;
 
+// A marker with no element children has nothing to observe or interact with,
+// so `visible` and `interaction` fall back to `idle` for it.
 export const schedule: Schedule = (marker, mode, hydrate) => {
-  if (mode === "load") hydrate();
-  else if (mode === "idle") whenIdle(hydrate);
+  if (mode === "load") {
+    hydrate();
+    return;
+  }
+  const targets = observableTargets(marker);
+  if (mode === "idle" || targets.length === 0) whenIdle(hydrate);
   else if (mode === "interaction") whenInteracted(marker, hydrate);
-  else whenVisible(marker, hydrate);
+  else whenVisible(targets, hydrate);
 };
 
 function whenIdle(hydrate: () => void): void {
@@ -41,12 +47,7 @@ function whenIdle(hydrate: () => void): void {
 
 // Observes the marker's element children, not the marker: under
 // `display: contents` it has no box and would never intersect (prototype #68).
-function whenVisible(marker: IslandElement, hydrate: () => void): void {
-  const targets = observableTargets(marker);
-  if (targets.length === 0) {
-    whenIdle(hydrate);
-    return;
-  }
+function whenVisible(targets: IslandElement[], hydrate: () => void): void {
   let hydrated = false;
   const observer = new browser.IntersectionObserver((entries) => {
     if (hydrated || !entries.some((entry) => entry.isIntersecting)) return;
@@ -76,20 +77,17 @@ function observableTargets(
   return into;
 }
 
-const INTERACTIONS = ["focusin", "pointerdown"];
-
 // Listens on the marker, so only events from inside the island reach it. The
 // event that fires it is not replayed: replaying a press could act twice.
 function whenInteracted(marker: IslandElement, hydrate: () => void): void {
-  if (observableTargets(marker).length === 0) {
-    whenIdle(hydrate);
-    return;
+  let hydrated = false;
+  for (const type of ["focusin", "pointerdown"]) {
+    marker.addEventListener(type, () => {
+      if (hydrated) return;
+      hydrated = true;
+      hydrate();
+    });
   }
-  const fire = (): void => {
-    for (const type of INTERACTIONS) marker.removeEventListener(type, fire);
-    hydrate();
-  };
-  for (const type of INTERACTIONS) marker.addEventListener(type, fire);
 }
 
 /**
