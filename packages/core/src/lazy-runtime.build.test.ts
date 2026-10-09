@@ -74,7 +74,6 @@ beforeAll(async () => {
     origin: ORIGIN,
     plan,
     tiers: planTiers({ entries: plan.entries, ranking: [], policy: { minSize: 0 } }),
-    globalCss: [`${FIXTURE_DIR}src/global.css`],
   });
 }, 60_000);
 
@@ -101,8 +100,49 @@ test("a page with a load island still imports the core chunk at startup", () => 
   expect(closureOf("/")).toContain(corePath());
 });
 
-test("a global stylesheet still reaches every page when no page imports the core chunk at startup", () => {
-  expect(built.globalStyles).toHaveLength(1);
-  const later = plan.entries.find((one) => one.path === "/later");
-  expect(built.entryStyles.get(later?.name ?? "")).toEqual(built.globalStyles);
-});
+test("a global stylesheet still reaches a site where no page imports the core chunk at startup", async () => {
+  const later = planEntries(
+    [{ page: page("/later"), islands: [{ component: "Hero", mode: "idle" }] }],
+    { modules: MODULES },
+  );
+  const site = await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: later,
+    tiers: planTiers({ entries: later.entries, ranking: [], policy: { minSize: 0 } }),
+    globalCss: [`${FIXTURE_DIR}src/global.css`],
+  });
+
+  expect(site.globalStyles).toHaveLength(1);
+  expect(site.entryStyles.get(later.entries[0]?.name ?? "")).toEqual(
+    site.globalStyles,
+  );
+}, 60_000);
+
+test("a page with no load island links the stylesheet of an island grouped into the core chunk", async () => {
+  writeFileSync(`${FIXTURE_DIR}src/styled.css`, ".styled { color: blue; }\n");
+  writeFileSync(
+    `${FIXTURE_DIR}src/Styled.js`,
+    `import "./styled.css";\nexport default function Styled() { return "marker-styled-5e1a"; }\n`,
+  );
+  const later = planEntries(
+    [{ page: page("/later"), islands: [{ component: "Styled", mode: "idle" }] }],
+    { modules: { Styled: "./src/Styled.js" } },
+  );
+  const site = await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: later,
+    tiers: planTiers({
+      entries: later.entries,
+      ranking: [],
+      policy: { minSize: 0 },
+      alwaysCore: ["./src/Styled.js"],
+    }),
+  });
+  const core = site.files.find((file) => file.kind === "js" && file.name === CORE_GROUP);
+  expect(String(core?.contents)).toContain("marker-styled-5e1a");
+  const sheet = site.files.find((file) => file.kind === "css");
+
+  expect(site.entryStyles.get(later.entries[0]?.name ?? "")).toEqual([sheet?.path]);
+}, 60_000);

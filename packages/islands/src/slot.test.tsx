@@ -23,7 +23,6 @@ import {
 import { RegistryError } from "./registry.js";
 import { adoptSlots, SlotContent } from "./slot.js";
 import { hydrateIslands } from "./runtime.js";
-import { schedule } from "./startup.js";
 import type { IslandElement } from "./runtime.js";
 
 declare global {
@@ -289,7 +288,7 @@ test("a container adopts the DOM its slotted children already have", async () =>
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -319,7 +318,7 @@ test("the stash is out of the marker before React is given it", async () => {
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -343,7 +342,7 @@ test("a template that is not a marker's own child is left where its author put i
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -378,7 +377,7 @@ test("a template inside a marker but not its own child is left where its author 
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -402,7 +401,7 @@ test("an element that is not a template but sits where a stash does is left wher
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -432,7 +431,7 @@ test("a <fw-slot> outside every marker is not what a re-shown panel is rebuilt f
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     await click(container());
     await click(container());
@@ -479,7 +478,7 @@ test("a slot id outside the shape the build writes is left to whoever wrote it",
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -529,7 +528,7 @@ test("a <fw-slot> under a nested marker cannot claim the panel it is inside", as
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -640,7 +639,7 @@ test.each(PLANTED)(
 
     const complaints = await complaintsWhile(async () => {
       await act(async () => {
-        hydrateIslands({ schedule, resolve });
+        hydrateIslands({ resolve });
       });
     });
 
@@ -684,7 +683,7 @@ test('a forged slot id sharing a panel\'s last segment is adopted beside it ("1"
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -757,7 +756,7 @@ test("a panel the build never rendered is shown from the stash after hydration",
   expect(container().textContent).toBe("nextOne");
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
   await click(container());
 
@@ -796,7 +795,7 @@ test("a container that stashed every child is still found to be one", async () =
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     await click(container());
   });
@@ -833,7 +832,7 @@ test("reordering slotted children moves their DOM rather than rebuilding it", as
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
   const [one, two] = [...document.body.querySelectorAll("p")];
   await click(container());
@@ -877,7 +876,7 @@ test("an island in a panel the container never rendered hydrates when the panel 
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     await click(container());
   });
@@ -941,7 +940,7 @@ test("a forged <fw-slot> cannot take the hydrate meant for the panel being opene
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     await click(container());
   });
@@ -973,7 +972,7 @@ test("a container hydrates against the DOM as it is at mount, not as it was at c
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     container().innerHTML = container().innerHTML.replaceAll("One", "Uno");
     await runIdleCallbacks();
@@ -1016,7 +1015,7 @@ test("moving a slotted child to a different parent element rebuilds it, silently
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     await act(async () => {
       counter()?.click();
@@ -1060,7 +1059,7 @@ test("a visible container whose only children are slots observes what is inside 
   const panel = document.body.querySelector("p") as TestElement;
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
   expect(mounted).toEqual([]);
 
@@ -1082,7 +1081,7 @@ test("a visible container that rendered no slot at all falls back to idle", asyn
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   expect(FakeObserver.live).toHaveLength(0);
@@ -1133,7 +1132,7 @@ test("a container that clones a slotted child to inject props is refused, naming
   await complaintsWhile(async () => {
     try {
       await act(async () => {
-        hydrateIslands({ schedule, resolve });
+        hydrateIslands({ resolve });
       });
     } catch (error) {
       thrown = error;
@@ -1173,7 +1172,7 @@ test("a container that re-renders its slotted children silently does nothing", a
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
   const [panel] = [...document.body.querySelectorAll("p")];
@@ -1218,7 +1217,7 @@ test("a container that mounts one slotted child in two places is refused, naming
     },
   ]);
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
   await act(async () => {
     counter()?.click();
@@ -1270,7 +1269,7 @@ test("two slots duplicated at once arrive as React's AggregateError", async () =
     },
   ]);
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   let thrown: unknown;
@@ -1313,7 +1312,7 @@ test("counting and wrapping slotted children is allowed, and stays silent", asyn
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -1349,7 +1348,7 @@ test("cloning a slotted child with no new props is allowed, and stays silent", a
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     const panels = [...document.body.querySelectorAll("p")];
     await click(container());
@@ -1396,7 +1395,7 @@ test.each(NESTED_MODES)(
 
     const onHydration = await complaintsWhile(async () => {
       await act(async () => {
-        hydrateIslands({ schedule, resolve });
+        hydrateIslands({ resolve });
       });
       await runIdleCallbacks();
     });
@@ -1443,7 +1442,7 @@ test("a container stashed inside another container's panel adopts its own slots"
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
     await click(container());
   });
@@ -1492,7 +1491,7 @@ test("three containers nested on load hydrate without a mismatch", async () => {
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 

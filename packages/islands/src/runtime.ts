@@ -16,6 +16,7 @@ import {
 import { wrapInProviders } from "./providers.js";
 import type { RootProvider, RootProviderProbe } from "./providers.js";
 import { RegistryError } from "./registry.js";
+import { schedule } from "./startup.js";
 import type { Schedule } from "./startup.js";
 
 export interface IslandElement extends IslandRoot {
@@ -43,9 +44,7 @@ type AnyComponent = ComponentType<Record<string, unknown>>;
 
 export interface HydrateIslandsOptions {
   resolve: (name: string) => Promise<ComponentType<never>>;
-  // Passed in, not imported: the core chunk would take the startup module, which
-  // a page with no `load` island must reach without it.
-  schedule: Schedule;
+  schedule?: Schedule;
   providers?: readonly RootProvider[];
   // A shape only: importing the probe's module would put it in production graphs.
   probe?: RootProviderProbe;
@@ -96,7 +95,7 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     // life of the page, so it does not retain every marker's snapshot.
     const owned = slots.get(marker);
     const stashed = stash.get(marker);
-    options.schedule(marker, island.mode, () => {
+    (options.schedule ?? schedule)(marker, island.mode, () => {
       void mount(marker, island, options, owned, stashed);
     });
   }

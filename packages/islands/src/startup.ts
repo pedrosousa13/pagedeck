@@ -1,12 +1,5 @@
+import { ISLAND_MODE_ATTRIBUTE, ISLAND_SLOT_TAG, ISLAND_TAG } from "./marker.js";
 import type { IslandElement, IslandRoot } from "./runtime.js";
-
-// Restated rather than imported from `marker.ts`: the runtime imports that
-// module, so the core chunk would take it, and this module with it.
-export const MARKER_NAMES = {
-  island: "fw-island",
-  mode: "data-fw-mode",
-  slot: "fw-slot",
-} as const;
 
 interface Intersection {
   isIntersecting: boolean;
@@ -76,10 +69,7 @@ function observableTargets(
   into: IslandElement[],
 ): void {
   for (const child of Array.from(element.children)) {
-    if (
-      child.localName === MARKER_NAMES.slot ||
-      child.localName === MARKER_NAMES.island
-    ) {
+    if (child.localName === ISLAND_SLOT_TAG || child.localName === ISLAND_TAG) {
       observableTargets(child, into);
     } else into.push(child);
   }
@@ -92,7 +82,6 @@ function observableTargets(
  */
 export function hydrateOnTrigger(
   start: (schedule: Schedule) => Promise<void>,
-  root: IslandRoot = browser.document,
 ): void {
   const armed = new Map<IslandElement, (() => void) | undefined>();
   // A marker read here was armed already; any other came from a container's
@@ -102,9 +91,9 @@ export function hydrateOnTrigger(
     else schedule(marker, mode, hydrate);
   };
   let started: Promise<void> | undefined;
-  for (const marker of root.querySelectorAll(MARKER_NAMES.island)) {
+  for (const marker of browser.document.querySelectorAll(ISLAND_TAG)) {
     armed.set(marker, undefined);
-    schedule(marker, marker.getAttribute(MARKER_NAMES.mode) ?? "", () => {
+    schedule(marker, marker.getAttribute(ISLAND_MODE_ATTRIBUTE) ?? "", () => {
       // Caught so a marker the runtime cannot read is reported once, and the
       // islands it could read still hydrate.
       started ??= start(held).catch((error: unknown) => {

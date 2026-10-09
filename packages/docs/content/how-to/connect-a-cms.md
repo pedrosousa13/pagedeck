@@ -255,22 +255,22 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
   { "path": "/", "actual": 0, "chunks": [] },
   {
     "path": "/faq/",
-    "actual": 53469,
+    "actual": 53612,
     "chunks": [
-      { "path": "/assets/fw-core-BhmSjQ8E.js", "bytes": 52011 },
-      { "path": "/assets/fw-startup-CweEGvQG.js", "bytes": 806 },
-      { "path": "/assets/faq-BglesVhd.js", "bytes": 417 },
-      { "path": "/assets/entry-2932ba2319b0ec3c-fjz8kzW2.js", "bytes": 235 }
+      { "path": "/assets/fw-core-B79YWVHM.js", "bytes": 52092 },
+      { "path": "/assets/fw-startup-KVlNJYe3.js", "bytes": 882 },
+      { "path": "/assets/faq-CbDEtw-I.js", "bytes": 412 },
+      { "path": "/assets/entry-e6828f0c5dee6c77-CxNTsRXv.js", "bytes": 226 }
     ]
   },
   {
     "path": "/signup/",
-    "actual": 53602,
+    "actual": 53756,
     "chunks": [
-      { "path": "/assets/fw-core-BhmSjQ8E.js", "bytes": 52011 },
-      { "path": "/assets/fw-startup-CweEGvQG.js", "bytes": 806 },
-      { "path": "/assets/signup_form-BjJNHBxB.js", "bytes": 549 },
-      { "path": "/assets/entry-e6ecff9ae3f94857-BWJL9vEJ.js", "bytes": 236 }
+      { "path": "/assets/fw-core-B79YWVHM.js", "bytes": 52092 },
+      { "path": "/assets/fw-startup-KVlNJYe3.js", "bytes": 882 },
+      { "path": "/assets/signup_form-MO8HIG2D.js", "bytes": 556 },
+      { "path": "/assets/entry-ef03ce2801a978ad-CRTZ6pq1.js", "bytes": 226 }
     ]
   }
 ]

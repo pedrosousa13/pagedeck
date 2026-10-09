@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
-import { runtimeImports } from "./entries.js";
+import { ISLANDS_STARTUP, runtimeImports } from "./entries.js";
 import type { EntryPlan } from "./entries.js";
 import { entryInputs, serveEntryModules } from "./entry-modules.js";
 import { ConfigError } from "./exit.js";
@@ -202,8 +202,6 @@ export const STARTUP_GROUP = "fw-startup";
 // Above core, which would otherwise take both as dependencies of its own modules,
 // and a page with no `load` island imports them at startup without core.
 const STARTUP_PRIORITY = 40;
-
-const ISLANDS_STARTUP = "@pagedeck/islands/startup";
 
 // Vite's own id for the helper it wraps each dynamic `import()` in.
 const PRELOAD_HELPER = "\0vite/preload-helper.js";

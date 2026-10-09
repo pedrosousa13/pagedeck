@@ -177,31 +177,35 @@ export function planEntries(
   return { entries, contentOnly };
 }
 
-const ISLANDS_STARTUP = "@pagedeck/islands/startup";
+export const ISLANDS_STARTUP = "@pagedeck/islands/startup";
 
 interface Binding {
   names: string;
   from: string;
+  default: boolean;
 }
 
 const RUNTIME_BINDING: Binding = {
   names: "{ hydrateIslands }",
   from: "@pagedeck/islands/runtime",
+  default: false,
 };
 
 function providerBindings(entry: EntryText): Binding[] {
   const bindings: Binding[] = [];
   if (entry.providers !== undefined) {
-    bindings.push({ names: "providers", from: entry.providers });
+    bindings.push({ names: "providers", from: entry.providers, default: true });
     if (entry.providersDigest !== undefined) {
       bindings.push({
         names: "{ checkRootProviders }",
         from: "@pagedeck/islands/root-provider-check",
+        default: false,
       });
     }
     bindings.push({
       names: "{ checkSharedStore, markRootsMounting }",
       from: "@pagedeck/islands/store-stamp",
+      default: false,
     });
   }
   return bindings;
@@ -241,7 +245,6 @@ export function renderEntryModule(
     : [
         ...globalCss.map((path) => `import ${JSON.stringify(path)};`),
         staticImport(RUNTIME_BINDING),
-        `import { schedule } from "${ISLANDS_STARTUP}";`,
       ];
   if (hot) lines.push(`import { hotIslands } from "@pagedeck/islands/hmr";`);
   if (!deferred) {
@@ -280,8 +283,8 @@ export function renderEntryModule(
     hot
       ? "  resolve: hot.resolve,"
       : "  resolve: (name) => modules[name]().then((module) => module.default),",
-    "  schedule,",
   );
+  if (deferred) hydrate.push("  schedule,");
   if (entry.providers !== undefined) hydrate.push("  providers,");
   if (hot && entry.providers !== undefined) {
     hydrate.push("  probe: rootProviderProbe(),");
@@ -291,7 +294,7 @@ export function renderEntryModule(
   if (deferred) {
     const bindings = [RUNTIME_BINDING, ...providerBindings(entry)];
     const names = bindings.map((binding) =>
-      binding.names.startsWith("{") ? binding.names : `{ default: ${binding.names} }`,
+      binding.default ? `{ default: ${binding.names} }` : binding.names,
     );
     lines.push(
       "hydrateOnTrigger(async (schedule) => {",

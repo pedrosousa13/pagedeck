@@ -58,14 +58,12 @@ test("the generated module text is the golden shape", () => {
   expect(renderEntryModule(only(plan.entries))).toBe(
     [
       `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
-      `import { schedule } from "@pagedeck/islands/startup";`,
       `const modules = {`,
       `  "Hero": () => import("@ds/hero"),`,
       `  "NewsletterSignup": () => import("@ds/newsletter-signup"),`,
       `};`,
       `hydrateIslands({`,
       `  resolve: (name) => modules[name]().then((module) => module.default),`,
-      `  schedule,`,
       `});`,
       "",
     ].join("\n"),
@@ -81,7 +79,6 @@ test("the dev server's hot entry keeps the module map and guards the hydrate", (
   expect(renderEntryModule(only(plan.entries), { hot: true })).toBe(
     [
       `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
-      `import { schedule } from "@pagedeck/islands/startup";`,
       `import { hotIslands } from "@pagedeck/islands/hmr";`,
       `import providers from "@site/providers";`,
       `import { checkSharedStore, markRootsMounting } from "@pagedeck/islands/store-stamp";`,
@@ -96,7 +93,6 @@ test("the dev server's hot entry keeps the module map and guards the hydrate", (
       `  markRootsMounting();`,
       `  hydrateIslands({`,
       `    resolve: hot.resolve,`,
-      `    schedule,`,
       `    providers,`,
       `    probe: rootProviderProbe(),`,
       `  });`,
@@ -116,7 +112,6 @@ test("a provider stack adds one import and one property", () => {
   expect(renderEntryModule(only(plan.entries))).toBe(
     [
       `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
-      `import { schedule } from "@pagedeck/islands/startup";`,
       `import providers from "@site/providers";`,
       `import { checkSharedStore, markRootsMounting } from "@pagedeck/islands/store-stamp";`,
       `const modules = {`,
@@ -127,7 +122,6 @@ test("a provider stack adds one import and one property", () => {
       `markRootsMounting();`,
       `hydrateIslands({`,
       `  resolve: (name) => modules[name]().then((module) => module.default),`,
-      `  schedule,`,
       `  providers,`,
       `});`,
       "",
@@ -145,7 +139,6 @@ test("a declared stack's digest is carried into the entry as a literal", () => {
   expect(renderEntryModule(only(plan.entries))).toBe(
     [
       `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
-      `import { schedule } from "@pagedeck/islands/startup";`,
       `import providers from "@site/providers";`,
       `import { checkRootProviders } from "@pagedeck/islands/root-provider-check";`,
       `import { checkSharedStore, markRootsMounting } from "@pagedeck/islands/store-stamp";`,
@@ -158,7 +151,6 @@ test("a declared stack's digest is carried into the entry as a literal", () => {
       `markRootsMounting();`,
       `hydrateIslands({`,
       `  resolve: (name) => modules[name]().then((module) => module.default),`,
-      `  schedule,`,
       `  providers,`,
       `});`,
       "",
@@ -179,7 +171,6 @@ test("the criterion-4 probe is the dev server's alone", () => {
   expect(renderEntryModule(only(plan.entries), { hot: true })).toBe(
     [
       `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
-      `import { schedule } from "@pagedeck/islands/startup";`,
       `import { hotIslands } from "@pagedeck/islands/hmr";`,
       `import providers from "@site/providers";`,
       `import { checkRootProviders } from "@pagedeck/islands/root-provider-check";`,
@@ -196,7 +187,6 @@ test("the criterion-4 probe is the dev server's alone", () => {
       `  markRootsMounting();`,
       `  hydrateIslands({`,
       `    resolve: hot.resolve,`,
-      `    schedule,`,
       `    providers,`,
       `    probe: rootProviderProbe(),`,
       `  });`,

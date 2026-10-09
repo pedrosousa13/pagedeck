@@ -23,7 +23,7 @@ import { RegistryError } from "./registry.js";
 import type { RootProvider } from "./providers.js";
 import { hydrateIslands } from "./runtime.js";
 import type { IslandRoot } from "./runtime.js";
-import { hydrateOnTrigger, schedule } from "./startup.js";
+import { hydrateOnTrigger } from "./startup.js";
 import type { Schedule } from "./startup.js";
 
 declare global {
@@ -303,7 +303,7 @@ test("an island hydrates with exactly its own props and leaves its sibling alone
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   const [first, second] = markers();
@@ -337,7 +337,7 @@ test("two islands on one page hydrate under their own prefixes, and their ids do
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -357,7 +357,7 @@ test("every island root is wrapped in the provider stack the build used", async 
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve, providers: PROVIDERS });
+      hydrateIslands({ resolve, providers: PROVIDERS });
     });
   });
 
@@ -379,7 +379,7 @@ test("hydrating without the provider stack the build used does mismatch", async 
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     });
   });
 
@@ -405,7 +405,7 @@ test("a visible island hydrates when its content is scrolled to, not before", as
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   const marker = markers()[0] as TestElement;
@@ -425,7 +425,7 @@ test("an idle island waits for the browser to be idle", async () => {
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   const marker = markers()[0] as TestElement;
@@ -446,7 +446,7 @@ test("an idle island still hydrates in a browser with no requestIdleCallback", a
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1_000);
@@ -479,7 +479,7 @@ test("a visible island with no element children falls back to idle", async () =>
   ]);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   expect(FakeObserver.live).toHaveLength(0);
@@ -496,7 +496,7 @@ test("a page with no markers does nothing and registers nothing", async () => {
   const resolve = vi.fn(async () => Reveal as ComponentType<never>);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   expect(resolve).not.toHaveBeenCalled();
@@ -548,7 +548,7 @@ test("a later-hydrating island observes what an earlier one wrote to the shared 
 
   const complaints = await complaintsWhile(async () => {
     await act(async () => {
-      hydrateIslands({ schedule, resolve, providers: [{ component: StoreProvider }] });
+      hydrateIslands({ resolve, providers: [{ component: StoreProvider }] });
     });
     const [writer, reader] = markers();
     await click(writer);
@@ -566,7 +566,7 @@ test("a marker missing an attribute the build always writes is refused", async (
   document.body.innerHTML = `<${ISLAND_TAG}><span>hi</span></${ISLAND_TAG}>`;
 
   expect(() => {
-    hydrateIslands({ schedule, resolve: async () => Reveal as ComponentType<never> });
+    hydrateIslands({ resolve: async () => Reveal as ComponentType<never> });
   }).toThrowError(
     new RegistryError(
       `Island marker #1: carries no ${ISLAND_COMPONENT_ATTRIBUTE}, so there is nothing to hydrate it as — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
@@ -583,7 +583,7 @@ test("a marker whose props are not JSON is refused, naming the island", async ()
     ` role="presentation" style="display:contents"><span>hi</span></${ISLAND_TAG}>`;
 
   expect(() => {
-    hydrateIslands({ schedule, resolve: async () => Reveal as ComponentType<never> });
+    hydrateIslands({ resolve: async () => Reveal as ComponentType<never> });
   }).toThrowError(
     new RegistryError(
       `Island "Reveal" (ibroken): its ${ISLAND_PROPS_ATTRIBUTE} is not JSON, so there are no props to hydrate it with — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
@@ -601,7 +601,7 @@ test("the props failure keeps what the parser said as its cause", async () => {
 
   let thrown: unknown;
   try {
-    hydrateIslands({ schedule, resolve: async () => Reveal as ComponentType<never> });
+    hydrateIslands({ resolve: async () => Reveal as ComponentType<never> });
   } catch (error) {
     thrown = error;
   }
@@ -620,7 +620,7 @@ test("a marker missing only its prefix is named by the component it does carry",
   );
 
   expect(() => {
-    hydrateIslands({ schedule, resolve: async () => Reveal as ComponentType<never> });
+    hydrateIslands({ resolve: async () => Reveal as ComponentType<never> });
   }).toThrowError(
     new RegistryError(
       `Island "Reveal": carries no ${ISLAND_PREFIX_ATTRIBUTE}, so there is nothing to hydrate it as — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
@@ -635,7 +635,7 @@ test("a marker carrying only a prefix is named by its position and that prefix",
   );
 
   expect(() => {
-    hydrateIslands({ schedule, resolve: async () => Reveal as ComponentType<never> });
+    hydrateIslands({ resolve: async () => Reveal as ComponentType<never> });
   }).toThrowError(
     new RegistryError(
       `Island marker #1 (iabc): carries no ${ISLAND_COMPONENT_ATTRIBUTE}, so there is nothing to hydrate it as — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
@@ -656,7 +656,7 @@ test("every unreadable marker on a page is reported, not the first", async () =>
     );
 
   expect(() => {
-    hydrateIslands({ schedule, resolve: async () => Reveal as ComponentType<never> });
+    hydrateIslands({ resolve: async () => Reveal as ComponentType<never> });
   }).toThrowError(
     new RegistryError(
       `Island markers: 3 on this page cannot be read, so those islands will not hydrate — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content:\n` +
@@ -679,7 +679,7 @@ test("the islands after an unreadable marker still hydrate", async () => {
   let thrown: unknown;
   await act(async () => {
     try {
-      hydrateIslands({ schedule, resolve });
+      hydrateIslands({ resolve });
     } catch (error) {
       thrown = error;
     }
@@ -716,7 +716,7 @@ test("a visible island with two element children in view mounts once", async () 
   for (const child of Array.from(marker.children)) visible.add(child);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   expect(mounted).toEqual(["pair"]);
@@ -738,7 +738,7 @@ test("a visible island with two element children leaves nothing observed", async
   for (const child of children) visible.add(child);
 
   await act(async () => {
-    hydrateIslands({ schedule, resolve });
+    hydrateIslands({ resolve });
   });
 
   const stillWatched = children.filter((child) =>
