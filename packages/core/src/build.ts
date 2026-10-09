@@ -837,6 +837,7 @@ async function stageSite(input: {
     root: dirname(config.configPath),
     origin: config.configPath,
     modules: section.componentModules,
+    components: section.components,
     css: globalCss,
   });
 

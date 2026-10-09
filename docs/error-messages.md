@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 218 checked messages pin 34020 of the 84670 fenced characters, and
+below**: the 218 checked messages pin 34017 of the 84670 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -4308,21 +4308,22 @@ warned, because nothing at that address 404s.
 
 The twenty-second is `unlinkedStylesheetWarning`
 (`packages/core/src/island-facts.ts`, #71), the island scan's second answer on
-this route: a stylesheet that only modules outside every `"use client"` closure
-import. Render replaces each `.css` import with an empty module, and the client
-build starts from `build.css` and the island modules, so that stylesheet
-reaches no page. Before #71 the build said nothing, and the missing styles were
+this route: a stylesheet that only modules outside every island's import
+closure import. An island is a component whose module carries `"use client"`
+or whose registry entry declares a `hydrate` mode other than `"none"`. Render
+replaces each `.css` import with an empty module, and the client build starts
+from `build.css` and the island modules, so that stylesheet reaches no page. Before #71 the build said nothing, and the missing styles were
 the only sign:
 
 ```
-Island scan: 2 stylesheets are imported only by modules outside every "use client" closure, so no page links them — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
+Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
   "/site/components/landing.css" — imported by "/site/components/Landing.js"
   "/site/components/legal.css" — imported by "/site/components/Legal.js", "/site/components/Terms.js"
 ```
 
 Not a refusal, on `undeclaredHeadersWarning`'s argument: every page is correct
-HTML, and a site may link the stylesheet itself. A stylesheet that a
-`"use client"` module also imports, or that `build.css` lists, is not reported,
+HTML, and a site may link the stylesheet itself. A stylesheet that a module in
+an island's import closure also imports, or that `build.css` lists, is not reported,
 and a query is dropped from a stylesheet's id before either match. Linking the
 stylesheet into the pages that render its importer was the other answer #71
 offered; the maintainer ruled it a separate feature, and this warning goes when

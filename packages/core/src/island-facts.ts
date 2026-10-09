@@ -10,18 +10,19 @@ import type {
   UnparsedModule,
 } from "./directive-scan.js";
 import { UNPARSABLE_REFUSAL } from "./directive-source.js";
-import { resolveBoundaries } from "./directives.js";
+import { reachableFrom, resolveBoundaries } from "./directives.js";
 import type { ModuleGraph } from "./directives.js";
 import { serveGeneratedEntries } from "./entry-modules.js";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
-import type { ModuleFacts } from "@pagedeck/islands";
+import type { HydrationMode, ModuleFacts } from "@pagedeck/islands";
 
 export interface IslandFactsInput {
   root: string;
   origin: string;
   modules: ModuleMap;
   css?: readonly string[];
+  components?: Readonly<Record<string, { readonly hydrate?: HydrationMode }>>;
 }
 
 export interface IslandFacts {
@@ -156,7 +157,16 @@ export async function scanIslandFacts(
 
   const clientModules = new Set(boundaries.clientModules);
   const placers = resourceImporters.filter(({ id }) => clientModules.has(id));
-  const unlinked = unlinkedStylesheets(graph, clientModules, input.css ?? []);
+  const islandModules = new Set(clientModules);
+  for (const name of names) {
+    const hydrate = input.components?.[name]?.hydrate;
+    const id = ids[input.modules[name] as string];
+    if (hydrate === undefined || hydrate === "none" || id === undefined) continue;
+    for (const module of reachableFrom(id, graph.imports)) {
+      islandModules.add(module);
+    }
+  }
+  const unlinked = unlinkedStylesheets(graph, islandModules, input.css ?? []);
   const warnings = [
     ...(placers.length === 0 ? [] : [resourcePlacerWarning(placers)]),
     ...(unlinked.length === 0 ? [] : [unlinkedStylesheetWarning(unlinked)]),
@@ -204,7 +214,7 @@ interface UnlinkedStylesheet {
 
 function unlinkedStylesheets(
   graph: ModuleGraph,
-  clientModules: ReadonlySet<string>,
+  islandModules: ReadonlySet<string>,
   globalCss: readonly string[],
 ): UnlinkedStylesheet[] {
   const linked = new Set(globalCss);
@@ -213,7 +223,7 @@ function unlinkedStylesheets(
     for (const id of imported) {
       const path = id.split("?")[0] ?? id;
       if (!path.endsWith(".css")) continue;
-      if (clientModules.has(importer)) linked.add(path);
+      if (islandModules.has(importer)) linked.add(path);
       const importers = importersBySheet.get(path) ?? new Set<string>();
       importers.add(importer);
       importersBySheet.set(path, importers);
@@ -236,9 +246,9 @@ function unlinkedStylesheetWarning(
     .join("\n");
   const subject =
     unlinked.length === 1
-      ? '1 stylesheet is imported only by modules outside every "use client" closure, so no page links it'
-      : `${String(unlinked.length)} stylesheets are imported only by modules outside every "use client" closure, so no page links them`;
-  return `Island scan: ${subject} — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
+      ? "1 stylesheet is imported only by modules outside every island's import closure, so no page links it"
+      : `${String(unlinked.length)} stylesheets are imported only by modules outside every island's import closure, so no page links them`;
+  return `Island scan: ${subject} — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
 }
 
 function sharedModuleReport(

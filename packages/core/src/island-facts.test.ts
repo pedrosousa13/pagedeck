@@ -17,6 +17,7 @@ const FIXTURE: Record<string, string> = {
   "Eager.js": `import { preinit } from "react-dom";\nexport default function Eager() { preinit("/eager.css", { as: "style" }); return "eager"; }\n`,
   "Styled.js": `import "./styled.css";\nexport default function Styled() { return "styled"; }\n`,
   "Twice.js": `import "./styled.css";\nimport "./other.css?inline";\nexport default function Twice() { return "twice"; }\n`,
+  "Hydrated.js": `import "./styled.css";\nexport default function Hydrated() { return "hydrated"; }\n`,
   "Lit.js": `"use client";\nimport "./styled.css";\nexport default function Lit() { return "lit"; }\n`,
   "styled.css": `.styled { color: red; }\n`,
   "other.css": `.other { color: blue; }\n`,
@@ -117,7 +118,7 @@ test("the scan names each component whose module does not resolve", async () => 
 }, 120_000);
 
 const UNLINKED_FIX =
-  ' — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:';
+  " — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:";
 
 test("the scan warns about a stylesheet only a static component imports", async () => {
   const { warnings } = await scanIslandFacts({
@@ -127,7 +128,7 @@ test("the scan warns about a stylesheet only a static component imports", async 
   });
 
   expect(warnings).toEqual([
-    `Island scan: 1 stylesheet is imported only by modules outside every "use client" closure, so no page links it${UNLINKED_FIX}\n` +
+    `Island scan: 1 stylesheet is imported only by modules outside every island's import closure, so no page links it${UNLINKED_FIX}\n` +
       `  "${SRC}styled.css" — imported by "${SRC}Styled.js"`,
   ]);
 }, 120_000);
@@ -140,6 +141,28 @@ test("a stylesheet an island module also imports is not reported", async () => {
   });
 
   expect(warnings).toEqual([]);
+}, 120_000);
+
+test("a stylesheet a registered island without the directive also imports is not reported", async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Styled: "./src/Styled.js", Hydrated: "./src/Hydrated.js" },
+    components: { Hydrated: { hydrate: "idle" } },
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test('a stylesheet a component registered with hydrate: "none" imports is reported', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Hydrated: "./src/Hydrated.js" },
+    components: { Hydrated: { hydrate: "none" } },
+  });
+
+  expect(warnings).toHaveLength(1);
 }, 120_000);
 
 test("a stylesheet build.css lists is not reported", async () => {
@@ -161,7 +184,7 @@ test("two unlinked stylesheets are one warning naming both, each id without its 
   });
 
   expect(warnings).toEqual([
-    `Island scan: 2 stylesheets are imported only by modules outside every "use client" closure, so no page links them${UNLINKED_FIX}\n` +
+    `Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them${UNLINKED_FIX}\n` +
       `  "${SRC}other.css" — imported by "${SRC}Twice.js"\n` +
       `  "${SRC}styled.css" — imported by "${SRC}Styled.js", "${SRC}Twice.js"`,
   ]);

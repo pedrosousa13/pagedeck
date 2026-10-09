@@ -894,7 +894,7 @@ test("a stylesheet only a static component imports warns and still builds", asyn
   expect(result.code).toBe(EXIT_CODES.success);
   expect(result.err).toBe(
     [
-      'Island scan: 1 stylesheet is imported only by modules outside every "use client" closure, so no page links it — import the stylesheet from a "use client" module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:',
+      "Island scan: 1 stylesheet is imported only by modules outside every island's import closure, so no page links it — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:",
       `  "${join(dir, "global.css")}" — imported by "${join(dir, "components", "Copy.js")}"`,
       ABSENT_FAVICON,
     ].join("\n"),
