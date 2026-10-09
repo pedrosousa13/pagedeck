@@ -48,3 +48,30 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm -r publish --access public --provenance --no-git-checks
+
+  # Apart from `publish`, so the App's key never shares a job with id-token: write (#108).
+  notify:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Get a token from the deck-cool-releases App
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.DECK_APP_ID }}
+          private-key: ${{ secrets.DECK_APP_PRIVATE_KEY }}
+          owner: pedrosousa13
+          repositories: deck-cool
+          permission-contents: write
+      - name: Tell deck-cool
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh api repos/pedrosousa13/deck-cool/dispatches \
+            -f event_type=deck-released \
+            -f "client_payload[deck]=pagedeck" \
+            -f "client_payload[version]=${TAG#v}"
