@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 217 checked messages pin 33750 of the 84122 fenced characters, and
+below**: the 217 checked messages pin 33747 of the 84119 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3495,29 +3495,28 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty-one, and each says what it cannot promise; a twenty-second is written
-by `pagedeck sync` rather than by a build and is the last one described below; three
-more are the browser's and are argued in this rule's closing section, where they
-sit among the browser's refusals rather than after them.
+writes twenty-one, and each says what it cannot promise; a twenty-second is
+written by `pagedeck sync` rather than by a build and is the last one described
+below; three more are the browser's and are argued in this rule's closing
+section, where they sit among the browser's refusals rather than after them.
 
 **All twenty-one reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-second is reachable too, by the same shape through the other verb: `syncSite`
-returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It is described
-after the twenty-one below, and kept out of their count because `pagedeck sync` is what
-writes it and no build ever does. Seventeen — `resourcePlacerWarning`,
-`workerFallbackWarning`, `workerConsentWarning`,
+The twenty-second is reachable too, by the same shape through the other verb:
+`syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
+is described after the twenty-one below, and kept out of their count because
+`pagedeck sync` is what writes it and no build ever does. Seventeen —
+`resourcePlacerWarning`, `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
-`checkSiteLinks`' two,
-`probeExternalLinks`' three, `retainManifest`'s two and `compileIslands`' two —
-are collected into `SiteBuild.warnings` by `buildSite` and written by
-`runBuildVerb`. All seventeen are reachable; one of them was not until #270, and
-its own section below records what closed it — a site's redirects now reach
-`planRouting` through `build.routing`. The last two travel one stage further to
-get there, and #242 is that stage: a bundler plugin has no `io.err` to write
-to, so `compileIslands` records them and `buildClient` hands them back on
-`ClientBuild.warnings`, which is what `buildSite` collects.
+`checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
+`compileIslands`' two — are collected into `SiteBuild.warnings` by `buildSite`
+and written by `runBuildVerb`. All seventeen are reachable; one of them was not
+until #270, and its own section below records what closed it — a site's
+redirects now reach `planRouting` through `build.routing`. The last two travel
+one stage further to get there, and #242 is that stage: a bundler plugin has no
+`io.err` to write to, so `compileIslands` records them and `buildClient` hands
+them back on `ClientBuild.warnings`, which is what `buildSite` collects.
 
 The four #29 adds, `driftWarnings`' two and `compileSupplements`' two, are
 strings shaped for that same field, and #281 gave them the caller they were
@@ -4290,21 +4289,22 @@ The fix is a full build, and not an edit to the document: that build warns as
 above, prunes nothing, and leaves a manifest of its own, which is the one the
 next incremental run plans against.
 
-The twenty-first is `absentFaviconWarning` (`packages/core/src/favicon.ts`),
-and its subject is a request nobody wrote (#76). A browser asks for
-`/favicon.ico` on its own, so a site that declares no `build.favicon` answers
-every first visit with a 404, which the browser logs as a console error and
-Lighthouse counts against best practices. Before #76 nothing said so:
+The twenty-first is `absentFaviconWarning` (`packages/core/src/favicon.ts`), and
+its subject is a request nobody wrote (#76). A browser asks for `/favicon.ico`
+on its own when a page names no other icon, so a site that declares no
+`build.favicon` answers that request with a 404, which the browser logs as a
+console error and Lighthouse counts against best practices. Before #76 nothing
+said so:
 
 ```
-Favicon: this site declares no build.favicon, so no output tree has a file at /favicon.ico — a browser requests that address on its own, whether or not a page links to it, and the 404 it gets is logged as a console error and fails Lighthouse's errors-in-console audit; this is a warning and not a refusal because every page this build emitted is correct — set build.favicon to the site's icon file, as favicon: { src: "./favicon.ico" } (Pagedeck documentation: Favicon)
+Favicon: this site declares no build.favicon, so no output tree has a file at /favicon.ico — a browser requests that address on its own when a page names no other icon, and the 404 it gets is logged as a console error and fails Lighthouse's errors-in-console audit; this is a warning and not a refusal because every page this build emitted is correct — set build.favicon to the site's icon file, as favicon: { src: "./favicon.ico" } (Pagedeck documentation: Favicon)
 ```
 
-Not a refusal, on `undeclaredHeadersWarning`'s argument: every page is
-correct, and a host may answer `/favicon.ico` itself. Not a default icon
-either, which the maintainer ruled out: the bytes would be the framework's
-and not the site's. A site whose `build.passthrough.root` already publishes
-`/favicon.ico` is not warned, because nothing at that address 404s.
+Not a refusal, on `undeclaredHeadersWarning`'s argument: every page is correct,
+and a host may answer `/favicon.ico` itself. Not a default icon either, which
+the maintainer ruled out: the bytes would be the framework's and not the site's.
+A site whose `build.passthrough.root` already publishes `/favicon.ico` is not
+warned, because nothing at that address 404s.
 
 **The twenty-second is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
@@ -4672,15 +4672,16 @@ schema failure to the schema guide, the snapshot scheme failure to the snapshot
 how-to. Until then, do not add a link to a page nobody can open; a dead URL in
 a build failure is worse than no URL.
 
-Two lines name a page instead, by the title, and heading where one helps,
-that the docs site shows. The twenty-first warning above names the Favicon
-page (#76). `pagedeck build` prints the other after its summary when the site
+Two lines name a page instead, by the title, and heading where one helps, that
+the docs site shows. The twenty-first warning above names the Favicon page
+(#76). `pagedeck build` prints the other after its summary when the site
 declares `build.preview` (#713):
 
 ```
 preview: /_preview — this app authenticates nothing and renders any draft posted to it; put the deployment behind whatever the drafts need (Pagedeck documentation: Preview app, Security)
 ```
 
-The preview line used to name a README path in this repository, which an installed site does
-not have and which belongs to a private package. A page title survives the move
-to an origin. When the site has one, the URL goes beside the title.
+The preview line used to name a README path in this repository, which an
+installed site does not have and which belongs to a private package. A page
+title survives the move to an origin. When the site has one, the URL goes beside
+the title.

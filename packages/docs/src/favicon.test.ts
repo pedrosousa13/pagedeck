@@ -4,7 +4,6 @@ import { expect, test } from "vitest";
 import { fences } from "./tutorial.test-support.js";
 
 const REFERENCE = join(import.meta.dirname, "..", "content", "reference", "favicon.md");
-// Its fence is held to the producer in `packages/core/src/favicon.ts` by `catalogued-messages.test.ts`.
 const CATALOGUE = join(import.meta.dirname, "..", "..", "..", "docs", "error-messages.md");
 
 const warning = (markdown: string): string | undefined =>
