@@ -8,7 +8,7 @@ const execFileAsync = promisify(execFile);
 
 const PACKAGE = join(import.meta.dirname, "..");
 const BIN = join(PACKAGE, "..", "core", "dist", "bin.js");
-// Inside the package, so the site resolves `@pagedeck/*` and React from its node_modules.
+// Inside the package, so the site resolves `@pagedeck/*` and React from its node_modules (#77).
 const SITE = mkdtempSync(join(PACKAGE, ".pagedeck-template-build-test-"));
 
 interface Manifest {
