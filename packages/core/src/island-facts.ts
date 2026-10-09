@@ -259,6 +259,11 @@ function realPath(path: string): string {
   }
 }
 
+const UNLINKED_FIX = {
+  one: "import the stylesheet from an island's module, or list it in build.css",
+  many: "import each stylesheet from an island's module, or list it in build.css",
+};
+
 function unlinkedStylesheetWarning(
   unlinked: readonly UnlinkedStylesheet[],
 ): string {
@@ -268,17 +273,19 @@ function unlinkedStylesheetWarning(
         `  "${id}" — imported by ${importers.map((importer) => `"${importer}"`).join(", ")}`,
     )
     .join("\n");
-  const subject =
+  const [subject, fix] =
     unlinked.length === 1
-      ? "1 stylesheet is imported only by modules outside every island's import closure, so no page links it"
-      : `${String(unlinked.length)} stylesheets are imported only by modules outside every island's import closure, so no page links them`;
-  return `Island scan: ${subject} — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
+      ? [
+          "1 stylesheet is imported only by modules outside every island's import closure, so no page links it",
+          UNLINKED_FIX.one,
+        ]
+      : [
+          `${String(unlinked.length)} stylesheets are imported only by modules outside every island's import closure, so no page links them`,
+          UNLINKED_FIX.many,
+        ];
+  return `Island scan: ${subject} — ${fix}; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
 }
 
-/**
- * Walks from each registered component outside every island, never through an
- * island module, so a client module reached is one some static module imports.
- */
 function unregisteredClientModules(
   graph: ModuleGraph,
   islandModules: ReadonlySet<string>,
@@ -304,6 +311,11 @@ function unregisteredClientModules(
     .map((id) => chainTo(id, via));
 }
 
+const UNREGISTERED_FIX = {
+  one: "register it under build.components, or import it only from an island's module",
+  many: "register each under build.components, or import each only from an island's module",
+};
+
 function unregisteredClientWarning(
   chains: readonly (readonly string[])[],
 ): string {
@@ -313,11 +325,17 @@ function unregisteredClientWarning(
         `  "${chain[chain.length - 1] as string}" — ${chain.join(" → ")}`,
     )
     .join("\n");
-  const subject =
+  const [subject, fix] =
     chains.length === 1
-      ? '1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript'
-      : `${String(chains.length)} modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript`;
-  return `Island scan: ${subject} — register it under build.components, or import it only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:\n${lines}`;
+      ? [
+          '1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript',
+          UNREGISTERED_FIX.one,
+        ]
+      : [
+          `${String(chains.length)} modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript`,
+          UNREGISTERED_FIX.many,
+        ];
+  return `Island scan: ${subject} — ${fix}; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:\n${lines}`;
 }
 
 function sharedModuleReport(

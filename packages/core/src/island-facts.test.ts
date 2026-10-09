@@ -126,8 +126,8 @@ test("the scan names each component whose module does not resolve", async () => 
   );
 }, 120_000);
 
-const UNLINKED_FIX =
-  " — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:";
+const UNLINKED_REASON =
+  "; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:";
 
 test("the scan warns about a stylesheet only a static component imports", async () => {
   const { warnings } = await scanIslandFacts({
@@ -137,7 +137,7 @@ test("the scan warns about a stylesheet only a static component imports", async 
   });
 
   expect(warnings).toEqual([
-    `Island scan: 1 stylesheet is imported only by modules outside every island's import closure, so no page links it${UNLINKED_FIX}\n` +
+    `Island scan: 1 stylesheet is imported only by modules outside every island's import closure, so no page links it — import the stylesheet from an island's module, or list it in build.css${UNLINKED_REASON}\n` +
       `  "${SRC}styled.css" — imported by "${SRC}Styled.js"`,
   ]);
 }, 120_000);
@@ -193,7 +193,7 @@ test("two unlinked stylesheets are one warning naming both", async () => {
   });
 
   expect(warnings).toEqual([
-    `Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them${UNLINKED_FIX}\n` +
+    `Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import each stylesheet from an island's module, or list it in build.css${UNLINKED_REASON}\n` +
       `  "${SRC}other.css" — imported by "${SRC}Twice.js"\n` +
       `  "${SRC}styled.css" — imported by "${SRC}Styled.js", "${SRC}Twice.js"`,
   ]);
@@ -220,8 +220,8 @@ test("a stylesheet imported with a query is not reported", async () => {
   expect(warnings).toEqual([]);
 }, 120_000);
 
-const UNREGISTERED_FIX =
-  " — register it under build.components, or import it only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:";
+const UNREGISTERED_REASON =
+  "; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:";
 
 test('the scan warns about an unregistered "use client" module a static component imports', async () => {
   const { warnings } = await scanIslandFacts({
@@ -231,7 +231,7 @@ test('the scan warns about an unregistered "use client" module a static componen
   });
 
   expect(warnings).toEqual([
-    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript — register it under build.components, or import it only from an island's module${UNREGISTERED_REASON}\n` +
       `  "${SRC}Knob.js" — ${SRC}Frame.js → ${SRC}Knob.js`,
   ]);
 }, 120_000);
@@ -276,7 +276,7 @@ test('an unregistered "use client" module a component registered with hydrate: "
   });
 
   expect(warnings).toEqual([
-    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript — register it under build.components, or import it only from an island's module${UNREGISTERED_REASON}\n` +
       `  "${SRC}Knob.js" — ${SRC}Widget.js → ${SRC}Knob.js`,
   ]);
 }, 120_000);
@@ -289,7 +289,7 @@ test('of two nested unregistered "use client" modules only the outer is reported
   });
 
   expect(warnings).toEqual([
-    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript — register it under build.components, or import it only from an island's module${UNREGISTERED_REASON}\n` +
       `  "${SRC}Toggle.js" — ${SRC}Shell.js → ${SRC}Toggle.js`,
   ]);
 }, 120_000);
@@ -302,7 +302,7 @@ test('two unregistered "use client" modules are one warning naming both', async 
   });
 
   expect(warnings).toEqual([
-    `Island scan: 2 modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+    `Island scan: 2 modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript — register each under build.components, or import each only from an island's module${UNREGISTERED_REASON}\n` +
       `  "${SRC}Knob.js" — ${SRC}Frame.js → ${SRC}Knob.js\n` +
       `  "${SRC}Toggle.js" — ${SRC}Shell.js → ${SRC}Toggle.js`,
   ]);

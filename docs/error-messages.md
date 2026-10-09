@@ -39,7 +39,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 219 checked messages pin 34240 of the 85227 fenced characters, and
+below**: the 219 checked messages pin 34093 of the 85232 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -4320,7 +4320,7 @@ stylesheet reaches no page. Before #71 the build said nothing, and the missing
 styles were the only sign:
 
 ```
-Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
+Island scan: 2 stylesheets are imported only by modules outside every island's import closure, so no page links them — import each stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:
   "/site/components/landing.css" — imported by "/site/components/Landing.js"
   "/site/components/legal.css" — imported by "/site/components/Legal.js", "/site/components/Terms.js"
 ```
@@ -4347,17 +4347,18 @@ it too, and names each module with the import chain from a registered
 component to it:
 
 ```
-Island scan: 2 modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript — register it under build.components, or import it only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:
+Island scan: 2 modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript — register each under build.components, or import each only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:
   "/site/components/Knob.js" — /site/components/Frame.js → /site/components/Knob.js
   "/site/components/Toggle.js" — /site/components/Shell.js → /site/components/Toggle.js
 ```
 
 Not a refusal: the scan sees imports, not renders, and a package that marks
 every file `"use client"` can render correctly as static HTML. Only the
-outermost module is reported. A `"use client"` module that only modules inside
-an island's import closure import is part of that island and hydrates with it,
-so a client module nested inside a reported one is not reported, and neither
-is one only a registered island imports, with or without the directive.
+outermost module is reported, the one some module outside every `"use client"`
+closure and every island imports. A client module nested inside a reported one
+is not reported, because registering the outer module brings the inner one
+into its island. Neither is a client module that only a registered island
+imports, with or without the directive: it is already part of that island.
 
 **The twenty-fourth is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
