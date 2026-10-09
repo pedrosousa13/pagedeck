@@ -20,6 +20,7 @@ import type { OutputDifference } from "./determinism.js";
 import { diffOutputTrees, outputDifferenceReport } from "./determinism.js";
 import { diffManifests } from "./diff.js";
 import { ConfigError, EXIT_CODES } from "./exit.js";
+import { ABSENT_FAVICON } from "./favicon.test-support.js";
 import { MANIFEST_FILE, MANIFEST_VERSION, readManifest } from "./manifest.js";
 import { scriptElements } from "./script-elements.js";
 
@@ -400,7 +401,7 @@ test("pagedeck build writes a site, a manifest and a routing document from a sto
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const dist = join(dir, "dist");
@@ -450,7 +451,7 @@ test("two domain locales and one folder locale emit one output tree each", async
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const dist = join(dir, "dist");
@@ -489,7 +490,7 @@ test("every URL a domain locale's HTML references is a file inside that domain's
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const dist = join(dir, "dist");
@@ -531,7 +532,7 @@ test("two locales sharing one domain coexist in one tree, each under its own pre
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const tree = join(dir, "dist", "example.ch");
@@ -593,7 +594,7 @@ test('a "use client" module the registry says nothing about islands and ships', 
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
@@ -612,7 +613,7 @@ test('a "use client" template component islands and ships in template mode', asy
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
@@ -632,7 +633,7 @@ test('a "use client" component a template\'s own code renders islands and ships'
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const home = readFileSync(join(dir, "dist", "index.html"), "utf8");
@@ -663,7 +664,7 @@ test('a "use client" component an ordinary component\'s code renders islands and
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
@@ -745,7 +746,7 @@ test('a registry hydrate: "none" with no directive ships static and says nothing
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
   expect(about).toContain("marker-copy-7c02");
@@ -772,7 +773,7 @@ test('a "use client" module inside a package is seen, not skipped as external', 
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
@@ -871,6 +872,7 @@ test("a preinit import inside a client closure warns and still builds", async ()
     [
       'Island scan: 1 module in a "use client" closure imports preinit or preinitModule from react-dom — a preinit call places a stylesheet past the <head> tiers the build owns, which the build refuses when the rendered HTML shows it; this is a warning and not a refusal because a call made from an effect leaves nothing in the HTML to see, and an import reached through a re-export or an alias leaves nothing here to see either:',
       `  "${join(dir, "components", "Copy.js")}" — preinit`,
+      ABSENT_FAVICON,
     ].join("\n"),
   );
   expect(existsSync(join(dir, "dist", "index.html"))).toBe(true);
@@ -883,7 +885,7 @@ test("a site with no islands compiles and links its global stylesheet, and ships
   const result = await run(dir, "build");
 
   expect(result.code).toBe(EXIT_CODES.success);
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   const dist = join(dir, "dist");
   for (const page of ["index.html", join("about", "index.html")]) {
     const html = readFileSync(join(dist, page), "utf8");
@@ -917,6 +919,7 @@ test("a site that declares no header set is warned once, and still builds", asyn
       "  X-Content-Type-Options: nosniff",
       "  X-Frame-Options: DENY",
       "  Referrer-Policy: strict-origin-when-cross-origin",
+      ABSENT_FAVICON,
     ].join("\n"),
   );
   const manifest = readManifest(
@@ -940,6 +943,7 @@ test("a site whose scripts reach worker with no runtime is warned once", async (
       'Script runtime: 2 scripts can resolve to the worker strategy and this site configures no script runtime, so each of them loads on idle instead — worker moves a script off the main thread, and core ships no mechanism to do that with because a framework that picked one would carry a vendor\'s runtime into every site that never asked for it; this is a warning and not a refusal because idle is the fallback spec §12 states for this case, and a site that did not want off-main-thread loading is served correctly by it — supply build.scripts.runtime, or declare strategy: "idle" to say the fallback is what you meant:',
       '  "analytics" — declares no strategy, so it takes the worker default',
       '  "pixel" — pageTypes "/**" sets "worker"',
+      ABSENT_FAVICON,
     ].join("\n"),
   );
   const home = readFileSync(join(dir, "dist", "index.html"), "utf8");
@@ -957,7 +961,7 @@ test("a site that hydrates one component compiles its global stylesheet", async 
   const result = await run(dir, "build");
 
   expect(result.code).toBe(EXIT_CODES.success);
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   const sheets = assetUrls(
     readFileSync(join(dir, "dist", "index.html"), "utf8"),
   ).filter((url) => url.endsWith(".css"));
@@ -1055,7 +1059,7 @@ async function buildInFreshRegistry(dir: string): Promise<void> {
     err: (line) => err.push(line),
   });
 
-  expect(err.join("\n")).toBe("");
+  expect(err.join("\n")).toBe(ABSENT_FAVICON);
   expect(code).toBe(EXIT_CODES.success);
 }
 
@@ -1156,6 +1160,7 @@ test("a page with a module script and no loader lists no loader, whatever its co
 
 function unprunedTree(dist: string, ...lines: readonly string[]): string {
   return [
+    ABSENT_FAVICON,
     `Output "${dist}": this build removed no file an earlier build wrote there, because the manifest.json it left is not one this build can prune against — a full build deletes each file the previous build's manifest names and its own does not, and without that document it cannot tell a file an earlier build wrote from one placed there by hand, so a page that build published and this one did not, such as a post set to draft since, may still be in the directory; this is a warning and not a refusal because every file this build wrote is correct and the manifest it wrote is the one the next build prunes against — before a deploy that syncs this directory, delete the pages that build published and this one did not, or point build.outDir at a new, empty directory and build again; a deploy that reads the manifest needs neither:`,
     ...lines.map((line) => `  ${line}`),
   ].join("\n");
@@ -1172,7 +1177,7 @@ test("build.adapter's tree-file artifacts land in the output tree and its other 
 
   const result = await run(dir, "build");
 
-  expect(result.err).toBe("");
+  expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
   expect(readFileSync(join(dist, "_redirects"), "utf8")).toBe("tree\n");
   expect(readFileSync(join(dir, "edge", "worker.js"), "utf8")).toBe("edge\n");
@@ -1250,7 +1255,7 @@ test("a full build removes what the previous build wrote and this one did not, a
   const dist = join(dir, "dist");
   await run(dir, "sync");
   const first = await run(dir, "build");
-  expect(first.err).toBe("");
+  expect(first.err).toBe(ABSENT_FAVICON);
   const before = readManifest(
     readFileSync(join(dist, MANIFEST_FILE), "utf8"),
     MANIFEST_FILE,
@@ -1266,7 +1271,7 @@ test("a full build removes what the previous build wrote and this one did not, a
   const second = await run(dir, "build");
 
   expect(second.code).toBe(EXIT_CODES.success);
-  expect(second.err).toBe("");
+  expect(second.err).toBe(ABSENT_FAVICON);
   const after = readManifest(
     readFileSync(join(dist, MANIFEST_FILE), "utf8"),
     MANIFEST_FILE,

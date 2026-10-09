@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
 import { DIAGNOSTIC_MARKER } from "@pagedeck/core";
+import { ABSENT_FAVICON } from "../../core/src/favicon.test-support.js";
 import { createSearchClient } from "./query.js";
 import { QUERY_CAP } from "./shards.js";
 
@@ -300,7 +301,7 @@ async function run(verb: string): Promise<void> {
       .split("\n")
       .filter((line) => line.startsWith(`${DIAGNOSTIC_MARKER} `))
       .join("\n"),
-  ).toBe("");
+  ).toBe(verb === "build" ? `${DIAGNOSTIC_MARKER} ${ABSENT_FAVICON}` : "");
 }
 
 beforeAll(async () => {

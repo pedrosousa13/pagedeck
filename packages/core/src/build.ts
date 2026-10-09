@@ -36,7 +36,7 @@ import { checkDrift, driftWarnings } from "./drift.js";
 import { planEntries, runtimeImports } from "./entries.js";
 import type { EntryPlan, PageDemand, PageEntry } from "./entries.js";
 import { ConfigError, describeError, printable } from "./exit.js";
-import { faviconFiles } from "./favicon.js";
+import { absentFaviconWarning, faviconFiles } from "./favicon.js";
 import { feedFiles, feedUrl } from "./feed.js";
 import { foldCause, resolveFoldStrategy } from "./fold.js";
 import type { FoldAdjustment, FoldStrategy } from "./fold.js";
@@ -1265,6 +1265,8 @@ async function stageSite(input: {
     files.push(...published);
   }
 
+  const absentFavicon = absentFaviconWarning(section.favicon !== undefined, files);
+
   const referenced = contentRelativeReferences({
     documents: files,
     emitted: files,
@@ -1516,6 +1518,7 @@ async function stageSite(input: {
         ...(unloadedScript === undefined ? [] : [unloadedScript]),
         ...(undeclaredHeaders === undefined ? [] : [undeclaredHeaders]),
         ...(undeclaredContentRoot === undefined ? [] : [undeclaredContentRoot]),
+        ...(absentFavicon === undefined ? [] : [absentFavicon]),
         ...linkNotes,
         ...(drift === undefined ? [] : driftWarnings(drift)),
         ...(supplements?.warnings ?? []),
