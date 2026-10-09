@@ -570,9 +570,9 @@ first, and the runtime on the first trigger (#95).
 
 | Module | Limit | Measured |
 | --- | --- | --- |
-| `runtime.js` | 2048 B | 1731 B (#75) |
+| `runtime.js` | 2048 B | 1681 B (#75) |
 | `slot.js` | 1280 B | 1063 B (re-measured on main 2026-10-09) |
-| `startup.js` | 640 B | 601 B (#75) |
+| `startup.js` | 640 B | 557 B (#75) |
 
 Re-measure before editing any of them. A ratchet on one module cannot see bytes
 moved into the other, and every page with an island pays `runtime.js`.
