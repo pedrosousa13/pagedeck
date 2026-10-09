@@ -20,6 +20,12 @@ const FIXTURE: Record<string, string> = {
   "Inline.js": `import "./other.css?inline";\nexport default function Inline() { return "inline"; }\n`,
   "Hydrated.js": `import "./styled.css";\nexport default function Hydrated() { return "hydrated"; }\n`,
   "Lit.js": `"use client";\nimport "./styled.css";\nexport default function Lit() { return "lit"; }\n`,
+  "Shell.js": `import Toggle from "./Toggle.js";\nexport default function Shell() { return Toggle(); }\n`,
+  "Toggle.js": `"use client";\nimport Knob from "./Knob.js";\nexport default function Toggle() { return Knob(); }\n`,
+  "Knob.js": `"use client";\nexport default function Knob() { return "knob"; }\n`,
+  "Frame.js": `import Knob from "./Knob.js";\nexport default function Frame() { return Knob(); }\n`,
+  "Dial.js": `"use client";\nimport Knob from "./Knob.js";\nexport default function Dial() { return Knob(); }\n`,
+  "Widget.js": `import Knob from "./Knob.js";\nexport default function Widget() { return Knob(); }\n`,
   "styled.css": `.styled { color: red; }\n`,
   "other.css": `.other { color: blue; }\n`,
 };
@@ -212,4 +218,92 @@ test("a stylesheet imported with a query is not reported", async () => {
   });
 
   expect(warnings).toEqual([]);
+}, 120_000);
+
+const UNREGISTERED_FIX =
+  " — register it under build.components, or import it only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:";
+
+test('the scan warns about an unregistered "use client" module a static component imports', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Frame: "./src/Frame.js" },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+      `  "${SRC}Knob.js" — ${SRC}Frame.js → ${SRC}Knob.js`,
+  ]);
+}, 120_000);
+
+test('a "use client" module registered under build.components is not reported', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Frame: "./src/Frame.js", Knob: "./src/Knob.js" },
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test('an unregistered "use client" module only a registered client module imports is not reported', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Dial: "./src/Dial.js" },
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test('an unregistered "use client" module only a registered island without the directive imports is not reported', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Widget: "./src/Widget.js" },
+    components: { Widget: { hydrate: "idle" } },
+  });
+
+  expect(warnings).toEqual([]);
+}, 120_000);
+
+test('an unregistered "use client" module a component registered with hydrate: "none" imports is reported', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Widget: "./src/Widget.js" },
+    components: { Widget: { hydrate: "none" } },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+      `  "${SRC}Knob.js" — ${SRC}Widget.js → ${SRC}Knob.js`,
+  ]);
+}, 120_000);
+
+test('of two nested unregistered "use client" modules only the outer is reported', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Shell: "./src/Shell.js" },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+      `  "${SRC}Toggle.js" — ${SRC}Shell.js → ${SRC}Toggle.js`,
+  ]);
+}, 120_000);
+
+test('two unregistered "use client" modules are one warning naming both', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Frame: "./src/Frame.js", Shell: "./src/Shell.js" },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 2 modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript${UNREGISTERED_FIX}\n` +
+      `  "${SRC}Knob.js" — ${SRC}Frame.js → ${SRC}Knob.js\n` +
+      `  "${SRC}Toggle.js" — ${SRC}Shell.js → ${SRC}Toggle.js`,
+  ]);
 }, 120_000);

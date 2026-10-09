@@ -11,7 +11,12 @@ import type {
   UnparsedModule,
 } from "./directive-scan.js";
 import { UNPARSABLE_REFUSAL } from "./directive-source.js";
-import { reachableFrom, resolveBoundaries } from "./directives.js";
+import {
+  chainTo,
+  chainsFromEntries,
+  reachableFrom,
+  resolveBoundaries,
+} from "./directives.js";
 import type { ModuleGraph } from "./directives.js";
 import { serveGeneratedEntries } from "./entry-modules.js";
 import type { ModuleMap } from "./entries.js";
@@ -168,9 +173,20 @@ export async function scanIslandFacts(
     }
   }
   const unlinked = unlinkedStylesheets(graph, islandModules, input.css ?? []);
+  const registeredIds = names
+    .map((name) => ids[input.modules[name] as string])
+    .filter((id) => id !== undefined);
+  const unregistered = unregisteredClientModules(
+    graph,
+    islandModules,
+    registeredIds,
+  );
   const warnings = [
     ...(placers.length === 0 ? [] : [resourcePlacerWarning(placers)]),
     ...(unlinked.length === 0 ? [] : [unlinkedStylesheetWarning(unlinked)]),
+    ...(unregistered.length === 0
+      ? []
+      : [unregisteredClientWarning(unregistered)]),
   ];
   const facts: Record<string, ModuleFacts> = {};
   const namesByModule = new Map<string, string[]>();
@@ -257,6 +273,51 @@ function unlinkedStylesheetWarning(
       ? "1 stylesheet is imported only by modules outside every island's import closure, so no page links it"
       : `${String(unlinked.length)} stylesheets are imported only by modules outside every island's import closure, so no page links them`;
   return `Island scan: ${subject} — import the stylesheet from an island's module, or list it in build.css; this is a warning and not a refusal because every page still renders, and a page may link a stylesheet some other way the scan cannot see, such as a head link to a passthrough file:\n${lines}`;
+}
+
+/**
+ * Walks from each registered component outside every island, never through an
+ * island module, so a client module reached is one some static module imports.
+ */
+function unregisteredClientModules(
+  graph: ModuleGraph,
+  islandModules: ReadonlySet<string>,
+  registeredIds: readonly string[],
+): (readonly string[])[] {
+  const registered = new Set(registeredIds);
+  const imports = new Map<string, readonly string[]>();
+  for (const [importer, imported] of graph.imports) {
+    if (!islandModules.has(importer)) imports.set(importer, imported);
+  }
+  const via = chainsFromEntries({
+    ...graph,
+    entries: registeredIds.filter((id) => !islandModules.has(id)),
+    imports,
+  });
+  return [...graph.directives]
+    .filter(
+      ([id, directive]) =>
+        directive === "use client" && via.has(id) && !registered.has(id),
+    )
+    .map(([id]) => id)
+    .sort()
+    .map((id) => chainTo(id, via));
+}
+
+function unregisteredClientWarning(
+  chains: readonly (readonly string[])[],
+): string {
+  const lines = chains
+    .map(
+      (chain) =>
+        `  "${chain[chain.length - 1] as string}" — ${chain.join(" → ")}`,
+    )
+    .join("\n");
+  const subject =
+    chains.length === 1
+      ? '1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript'
+      : `${String(chains.length)} modules carrying "use client" are imported from outside every island but are not registered in build.components, so they render as static HTML with no JavaScript`;
+  return `Island scan: ${subject} — register it under build.components, or import it only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:\n${lines}`;
 }
 
 function sharedModuleReport(

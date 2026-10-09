@@ -40,6 +40,7 @@ interface SiteOptions {
   preinitInEffect?: boolean;
   globalCss?: boolean;
   staticCss?: boolean;
+  unregisteredClient?: boolean;
   noIslands?: boolean;
   workerScripts?: boolean;
   noHeaders?: boolean;
@@ -214,6 +215,16 @@ export default function Wrap() {
     writeFileSync(
       join(ROOT, "components", "Copy.js"),
       `import "../global.css";\n${COMPONENTS["Copy.js"] as string}`,
+    );
+  }
+  if (options.unregisteredClient === true) {
+    writeFileSync(
+      join(ROOT, "components", "Toggle.js"),
+      `"use client";\nexport default function Toggle() { return "marker-toggle-3f6a"; }\n`,
+    );
+    writeFileSync(
+      join(ROOT, "components", "Copy.js"),
+      `import Toggle from "./Toggle.js";\nexport default function Copy() { return "marker-copy-7c02" + Toggle(); }\n`,
     );
   }
   const markets = marketsOf(options);
@@ -910,6 +921,25 @@ test("a stylesheet a static component imports and build.css lists does not warn"
 
   expect(result.code).toBe(EXIT_CODES.success);
   expect(result.err).toBe(ABSENT_FAVICON);
+}, 120_000);
+
+test('an unregistered "use client" module a static component imports warns and still builds', async () => {
+  const dir = site({ unregisteredClient: true });
+  await run(dir, "sync");
+
+  const result = await run(dir, "build");
+
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(result.err).toBe(
+    [
+      `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript — register it under build.components, or import it only from an island's module; this is a warning and not a refusal because an import is not a render, and a client module can render correctly as static HTML:`,
+      `  "${join(dir, "components", "Toggle.js")}" — ${join(dir, "components", "Copy.js")} → ${join(dir, "components", "Toggle.js")}`,
+      ABSENT_FAVICON,
+    ].join("\n"),
+  );
+  expect(
+    readFileSync(join(dir, "dist", "about", "index.html"), "utf8"),
+  ).toContain("marker-toggle-3f6a");
 }, 120_000);
 
 test("a site with no islands compiles and links its global stylesheet, and ships no JavaScript", async () => {
