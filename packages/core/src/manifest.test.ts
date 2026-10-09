@@ -1066,7 +1066,7 @@ test("two emitted files claiming one page or one entry chunk name are named", ()
 
   expect(message).toBe(
     [
-      "Build manifest: 2 claims are made by more than one emitted file — emit one HTML file per page in each output tree, and check that none of the site's build.vite.plugins emits a second chunk under a generated entry's name:",
+      "Build manifest: 2 claims are made by more than one emitted file — emit one HTML file per page in each output tree; if none of the site's build.vite.plugins emits a second chunk under a generated entry's name, report it as a Pagedeck bug:",
       `  entry chunk name "${HERO}" in the default tree — "/assets/en-9z8y7x.js", "/assets/en-a1b2c3.js"`,
       '  page en / — "/en/index-copy.html", "/en/index.html"',
     ].join("\n"),

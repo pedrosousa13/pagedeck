@@ -339,7 +339,7 @@ const DUPLICATE_KEY_FIX =
 const MISCLAIMED_PAGE_FIX =
   "tag only a page's own HTML file, in that page's output tree";
 const CONTESTED_CLAIM_FIX =
-  "emit one HTML file per page in each output tree, and check that none of the site's build.vite.plugins emits a second chunk under a generated entry's name";
+  "emit one HTML file per page in each output tree; if none of the site's build.vite.plugins emits a second chunk under a generated entry's name, report it as a Pagedeck bug";
 const MISSING_HTML_FIX =
   "emit a file for each page and tag it with the page it renders, or drop the page from the route table";
 const UNPLANNED_PAGE_FIX =

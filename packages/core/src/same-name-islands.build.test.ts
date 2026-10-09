@@ -12,9 +12,8 @@ const BIN = join(import.meta.dirname, "..", "dist", "bin.js");
 
 const SITE = join(import.meta.dirname, "..", ".pagedeck-build-test-same-name-islands");
 
-// Each island is below the tier policy's `minSize`, so no tier group takes it.
-// Both islands in a directory import its `ease.ts`, which Rolldown splits into a
-// chunk named `ease`, and which an incremental build pins by that name (#68).
+// Each island is below the tier policy's `minSize`, so no tier group takes it,
+// and both in a directory import its `ease.ts`, so Rolldown splits it (#68).
 function island(name: string, marker: string): string {
   return `"use client";
 import { useState } from "react";
@@ -86,11 +85,17 @@ interface Chunks {
   ease: string[];
 }
 
+interface Manifest {
+  files: readonly { path: string; kind: string; chunk?: { name: string } }[];
+  tiers: { assignments: readonly { component: string; group?: string }[] };
+}
+
+function manifest(): Manifest {
+  return JSON.parse(readFileSync(join(SITE, "site", "manifest.json"), "utf8")) as Manifest;
+}
+
 function chunks(): Chunks {
-  const manifest = JSON.parse(
-    readFileSync(join(SITE, "site", "manifest.json"), "utf8"),
-  ) as { files: readonly { path: string; kind: string; chunk?: { name: string } }[] };
-  const js = manifest.files.filter((file) => file.kind === "js");
+  const js = manifest().files.filter((file) => file.kind === "js");
   return {
     fade: js
       .filter((file) => /\/fade-[^/]+\.js$/.test(file.path))
@@ -126,6 +131,13 @@ test("islands and split chunks that share a file name build into a chunk each, a
   write("pagedeck.config.ts", CONFIG);
   await pagedeck("sync");
   await pagedeck("build");
+  const { files, tiers } = manifest();
+  expect(tiers.assignments.filter((one) => one.group !== undefined)).toEqual([]);
+  for (const file of files.filter((one) => one.path.startsWith("/assets/fw-"))) {
+    expect(readFileSync(join(SITE, "site", file.path), "utf8"), file.path).not.toMatch(
+      /marker-(?:fade|curve|ease)-[ab]-/,
+    );
+  }
   const full = chunks();
   expect(markers(full.fade, /marker-fade-[ab]-\w+/)).toEqual([
     "marker-fade-a-4c91",
