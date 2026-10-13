@@ -67,6 +67,7 @@
       "adr/0007-islands-are-built-in-one-module-graph.md",
       "adr/0008-when-the-manifest-version-moves.md",
       "adr/0009-one-package-per-edge-adapter.md",
+      "adr/0010-request-time-code-lives-beside-the-site.md",
       "explanation/why-this-site-ships-no-javascript.md"
     ]
   }
