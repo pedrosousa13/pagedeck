@@ -206,6 +206,8 @@ const RESERVED_SEGMENT_FIX = `move the page out of "${VARIANT_PREFIX}", or drop 
 const RESERVED_KEY_FIX = `move each off "${DEPLOY_MANIFEST_PATH}" and out of "${DEPLOY_DIRECTORY}/"; every target answers 404 there, so nothing routed at one of them is ever served`;
 const COVERED_BY_UPSTREAM_FIX =
   "move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there";
+const UNREACHABLE_HEADERS_FIX =
+  "set those headers in the app, or delete the rule; every answer under an upstream prefix is the app's, and no host adds the site's headers to it";
 const NESTED_UPSTREAM_FIX =
   "give each app one prefix that no other upstream prefix in its tree starts with; a path under both has two apps to answer it, and the route table has no precedence rules";
 
@@ -957,8 +959,15 @@ function check(input: RoutingInput, drafted: Drafted): void {
 
   const covered: string[] = [];
   const nested: string[] = [];
+  const unreachableHeaders: string[] = [];
   upstreams.forEach((upstream, index) => {
     const { domain, prefix } = upstream;
+    for (const rule of headers) {
+      if (rule.domain !== domain || !covers(prefix, rule.prefix)) continue;
+      unreachableHeaders.push(
+        `  "${rule.prefix}" in ${treeOf(domain)} — ${rule.where}, under "${prefix}" — ${upstream.where}`,
+      );
+    }
     const claims: string[] = [];
     for (const page of input.pages) {
       if (page.domain !== domain || !covers(prefix, page.output)) continue;
@@ -1196,6 +1205,16 @@ function check(input: RoutingInput, drafted: Drafted): void {
                 : `${String(nested.length)} upstream prefixes are declared twice or inside others`
             } — ${NESTED_UPSTREAM_FIX}`,
             [...nested].sort(),
+          ),
+      unreachableHeaders.length === 0
+        ? undefined
+        : report(
+            `${
+              unreachableHeaders.length === 1
+                ? "1 header rule sits under an upstream prefix"
+                : `${String(unreachableHeaders.length)} header rules sit under an upstream prefix`
+            } — ${UNREACHABLE_HEADERS_FIX}`,
+            [...unreachableHeaders].sort(),
           ),
     ].filter((section) => section !== undefined),
   );

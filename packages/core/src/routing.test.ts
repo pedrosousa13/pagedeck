@@ -1770,6 +1770,29 @@ test("two upstream prefixes where one starts with the other, or one declared twi
   );
 });
 
+test("a header rule under an upstream prefix is refused, and one over it is kept", () => {
+  const set = [{ name: "X-Robots-Tag", value: "noindex" }];
+  const failure = failureOf(() =>
+    plan({
+      config: {
+        headers: [
+          { prefix: "/", set },
+          { prefix: "/api/v1/", set },
+          { prefix: "/api/", set },
+        ],
+        upstreams: [{ prefix: "/api/" }],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      "Routing manifest: 2 header rules sit under an upstream prefix — set those headers in the app, or delete the rule; every answer under an upstream prefix is the app's, and no host adds the site's headers to it:",
+      '  "/api/" in the default tree — build.routing.headers[2], under "/api/" — build.routing.upstreams[0]',
+      '  "/api/v1/" in the default tree — build.routing.headers[1], under "/api/" — build.routing.upstreams[0]',
+    ].join("\n"),
+  );
+});
+
 test("an upstream prefix over a page and inside another prefix is refused for both in one report", () => {
   const failure = failureOf(() =>
     plan({
