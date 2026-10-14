@@ -174,6 +174,29 @@ test("template-app's README.md and content/index.md start with the template's, s
   }
 });
 
+test("template-app's pagedeck.config.ts is the template's plus the hello component and the /api/ upstream", () => {
+  const starter = readFileSync(join(PACKAGE, "template", "pagedeck.config.ts"), "utf8");
+  const counter = '      counter: "./components/counter.tsx",\n';
+  const routing = '    routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },\n';
+  expect(starter).toContain(counter);
+  expect(starter).toContain(routing);
+
+  expect(readFileSync(join(PACKAGE, "template-app", "pagedeck.config.ts"), "utf8")).toBe(
+    starter
+      .replace(counter, `${counter}      hello: "./components/hello.tsx",\n`)
+      .replace(
+        routing,
+        [
+          "    routing: {",
+          '      headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }],',
+          '      upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "app/" }],',
+          "    },",
+          "",
+        ].join("\n"),
+      ),
+  );
+});
+
 test("--app's package.json adds Hono, the Node server and a dev:app script, at the ranges create-pagedeck builds its own test site with", async () => {
   await create(["my-site", "--app"], cwd, notTTY());
   await create(["plain"], cwd, notTTY());
