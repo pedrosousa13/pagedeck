@@ -116,6 +116,17 @@ test("no emitted file carries the app's code", () => {
   expect(leaked).toEqual([]);
 });
 
+test("the build routes the prefix for Cloudflare Pages, and the upload leaves that file out", () => {
+  expect(JSON.parse(readFileSync(join(OUT, "_routes.json"), "utf8"))).toEqual({
+    version: 1,
+    include: ["/api/*"],
+    exclude: [],
+  });
+  expect(readFileSync(join(SITE, "public", ".assetsignore"), "utf8").split("\n")).toContain(
+    "/_routes.json",
+  );
+});
+
 test("a built page is served from site/ with the build's headers", async () => {
   for (const path of ["/", "/signup/"]) {
     const response = await fetch(`${origin}${path}`);

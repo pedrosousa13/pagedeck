@@ -961,6 +961,25 @@ host (taken by the snapshot host refusal, which is about a URL's authority —
 `pagedeck dev --host` names an interface to bind, the same sense and not this one),
 CDN, distribution (that is what an out-of-band artifact is applied to)
 
+**Upstream**:
+An app the site runs beside its pages, on the same origin, that answers every
+request under one path prefix (`build.routing.upstreams`,
+`packages/core/src/routing.ts`, #141, ADR-0010). The site writes and deploys
+it; Pagedeck never imports, bundles or runs it. The build refuses a prefix that
+covers anything it writes, the adapter routes the prefix to the app in the
+host's own terms, `pagedeck dev` forwards it to the entry's `dev` URL, and the
+client build refuses an island import that reaches the entry's `source`.
+
+It is **not** an **origin**, which is where the built files are published and
+served from: an upstream receives requests and never files. Nor is it an
+**edge artifact**, which the adapter compiles and the build checks byte for
+byte; an upstream's code is the site's own and nothing in the build reads it.
+It earns an entry because "the server", "the backend" and "the API" each read
+as something Pagedeck provides, and none of it is.
+_Avoid_: backend, server, API (the app may answer HTML), function (a host's
+product name for one way to run it), middleware (one thing an app may do),
+proxy (what the host or `pagedeck dev` does to reach it)
+
 **Deploy instant**:
 When a build was last deployed to an **origin**: the clock reading an apply
 takes as it runs, filed beside that build's document in the origin's deploy

@@ -9,9 +9,11 @@ Date: 2026-10-13
 
 ## Status
 
-Proposed, for #141. The maintainer asked for it on 2026-10-13, with two
-conditions: Pagedeck stays agnostic about the app's framework, and an island
-can talk to the app's endpoints and middleware with little setup.
+Accepted, and shipped on #141. The maintainer asked for it on 2026-10-13, with
+two conditions: Pagedeck stays agnostic about the app's framework, and an
+island can talk to the app's endpoints and middleware with little setup.
+`cloudflarePages()` is the first adapter that routes upstreams. Every other
+adapter refuses them, through the base, until its own issue lands.
 
 ## Context
 
@@ -52,15 +54,16 @@ app:
 
 | Host | How the prefix reaches the app |
 | --- | --- |
-| Cloudflare static assets | `assets.run_worker_first` patterns, the app as the Worker |
+| Cloudflare Pages | a `_routes.json` include rule per prefix, the app as Pages Functions |
+| Cloudflare Workers Static Assets | `assets.run_worker_first` patterns in the site's own `wrangler.jsonc`, the app as the Worker; the build cannot write that file |
 | Cloudflare Worker | the generated Worker forwards the prefix to a service binding |
 | Vercel | a route in the build output to a function |
 | Netlify | a function's `path` |
 | CloudFront | a second origin and a cache behaviour for the prefix |
 | nginx | a `location` that proxies to the app |
 
-An adapter that does not support upstreams yet refuses them with a
-`ConfigError`, as adapters refuse other features today.
+`defineAdapter` refuses upstreams for every adapter that does not declare it
+routes them, so a new adapter cannot drop a prefix without a word.
 
 **No precedence.** A prefix may not cover a built page, a redirect, a 404 page
 or a reserved deploy key, and one prefix may not contain another. The build
