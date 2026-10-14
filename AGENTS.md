@@ -743,6 +743,11 @@ then adds `"/**": "1mb"` to the config, builds again, and reads
 `.pagedeck/budget-report.json`: `/` and `/about` ship 0 B, and exactly one of
 `/counter`'s chunks carries the counter's code.
 
+It runs the bin once more with `--app` and installs that site the same way, so
+`hono` and `@hono/node-server` come from the npm registry. Then it syncs and
+builds it, and requires the manifest to declare `/api/` as the one upstream,
+and no chunk to hold a string that only `app/index.ts` has.
+
 ### Measurement harnesses
 
 | Command | Runs | Re-run on |

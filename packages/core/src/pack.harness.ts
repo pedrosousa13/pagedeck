@@ -356,7 +356,11 @@ test("following the tutorial with create-pagedeck's tarball reaches a built site
       return;
     }
     if (command === "npm" && args[0] === "create" && /^pagedeck(@latest)?$/.test(args[1] ?? "")) {
-      await spawn(create, args.slice(2), cwd);
+      // npm passes what follows `--` to the initializer, and drops the `--` itself.
+      const passed = args.slice(2);
+      const separator = passed.indexOf("--");
+      if (separator !== -1) passed.splice(separator, 1);
+      await spawn(create, passed, cwd);
       return;
     }
     if (command === "npm" && args.length === 1 && args[0] === "install") {
@@ -490,6 +494,45 @@ test("the site create-pagedeck writes builds from installed packages, and only i
     readFileSync(join(site, "site", path), "utf8").includes("Clicked "),
   );
   expect(counter).toHaveLength(1);
+}, 600_000);
+
+test("the site create-pagedeck --app writes installs Hono from npm, builds with the /api/ upstream, and ships none of the app", async () => {
+  const create = await installCreatePagedeck(join(root, "create-app"));
+  await spawn(create, ["app-site", "--app"], root);
+
+  const site = join(root, "app-site");
+  const manifest = JSON.parse(await readFile(join(site, "package.json"), "utf8")) as Manifest;
+  expect(Object.keys(manifest.dependencies ?? {})).toEqual(
+    expect.arrayContaining(["hono", "@hono/node-server"]),
+  );
+  await install(site, manifest as unknown as Record<string, unknown>);
+
+  const bin = join(site, "node_modules", ".bin", "pagedeck");
+  await spawn(bin, ["sync"], site);
+  await spawn(bin, ["build"], site);
+
+  const built = JSON.parse(await readFile(join(site, "site", "manifest.json"), "utf8")) as {
+    routing: { trees: { upstreams?: { prefix: string }[] }[] };
+  };
+  expect(built.routing.trees.map((tree) => tree.upstreams)).toEqual([[{ prefix: "/api/" }]]);
+
+  const app = await readFile(join(site, "app", "index.ts"), "utf8");
+  const unique = ["The app answered.", "no-store"];
+  for (const marker of unique) expect(app).toContain(marker);
+  const assets = join(site, "site", "assets");
+  const chunks = await Promise.all(
+    (await readdir(assets))
+      .filter((file) => file.endsWith(".js"))
+      .map(async (file) => ({ file, code: await readFile(join(assets, file), "utf8") })),
+  );
+  expect(
+    chunks.filter(({ file, code }) => file.startsWith("hello-") && code.includes("$get")),
+  ).toHaveLength(1);
+  expect(
+    chunks.flatMap(({ file, code }) =>
+      unique.filter((marker) => code.includes(marker)).map((marker) => `${file}: ${marker}`),
+    ),
+  ).toEqual([]);
 }, 600_000);
 
 interface HostCase {
