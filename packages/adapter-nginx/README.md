@@ -41,6 +41,44 @@ path that cannot survive the round trip is refused rather than emitted: `%2F`,
 which nginx cannot tell from a real separator, an escape that is not valid
 UTF-8, and anything decoding to a control character or a `$`.
 
+## An app beside the site
+
+Each prefix in `build.routing.upstreams` must name `url`, the `https` origin
+the app answers at, and becomes two proxy locations: `location = "/api"` and
+`location ^~ "/api/"`. Without the exact one, nginx answers `/api` with a 301
+to `/api/`. `^~` keeps any regular-expression location from taking the path.
+`proxy_pass` names the origin with no URI part, so the app gets the request
+URI and query as the client sent them.
+
+Each proxy location sends `Host` as the app's own name, which its certificate
+and virtual host expect, and the visitor's host, address and scheme in
+`X-Forwarded-Host`, `X-Forwarded-For` and `X-Forwarded-Proto`. It verifies the
+app's certificate, with SNI, against `/etc/ssl/certs/ca-certificates.crt`, the
+Debian and Ubuntu bundle. Name another with
+`nginx({ trustedCertificate: "/etc/pki/tls/certs/ca-bundle.crt" })`. nginx
+resolves the app's hostname when it loads the config, and refuses to start if
+it cannot.
+
+A tree with an upstream also gets `http.conf`, the `map` that sets
+`Connection` to `upgrade` for a WebSocket and `close` otherwise. `map` is valid
+only in the `http` block, so include `http.conf` there, once, whichever tree it
+came from:
+
+```nginx
+http {
+    include /etc/nginx/pagedeck/http.conf;
+    server {
+        root /srv/site;
+        include /etc/nginx/pagedeck/routing.conf;
+    }
+}
+```
+
+The app sets its own headers. The fragment puts no `add_header` in a proxy
+location and none at server level, and writes no location for a header rule
+inside a prefix. An `add_header` in your own `server` block still reaches the
+app's responses, because nginx inherits it into every location that has none.
+
 An experiment split is refused, naming every page it was declared on:
 `@pagedeck/adapter-cloudfront` is the only adapter that compiles one.
 
