@@ -1186,6 +1186,27 @@ operator's:
   because a location with no `add_header` inherits it. The adapter emits its
   header rules as locations for that reason.
 
+### Observed on Cloudflare Workers Static Assets
+
+`packages/app-example` was deployed with `wrangler deploy --temporary` on
+2026-10-14 (wrangler 4.148.0) and requested over HTTPS:
+
+- `/` and `/signup/` answered `200` from `site/`, with `_headers`' set
+  (`X-Frame-Options: DENY`, `nosniff`).
+- `POST /api/signup` and `POST /api/signup?x=1` reached the app, which answered
+  `201` and `400` with its own `X-Frame-Options: SAMEORIGIN` and `no-store`. No
+  `_headers` rule reached either.
+- `/api`, `/api/`, `/api/nope` and `/no-such-page/` reached the app's `404`.
+- With `.assetsignore` in `site/`, `/_routes.json`, `/manifest.json`,
+  `/404.html` and `/.pagedeck/x` answered `404`. Without it (the example
+  copied no `public/` until this run found it), the same upload served
+  `/_routes.json` with `200` and answered `/manifest.json` and `/404.html` with
+  a `307` to `/404`. So a site on Workers Static Assets must pass
+  `public/.assetsignore` through, as `passthrough: { root: "./public" }` does.
+
+A new `workers.dev` subdomain answered `404` with Cloudflare error `1042` for
+its first few seconds.
+
 ### Unverified until a first deploy
 
 Each fact below is undocumented by the host, so the adapter and its
