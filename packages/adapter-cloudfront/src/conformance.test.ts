@@ -6,5 +6,5 @@ describeConformance({
   adapter: cloudfront(),
   interpret: interpretCloudFront,
   policies: ["never", "always"],
-  upstreams: { withUrl: "refused", withoutUrl: "refused" },
+  upstreams: { withUrl: "routed", withoutUrl: "refused" },
 });
