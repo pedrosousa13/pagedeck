@@ -197,7 +197,7 @@ export default defineConfig({
 });
 ```
 
-A new site can skip this step: `npm create pagedeck@latest my-site --host netlify`
+A new site can skip this step: `npm create pagedeck@latest my-site -- --host netlify`
 installs the adapter and writes both of these for a fresh site, and
 `--host vercel` or `--host cloudflare-pages` do the same for those hosts. The
 above is what to do by hand, or to a site that already exists.

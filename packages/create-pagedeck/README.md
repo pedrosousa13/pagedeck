@@ -27,8 +27,13 @@ version.
 ## Arguments
 
 ```sh
-npm create pagedeck@latest [directory] [--host <vercel|cloudflare-pages|netlify|none>] [--app] [--yes]
+npm create pagedeck@latest [directory] -- [--host <vercel|cloudflare-pages|netlify|none>] [--app] [--yes]
 ```
+
+The options go after `--`. npm passes everything after it to
+`create-pagedeck`, and keeps any option before it for itself
+([npm init](https://docs.npmjs.com/cli/commands/npm-init), "Forwarding
+additional options").
 
 The directory's name becomes the site's package name, so it must be a valid
 npm package name. The directory must not exist yet, or must be empty:
