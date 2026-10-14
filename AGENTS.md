@@ -596,8 +596,10 @@ refuse an island's value import of `src/app.ts`. `wrangler.jsonc` sends
 `/api/*` to the app and every other request to `site/`; keep its
 `run_worker_first` in step with the config's prefixes, since the build cannot
 read it. The island on `/signup/` imports the app's type only.
-`cloudflarePages()` is the one adapter that routes upstreams; `defineAdapter`
-refuses them for every other. `src/site.build.test.ts` builds the site in place, serves it
+Every adapter routes upstreams under a policy `defineAdapter` enforces: it
+requires, refuses or allows `url`, and an adapter that declares no policy
+refuses every upstream. `docs/deploy-recipe.md`, "An app beside the site",
+holds each host's steps and the host facts a first deploy still has to check. `src/site.build.test.ts` builds the site in place, serves it
 with `wrangler dev`, and requests both halves; it also fails if any file the
 build writes holds the app's error message. Its `README.md` holds the budget
 table.

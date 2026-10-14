@@ -191,9 +191,24 @@ The app answers on the site's own origin, so:
 
 ## Other hosts
 
-Today `cloudflarePages()` is the one adapter that routes upstreams. Every other
-adapter refuses a site that declares them rather than drop the prefix without
-a word. Each host has its own way to send a prefix to code beside static
-files: a function with a `path` on Netlify, a function route on Vercel, a
-second origin and cache behaviour on CloudFront, and a `location` with
-`proxy_pass` in nginx. Hono runs on most of them with a different entry file.
+Every adapter routes upstreams, each in its host's own terms, and each sends
+`/api` to the app as well as everything under `/api/`. A host that runs the
+app beside the pages needs no `url`. A host that proxies to an app running
+elsewhere needs `url`, the `https` origin the app answers at:
+
+| Adapter | `url` | How the prefix reaches the app |
+| --- | --- | --- |
+| `cloudflarePages()` | refused | `_routes.json` sends it to Pages Functions |
+| `cloudflareWorker()` | optional | a service binding named in `cloudflareWorker({ upstreams })`, or a `fetch` to `url` |
+| `netlify()` | required | forced proxy rows in `_redirects` |
+| `vercel()` | required | a route in `vercel.json` ahead of the files |
+| `cloudfront()` | required | an origin and cache behaviours with caching disabled, in `upstreams.json` |
+| `nginx()` | required | `proxy_pass` locations with TLS verification and WebSocket support |
+
+On every host the site's header rules stay off the app's answers, and the
+build refuses a header rule under a prefix, since it could never apply. So the
+app sets its own headers, `Cache-Control` included: a host that caches
+proxied answers, as Vercel does for a project created on or after 6 April
+2026, caches what the app's `Cache-Control` allows. Hono runs on each of these
+hosts with a different entry file. [Deploy a site](./deploy-a-site.md) and the
+deploy recipe's "An app beside the site" give each host's steps.

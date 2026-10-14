@@ -12,8 +12,7 @@ Date: 2026-10-13
 Accepted, and shipped on #141. The maintainer asked for it on 2026-10-13, with
 two conditions: Pagedeck stays agnostic about the app's framework, and an
 island can talk to the app's endpoints and middleware with little setup.
-`cloudflarePages()` is the first adapter that routes upstreams. Every other
-adapter refuses them, through the base, until its own issue lands.
+Every adapter routes upstreams; the table below is what shipped.
 
 ## Context
 
@@ -56,11 +55,11 @@ app:
 | --- | --- |
 | Cloudflare Pages | two `_routes.json` include rules per prefix, its unslashed path and everything under it, the app as Pages Functions |
 | Cloudflare Workers Static Assets | `assets.run_worker_first` patterns in the site's own `wrangler.jsonc`, the app as the Worker; the build cannot write that file |
-| Cloudflare Worker | the generated Worker forwards the prefix to a service binding |
-| Vercel | a route in the build output to a function |
-| Netlify | a function's `path` |
-| CloudFront | a second origin and a cache behaviour for the prefix |
-| nginx | a `location` that proxies to the app |
+| Cloudflare Worker | the generated Worker calls a service binding named in `cloudflareWorker({ upstreams })`, or fetches `url` |
+| Vercel | a route in `vercel.json` to `url`, ahead of the filesystem |
+| Netlify | forced proxy rows in `_redirects` to `url` |
+| CloudFront | an origin for `url` and two cache behaviours with caching disabled, in a `distribution-config` fragment |
+| nginx | an exact and a `^~` `location` that `proxy_pass` to `url`, with TLS verification |
 
 `defineAdapter` refuses upstreams for every adapter that does not declare it
 routes them, so a new adapter cannot drop a prefix without a word. An adapter
