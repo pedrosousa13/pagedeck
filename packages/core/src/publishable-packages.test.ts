@@ -190,7 +190,7 @@ test("every workspace package packs a tarball its entry points resolve inside", 
           );
           if (stowaways.length > 0) {
             faults.push(
-              `Package "${manifest.name}": its tarball carries ${String(stowaways.length)} file(s) that are not emitted output — ${stowaways.slice(0, 5).join(", ")}${stowaways.length > 5 ? ", …" : ""} — so a consumer downloads this package's source, tests or build cache; a published package carries dist and package.json and nothing else, which is what "files": ["dist", "!dist/.tsbuildinfo"] declares, and create-pagedeck alone adds its template there file by file, as "template/<path>"`,
+              `Package "${manifest.name}": its tarball carries ${String(stowaways.length)} file(s) that are not emitted output — ${stowaways.slice(0, 5).join(", ")}${stowaways.length > 5 ? ", …" : ""} — so a consumer downloads this package's source, tests or build cache; a published package carries dist and package.json and nothing else, which is what "files": ["dist", "!dist/.tsbuildinfo"] declares, and create-pagedeck alone adds its templates there file by file, as "template/<path>" and "template-app/<path>"`,
             );
           }
 

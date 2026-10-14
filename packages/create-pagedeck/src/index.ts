@@ -13,9 +13,10 @@ import { parseArgs } from "node:util";
 
 const PACKAGE = join(import.meta.dirname, "..");
 
-const TEMPLATE = join(PACKAGE, "template");
-
 const LISTED = "template/";
+
+// Written over the starter's files with --app, listed in "files" the same way.
+const LISTED_APP = "template-app/";
 
 // npm and pnpm leave every file named `.gitignore` out of a tarball.
 const PACKED_GITIGNORE = "_gitignore";
@@ -30,6 +31,10 @@ const PAGEDECK_PACKAGES = [
 const SITE_DEPENDENCIES = { react: "^19.2.0", "react-dom": "^19.2.0" } as const;
 
 const SITE_DEV_DEPENDENCIES = { "@types/react": "^19.2.0" } as const;
+
+const APP_DEPENDENCIES = { "@hono/node-server": "^2.1.5", hono: "^4.13.13" } as const;
+
+const APP_SCRIPTS = { "dev:app": "node app/dev.ts" } as const;
 
 const NAME = /^[a-z0-9][a-z0-9._-]*$/;
 
@@ -66,6 +71,9 @@ const ADAPTERS: Record<Exclude<Host, "none">, Adapter> = {
 
 const DEPLOY_DOC =
   "https://pagedeck-docs.pedrodsousa.workers.dev/how-to/deploy-a-site/";
+
+const APP_DOC =
+  "https://pagedeck-docs.pedrodsousa.workers.dev/how-to/run-an-app-beside-the-site/";
 
 // `node` is this package's own `engines.node`, the exact range `deploy-a-site.md` states —
 // looser wording such as "22.18.0 or later" would admit 23.0–23.6, which the range excludes.
@@ -112,7 +120,7 @@ const COMPONENTS_BLOCK = `    components: {
     },
 `;
 
-const USAGE = `Usage: create-pagedeck [directory] [--host <${HOSTS.join("|")}>] [--yes]
+const USAGE = `Usage: create-pagedeck [directory] [--host <${HOSTS.join("|")}>] [--app] [--yes]
 
 Creates a new Pagedeck site.
 
@@ -120,6 +128,8 @@ Creates a new Pagedeck site.
                          when left out (default "${DEFAULT_DIRECTORY}")
   --host <host>          the host to set the site up for (default "${DEFAULT_HOST}");
                          on a terminal, prompted for when left out
+  --app                  also write an app that answers /api/ beside the site,
+                         and an island that calls it; takes no --host
   --yes, -y              take every default and ask nothing
   --help                 print this message and exit
 `;
@@ -135,6 +145,7 @@ export interface CreateIO {
 
 const OPTIONS = {
   host: { type: "string" },
+  app: { type: "boolean" },
   yes: { type: "boolean", short: "y" },
   help: { type: "boolean" },
 } as const;
@@ -153,6 +164,7 @@ interface Arguments {
   readonly help: boolean;
   readonly directory: string | undefined;
   readonly host: string | undefined;
+  readonly app: boolean;
   readonly yes: boolean;
 }
 
@@ -166,7 +178,7 @@ function parse(args: readonly string[]): Arguments {
   });
 
   if (tokens.some((token) => token.kind === "option" && token.name === "help")) {
-    return { help: true, directory: undefined, host: undefined, yes: false };
+    return { help: true, directory: undefined, host: undefined, app: false, yes: false };
   }
 
   const unknown = tokens.flatMap((token) =>
@@ -176,7 +188,7 @@ function parse(args: readonly string[]): Arguments {
     const given =
       unknown.length === 1 ? unknown[0] : `${String(unknown.length)}: ${unknown.join(", ")}`;
     throw new ArgumentError(
-      `Arguments: create-pagedeck takes no options besides --host, --yes and --help, and was given ${given} — pass only the directory and those options, ${EXAMPLE}`,
+      `Arguments: create-pagedeck takes no options besides --host, --app, --yes and --help, and was given ${given} — pass only the directory and those options, ${EXAMPLE}`,
     );
   }
 
@@ -191,6 +203,13 @@ function parse(args: readonly string[]): Arguments {
     throw new ArgumentError(`Arguments: ${hostFix(host)}`);
   }
 
+  const app = tokens.some((token) => token.kind === "option" && token.name === "app");
+  if (app && host !== undefined && host !== "none") {
+    throw new ArgumentError(
+      `Arguments: --app sets up no host, and was given --host "${host}" — each host deploys the app its own way, which create-pagedeck does not write; leave --host out, then follow ${APP_DOC} to deploy the app with your host's adapter`,
+    );
+  }
+
   const yes = tokens.some((token) => token.kind === "option" && token.name === "yes");
 
   const positionals = tokens.flatMap((token) =>
@@ -202,7 +221,7 @@ function parse(args: readonly string[]): Arguments {
     );
   }
 
-  return { help: false, directory: positionals[0], host, yes };
+  return { help: false, directory: positionals[0], host: app ? "none" : host, app, yes };
 }
 
 function suggestedName(name: string): string {
@@ -276,7 +295,13 @@ function withAdapter(config: string, adapter: Adapter): string {
     .replace(COMPONENTS_BLOCK, `${COMPONENTS_BLOCK}    adapter: ${adapter.factory}(),\n`);
 }
 
-function closingMessage(name: string, directory: string, target: string, host: Host): string {
+function closingMessage(
+  name: string,
+  directory: string,
+  target: string,
+  host: Host,
+  app: boolean,
+): string {
   const created =
     host === "none"
       ? `Created "${name}" in ${target}. Next:`
@@ -289,6 +314,9 @@ function closingMessage(name: string, directory: string, target: string, host: H
     "  npx pagedeck sync",
     "  npx pagedeck dev",
   ];
+  if (app) {
+    next.push("", "In a second terminal, npm run dev:app serves the app that answers /api/.");
+  }
   if (host !== "none") {
     next.push(
       "",
@@ -335,7 +363,9 @@ export async function create(
     name,
     private: true,
     type: "module",
+    ...(parsed.app ? { scripts: APP_SCRIPTS } : {}),
     dependencies: {
+      ...(parsed.app ? APP_DEPENDENCIES : {}),
       ...Object.fromEntries(PAGEDECK_PACKAGES.map((dependency) => [dependency, version])),
       ...(adapter === undefined ? {} : { [adapter.dependency]: version }),
       ...SITE_DEPENDENCIES,
@@ -345,12 +375,14 @@ export async function create(
   try {
     // package.json's "files" names each template file one by one; npm packs those and
     // the site gets those, so a stray file in template/ reaches neither (#731).
-    for (const listed of files) {
-      if (!listed.startsWith(LISTED)) continue;
-      const file = listed.slice(LISTED.length);
-      const to = join(target, file === PACKED_GITIGNORE ? ".gitignore" : file);
-      mkdirSync(dirname(to), { recursive: true });
-      copyFileSync(join(TEMPLATE, file), to);
+    for (const layer of parsed.app ? [LISTED, LISTED_APP] : [LISTED]) {
+      for (const listed of files) {
+        if (!listed.startsWith(layer)) continue;
+        const file = listed.slice(layer.length);
+        const to = join(target, file === PACKED_GITIGNORE ? ".gitignore" : file);
+        mkdirSync(dirname(to), { recursive: true });
+        copyFileSync(join(PACKAGE, listed), to);
+      }
     }
     if (adapter !== undefined) {
       const configPath = join(target, "pagedeck.config.ts");
@@ -369,5 +401,5 @@ export async function create(
     );
   }
 
-  return closingMessage(name, directory, target, host);
+  return closingMessage(name, directory, target, host, parsed.app);
 }

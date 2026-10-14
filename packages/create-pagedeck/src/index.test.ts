@@ -74,13 +74,21 @@ function lockedDirectory(): string {
   return locked;
 }
 
-function listedTemplate(): string[] {
+function listedUnder(directory: "template" | "template-app"): string[] {
   const { files } = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8")) as {
     files: string[];
   };
   return files.flatMap((file) =>
-    file.startsWith("template/") ? [file.slice("template/".length)] : [],
+    file.startsWith(`${directory}/`) ? [file.slice(directory.length + 1)] : [],
   );
+}
+
+function listedTemplate(): string[] {
+  return listedUnder("template");
+}
+
+function written(file: string): string {
+  return file === "_gitignore" ? ".gitignore" : file;
 }
 
 // A fake terminal: `isTTY` is set on an injected stream pair, and each queued answer is
@@ -110,15 +118,145 @@ test("package.json lists the template file by file", () => {
   expect(listedTemplate()).toContain("pagedeck.config.ts");
 });
 
-test("the template directory holds the listed files and nothing else", () => {
-  const listed = listedTemplate();
-  const onDisk = filesUnder(join(PACKAGE, "template"));
+for (const directory of ["template", "template-app"] as const) {
+  test(`the ${directory} directory holds the listed files and nothing else`, () => {
+    const listed = listedUnder(directory);
+    const onDisk = filesUnder(join(PACKAGE, directory));
 
-  expect(
-    onDisk.filter((file) => !listed.includes(file)),
-    'files in template/ that package.json\'s "files" does not list, so they would never be packed or written; list them or delete them',
-  ).toEqual([]);
-  expect(listed.filter((file) => !onDisk.includes(file)), "listed files missing from template/").toEqual([]);
+    expect(listed.length).toBeGreaterThan(0);
+    expect(
+      onDisk.filter((file) => !listed.includes(file)),
+      `files in ${directory}/ that package.json's "files" does not list, so they would never be packed or written; list them or delete them`,
+    ).toEqual([]);
+    expect(listed.filter((file) => !onDisk.includes(file)), `listed files missing from ${directory}/`).toEqual([]);
+  });
+}
+
+test("without --app, every file but package.json is the template's own, byte for byte, and no template-app file is written", async () => {
+  await create(["my-site"], cwd, notTTY());
+
+  const site = join(cwd, "my-site");
+  for (const file of listedTemplate()) {
+    expect(readFileSync(join(site, written(file))), file).toEqual(
+      readFileSync(join(PACKAGE, "template", file)),
+    );
+  }
+  const appOnly = listedUnder("template-app").filter((file) => !listedTemplate().includes(file));
+  expect(appOnly.length).toBeGreaterThan(0);
+  expect(appOnly.filter((file) => existsSync(join(site, file)))).toEqual([]);
+  expect(manifestOf(site)).not.toHaveProperty("scripts");
+});
+
+test("--app writes the template's files, template-app's over and beside them, plus a package.json", async () => {
+  await create(["my-site", "--app"], cwd, notTTY());
+
+  const site = join(cwd, "my-site");
+  const app = listedUnder("template-app");
+  const files = new Set([...listedTemplate().map(written), ...app, "package.json"]);
+  expect(filesUnder(site)).toEqual([...files].sort());
+  for (const file of listedTemplate().filter((listed) => !app.includes(listed))) {
+    expect(readFileSync(join(site, written(file))), file).toEqual(
+      readFileSync(join(PACKAGE, "template", file)),
+    );
+  }
+  for (const file of app) {
+    expect(readFileSync(join(site, file)), file).toEqual(
+      readFileSync(join(PACKAGE, "template-app", file)),
+    );
+  }
+});
+
+test("template-app's README.md and content/index.md start with the template's, so a change to the starter reaches both", () => {
+  for (const file of ["README.md", "content/index.md"]) {
+    expect(readFileSync(join(PACKAGE, "template-app", file), "utf8").startsWith(
+      readFileSync(join(PACKAGE, "template", file), "utf8"),
+    ), file).toBe(true);
+  }
+});
+
+test("template-app's pagedeck.config.ts is the template's plus the hello component and the /api/ upstream", () => {
+  const starter = readFileSync(join(PACKAGE, "template", "pagedeck.config.ts"), "utf8");
+  const counter = '      counter: "./components/counter.tsx",\n';
+  const routing = '    routing: { headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }] },\n';
+  expect(starter).toContain(counter);
+  expect(starter).toContain(routing);
+
+  expect(readFileSync(join(PACKAGE, "template-app", "pagedeck.config.ts"), "utf8")).toBe(
+    starter
+      .replace(counter, `${counter}      hello: "./components/hello.tsx",\n`)
+      .replace(
+        routing,
+        [
+          "    routing: {",
+          '      headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }],',
+          '      upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "app/" }],',
+          "    },",
+          "",
+        ].join("\n"),
+      ),
+  );
+});
+
+test("--app's package.json adds Hono, the Node server and a dev:app script, at the ranges create-pagedeck builds its own test site with", async () => {
+  await create(["my-site", "--app"], cwd, notTTY());
+  await create(["plain"], cwd, notTTY());
+
+  const own = manifestOf(PACKAGE);
+  const plain = manifestOf(join(cwd, "plain"));
+  expect(manifestOf(join(cwd, "my-site"))).toEqual({
+    ...plain,
+    name: "my-site",
+    scripts: { "dev:app": "node app/dev.ts" },
+    dependencies: {
+      ...plain.dependencies,
+      "@hono/node-server": own.devDependencies?.["@hono/node-server"],
+      hono: own.devDependencies?.hono,
+    },
+  });
+});
+
+test("--app prints a step for running the app beside the site", async () => {
+  expect(await create(["my-site", "--app"], cwd, notTTY())).toBe(
+    [
+      `Created "my-site" in ${join(cwd, "my-site")}. Next:`,
+      "",
+      "  cd my-site",
+      "  npm install",
+      "  npx pagedeck sync",
+      "  npx pagedeck dev",
+      "",
+      "In a second terminal, npm run dev:app serves the app that answers /api/.",
+    ].join("\n"),
+  );
+});
+
+test("--app with --host none writes the same site as --app alone", async () => {
+  await create(["one", "--app"], cwd, notTTY());
+  await create(["two", "--app", "--host", "none"], cwd, notTTY());
+
+  expect(filesUnder(join(cwd, "two"))).toEqual(filesUnder(join(cwd, "one")));
+  expect(readFileSync(join(cwd, "two", "pagedeck.config.ts"), "utf8")).toBe(
+    readFileSync(join(cwd, "one", "pagedeck.config.ts"), "utf8"),
+  );
+});
+
+for (const host of ["vercel", "cloudflare-pages", "netlify"]) {
+  test(`refuses --app with --host ${host}, naming the guide, and writes nothing`, async () => {
+    expect(await refusal(["my-site", "--app", "--host", host], notTTY())).toBe(
+      `Arguments: --app sets up no host, and was given --host "${host}" — each host deploys the app its own way, which create-pagedeck does not write; leave --host out, then follow https://pagedeck-docs.pedrodsousa.workers.dev/how-to/run-an-app-beside-the-site/ to deploy the app with your host's adapter`,
+    );
+    expect(readdirSync(cwd)).toEqual([]);
+  });
+}
+
+test("on a terminal, --app asks for the directory and not the host", async () => {
+  const { io, prompts } = tty([""]);
+
+  await create(["--app"], cwd, io);
+
+  expect(prompts()).toContain("Directory");
+  expect(prompts()).not.toContain("Host");
+  expect(existsSync(join(cwd, "my-site", "app", "index.ts"))).toBe(true);
 });
 
 test("writes exactly the listed template files, with _gitignore written as .gitignore, plus a package.json", async () => {
@@ -263,14 +401,14 @@ test("refuses more than one directory, and writes nothing", async () => {
 
 test("refuses an option it does not take, and writes nothing", async () => {
   expect(await refusal(["my-site", "--template", "blog"], notTTY())).toBe(
-    'Arguments: create-pagedeck takes no options besides --host, --yes and --help, and was given "--template" — pass only the directory and those options, as in npm create pagedeck@latest my-site',
+    'Arguments: create-pagedeck takes no options besides --host, --app, --yes and --help, and was given "--template" — pass only the directory and those options, as in npm create pagedeck@latest my-site',
   );
   expect(readdirSync(cwd)).toEqual([]);
 });
 
 test("refuses several options by naming every one", async () => {
   expect(await refusal(["my-site", "--template", "blog", "-x", "--force"], notTTY())).toBe(
-    'Arguments: create-pagedeck takes no options besides --host, --yes and --help, and was given 3: "--template", "-x", "--force" — pass only the directory and those options, as in npm create pagedeck@latest my-site',
+    'Arguments: create-pagedeck takes no options besides --host, --app, --yes and --help, and was given 3: "--template", "-x", "--force" — pass only the directory and those options, as in npm create pagedeck@latest my-site',
   );
 });
 
@@ -286,11 +424,12 @@ test("a directory it cannot write fails naming the directory and a fix, with Nod
   expect((error.cause as NodeJS.ErrnoException).code).toBe("EACCES");
 });
 
-test("--help prints usage naming --host, --yes and --help, and writes nothing", async () => {
+test("--help prints usage naming --host, --app, --yes and --help, and writes nothing", async () => {
   const usage = await create(["--help"], cwd, notTTY());
 
   expect(usage).toContain("Usage: create-pagedeck");
   expect(usage).toContain("--host");
+  expect(usage).toContain("--app");
   expect(usage).toContain("--yes");
   expect(usage).toContain("--help");
   expect(readdirSync(cwd)).toEqual([]);

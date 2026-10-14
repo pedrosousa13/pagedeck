@@ -23,16 +23,20 @@ export const PUBLIC_VERSION = "0.2.3";
 
 /**
  * What a package may pack besides `dist`, `package.json`, `README*` and
- * `LICENSE`: nothing, except for `create-pagedeck`, the `template/` files its
- * `files` names one by one (#691, #731). A directory named there admits nothing
- * under it.
+ * `LICENSE`: nothing, except for `create-pagedeck`, the `template/` and
+ * `template-app/` files its `files` names one by one (#691, #731). A directory
+ * named there admits nothing under it.
  */
 export function packedBesideDist(manifest: {
   name: string;
   files?: readonly string[];
 }): ReadonlySet<string> {
   if (manifest.name !== "create-pagedeck") return new Set();
-  return new Set((manifest.files ?? []).filter((file) => file.startsWith("template/")));
+  return new Set(
+    (manifest.files ?? []).filter(
+      (file) => file.startsWith("template/") || file.startsWith("template-app/"),
+    ),
+  );
 }
 
 export const DOCS_PACKAGE = "@pagedeck/docs";

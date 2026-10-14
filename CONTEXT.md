@@ -1571,7 +1571,9 @@ only that each package has one. Extended on #662.
 **Amended by #691: `create-pagedeck` also packs `template/`**, the site
 `npm create pagedeck` copies, because that site must be real files in the
 package. Its `files` names each template file one by one, and that list bounds
-what is packed, what is copied and what the tarball check admits (#731).
+what is packed, what is copied and what the tarball check admits (#731). The
+same holds for `template-app/`, the files `npm create pagedeck -- --app`
+writes over and beside the starter.
 
 **Amended by #108, 2026-10-09: `@pagedeck/docs` packs markdown in place of
 `dist`.** It is Pagedeck's documentation, published with every release so a
