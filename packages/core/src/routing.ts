@@ -788,7 +788,7 @@ function fileTargets(input: RoutingInput): Set<string> {
   );
 }
 
-function covers(prefix: string, path: string): boolean {
+export function covers(prefix: string, path: string): boolean {
   return path.startsWith(prefix) || path === prefix.slice(0, -1);
 }
 

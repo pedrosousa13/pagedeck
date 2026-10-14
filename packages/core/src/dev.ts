@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
-import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpServer, request as httpRequest } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { request as httpsRequest } from "node:https";
 import type { AddressInfo } from "node:net";
 import { dirname, relative, resolve as resolvePath, sep } from "node:path";
 import { createServer as createViteServer } from "vite";
@@ -22,7 +23,10 @@ import { contentOf, layoutContents } from "./layout.js";
 import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
 import { renderPage } from "./render.js";
+import { covers } from "./routing.js";
+import type { UpstreamRule } from "./routing.js";
 import { workerConsentWarning, workerFallbackWarning } from "./scripts.js";
+import { redactTarget } from "./snapshot.js";
 import { stamp, trackSiteModules } from "./site-modules.js";
 import type { SiteModules } from "./site-modules.js";
 import { installStylesheetStubs } from "./stylesheet-loader.js";
@@ -49,6 +53,10 @@ const UNROUTED_FIX =
   "check the path, or run pagedeck sync if the store has not fetched this page yet";
 
 const UNREADABLE_STORE_FIX = "run pagedeck sync if it has not been created yet";
+
+const UPSTREAMS = "build.routing.upstreams";
+const NO_DEV_URL_FIX =
+  'set "dev" to the http or https URL the app listens on while you develop, such as "http://localhost:8787"';
 
 const ROUTES_LISTED = 20;
 
@@ -160,7 +168,11 @@ export async function startDevServer(
     vite.middlewares.use((request, response, next) => {
       handler(request, response).catch(next);
     });
-    http.on("request", vite.middlewares);
+    http.on("request", (request, response) => {
+      const { section } = site.current;
+      if (forwardToUpstream(section, request, response, input.err)) return;
+      vite.middlewares(request, response);
+    });
 
     const host = input.host ?? "127.0.0.1";
     await new Promise<void>((resolve, reject) => {
@@ -361,6 +373,98 @@ function pageHandler(
       store?.close();
     }
   };
+}
+
+function forwardToUpstream(
+  section: LoadedBuildSection,
+  request: IncomingMessage,
+  response: ServerResponse,
+  err: (line: string) => void,
+): boolean {
+  const upstreams = section.routing?.upstreams ?? [];
+  const url = request.url ?? "/";
+  const query = url.indexOf("?");
+  const path = query === -1 ? url : url.slice(0, query);
+  const index = upstreamAt(upstreams, hostOf(request), path);
+  const upstream = upstreams[index];
+  if (upstream === undefined) return false;
+  const entry = `${UPSTREAMS}[${String(index)}]`;
+  const asked = query === -1 ? path : `${path}?…`;
+
+  const { prefix, dev } = upstream;
+  if (dev === undefined) {
+    const message = `Dev server: ${entry} declares "${prefix}" with no "dev" URL, so pagedeck dev has no app to forward "${asked}" to — ${NO_DEV_URL_FIX}`;
+    err(message);
+    respondText(response, 502, `${message}\n`);
+    return true;
+  }
+
+  const target = new URL(dev);
+  const send = target.protocol === "https:" ? httpsRequest : httpRequest;
+  const forwarded = send(
+    {
+      protocol: target.protocol,
+      hostname: target.hostname.replace(/^\[|\]$/g, ""),
+      port: target.port,
+      method: request.method,
+      path: url,
+      headers: {
+        ...request.headers,
+        host: target.host,
+        ...(request.headers.host === undefined
+          ? {}
+          : { "x-forwarded-host": request.headers.host }),
+        "x-forwarded-proto": "http",
+      },
+    },
+    (answer) => {
+      response.writeHead(
+        answer.statusCode ?? 502,
+        answer.statusMessage,
+        answer.rawHeaders,
+      );
+      answer.on("error", (cause) => response.destroy(cause));
+      answer.pipe(response);
+    },
+  );
+  let abandoned = false;
+  forwarded.on("error", (cause) => {
+    if (abandoned) return;
+    if (response.headersSent) {
+      response.destroy(cause);
+      return;
+    }
+    const shown = redactTarget(dev);
+    const code = (cause as NodeJS.ErrnoException).code ?? "no error code";
+    const message = describeError(
+      new Error(
+        `Dev server: ${entry} forwards "${prefix}" to "${shown}", which did not answer "${asked}" (${code}) — start the app at "${shown}" first, or correct "dev" to the URL it listens on`,
+        { cause },
+      ),
+    );
+    err(message);
+    respondText(response, 502, `${message}\n`);
+  });
+  response.on("close", () => {
+    if (response.writableFinished) return;
+    abandoned = true;
+    forwarded.destroy();
+  });
+  request.pipe(forwarded);
+  return true;
+}
+
+function upstreamAt(
+  upstreams: readonly UpstreamRule[],
+  host: string | undefined,
+  path: string,
+): number {
+  const covering = (domain: string | undefined): number =>
+    upstreams.findIndex(
+      (rule) => rule.domain === domain && covers(rule.prefix, path),
+    );
+  const own = host === undefined ? -1 : covering(host);
+  return own === -1 ? covering(undefined) : own;
 }
 
 function openStore(storePath: string): ContentStoreReader {
