@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createServer } from "vite";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { buildClient } from "./client-build.js";
 import type { ClientBuild } from "./client-build.js";
@@ -8,6 +9,7 @@ import { planEntries } from "./entries.js";
 import { ConfigError } from "./exit.js";
 import type { UpstreamRule } from "./routing.js";
 import { planTiers } from "./tiers.js";
+import { upstreamImportCheck, upstreamSources } from "./upstream-imports.js";
 
 const FIXTURE_DIR = fileURLToPath(
   new URL("../node_modules/.pagedeck-upstream-imports-test/", import.meta.url),
@@ -183,3 +185,42 @@ test("a source that is not on disk is refused, beside every other", async () => 
     ].join("\n"),
   );
 });
+
+test("in a dev server the check passes every import a server-side load makes, and reports a browser module's", async () => {
+  const reached: string[][] = [];
+  const { sources } = upstreamSources(FIXTURE_DIR, ORIGIN, [
+    { prefix: "/api/", source: "app/" },
+  ]);
+  const server = await createServer({
+    configFile: false,
+    logLevel: "silent",
+    root: FIXTURE_DIR,
+    appType: "custom",
+    server: { middlewareMode: true, hmr: false, ws: false },
+    plugins: [
+      upstreamImportCheck({
+        root: FIXTURE_DIR,
+        origin: ORIGIN,
+        sources: () => sources,
+        entryName: () => undefined,
+        reached: (lines) => reached.push([...lines]),
+      }),
+    ],
+  });
+  try {
+    const helper = (await server.ssrLoadModule("/src/helper.ts")) as {
+      label(): string;
+    };
+    expect(helper.label()).toBe(APP_MARKER);
+    expect(reached).toEqual([]);
+
+    await server.transformRequest("/src/helper.ts");
+    expect(reached).toEqual([
+      [
+        '  "./src/helper.ts" imports "../app/index.ts" — build.routing.upstreams[0] source "app/"',
+      ],
+    ]);
+  } finally {
+    await server.close();
+  }
+}, 60_000);

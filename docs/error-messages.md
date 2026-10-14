@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 122 below, 109 of them
+`x` at/from `path`, outside fenced blocks — there are 123 below, 110 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -139,10 +139,10 @@ The two store lines for `pagedeck dev` share one fix, written once as
 startup, the second what a request meets for a store file that will not open.
 Rule 8 argues when each one runs.
 
-`forwardToUpstream` (`packages/core/src/dev.ts`) answers the same way for a
-request under an upstream prefix (#141): a 502 naming the entry, the prefix
-and the fix, when the entry declares no `dev` URL and when the app it names
-does not answer. Both also write to the dev server's own error channel.
+`forwardRequest` and `forwardUpgrade` (`packages/core/src/dev.ts`) answer the
+same way for a request or a WebSocket upgrade under an upstream prefix (#141):
+a 502 naming the entry, the prefix and the fix, when the entry declares no
+`dev` URL and when the app it names does not answer. Both also write to the dev server's own error channel.
 
 ```
 Dev server: build.routing.upstreams[0] declares "/api/" with no "dev" URL, so pagedeck dev has no app to forward "/api/cart" to — set "dev" to the http or https URL the app listens on while you develop, such as "http://localhost:8787"
@@ -1788,7 +1788,7 @@ The same door checks each upstream rule's own `prefix`, `dev` and `source`
 fields, under one shared headline, `upstreamFieldsReport`
 (`packages/core/src/routing.ts`). A `source` that resolves to nothing on disk
 is one of its faults (#141): `upstreamSources`
-(`packages/core/src/client-build.ts`) resolves every declared source before
+(`packages/core/src/upstream-imports.ts`) resolves every declared source before
 the client build starts, and reports what it cannot find through
 `missingUpstreamSourcesReport` (`packages/core/src/routing.ts`), on that same
 headline.
