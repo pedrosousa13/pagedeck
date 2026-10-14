@@ -274,6 +274,10 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: '"build.routing" declares 1 field', because: "assembled" },
   { names: '"build.routing" declares 1 member', because: "assembled" },
   { names: '"build.routing" declares 1 entry', because: "assembled" },
+  {
+    names: '"build.routing" declares 1 upstream field',
+    because: "assembled",
+  },
   { names: '"build.routing" must', because: "assembled" },
   { names: "Routing manifest: 1 redirect target", because: "assembled" },
   { names: "Routing manifest: 1 path is redirected", because: "assembled" },
@@ -289,6 +293,10 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: "Critical CSS: 1 stylesheet cannot be", because: "assembled" },
   { names: "Client build: 2 grouped specifiers", because: "assembled" },
   { names: "Client build: 1 component specifier", because: "assembled" },
+  {
+    names: "Client build: 1 import from island code reaches",
+    because: "assembled",
+  },
   { names: "Locale set: 1 locale declares a domain", because: "assembled" },
   { names: "Locale set: 2 locales declare domains", because: "assembled" },
   { names: "Locale set: 1 locale falls back to", because: "assembled" },

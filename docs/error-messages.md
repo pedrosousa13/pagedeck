@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 115 below, 102 of them
+`x` at/from `path`, outside fenced blocks — there are 122 below, 109 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 278 messages fenced
-below, 220 are checked that way and 58 are not**, and that test lists the 58
-one by one with the reason each is out: 56 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 283 messages fenced
+below, 223 are checked that way and 60 are not**, and that test lists the 60
+one by one with the reason each is out: 58 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 220 checked messages pin 34612 of the 86603 fenced characters, and
+below**: the 223 checked messages pin 34861 of the 88008 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -138,6 +138,17 @@ The two store lines for `pagedeck dev` share one fix, written once as
 `UNREADABLE_STORE_FIX` (`packages/core/src/dev.ts`): the first is the refusal at
 startup, the second what a request meets for a store file that will not open.
 Rule 8 argues when each one runs.
+
+`forwardToUpstream` (`packages/core/src/dev.ts`) answers the same way for a
+request under an upstream prefix (#141): a 502 naming the entry, the prefix
+and the fix, when the entry declares no `dev` URL and when the app it names
+does not answer. Both also write to the dev server's own error channel.
+
+```
+Dev server: build.routing.upstreams[0] declares "/api/" with no "dev" URL, so pagedeck dev has no app to forward "/api/cart" to — set "dev" to the http or https URL the app listens on while you develop, such as "http://localhost:8787"
+
+Dev server: build.routing.upstreams[0] forwards "/api/" to "http://localhost:4000", which did not answer "/api/cart" (ECONNREFUSED) — start the app at "http://localhost:4000" first, or correct "dev" to the URL it listens on
+```
 
 Where the fix needs a reason, give the reason — the redirect failure in
 `packages/core/src/snapshot.ts` explains that redirects are not followed
@@ -665,6 +676,17 @@ Edge target "nginx": 2 values cannot be expressed by this target — remove the 
 Edge target "cloudflare-worker": 2 redirect targets are not paths on this site — write a tree-relative path like "/pricing"; a target off this site compiles to an open redirect at the edge:
   the default tree's redirect target on "/a" — the target holds a scheme
   the default tree's redirect target on "/b" — the target begins "//", which is a host
+```
+
+An upstream prefix is a fault kind of its own (#141). `refuseUpstreams`
+(`packages/edge/src/adapter.ts`) reports every tree that declares one, for each
+target whose `defineAdapter` definition does not set `routesUpstreams`. The fix
+is the adapter's own: `netlify()` (`packages/adapter-netlify/src/index.ts`)
+names `cloudflarePages()`, the one adapter that routes a prefix so far.
+
+```
+Edge target "netlify": 1 tree sends a prefix to an app, which this target cannot route — deploy with cloudflarePages(), the one adapter that routes a prefix to an app so far, or remove build.routing.upstreams and route each prefix in the host's own configuration:
+  the default tree's prefix "/api/" (build.routing.upstreams)
 ```
 
 The second is `planRouting`'s own refusal of an off-site target, made again by
@@ -1762,6 +1784,20 @@ and not one of them — is reported alone, on the non-object budget's argument.
 Config "/site/pagedeck.config.ts": "build.routing" must be an object of redirects, 404 pages, header rules, experiments and upstreams — routing: { redirects: [{ from: "/old", to: "/pricing" }] }
 ```
 
+The same door checks each upstream rule's own `prefix`, `dev` and `source`
+fields, under one shared headline, `upstreamFieldsReport`
+(`packages/core/src/routing.ts`). A `source` that resolves to nothing on disk
+is one of its faults (#141): `upstreamSources`
+(`packages/core/src/client-build.ts`) resolves every declared source before
+the client build starts, and reports what it cannot find through
+`missingUpstreamSourcesReport` (`packages/core/src/routing.ts`), on that same
+headline.
+
+```
+Config "/site/pagedeck.config.ts": "build.routing" declares 1 upstream field this build cannot route to — correct each as its own line says:
+  upstreams[0] — "source" — "app/" — nothing is on disk at "/site/app" — write the path of the app's file or directory, relative to the site root, such as "app/"
+```
+
 **`planRouting`'s own reports name the same field on the line rather than in the
 headline**, and that asymmetry is #270's, not an oversight. Those are thrown
 from inside a build, where the only thing the first words can honestly name is
@@ -2677,6 +2713,18 @@ reaches this one end to end is a specifier that resolves for the scan's SSR
 invocation and not for the browser build — a package exported under the `node`
 condition alone. #235 measured that case on a spawned `pagedeck build`;
 `client-build.test.ts` pins the report directly rather than spawning one.
+
+The client build also refuses an island import that reaches an upstream app's
+source (#141). `refuseUpstreamImports` (`packages/core/src/client-build.ts`)
+resolves every import of the island graph and reports each one that lands
+inside a declared `source` file or directory, because that import would ship
+the app's code to the browser. An `import type` never reaches the bundler, so
+a type-only import still builds.
+
+```
+Client build: 1 import from island code reaches the source of an upstream app, so the app's code would ship to the browser — import only the app's types, with "import type", or move the code both need out of the app's source:
+  "./components/Cart.tsx" imports "../app/server.ts" — build.routing.upstreams[0] source "app/"
+```
 
 `defineLocales` (`packages/core/src/locales.ts`) collects at the door a locale
 map is written at, and both halves of this rule land in the one function. A
