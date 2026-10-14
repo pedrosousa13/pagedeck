@@ -1667,6 +1667,54 @@ test("an upstream prefix over a redirect's source or target is refused, beside e
   );
 });
 
+test("a redirect for a deleted page under an upstream prefix is dropped, not refused, and only in the prefix's tree", () => {
+  const routing = plan({
+    config: { upstreams: [{ prefix: "/api/" }] },
+    removals: [
+      { from: "/api/old", to: "/about", status: 308, reason: "deleted-page" },
+      { from: "/api", to: "/", status: 308, reason: "deleted-page" },
+      { from: "/old", to: "/about", status: 308, reason: "deleted-page" },
+      {
+        domain: "shop.example",
+        from: "/api/old",
+        to: "/de/about",
+        status: 308,
+        reason: "deleted-page",
+      },
+    ],
+  });
+  expect(
+    routing.trees.map((tree) => ({
+      redirects: tree.redirects.map((rule) => rule.from),
+      upstreams: tree.upstreams,
+    })),
+  ).toEqual([
+    { redirects: ["/old"], upstreams: ["/api/"] },
+    { redirects: ["/api/old"], upstreams: undefined },
+  ]);
+});
+
+test("a configured redirect under an upstream prefix is still refused when a deleted page's redirect there is dropped", () => {
+  const failure = failureOf(() =>
+    plan({
+      config: {
+        redirects: [{ from: "/api/moved", to: "/about" }],
+        upstreams: [{ prefix: "/api/" }],
+      },
+      removals: [
+        { from: "/api/old", to: "/about", status: 308, reason: "deleted-page" },
+      ],
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 1 upstream prefix covers paths this build serves — ${COVERED_FIX}:`,
+      '  "/api/" in the default tree — build.routing.upstreams[0] covers:',
+      `    "/api/moved" — build.routing.redirects[0], the redirect's source`,
+    ].join("\n"),
+  );
+});
+
 test("two upstream prefixes where one starts with the other, or one declared twice, are refused per tree", () => {
   const failure = failureOf(() =>
     plan({

@@ -463,6 +463,14 @@ function draft(input: RoutingInput): Drafted {
     });
   });
 
+  const upstreams: DraftUpstream[] = (input.config?.upstreams ?? []).map(
+    (rule, index) => ({
+      ...inTree(rule.domain),
+      prefix: rule.prefix,
+      where: at(UPSTREAMS, index),
+    }),
+  );
+
   removals.forEach((record) => {
     const where = REMOVAL;
     // Checked although typed: `RedirectRecord.status` widens to `number`.
@@ -475,6 +483,13 @@ function draft(input: RoutingInput): Drafted {
     const from = spell(record.from, asPath, `${where} — "from"`, unusable);
     const to = spell(record.to, asPath, `${where} — "to"`, unusable);
     if (from === undefined || to === undefined) return;
+    if (
+      upstreams.some(
+        (upstream) =>
+          upstream.domain === record.domain && covers(upstream.prefix, from),
+      )
+    )
+      return;
     redirects.push({
       ...(record.domain === undefined ? {} : { domain: record.domain }),
       from,
@@ -747,14 +762,6 @@ function draft(input: RoutingInput): Drafted {
     ].filter((section) => section !== undefined),
   );
 
-  const upstreams: DraftUpstream[] = (input.config?.upstreams ?? []).map(
-    (rule, index) => ({
-      ...inTree(rule.domain),
-      prefix: rule.prefix,
-      where: at(UPSTREAMS, index),
-    }),
-  );
-
   return { redirects, headers, notFound, experiments, upstreams };
 }
 
@@ -959,7 +966,7 @@ function check(input: RoutingInput, drafted: Drafted): void {
       claims.push(`"${file.path}" — a file this build emits`);
     }
     for (const rule of redirects) {
-      if (rule.domain !== domain) continue;
+      if (rule.domain !== domain || rule.source === "deleted-page") continue;
       if (covers(prefix, rule.from))
         claims.push(`"${rule.from}" — ${rule.where}, the redirect's source`);
       if (covers(prefix, rule.to))
