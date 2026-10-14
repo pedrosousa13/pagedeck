@@ -18,6 +18,7 @@ export default defineConfig({
       signup: "./src/components/signup.tsx",
     },
     favicon: { src: "./favicon.ico" },
+    passthrough: { root: "./public" },
     adapter: cloudflarePages(),
     routing: {
       headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }],

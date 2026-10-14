@@ -122,8 +122,8 @@ test("the build routes the prefix for Cloudflare Pages, and the upload leaves th
     include: ["/api", "/api/*"],
     exclude: [],
   });
-  expect(readFileSync(join(SITE, "public", ".assetsignore"), "utf8").split("\n")).toContain(
-    "/_routes.json",
+  expect(readFileSync(join(OUT, ".assetsignore"), "utf8").split("\n")).toEqual(
+    expect.arrayContaining(["/manifest.json", "/.pagedeck", "/404.html", "/_routes.json"]),
   );
 });
 
