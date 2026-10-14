@@ -28,7 +28,8 @@ adapter shares (the refusals, the 404 page's headers, the reserved deploy keys
 and trailing slashes) is documented there too.
 
 `cloudflareWorker()` takes `limits`, whose `edge-module` defaults to
-`CLOUDFLARE_WORKER_LIMIT`.
+`CLOUDFLARE_WORKER_LIMIT`, and `upstreams`, the service binding for each
+prefix sent to an app (see "An app beside the site").
 
 ## The Worker
 
@@ -81,7 +82,8 @@ With no 404 page in the bucket, the refusal is a bare 404:
   over and does not parse it, so a dot segment the runtime passed through is
   still seen.
 
-A method other than `GET` and `HEAD` is answered `405` and reads nothing. The
+Outside an upstream prefix, a method other than `GET` and `HEAD` is answered
+`405` and reads nothing. The
 `405`, and the bare 404 of a tree with no 404 page, carry the set of the path
 requested, so a site's security headers reach every response the Worker writes.
 
@@ -104,3 +106,41 @@ sets `Cache-Control` wins.
 
 An experiment split is refused, naming every page it was declared on:
 `@pagedeck/adapter-cloudfront` is the only adapter that compiles one.
+
+## An app beside the site
+
+Each prefix in `build.routing.upstreams` reaches its app one of two ways.
+
+**A service binding**, the way to use when the app is a Worker too. Name it
+per prefix:
+
+```ts
+cloudflareWorker({ upstreams: { "/api/": { binding: "APP" } } })
+```
+
+Then bind the app's Worker as `APP` in the site Worker's wrangler
+configuration. The Worker calls `env.APP.fetch(request)` with the request
+unchanged. A
+[service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/)
+calls the other Worker without a public URL, at no extra cost.
+
+**A url**, the `https` origin the app answers at, set on the prefix in
+`build.routing.upstreams`. The Worker fetches the url with the request's full
+path and query appended, and with the request's method, headers and body. The
+app's redirects reach the client unfollowed. Do not point it at a hostname in
+the Worker's own zone. Without the `global_fetch_strictly_public`
+[compatibility flag](https://developers.cloudflare.com/workers/configuration/compatibility-flags/),
+such a fetch goes to the zone's origin server and skips any Worker routed
+there. Use a binding instead.
+
+A prefix with neither is refused, and so is one with both, since picking one
+would be a precedence rule. A binding keyed by a prefix no tree declares is
+refused, so a misspelt prefix does not leave its app unreached. A binding
+name must be a valid JavaScript variable name, which is what
+[wrangler's configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
+requires of a binding.
+
+The Worker checks the prefixes before anything else. It matches `/api` and
+every path starting with `/api/` on the raw request path, so every method
+reaches the app. The app's response goes back as it is, with none of the
+site's header rules.

@@ -140,9 +140,61 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
       ).toThrow(/does not proxy to — run it on the host:/);
     });
 
+    it("reaches the compiler, url or not, of an adapter that decides per prefix", () => {
+      const optional = quiet({ upstreams: { url: "optional", fix: "bind it" } });
+      expect(optional.compile(routed).artifacts).toEqual([]);
+      expect(optional.compile(proxied).artifacts).toEqual([]);
+    });
+
+    it("names the optional policy's fix on the adapter's own missing-url fault", () => {
+      const adapter = defineAdapter({
+        name: "picky",
+        limits: {},
+        upstreams: { url: "optional", fix: "bind it, or set url" },
+        compileTree: (tree, faults) => {
+          faults.push({ kind: "upstream-url-missing", line: `${tree.domain ?? "default"}'s "/auth/"` });
+          return [];
+        },
+      });
+      expect(() => adapter.compile(routed)).toThrow(
+        new ConfigError(
+          `Edge target "picky": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — bind it, or set url:
+  default's "/auth/"`,
+        ),
+      );
+    });
+
     it("is not refused when its prefix list is empty", () => {
       const empty = { ...routed, trees: [{ redirects: [], headers: [], upstreams: [] }] };
       expect(quiet({}).compile(empty).artifacts).toEqual([]);
     });
+  });
+
+  it("reports an adapter's own faults, one paragraph per subject and fix, with the document's and the base's", () => {
+    const odd = { one: "option is odd", many: "options are odd" };
+    const adapter = defineAdapter({
+      name: "own",
+      limits: {},
+      checkManifest: (manifest, faults) => {
+        faults.push({ kind: "adapter", subject: odd, fix: "even it", line: `${String(manifest.trees.length)} trees` });
+      },
+      compileTree: (tree, faults) => {
+        faults.push({ kind: "adapter", subject: odd, fix: "even it", line: tree.domain ?? "default" });
+        faults.push({ kind: "unexpressible", line: "a value" });
+        return [];
+      },
+    });
+    expect(() => adapter.compile(FIXTURE)).toThrow(
+      new ConfigError(
+        `Edge target "own": 3 options are odd — even it:
+  2 trees
+  default
+  shop.example
+
+Edge target "own": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+  a value
+  a value`,
+      ),
+    );
   });
 });

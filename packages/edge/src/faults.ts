@@ -8,24 +8,31 @@ import {
   UNSENDABLE_HEADER_VALUE_FIX,
 } from "@pagedeck/core/routing";
 
-export interface Fault {
-  kind:
-    | "unsupported"
-    | "upstream"
-    | "upstream-url-missing"
-    | "upstream-url-refused"
-    | "unexpressible"
-    | "offsite"
-    | "offsite-source"
-    | "header-name"
-    | "unwritable-header-name"
-    | "header-value"
-    | "oversize"
-    | "trailing-slash"
-    | "slash-only"
-    | "limit";
-  line: string;
-}
+export type Fault =
+  | { kind: FaultKind; line: string }
+  /** A fault only one adapter knows; faults with the same subject and fix share a paragraph. */
+  | {
+      kind: "adapter";
+      subject: { one: string; many: string };
+      fix: string;
+      line: string;
+    };
+
+type FaultKind =
+  | "unsupported"
+  | "upstream"
+  | "upstream-url-missing"
+  | "upstream-url-refused"
+  | "unexpressible"
+  | "offsite"
+  | "offsite-source"
+  | "header-name"
+  | "unwritable-header-name"
+  | "header-value"
+  | "oversize"
+  | "trailing-slash"
+  | "slash-only"
+  | "limit";
 
 export function treeOf(domain: string | undefined): string {
   return domain === undefined ? "the default tree" : `the "${domain}" tree`;
@@ -90,7 +97,38 @@ function paragraph(
 export interface Fixes {
   unsupported?: string | undefined;
   upstream?: string | undefined;
+  upstreamUrlMissing?: string | undefined;
   upstreamUrlRefused?: string | undefined;
+}
+
+function adapterSections(
+  target: string,
+  faults: readonly Fault[],
+): readonly string[] {
+  const groups = new Map<
+    string,
+    { subject: { one: string; many: string }; fix: string; lines: string[] }
+  >();
+  for (const fault of faults) {
+    if (fault.kind !== "adapter") continue;
+    const key = JSON.stringify([fault.subject.one, fault.fix]);
+    const group = groups.get(key) ?? {
+      subject: fault.subject,
+      fix: fault.fix,
+      lines: [],
+    };
+    group.lines.push(fault.line);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map(({ subject, fix, lines }) =>
+    paragraph(
+      target,
+      lines.length,
+      lines.length === 1 ? subject.one : subject.many,
+      fix,
+      lines,
+    ),
+  );
 }
 
 export function throwIfAny(
@@ -175,7 +213,7 @@ export function throwIfAny(
         urlMissing.length === 1
           ? "tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at"
           : "trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at",
-        UPSTREAM_URL_MISSING_FIX,
+        fixes.upstreamUrlMissing ?? UPSTREAM_URL_MISSING_FIX,
         urlMissing,
       ),
     );
@@ -193,6 +231,7 @@ export function throwIfAny(
       ),
     );
   }
+  sections.push(...adapterSections(target, faults));
   if (unexpressible.length > 0) {
     sections.push(
       paragraph(

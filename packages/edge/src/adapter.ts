@@ -38,17 +38,21 @@ export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   upstreams?: UpstreamPolicy;
   /** The fix an `upstream` fault names, where this adapter knows a better one. */
   upstreamFix?: string;
+  /** Pushes the faults no one tree holds, such as an adapter option naming a prefix no tree declares. */
+  checkManifest?(manifest: RoutingManifest, faults: Fault[]): void;
 }
 
 /**
  * How an adapter that routes upstreams reaches the app: through the deployed
  * origin each upstream's `url` names, or with no `url`, where the host runs the
- * app itself. `fix` is what a refused `url` names, where this adapter knows a
- * better one.
+ * app itself, or either, where the adapter decides per prefix. Under `refused`,
+ * `fix` is what a refused `url` names, where this adapter knows a better one;
+ * under `optional`, it is what the adapter's own `upstream-url-missing` faults name.
  */
 export type UpstreamPolicy =
   | { url: "required" }
-  | { url: "refused"; fix?: string };
+  | { url: "refused"; fix?: string }
+  | { url: "optional"; fix: string };
 
 function checkVersion(name: string, version: number): void {
   if (version === ROUTING_VERSION) return;
@@ -116,6 +120,7 @@ function refuseUpstreams(
     faults.push({ kind: "upstream", line: upstreamsLine(tree.domain, upstreams) });
     return;
   }
+  if (policy.url === "optional") return;
   const required = policy.url === "required";
   const wrong = upstreams.filter(({ url }) => (url === undefined) === required);
   if (wrong.length === 0) return;
@@ -144,6 +149,7 @@ export function defineAdapter<A extends EdgeArtifact>(
         checkHeaders(tree, faults);
         refuseUpstreams(tree, definition.upstreams, faults);
       }
+      definition.checkManifest?.(manifest, faults);
       // Folded once here, so no two adapters can derive different normalizing rules.
       const artifacts = manifest.trees.flatMap((tree) =>
         definition.compileTree(
@@ -163,13 +169,12 @@ export function defineAdapter<A extends EdgeArtifact>(
           line: `${describe(artifact)} — ${String(bytes)} bytes, limit ${String(limit)}`,
         });
       }
+      const policy = definition.upstreams;
       throwIfAny(name, faults, {
         unsupported: definition.unsupportedFix,
         upstream: definition.upstreamFix,
-        upstreamUrlRefused:
-          definition.upstreams?.url === "refused"
-            ? definition.upstreams.fix
-            : undefined,
+        upstreamUrlMissing: policy?.url === "optional" ? policy.fix : undefined,
+        upstreamUrlRefused: policy?.url === "refused" ? policy.fix : undefined,
       });
 
       return { target: name, artifacts };

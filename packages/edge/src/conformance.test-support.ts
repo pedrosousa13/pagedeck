@@ -41,12 +41,14 @@ export interface AdapterUnderTest {
   /**
    * Whether the adapter sends `build.routing.upstreams` to an app or refuses the document, for an
    * upstream that names the deployed app's `url` and for one that does not. `urlFix` is the fix
-   * this adapter's refusal of a `url` names, where it routes an upstream without one.
+   * this adapter's refusal of a `url` names, where it routes an upstream without one, and
+   * `noUrlFix` the fix its refusal of an upstream with no `url` names, where it knows a better one.
    */
   upstreams: {
     withUrl: "routed" | "refused";
     withoutUrl: "routed" | "refused";
     urlFix?: string;
+    noUrlFix?: string;
   };
 }
 
@@ -564,7 +566,7 @@ function describePolicy(
       answer: upstreams.withoutUrl,
       refusal: routesNone
         ? unrouted
-        : `Edge target "${name}": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — ${UPSTREAM_URL_MISSING_FIX}:\n  ${upstreamTarget}`,
+        : `Edge target "${name}": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — ${upstreams.noUrlFix ?? UPSTREAM_URL_MISSING_FIX}:\n  ${upstreamTarget}`,
     },
   ];
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
