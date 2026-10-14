@@ -27,7 +27,7 @@ version.
 ## Arguments
 
 ```sh
-npm create pagedeck@latest [directory] [--host <vercel|cloudflare-pages|netlify|none>] [--yes]
+npm create pagedeck@latest [directory] [--host <vercel|cloudflare-pages|netlify|none>] [--app] [--yes]
 ```
 
 The directory's name becomes the site's package name, so it must be a valid
@@ -40,6 +40,23 @@ its `@pagedeck/adapter-<host>`, and `pagedeck.config.ts` imports it and names
 it in `build.adapter`. `--host none`, the default, writes the site with no
 adapter. Choosing a host also appends that host's build settings to
 `README.md`.
+
+`--app` also writes an app beside the site, from `template-app/`:
+
+```sh
+npm create pagedeck@latest my-site -- --app
+```
+
+`app/index.ts` is a [Hono](https://hono.dev) app that answers `/api/`, and
+`app/dev.ts` serves it on `http://127.0.0.1:8787`. `pagedeck.config.ts`
+declares `/api/` in `build.routing.upstreams`, so `pagedeck dev` forwards it
+there. `components/hello.tsx` is an island on `/hello` that calls the app
+through `hc<AppType>` with only `import type`. The written `package.json` adds
+`hono`, `@hono/node-server` and a `dev:app` script, and `README.md` says how to
+run both. `--app` takes no `--host` but `none`: each host deploys the app its
+own way, and
+[Run an app beside the site](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/run-an-app-beside-the-site/)
+gives the steps. On a terminal, `--app` prompts for no host.
 
 On a terminal (both stdin and stdout are TTYs), a missing directory or host is
 prompted for, defaulting to `my-site` and `none`. Off a terminal — a pipe, a

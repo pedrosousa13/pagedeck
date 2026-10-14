@@ -952,6 +952,7 @@ function linkingFiles(): string[] {
     "README.md",
     ...packages,
     join("packages", "create-pagedeck", "src", "index.ts"),
+    join("packages", "create-pagedeck", "template-app", "README.md"),
   ].sort();
 }
 
