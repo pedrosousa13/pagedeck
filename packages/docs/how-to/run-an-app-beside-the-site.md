@@ -10,7 +10,8 @@ Pagedeck builds static files and runs no code when a page is requested. When a
 site needs code that runs per request, such as a form endpoint, an auth
 callback or a count an island fetches, that code goes in an app the site runs
 beside its pages, on the same origin. Pagedeck never imports or runs the app,
-so the app can use any framework that answers HTTP.
+so the app can use any framework that answers HTTP. The site declares the path
+prefix the app answers, and Pagedeck checks and routes it.
 
 This page uses [Hono](https://hono.dev) on Cloudflare Workers Static Assets.
 The example is `packages/app-example` in the Pagedeck repository. Every code
@@ -25,8 +26,35 @@ node ../core/dist/bin.js build      # writes site/
 pnpm exec wrangler dev              # serves site/ and the app on one origin
 ```
 
-`pagedeck dev` does not forward requests to the app yet, so the island's calls
-work under `wrangler dev`, after a build.
+## Declare the prefix
+
+The site names the prefix in `build.routing.upstreams`, in
+`pagedeck.config.ts`:
+
+```ts
+routing: {
+  headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }],
+  upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" }],
+},
+```
+
+Each field changes what Pagedeck does:
+
+- `prefix` is the part of the site the app answers. It starts and ends with
+  `/`. `pagedeck build` refuses a prefix that covers a page, a file the build
+  writes or a redirect, because under the prefix the host never serves them.
+  It also refuses one prefix inside another, because a path under both would
+  have two apps to answer it.
+- `dev` is where the app listens while you develop. `pagedeck dev` forwards
+  every request under the prefix there, with its method, headers and body, so
+  an island's calls work in development as they do once deployed.
+- `source` is the app's file or directory. The build refuses an island that
+  imports a value from it, as the island section below explains.
+- `url` is the `https` origin the deployed app answers at, such as
+  `"https://app.example"`, with no path, query or credential. A host that
+  proxies the prefix to an app running elsewhere needs it. The example leaves
+  it out, because the app runs on the same host as the pages, and
+  `cloudflarePages()` refuses it for the same reason.
 
 ## The app answers one path prefix
 
@@ -84,15 +112,23 @@ other request is answered from `site/`, so a built page never runs the app.
 Cloudflare documents the option at
 <https://developers.cloudflare.com/workers/static-assets/binding/>.
 
+`wrangler.jsonc` is yours, and the build does not read it. So when you add,
+move or remove a prefix, change `run_worker_first` with it, one pattern per
+prefix, written as the prefix followed by `*`.
+
+`cloudflarePages()` also writes `site/_routes.json`, which sends the same
+prefixes to Pages Functions on Cloudflare Pages
+(<https://developers.cloudflare.com/pages/functions/routing/>). It writes two
+rules per prefix, `/api` and `/api/*`, because Cloudflare's `/api/*` matches
+only what comes after `/api/`. Workers Static Assets reads `run_worker_first`
+instead and would serve the file as a page, so the example's
+`public/.assetsignore` names `/_routes.json` to keep it out of the upload.
+`wrangler dev` serves it locally all the same.
+
 One request reaches the app without matching the prefix: a path with no file.
 With `not_found_handling` set to `none`, Cloudflare hands a miss to the
 Worker. That is why the middlewares come before `basePath`. Registered after
 it, they would skip a miss, and its `404` would go out with no headers.
-
-Keep the prefix clear of every page the build writes. Today nothing checks
-that a page path does not start with `/api/`. Issue
-[#141](https://github.com/pedrosousa13/pagedeck/issues/141) adds a field that
-declares the prefix and makes the build refuse a page under it.
 
 ## Each half sets its own headers
 
@@ -131,9 +167,17 @@ setReply("message" in body ? body.message : body.error);
 
 `import type` matters. TypeScript erases it, so nothing from `src/app.ts`
 reaches the browser. A plain `import` of a value from the app would put server
-code, and anything it holds, into the island's chunk. The example's
-`site.build.test.ts` checks that no file the build writes holds the app's
-error message.
+code, and anything it holds, into the island's chunk. Because the upstream
+names `src/app.ts` as its `source`, `pagedeck build` refuses that import, and
+names the module that made it and the fix.
+
+## Develop with both running
+
+`pagedeck dev` serves the pages and forwards `/api/` to the entry's `dev` URL,
+where `wrangler dev` serves the app. Run both, `wrangler dev` first, since it
+serves `site/` too and needs one build. When the app is not running,
+`pagedeck dev` answers a request under the prefix with a `502` that names the
+entry, its URL and the fix.
 
 ## One origin, so nothing to configure
 
@@ -147,8 +191,24 @@ The app answers on the site's own origin, so:
 
 ## Other hosts
 
-Each host has its own way to send a prefix to code beside static files: a
-function with a `path` on Netlify, a function route on Vercel, a second origin
-and cache behaviour on CloudFront, and a `location` with `proxy_pass` in
-nginx. Hono runs on most of them with a different entry file. Pagedeck's
-adapters do not write that routing yet; #141 tracks it.
+Every adapter routes upstreams, each in its host's own terms, and each sends
+`/api` to the app as well as everything under `/api/`. A host that runs the
+app beside the pages needs no `url`. A host that proxies to an app running
+elsewhere needs `url`, the `https` origin the app answers at:
+
+| Adapter | `url` | How the prefix reaches the app |
+| --- | --- | --- |
+| `cloudflarePages()` | refused | `_routes.json` sends it to Pages Functions |
+| `cloudflareWorker()` | optional | a service binding named in `cloudflareWorker({ upstreams })`, or a `fetch` to `url` |
+| `netlify()` | required | forced proxy rows in `_redirects` |
+| `vercel()` | required | a route in `vercel.json` ahead of the files |
+| `cloudfront()` | required | an origin and cache behaviours with caching disabled, in `upstreams.json` |
+| `nginx()` | required | `proxy_pass` locations with TLS verification and WebSocket support |
+
+On every host the site's header rules stay off the app's answers, and the
+build refuses a header rule under a prefix, since it could never apply. So the
+app sets its own headers, `Cache-Control` included: a host that caches
+proxied answers, as Vercel does for a project created on or after 6 April
+2026, caches what the app's `Cache-Control` allows. Hono runs on each of these
+hosts with a different entry file. [Deploy a site](./deploy-a-site.md) and the
+deploy recipe's "An app beside the site" give each host's steps.

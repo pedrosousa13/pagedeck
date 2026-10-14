@@ -25,6 +25,17 @@ export function unexpressibleInNetlifyPattern(
   return undefined;
 }
 
+// https://docs.netlify.com/manage/routing/redirects/redirect-options/ : a ":"-led part of a
+// destination is a placeholder, with no escape, so a port reads as one.
+export function unexpressibleInNetlifyDestination(
+  url: string,
+): string | undefined {
+  const { port } = new URL(url);
+  return port === ""
+    ? undefined
+    : `its url ${JSON.stringify(url)} names port ${port}, and Netlify reads ":" in a destination as the start of a placeholder, and offers no escape for a literal one`;
+}
+
 // Identity, and kept so every emitted value passes through this module.
 export function netlifyPattern(value: string): string {
   return value;

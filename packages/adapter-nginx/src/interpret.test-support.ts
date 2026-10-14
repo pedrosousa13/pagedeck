@@ -12,7 +12,10 @@ function unquote(literal: string): string {
 // emitter.
 function nginxRequestUri(path: string): string {
   // Merged and dot-resolved too, because `$uri` is (`merge_slashes` is on by default).
-  const merged = decodeURIComponent(path).replace(/\/{2,}/g, "/");
+  const merged = decodeURIComponent(path.replace(/[?#].*$/s, "")).replace(
+    /\/{2,}/g,
+    "/",
+  );
   const segments: string[] = [];
   for (const segment of merged.split("/").slice(1)) {
     if (segment === ".") continue;
@@ -39,10 +42,12 @@ const ERROR_PAGE_LINE = /^error_page 404 ("(?:[^"\\]|\\.)*");$/;
 const DENY_EXACT_LINE =
   /^if \(\$uri = ("(?:[^"\\]|\\.)*")\) \{ return 404; \}$/;
 const DENY_PATTERN_LINE = /^if \(\$uri ~ "((?:[^"\\]|\\.)*)"\) \{ return 404; \}$/;
+const PROXY_PASS_LINE = /^ {4}proxy_pass ("(?:[^"\\]|\\.)*");$/;
 
 interface NginxLocation {
   set: HeaderField[];
   returned?: { to: string; status: number };
+  url?: string;
 }
 
 // nginx's precedence, not the emitter's order: exact `=` wins, then the longest `^~`.
@@ -110,6 +115,11 @@ export function interpretNginx(
       });
       continue;
     }
+    const proxied = PROXY_PASS_LINE.exec(line);
+    if (proxied !== null && open !== undefined) {
+      open.url = unquote(proxied[1] ?? "");
+      continue;
+    }
     const returned = RETURN_LINE.exec(line);
     if (returned !== null && open !== undefined) {
       open.returned = {
@@ -123,11 +133,12 @@ export function interpretNginx(
     if (line === "}") open = undefined;
   }
 
-  const select = (uri: string): NginxLocation | undefined =>
-    exact.get(uri) ??
+  const longest = (uri: string) =>
     prefixes
       .filter((candidate) => uri.startsWith(candidate.prefix))
       .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+  const select = (uri: string): NginxLocation | undefined =>
+    exact.get(uri) ?? longest(uri);
 
   const missing = (): Resolution =>
     notFound === undefined
@@ -142,6 +153,21 @@ export function interpretNginx(
 
   if (denied.some((deny) => deny(uri))) return missing();
 
+  const selected = select(uri);
+  if (selected?.url !== undefined) {
+    const prefix = exact.has(uri) ? `${uri}/` : (longest(uri)?.prefix ?? "");
+    if (selected.set.length > 0) {
+      throw new Error(
+        `the proxy location for "${prefix}" adds a site header to the app's response`,
+      );
+    }
+    return {
+      kind: "upstream",
+      prefix: routingSpelling(prefix),
+      url: selected.url,
+    };
+  }
+
   const answered = exact.get(uri)?.returned;
   if (answered !== undefined) {
     return {
@@ -153,8 +179,5 @@ export function interpretNginx(
   }
   if (!request.found) return missing();
 
-  const longest = prefixes
-    .filter((candidate) => uri.startsWith(candidate.prefix))
-    .sort((a, b) => b.prefix.length - a.prefix.length)[0];
-  return { kind: "pass", headers: longest?.set ?? [] };
+  return { kind: "pass", headers: longest(uri)?.set ?? [] };
 }

@@ -1,3 +1,4 @@
+import { covers } from "@pagedeck/core/routing";
 import type { RedirectStatus } from "@pagedeck/core/routing";
 import type { EdgeArtifact } from "@pagedeck/edge";
 
@@ -14,6 +15,31 @@ function documentOf(path: string): string {
 }
 
 const NOT_FOUND_LINE = /^var NOT_FOUND = (.*);$/m;
+
+const UPSTREAM_LINE = /^ {2}\{ prefix: ("(?:[^"\\]|\\.)*"), url: ("(?:[^"\\]|\\.)*") \},$/gm;
+
+// What the Worker sent, not what its table says: the table only names the prefix it matched.
+function upstreamOf(
+  source: string,
+  path: string,
+  sent: Request,
+  unchanged: boolean,
+): Resolution {
+  if (!unchanged) throw new Error("worker.js changed the app's response");
+  if (sent.method !== "GET" || sent.redirect !== "manual") {
+    throw new Error(`worker.js forwarded ${sent.method} with redirect ${sent.redirect}`);
+  }
+  if (!sent.url.endsWith(path)) {
+    throw new Error(`worker.js forwarded ${sent.url}, not the path and query ${path}`);
+  }
+  const url = sent.url.slice(0, sent.url.length - path.length);
+  const pathname = path.replace(/[?#].*$/s, "");
+  for (const [, prefix, origin] of source.matchAll(UPSTREAM_LINE)) {
+    const route = { prefix: JSON.parse(prefix ?? "") as string, url: JSON.parse(origin ?? "") as string };
+    if (route.url === url && covers(route.prefix, pathname)) return { kind: "upstream", ...route };
+  }
+  throw new Error(`worker.js forwarded ${sent.url} to an origin no prefix covering ${pathname} names`);
+}
 
 const REDIRECT_STATUSES: readonly number[] = [301, 302, 307, 308];
 
@@ -44,6 +70,8 @@ export async function interpretWorker(
   if (request.found) hold(request.path);
   objects.set("manifest.json", { body: JSON.stringify({ files }) });
 
+  const forwarded: Request[] = [];
+  const answer = new Response("from the app");
   const response = await runWorker(
     worker.contents,
     {
@@ -51,7 +79,15 @@ export async function interpretWorker(
       url: new Request(`https://${request.domain ?? "default.test"}${request.path}`).url,
     },
     originStandIn(objects).binding,
+    {
+      fetch: (sent) => {
+        forwarded.push(sent);
+        return Promise.resolve(answer);
+      },
+    },
   );
+  const [sent] = forwarded;
+  if (sent !== undefined) return upstreamOf(worker.contents, request.path, sent, response === answer);
   // The etag belongs to the stored object, and the document says nothing about it.
   const fields = [...response.headers]
     .filter(([name]) => name !== "etag")

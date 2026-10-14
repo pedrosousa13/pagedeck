@@ -9,9 +9,10 @@ Date: 2026-10-13
 
 ## Status
 
-Proposed, for #141. The maintainer asked for it on 2026-10-13, with two
-conditions: Pagedeck stays agnostic about the app's framework, and an island
-can talk to the app's endpoints and middleware with little setup.
+Accepted, and shipped on #141. The maintainer asked for it on 2026-10-13, with
+two conditions: Pagedeck stays agnostic about the app's framework, and an
+island can talk to the app's endpoints and middleware with little setup.
+Every adapter routes upstreams; the table below is what shipped.
 
 ## Context
 
@@ -52,15 +53,20 @@ app:
 
 | Host | How the prefix reaches the app |
 | --- | --- |
-| Cloudflare static assets | `assets.run_worker_first` patterns, the app as the Worker |
-| Cloudflare Worker | the generated Worker forwards the prefix to a service binding |
-| Vercel | a route in the build output to a function |
-| Netlify | a function's `path` |
-| CloudFront | a second origin and a cache behaviour for the prefix |
-| nginx | a `location` that proxies to the app |
+| Cloudflare Pages | two `_routes.json` include rules per prefix, its unslashed path and everything under it, the app as Pages Functions |
+| Cloudflare Workers Static Assets | `assets.run_worker_first` patterns in the site's own `wrangler.jsonc`, the app as the Worker; the build cannot write that file |
+| Cloudflare Worker | the generated Worker calls a service binding named in `cloudflareWorker({ upstreams })`, or fetches `url` |
+| Vercel | a route in `vercel.json` to `url`, ahead of the filesystem |
+| Netlify | forced proxy rows in `_redirects` to `url` |
+| CloudFront | an origin for `url` and two cache behaviours with caching disabled, in a `distribution-config` fragment |
+| nginx | an exact and a `^~` `location` that `proxy_pass` to `url`, with TLS verification |
 
-An adapter that does not support upstreams yet refuses them with a
-`ConfigError`, as adapters refuse other features today.
+`defineAdapter` refuses upstreams for every adapter that does not declare it
+routes them, so a new adapter cannot drop a prefix without a word. An adapter
+that routes them also declares whether each upstream must name `url`, the
+`https` origin the deployed app answers at, or must not. A host that proxies to
+the app needs the origin. A host that runs the app itself, such as Cloudflare
+Pages with Pages Functions, refuses it.
 
 **No precedence.** A prefix may not cover a built page, a redirect, a 404 page
 or a reserved deploy key, and one prefix may not contain another. The build

@@ -25,6 +25,10 @@ function normalize(fields: readonly HeaderField[]): readonly HeaderField[] {
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+export function comparable(
+  resolution: Extract<Resolution, { kind: "pass" }>,
+): Extract<Resolution, { kind: "pass" }>;
+export function comparable(resolution: Resolution): Resolution;
 export function comparable(resolution: Resolution): Resolution {
   if (resolution.kind === "not-found" && !("document" in resolution)) {
     return { kind: "not-found" };

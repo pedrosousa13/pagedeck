@@ -55,7 +55,7 @@ describe("compile refusals", () => {
     };
     expect(() => netlify().compile(splat)).toThrow(
       new ConfigError(
-        `Edge target "netlify": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "netlify": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/a*b" — Netlify reads "*" in a path pattern as a splat, and offers no escape for a literal one`,
       ),
     );
@@ -177,7 +177,7 @@ describe("paths off the site", () => {
     };
     expect(() => netlify().compile(colon)).toThrow(
       new ConfigError(
-        `Edge target "netlify": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "netlify": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/time-12:30/" — Netlify reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one`,
       ),
     );
@@ -199,7 +199,7 @@ describe("paths off the site", () => {
     };
     expect(() => netlify().compile(spaced)).toThrow(
       new ConfigError(
-        `Edge target "netlify": 4 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "netlify": 4 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/a b/" — Netlify reads U+0020, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
   the default tree's redirect target on "/c/" — Netlify reads U+00A0, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
   the default tree's 404 page — Netlify reads U+0009, a whitespace character, as the end of a path pattern, and offers no escape for a literal one

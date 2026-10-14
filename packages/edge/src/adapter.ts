@@ -5,7 +5,11 @@ import {
   unusableHeaderValue,
   unwritableHeaderName,
 } from "@pagedeck/core/routing";
-import type { RoutingManifest, RoutingTree } from "@pagedeck/core/routing";
+import type {
+  RoutingManifest,
+  RoutingTree,
+  UpstreamRoute,
+} from "@pagedeck/core/routing";
 
 import type { ArtifactRole, EdgeArtifact, EdgeOutput } from "./artifact.js";
 import type { Fault } from "./faults.js";
@@ -30,7 +34,23 @@ export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   describe?(artifact: A): string;
   /** The fix an `unsupported` fault names, where this adapter knows a better one. */
   unsupportedFix?: string;
+  /** Absent, `defineAdapter` refuses every tree that declares an upstream prefix. */
+  upstreams?: UpstreamPolicy;
+  /** Pushes the faults no one tree holds, such as an adapter option naming a prefix no tree declares. */
+  checkManifest?(manifest: RoutingManifest, faults: Fault[]): void;
 }
+
+/**
+ * How an adapter that routes upstreams reaches the app: through the deployed
+ * origin each upstream's `url` names, or with no `url`, where the host runs the
+ * app itself, or either, where the adapter decides per prefix. Under `refused`,
+ * `fix` is what a refused `url` names, where this adapter knows a better one;
+ * under `optional`, it is what the adapter's own `upstream-url-missing` faults name.
+ */
+export type UpstreamPolicy =
+  | { url: "required" }
+  | { url: "refused"; fix?: string }
+  | { url: "optional"; fix: string };
 
 function checkVersion(name: string, version: number): void {
   if (version === ROUTING_VERSION) return;
@@ -76,6 +96,38 @@ function checkHeaders(tree: RoutingTree, faults: Fault[]): void {
   }
 }
 
+function upstreamsLine(
+  domain: string | undefined,
+  upstreams: readonly UpstreamRoute[],
+): string {
+  return `${treeOf(domain)}'s ${
+    upstreams.length === 1 ? "prefix" : "prefixes"
+  } ${upstreams.map(({ prefix }) => JSON.stringify(prefix)).join(", ")} (build.routing.upstreams)`;
+}
+
+// Refused, not dropped: a host that serves the prefix as files answers the app's requests with
+// the site's 404.
+function refuseUpstreams(
+  tree: RoutingTree,
+  policy: UpstreamPolicy | undefined,
+  faults: Fault[],
+): void {
+  const upstreams = tree.upstreams ?? [];
+  if (upstreams.length === 0) return;
+  if (policy === undefined) {
+    faults.push({ kind: "upstream", line: upstreamsLine(tree.domain, upstreams) });
+    return;
+  }
+  if (policy.url === "optional") return;
+  const required = policy.url === "required";
+  const wrong = upstreams.filter(({ url }) => (url === undefined) === required);
+  if (wrong.length === 0) return;
+  faults.push({
+    kind: required ? "upstream-url-missing" : "upstream-url-refused",
+    line: upstreamsLine(tree.domain, wrong),
+  });
+}
+
 function describePath(artifact: EdgeArtifact): string {
   return `${treeOf(artifact.domain)}'s "${artifact.path}"`;
 }
@@ -91,7 +143,11 @@ export function defineAdapter<A extends EdgeArtifact>(
       checkVersion(name, manifest.version);
 
       const faults: Fault[] = [];
-      for (const tree of manifest.trees) checkHeaders(tree, faults);
+      for (const tree of manifest.trees) {
+        checkHeaders(tree, faults);
+        refuseUpstreams(tree, definition.upstreams, faults);
+      }
+      definition.checkManifest?.(manifest, faults);
       // Folded once here, so no two adapters can derive different normalizing rules.
       const artifacts = manifest.trees.flatMap((tree) =>
         definition.compileTree(
@@ -111,7 +167,12 @@ export function defineAdapter<A extends EdgeArtifact>(
           line: `${describe(artifact)} — ${String(bytes)} bytes, limit ${String(limit)}`,
         });
       }
-      throwIfAny(name, faults, definition.unsupportedFix);
+      const policy = definition.upstreams;
+      throwIfAny(name, faults, {
+        unsupported: definition.unsupportedFix,
+        upstreamUrlMissing: policy?.url === "optional" ? policy.fix : undefined,
+        upstreamUrlRefused: policy?.url === "refused" ? policy.fix : undefined,
+      });
 
       return { target: name, artifacts };
     },

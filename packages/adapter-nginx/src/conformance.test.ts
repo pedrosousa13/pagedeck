@@ -6,4 +6,5 @@ describeConformance({
   adapter: nginx(),
   interpret: interpretNginx,
   policies: ["never", "always"],
+  upstreams: { withUrl: "routed", withoutUrl: "refused" },
 });

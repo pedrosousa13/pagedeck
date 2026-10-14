@@ -7,6 +7,7 @@ import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 import {
   cloudflarePagesPattern,
   unexpressibleInCloudflarePagesPattern,
+  unexpressibleInCloudflareRoutesRule,
 } from "./encode.js";
 
 // https://developers.cloudflare.com/pages/configuration/redirects/#per-file : 2,000 static and
@@ -21,6 +22,11 @@ const REDIRECT_LINE_LIMIT = 1000;
 // https://developers.cloudflare.com/pages/configuration/headers/#attach-a-header
 const HEADER_RULE_LIMIT = 100;
 const HEADER_LINE_LIMIT = 2000;
+// https://developers.cloudflare.com/pages/functions/routing/#limits : include and exclude
+// combined, and per rule. The third limit, at least one include rule, holds by construction:
+// the file is written only for a tree with a prefix.
+const ROUTES_RULE_LIMIT = 100;
+const ROUTES_RULE_LENGTH_LIMIT = 100;
 
 /**
  * Written at the tree's root when the tree declares no 404 page, so the reserved-key proxy below
@@ -187,6 +193,40 @@ function headersFile(tree: CompiledTree, faults: Fault[]): string | undefined {
   return blocks.length === 0 ? undefined : `${blocks.join("\n\n")}\n`;
 }
 
+// Functions run only for an `include` match, and every other request is served as a file
+// (https://developers.cloudflare.com/pages/functions/routing/#create-a-_routesjson-file).
+// "/users/*" matches "everything after the /users/ path", which leaves "/users" out, so each
+// prefix also gets its exact unslashed path, which `covers` and pagedeck dev send to the app.
+function routesFile(
+  tree: CompiledTree,
+  prefixes: readonly string[],
+  faults: Fault[],
+): string {
+  const include = prefixes.flatMap((prefix) => [
+    cloudflarePagesPattern(prefix.slice(0, -1)),
+    `${cloudflarePagesPattern(prefix)}*`,
+  ]);
+  if (include.length > ROUTES_RULE_LIMIT) {
+    faults.push({
+      kind: "oversize",
+      line: `${treeOf(tree.domain)}'s _routes.json — ${String(include.length)} rules, limit ${String(ROUTES_RULE_LIMIT)}`,
+    });
+  }
+  for (const prefix of prefixes) {
+    const why = unexpressibleInCloudflareRoutesRule(prefix);
+    if (why !== undefined) {
+      faults.push({
+        kind: "unexpressible",
+        line: `${treeOf(tree.domain)}'s upstream prefix "${prefix}" — ${why}`,
+      });
+    }
+  }
+  for (const rule of include) {
+    lineLimit(tree, `_routes.json rule "${rule}"`, rule, ROUTES_RULE_LENGTH_LIMIT, faults);
+  }
+  return `${JSON.stringify({ version: 1, include, exclude: [] }, null, 2)}\n`;
+}
+
 export function compileCloudflarePages(
   tree: CompiledTree,
   faults: Fault[],
@@ -237,6 +277,16 @@ export function compileCloudflarePages(
   const headers = headersFile(tree, faults);
   if (headers !== undefined) {
     artifacts.push({ ...domain, role: "tree-file", path: "/_headers", contents: headers });
+  }
+
+  const prefixes = (tree.upstreams ?? []).map(({ prefix }) => prefix);
+  if (prefixes.length > 0) {
+    artifacts.push({
+      ...domain,
+      role: "tree-file",
+      path: "/_routes.json",
+      contents: routesFile(tree, prefixes, faults),
+    });
   }
 
   return artifacts;

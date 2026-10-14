@@ -1,7 +1,14 @@
 import { existsSync } from "node:fs";
-import { createServer as createHttpServer } from "node:http";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import { createServer as createHttpServer, request as httpRequest } from "node:http";
+import type {
+  ClientRequest,
+  IncomingHttpHeaders,
+  IncomingMessage,
+  ServerResponse,
+} from "node:http";
+import { request as httpsRequest } from "node:https";
 import type { AddressInfo } from "node:net";
+import type { Duplex } from "node:stream";
 import { dirname, relative, resolve as resolvePath, sep } from "node:path";
 import { createServer as createViteServer } from "vite";
 import type { ViteDevServer } from "vite";
@@ -22,10 +29,20 @@ import { contentOf, layoutContents } from "./layout.js";
 import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
 import { renderPage } from "./render.js";
+import { covers } from "./routing.js";
+import type { UpstreamRule } from "./routing.js";
 import { workerConsentWarning, workerFallbackWarning } from "./scripts.js";
+import { redactTarget } from "./snapshot.js";
 import { stamp, trackSiteModules } from "./site-modules.js";
 import type { SiteModules } from "./site-modules.js";
 import { installStylesheetStubs } from "./stylesheet-loader.js";
+import {
+  entryLabel,
+  upstreamImportCheck,
+  upstreamImportReport,
+  upstreamSources,
+} from "./upstream-imports.js";
+import type { UpstreamSources } from "./upstream-imports.js";
 
 export interface DevServerInput {
   config: LoadedConfig;
@@ -49,6 +66,10 @@ const UNROUTED_FIX =
   "check the path, or run pagedeck sync if the store has not fetched this page yet";
 
 const UNREADABLE_STORE_FIX = "run pagedeck sync if it has not been created yet";
+
+const UPSTREAMS = "build.routing.upstreams";
+const NO_DEV_URL_FIX =
+  'set "dev" to the http or https URL the app listens on while you develop, such as "http://localhost:8787"';
 
 const ROUTES_LISTED = 20;
 
@@ -94,9 +115,11 @@ export async function startDevServer(
     css: (section.css ?? []).map((path) => resolvePath(root, path)),
   });
   for (const warning of warnings) input.err(warning);
-  reportScriptWarnings(section, input.err);
+  const site = { current: siteState(config, section, root) };
+  reportConfigFaults(site.current, input.err);
 
   const entrySources = new Map<string, string>();
+  const entryNames = new Map<string, string>();
 
   const undo: (() => Promise<void> | void)[] = [];
   try {
@@ -136,6 +159,17 @@ export async function startDevServer(
       appType: "custom",
       server: { middlewareMode: true, hmr: { server: http } },
       plugins: [
+        upstreamImportCheck({
+          root,
+          origin: config.configPath,
+          sources: () => site.current.upstreams.sources,
+          entryName: (id) => entryNames.get(id),
+          reached: (lines) => {
+            const message = upstreamImportReport("Dev server", lines);
+            input.err(message);
+            throw new ConfigError(message);
+          },
+        }),
         serveGeneratedEntries(entrySources, config.configPath),
         // Last: a site plugin ahead of these could claim the generated entries'
         // ids.
@@ -144,7 +178,6 @@ export async function startDevServer(
     });
     undo.push(() => vite.close());
 
-    const site = { current: siteState(config, section, root) };
     undo.push(
       watchSite({ vite, site, root, clientComponents, modules, err: input.err }),
     );
@@ -154,13 +187,26 @@ export async function startDevServer(
       site,
       facts,
       entrySources,
+      entryNames,
       vite,
     });
     // Appended, so Vite's own middlewares answer first.
     vite.middlewares.use((request, response, next) => {
       handler(request, response).catch(next);
     });
-    http.on("request", vite.middlewares);
+    http.on("request", (request, response) => {
+      const upstream = upstreamFor(site.current.section, request);
+      if (upstream === undefined) vite.middlewares(request, response);
+      else forwardRequest(upstream, request, response, input.err);
+    });
+    // Vite's own listener answers only its HMR path, "/", which no upstream
+    // prefix covers, so the two never both write to one socket.
+    http.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+      const upstream = upstreamFor(site.current.section, request);
+      if (upstream !== undefined) {
+        forwardUpgrade(upstream, request, socket, head, input.err);
+      }
+    });
 
     const host = input.host ?? "127.0.0.1";
     await new Promise<void>((resolve, reject) => {
@@ -194,14 +240,16 @@ async function unwind(undo: (() => Promise<void> | void)[]): Promise<void> {
 interface SiteState {
   config: LoadedConfig;
   section: LoadedBuildSection;
+  upstreams: UpstreamSources;
   foldStrategy: ReturnType<typeof resolveFoldStrategy>;
   styles: readonly string[];
 }
 
-function reportScriptWarnings(
-  section: LoadedBuildSection,
+function reportConfigFaults(
+  { section, upstreams }: SiteState,
   err: (line: string) => void,
 ): void {
+  if (upstreams.missing !== undefined) err(upstreams.missing);
   const warning = workerFallbackWarning(section.scripts);
   if (warning !== undefined) err(warning);
   const consent = workerConsentWarning(section.scripts);
@@ -216,6 +264,11 @@ function siteState(
   return {
     config,
     section,
+    upstreams: upstreamSources(
+      root,
+      config.configPath,
+      section.routing?.upstreams ?? [],
+    ),
     foldStrategy: resolveFoldStrategy(section.foldStrategy),
     styles: (section.css ?? []).map((path) =>
       devFileUrl(resolvePath(root, path), root),
@@ -294,7 +347,7 @@ async function reread(input: WatchInput): Promise<void> {
       );
     }
     site.current = siteState(config, config.build, root);
-    reportScriptWarnings(config.build, err);
+    reportConfigFaults(site.current, err);
     vite.ws.send({ type: "full-reload" });
   } catch (error) {
     const message = describeError(error);
@@ -310,6 +363,7 @@ interface HandlerInput extends DevServerInput {
   site: { current: SiteState };
   facts: IslandFacts["facts"];
   entrySources: Map<string, string>;
+  entryNames: Map<string, string>;
   vite: ViteDevServer;
 }
 
@@ -363,6 +417,283 @@ function pageHandler(
   };
 }
 
+interface Upstream {
+  entry: string;
+  prefix: string;
+  dev: string | undefined;
+  url: string;
+  asked: string;
+}
+
+/** RFC 9110 §7.6.1, plus the `Proxy-` fields that only ever name one hop. */
+const HOP_BY_HOP: readonly string[] = [
+  "connection",
+  "keep-alive",
+  "proxy-connection",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+  "proxy-authorization",
+  "proxy-authenticate",
+];
+
+const NO_HOP_KEPT: ReadonlySet<string> = new Set();
+const UPGRADE_KEPT: ReadonlySet<string> = new Set(["connection", "upgrade"]);
+
+function upstreamFor(
+  section: LoadedBuildSection,
+  request: IncomingMessage,
+): Upstream | undefined {
+  const upstreams = section.routing?.upstreams ?? [];
+  const url = request.url ?? "/";
+  const query = url.indexOf("?");
+  const path = query === -1 ? url : url.slice(0, query);
+  const index = upstreamAt(upstreams, hostOf(request), path);
+  const upstream = upstreams[index];
+  if (upstream === undefined) return undefined;
+  return {
+    entry: `${UPSTREAMS}[${String(index)}]`,
+    prefix: upstream.prefix,
+    dev: upstream.dev,
+    url,
+    asked: query === -1 ? path : `${path}?…`,
+  };
+}
+
+function noDevUrlMessage({ entry, prefix, asked }: Upstream): string {
+  return `Dev server: ${entry} declares "${prefix}" with no "dev" URL, so pagedeck dev has no app to forward "${asked}" to — ${NO_DEV_URL_FIX}`;
+}
+
+function unansweredMessage(
+  { entry, prefix, asked }: Upstream,
+  dev: string,
+  cause: unknown,
+): string {
+  const shown = redactTarget(dev);
+  const code = (cause as NodeJS.ErrnoException).code ?? "no error code";
+  return describeError(
+    new Error(
+      `Dev server: ${entry} forwards "${prefix}" to "${shown}", which did not answer "${asked}" (${code}) — start the app at "${shown}" first, or correct "dev" to the URL it listens on`,
+      { cause },
+    ),
+  );
+}
+
+function hopByHop(
+  connection: string | string[] | undefined,
+  kept: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const named = [connection ?? []]
+    .flat()
+    .flatMap((value) => value.split(","))
+    .map((name) => name.trim().toLowerCase());
+  return new Set(
+    [...HOP_BY_HOP, ...named].filter((name) => name !== "" && !kept.has(name)),
+  );
+}
+
+function forwardedHeaders(
+  request: IncomingMessage,
+  target: URL,
+  kept: ReadonlySet<string>,
+): IncomingHttpHeaders {
+  const dropped = hopByHop(request.headers.connection, kept);
+  const headers = Object.fromEntries(
+    Object.entries(request.headers).filter(([name]) => !dropped.has(name)),
+  );
+  const chain = request.headers["x-forwarded-for"];
+  const client = request.socket.remoteAddress;
+  return {
+    ...headers,
+    host: target.host,
+    ...(client === undefined
+      ? {}
+      : {
+          "x-forwarded-for":
+            chain === undefined ? client : `${chain}, ${client}`,
+        }),
+    ...(request.headers.host === undefined
+      ? {}
+      : { "x-forwarded-host": request.headers.host }),
+    "x-forwarded-proto": "http",
+  };
+}
+
+/** Flat name, value pairs, so a repeated `set-cookie` stays repeated. */
+function answerHeaders(
+  answer: IncomingMessage,
+  kept: ReadonlySet<string>,
+): string[] {
+  const dropped = hopByHop(answer.headers.connection, kept);
+  const raw = answer.rawHeaders;
+  const headers: string[] = [];
+  for (let at = 0; at + 1 < raw.length; at += 2) {
+    const name = raw[at] as string;
+    if (!dropped.has(name.toLowerCase())) headers.push(name, raw[at + 1] as string);
+  }
+  return headers;
+}
+
+function sendTo(
+  dev: string,
+  request: IncomingMessage,
+  kept: ReadonlySet<string>,
+): ClientRequest {
+  const target = new URL(dev);
+  const send = target.protocol === "https:" ? httpsRequest : httpRequest;
+  return send({
+    protocol: target.protocol,
+    hostname: target.hostname.replace(/^\[|\]$/g, ""),
+    port: target.port,
+    method: request.method,
+    path: request.url ?? "/",
+    headers: forwardedHeaders(request, target, kept),
+  });
+}
+
+function forwardRequest(
+  upstream: Upstream,
+  request: IncomingMessage,
+  response: ServerResponse,
+  err: (line: string) => void,
+): void {
+  const { dev } = upstream;
+  if (dev === undefined) {
+    const message = noDevUrlMessage(upstream);
+    err(message);
+    respondText(response, 502, `${message}\n`);
+    return;
+  }
+
+  const forwarded = sendTo(dev, request, NO_HOP_KEPT);
+  forwarded.on("response", (answer) => {
+    response.writeHead(
+      answer.statusCode ?? 502,
+      answer.statusMessage,
+      answerHeaders(answer, NO_HOP_KEPT),
+    );
+    answer.on("error", (cause) => response.destroy(cause));
+    answer.pipe(response);
+  });
+  let abandoned = false;
+  forwarded.on("error", (cause) => {
+    if (abandoned) return;
+    if (response.headersSent) {
+      response.destroy(cause);
+      return;
+    }
+    const message = unansweredMessage(upstream, dev, cause);
+    err(message);
+    respondText(response, 502, `${message}\n`);
+  });
+  response.on("close", () => {
+    if (response.writableFinished) return;
+    abandoned = true;
+    forwarded.destroy();
+  });
+  request.pipe(forwarded);
+}
+
+function forwardUpgrade(
+  upstream: Upstream,
+  request: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+  err: (line: string) => void,
+): void {
+  const { dev } = upstream;
+  if (dev === undefined) {
+    const message = noDevUrlMessage(upstream);
+    err(message);
+    refuseUpgrade(socket, message);
+    return;
+  }
+
+  const forwarded = sendTo(dev, request, UPGRADE_KEPT);
+  let answered = false;
+  let abandoned = false;
+  socket.on("error", () => socket.destroy());
+  socket.on("close", () => {
+    abandoned = true;
+    forwarded.destroy();
+  });
+  forwarded.on("upgrade", (answer, app: Duplex, appHead: Buffer) => {
+    answered = true;
+    socket.write(statusHead(answer, answerHeaders(answer, UPGRADE_KEPT)));
+    if (appHead.length > 0) socket.write(appHead);
+    if (head.length > 0) app.write(head);
+    app.on("error", () => socket.destroy());
+    socket.on("close", () => app.destroy());
+    app.pipe(socket).pipe(app);
+  });
+  forwarded.on("response", (answer) => {
+    answered = true;
+    socket.write(
+      statusHead(answer, [
+        ...answerHeaders(answer, NO_HOP_KEPT),
+        "connection",
+        "close",
+      ]),
+    );
+    answer.on("error", () => socket.destroy());
+    answer.pipe(socket);
+  });
+  forwarded.on("error", (cause) => {
+    if (abandoned) return;
+    if (answered) {
+      socket.destroy();
+      return;
+    }
+    const message = unansweredMessage(upstream, dev, cause);
+    err(message);
+    refuseUpgrade(socket, message);
+  });
+  forwarded.end();
+}
+
+function statusHead(answer: IncomingMessage, headers: readonly string[]): string {
+  const lines = [
+    `HTTP/1.1 ${String(answer.statusCode ?? 502)} ${answer.statusMessage ?? ""}`,
+  ];
+  for (let at = 0; at + 1 < headers.length; at += 2) {
+    lines.push(`${headers[at] as string}: ${headers[at + 1] as string}`);
+  }
+  return `${lines.join("\r\n")}\r\n\r\n`;
+}
+
+function refuseUpgrade(socket: Duplex, message: string): void {
+  const body = Buffer.from(`${message}\n`);
+  socket.end(
+    Buffer.concat([
+      Buffer.from(
+        [
+          "HTTP/1.1 502 Bad Gateway",
+          "content-type: text/plain; charset=utf-8",
+          `content-length: ${String(body.length)}`,
+          "connection: close",
+          "",
+          "",
+        ].join("\r\n"),
+      ),
+      body,
+    ]),
+  );
+}
+
+function upstreamAt(
+  upstreams: readonly UpstreamRule[],
+  host: string | undefined,
+  path: string,
+): number {
+  const covering = (domain: string | undefined): number =>
+    upstreams.findIndex(
+      (rule) => rule.domain === domain && covers(rule.prefix, path),
+    );
+  const own = host === undefined ? -1 : covering(host);
+  return own === -1 ? covering(undefined) : own;
+}
+
 function openStore(storePath: string): ContentStoreReader {
   try {
     return openStoreReadOnly(storePath);
@@ -378,6 +709,7 @@ async function renderDocument(input: {
   section: LoadedBuildSection;
   facts: HandlerInput["facts"];
   entrySources: Map<string, string>;
+  entryNames: Map<string, string>;
   page: Page;
   store: ContentStoreReader;
   foldStrategy: ReturnType<typeof resolveFoldStrategy>;
@@ -415,6 +747,7 @@ async function renderDocument(input: {
   const entry = plan.entries[0];
   if (entry !== undefined) {
     input.entrySources.set(entry.id, renderEntryModule(entry, { hot: true }));
+    input.entryNames.set(entry.id, entryLabel(entry));
   }
 
   return documentHtml({

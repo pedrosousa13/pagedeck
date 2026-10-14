@@ -1132,6 +1132,73 @@ The dogfood site declares two redirects and two response headers
 for two hosts and reads both back out of the artifacts. That is the only claim
 made about them: they are text, compiled from the site's own config.
 
+## An app beside the site
+
+A site that declares `build.routing.upstreams` sends each prefix to an app it
+deploys itself (ADR-0010, #141). The site deploys the app first, then the
+pages, so no request under a prefix reaches a host that has nowhere to send it.
+Each adapter writes the routing in the host's own terms. Every adapter routes
+`/api` as well as everything under `/api/`, and none adds the site's header
+rules to the app's answers, so the app sets its own headers, `Cache-Control`
+included.
+
+| Adapter | `url` | What the build writes | What the operator does |
+| --- | --- | --- | --- |
+| `cloudflarePages()` | refused | `_routes.json`, two include rules per prefix | deploy the app as Pages Functions under the prefix; on Workers Static Assets, name the prefixes in `run_worker_first` and keep `/_routes.json` out of the upload with `.assetsignore` |
+| `cloudflareWorker()` | optional | the routing in `worker.js` | bind the app's Worker under the name `cloudflareWorker({ upstreams })` gives, or deploy the app at `url` |
+| `netlify()` | required | two forced proxy rows per prefix in `_redirects` | nothing beyond the deploy |
+| `vercel()` | required | one route per prefix in `vercel.json`, ahead of the filesystem | nothing beyond the deploy |
+| `cloudfront()` | required | `upstreams.json`, a `distribution-config` fragment | merge it into the distribution, below |
+| `nginx()` | required | the proxy locations in `routing.conf`, and the WebSocket map in `http.conf` | include `http.conf` once in the `http` block |
+
+### CloudFront
+
+`upstreams.json` holds one custom origin and two cache behaviors per prefix,
+`/api` and `/api/*`. Each behavior allows all seven methods, uses the managed
+`CachingDisabled` cache policy and the managed `AllViewerExceptHostHeader`
+origin request policy, and has no function and no response headers policy.
+The site's functions stay on the default behavior, which CloudFront processes
+last. A viewer function on every path is avoided on purpose: the managed
+`CachingOptimized` policy caches an answer for its minimum TTL "even if the
+Cache-Control: no-cache, no-store, or private directives are present"
+(<https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html>).
+
+The deploy stages the file beside `error-responses.json`. The operator merges
+its `Origins.Items` and `CacheBehaviors.Items` into the distribution's config,
+puts its behaviors ahead of any of their own that could also match under the
+prefix, and updates both `Quantity` fields, since an update replaces the whole
+list. Two behaviors per prefix count against the distribution's cache-behavior
+quota, 75 by default; an account with a raised quota sets
+`cloudfront({ limits: { cacheBehaviors } })`.
+
+### nginx
+
+Include `http.conf` once in the `http` block and `routing.conf` in the
+`server` block, as before. Each prefix is proxied with `proxy_pass` to the
+origin and no URI part, over HTTP/1.1, with SNI and certificate verification
+against the bundle `nginx({ trustedCertificate })` names
+(`/etc/ssl/certs/ca-certificates.crt` by default). Two nginx facts are the
+operator's:
+
+- nginx resolves the app's host name when it loads the config, refuses to
+  start if the lookup fails, and keeps the addresses until the next reload.
+- An `add_header` in the site's own `server` block reaches the app's answers,
+  because a location with no `add_header` inherits it. The adapter emits its
+  header rules as locations for that reason.
+
+### Unverified until a first deploy
+
+Each fact below is undocumented by the host, so the adapter and its
+conformance interpreter assume it. The first deploy to that host checks it.
+
+- **Netlify**: a `/api/*` row does not match `/api`, hence the exact row; the
+  method, body and request headers reach the app unchanged.
+- **Vercel**: a route ahead of `{ "handle": "filesystem" }` runs before the
+  trailing-slash redirect; the request's query string reaches the app; `$1` is
+  empty for `/api`.
+- **Cloudflare Pages**: `/api/*` in `_routes.json` does not match `/api`, hence
+  the exact rule.
+
 ## The landing page on Cloudflare
 
 The landing page (`packages/landing`) is deployed as **Workers Static

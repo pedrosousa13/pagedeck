@@ -94,6 +94,12 @@ export interface RoutingTree {
   notFound?: string;
   headers: readonly HeaderRule[];
   experiments?: readonly ResolvedExperiment[];
+  upstreams?: readonly UpstreamRoute[];
+}
+
+export interface UpstreamRoute {
+  prefix: string;
+  url?: string;
 }
 
 export interface RoutingManifest {
@@ -123,11 +129,21 @@ export interface VariantRule {
   variants: readonly WeightedVariant[];
 }
 
+export interface UpstreamRule {
+  domain?: string;
+  prefix: string;
+  /** The https origin the deployed app answers at, for a host that proxies. */
+  url?: string;
+  dev?: string;
+  source?: string;
+}
+
 export interface RoutingConfig {
   redirects?: readonly RedirectRule[];
   notFound?: readonly NotFoundRule[];
   headers?: readonly (HeaderRule & { domain?: string })[];
   experiments?: readonly VariantRule[];
+  upstreams?: readonly UpstreamRule[];
 }
 
 export interface RoutingInput {
@@ -188,6 +204,12 @@ const UNROUTED_EXPERIMENT_FIX =
 const CONTESTED_EXPERIMENT_FIX = "give each page one experiment";
 const RESERVED_SEGMENT_FIX = `move the page out of "${VARIANT_PREFIX}", or drop the experiments in its tree`;
 const RESERVED_KEY_FIX = `move each off "${DEPLOY_MANIFEST_PATH}" and out of "${DEPLOY_DIRECTORY}/"; every target answers 404 there, so nothing routed at one of them is ever served`;
+const COVERED_BY_UPSTREAM_FIX =
+  "move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there";
+const UNREACHABLE_HEADERS_FIX =
+  "set those headers in the app, or delete the rule; every answer under an upstream prefix is the app's, and no host adds the site's headers to it";
+const NESTED_UPSTREAM_FIX =
+  "give each app one prefix that no other upstream prefix in its tree starts with; a path under both has two apps to answer it, and the route table has no precedence rules";
 
 function report(headline: string, lines: readonly string[]): string {
   return `Routing manifest: ${headline}:\n${lines.join("\n")}`;
@@ -224,6 +246,7 @@ function at(list: string, index: number, field?: string): string {
 const REDIRECTS = "build.routing.redirects";
 const HEADERS = "build.routing.headers";
 const NOT_FOUND = "build.routing.notFound";
+const UPSTREAMS = "build.routing.upstreams";
 const REMOVAL = "a redirect for a page this build deleted";
 
 interface DraftRedirect {
@@ -246,6 +269,13 @@ interface DraftNotFound {
   domain?: string;
   locale: string;
   path: string;
+  where: string;
+}
+
+interface DraftUpstream {
+  domain?: string;
+  prefix: string;
+  url?: string;
   where: string;
 }
 
@@ -358,12 +388,15 @@ function throwIfAny(sections: readonly string[]): void {
   if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
 }
 
-function draft(input: RoutingInput): {
+interface Drafted {
   redirects: DraftRedirect[];
   headers: DraftHeaders[];
   notFound: DraftNotFound[];
   experiments: DraftExperiment[];
-} {
+  upstreams: DraftUpstream[];
+}
+
+function draft(input: RoutingInput): Drafted {
   const { trailingSlash } = input;
   const asPath = (path: string): string =>
     normalizeOutputPath(path, trailingSlash);
@@ -440,6 +473,15 @@ function draft(input: RoutingInput): {
     });
   });
 
+  const upstreams: DraftUpstream[] = (input.config?.upstreams ?? []).map(
+    (rule, index) => ({
+      ...inTree(rule.domain),
+      prefix: rule.prefix,
+      ...(rule.url === undefined ? {} : { url: new URL(rule.url).origin }),
+      where: at(UPSTREAMS, index),
+    }),
+  );
+
   removals.forEach((record) => {
     const where = REMOVAL;
     // Checked although typed: `RedirectRecord.status` widens to `number`.
@@ -452,6 +494,13 @@ function draft(input: RoutingInput): {
     const from = spell(record.from, asPath, `${where} — "from"`, unusable);
     const to = spell(record.to, asPath, `${where} — "to"`, unusable);
     if (from === undefined || to === undefined) return;
+    if (
+      upstreams.some(
+        (upstream) =>
+          upstream.domain === record.domain && covers(upstream.prefix, from),
+      )
+    )
+      return;
     redirects.push({
       ...(record.domain === undefined ? {} : { domain: record.domain }),
       from,
@@ -724,7 +773,7 @@ function draft(input: RoutingInput): {
     ].filter((section) => section !== undefined),
   );
 
-  return { redirects, headers, notFound, experiments };
+  return { redirects, headers, notFound, experiments, upstreams };
 }
 
 /**
@@ -757,15 +806,11 @@ function fileTargets(input: RoutingInput): Set<string> {
   );
 }
 
-function check(
-  input: RoutingInput,
-  drafted: {
-    redirects: DraftRedirect[];
-    headers: DraftHeaders[];
-    notFound: DraftNotFound[];
-    experiments: DraftExperiment[];
-  },
-): void {
+export function covers(prefix: string, path: string): boolean {
+  return path.startsWith(prefix) || path === prefix.slice(0, -1);
+}
+
+function check(input: RoutingInput, drafted: Drafted): void {
   const treeOf = treeNamer(input.pages);
   const trees = new Set(treesOf(input.pages));
   const liveIn = new Map<string, Page>();
@@ -792,6 +837,9 @@ function check(
     named(rule.where, rule.domain),
   );
   const experiments = drafted.experiments.filter((rule) =>
+    named(rule.where, rule.domain),
+  );
+  const upstreams = drafted.upstreams.filter((rule) =>
     named(rule.where, rule.domain),
   );
   throwIfAny(
@@ -908,6 +956,73 @@ function check(
     if (!isReservedDeployKey(rule.from)) continue;
     reservedKeys.push(`  "${rule.from}" in ${treeOf(rule.domain)} — ${rule.where}`);
   }
+
+  const covered: string[] = [];
+  const nested: string[] = [];
+  const unreachableHeaders: string[] = [];
+  upstreams.forEach((upstream, index) => {
+    const { domain, prefix } = upstream;
+    for (const rule of headers) {
+      if (rule.domain !== domain || !covers(prefix, rule.prefix)) continue;
+      unreachableHeaders.push(
+        `  "${rule.prefix}" in ${treeOf(domain)} — ${rule.where}, under "${prefix}" — ${upstream.where}`,
+      );
+    }
+    const claims: string[] = [];
+    for (const page of input.pages) {
+      if (page.domain !== domain || !covers(prefix, page.output)) continue;
+      claims.push(`"${page.output}" — the page ${page.locale} ${page.path}`);
+    }
+    for (const file of input.emitted ?? []) {
+      if (
+        file.page !== undefined ||
+        file.domain !== domain ||
+        isReservedDeployKey(file.path) ||
+        !covers(prefix, file.path)
+      )
+        continue;
+      claims.push(`"${file.path}" — a file this build emits`);
+    }
+    for (const rule of redirects) {
+      if (rule.domain !== domain || rule.source === "deleted-page") continue;
+      if (covers(prefix, rule.from))
+        claims.push(`"${rule.from}" — ${rule.where}, the redirect's source`);
+      if (covers(prefix, rule.to))
+        claims.push(`"${rule.to}" — ${rule.where}, the redirect's target`);
+    }
+    if (isReservedDeployKey(prefix)) {
+      claims.push(
+        `"${prefix}" — a key the deploy keeps off the edge for its own manifest and history`,
+      );
+    }
+    if (claims.length > 0) {
+      covered.push(
+        [
+          `  "${prefix}" in ${treeOf(domain)} — ${upstream.where} covers:`,
+          ...claims.sort().map((claim) => `    ${claim}`),
+        ].join("\n"),
+      );
+    }
+    for (const other of upstreams.slice(index + 1)) {
+      if (other.domain !== domain) continue;
+      if (other.prefix === prefix) {
+        nested.push(
+          `  "${prefix}" in ${treeOf(domain)} — declared by ${upstream.where} and ${other.where}`,
+        );
+        continue;
+      }
+      const [outer, inner] =
+        other.prefix.startsWith(prefix)
+          ? [upstream, other]
+          : prefix.startsWith(other.prefix)
+            ? [other, upstream]
+            : [undefined, undefined];
+      if (outer === undefined || inner === undefined) continue;
+      nested.push(
+        `  "${inner.prefix}" in ${treeOf(domain)} — ${inner.where}, inside "${outer.prefix}" — ${outer.where}`,
+      );
+    }
+  });
 
   throwIfAny(
     [
@@ -1071,6 +1186,36 @@ function check(
             } this build keeps off the edge for the deploy's own manifest and history — ${RESERVED_KEY_FIX}`,
             [...reservedKeys].sort(),
           ),
+      covered.length === 0
+        ? undefined
+        : report(
+            `${
+              covered.length === 1
+                ? "1 upstream prefix covers paths"
+                : `${String(covered.length)} upstream prefixes cover paths`
+            } this build serves — ${COVERED_BY_UPSTREAM_FIX}`,
+            [...covered].sort(),
+          ),
+      nested.length === 0
+        ? undefined
+        : report(
+            `${
+              nested.length === 1
+                ? "1 upstream prefix is declared twice or inside another"
+                : `${String(nested.length)} upstream prefixes are declared twice or inside others`
+            } — ${NESTED_UPSTREAM_FIX}`,
+            [...nested].sort(),
+          ),
+      unreachableHeaders.length === 0
+        ? undefined
+        : report(
+            `${
+              unreachableHeaders.length === 1
+                ? "1 header rule sits under an upstream prefix"
+                : `${String(unreachableHeaders.length)} header rules sit under an upstream prefix`
+            } — ${UNREACHABLE_HEADERS_FIX}`,
+            [...unreachableHeaders].sort(),
+          ),
     ].filter((section) => section !== undefined),
   );
 }
@@ -1196,6 +1341,14 @@ export function planRouting(input: RoutingInput): RoutingManifest {
       const notFound = input.pages.find(
         (page) => page.domain === domain && isNotFound(page),
       );
+      const upstreams: UpstreamRoute[] = drafted.upstreams
+        .filter((rule) => rule.domain === domain)
+        .map(({ prefix, url }) =>
+          url === undefined ? { prefix } : { prefix, url },
+        )
+        .sort((a, b) =>
+          a.prefix === b.prefix ? 0 : a.prefix < b.prefix ? -1 : 1,
+        );
       return {
         ...(domain === undefined ? {} : { domain }),
         redirects: [...byFrom.values()].sort((a, b) =>
@@ -1217,6 +1370,7 @@ export function planRouting(input: RoutingInput): RoutingManifest {
         // Last and omitted when empty, so a site with no split keeps its bytes
         // (#34).
         ...(splits.length === 0 ? {} : { experiments: splits }),
+        ...(upstreams.length === 0 ? {} : { upstreams }),
       };
     }),
   };
@@ -1255,7 +1409,7 @@ export function undeclaredHeadersWarning(
 const ROUTING_SHAPE_FIX =
   'routing: { redirects: [{ from: "/old", to: "/pricing" }] }';
 const ROUTING_KEY_FIX =
-  "delete the field, or correct it to one of: redirects, notFound, headers, experiments";
+  "delete the field, or correct it to one of: redirects, notFound, headers, experiments, upstreams";
 const ROUTING_LIST_FIX = `write each as an array, as ${ROUTING_SHAPE_FIX}`;
 const ROUTING_ENTRY_FIX = `write each as an object, as ${ROUTING_SHAPE_FIX}`;
 const FROM_FIX =
@@ -1289,13 +1443,78 @@ const VARIANTS_FIX =
 const VARIANT_TYPE_FIX =
   'write the variant name as one path segment, such as "b"';
 const WEIGHT_FIX = "write this variant's share of visitors, such as weight: 50";
+const UPSTREAM_PREFIX_FIX =
+  'write the path prefix the app answers under, starting and ending with "/", such as "/api/"';
+const UPSTREAM_URL_FIX =
+  'write the https origin the deployed app answers at, with no credential, path, query or fragment, such as "https://app.example"';
+const UPSTREAM_DEV_FIX =
+  'write the http or https URL the app listens on while you develop, such as "http://localhost:8787"';
+const UPSTREAM_SOURCE_FIX =
+  'write the path of the app\'s file or directory, relative to the site root, such as "app/"';
 
 const ROUTING_KEYS: readonly string[] = [
   "redirects",
   "notFound",
   "headers",
   "experiments",
+  "upstreams",
 ];
+
+const PREFIX_SPACE = /[\s\u0000-\u001F\u007F]/;
+
+function upstreamPrefixFault(value: unknown): string | undefined {
+  const text = textFault(value, "prefix");
+  if (text !== undefined) return text;
+  const prefix = value as string;
+  if (!prefix.startsWith("/")) return 'the prefix does not start with "/"';
+  if (!prefix.endsWith("/")) {
+    return 'the prefix does not end with "/", so it would also match every path that only begins with the same characters';
+  }
+  if (prefix === "/") return 'the prefix is "/", which sends every path to the app';
+  if (prefix.includes("*")) {
+    return 'the prefix holds "*", and a prefix is matched character for character, never as a pattern';
+  }
+  const ender = [...prefix].find((one) => one === "?" || one === "#");
+  if (ender !== undefined) {
+    return `the prefix holds ${JSON.stringify(ender)}, which ends the path part of a URL`;
+  }
+  if (PREFIX_SPACE.test(prefix)) {
+    return "the prefix holds whitespace or a control character";
+  }
+  if (prefix.split("/").some((segment) => segment === "." || segment === "..")) {
+    return 'the prefix holds a "." or ".." segment, which a URL resolves away before any host matches it';
+  }
+  return undefined;
+}
+
+function upstreamUrlFault(value: unknown): string | undefined {
+  if (typeof value !== "string") return "not a string";
+  if (!URL.canParse(value)) return "not an absolute URL";
+  const url = new URL(value);
+  if (url.protocol !== "https:") {
+    return `the scheme is ${JSON.stringify(url.protocol.slice(0, -1))}, and a request to the app crosses the internet from the host, so plain http is refused`;
+  }
+  if (url.username !== "" || url.password !== "") {
+    return "the URL holds a user name or password, which the adapter would write into the host's deploy files";
+  }
+  const appended =
+    "the request's own path and query are appended to the origin, so the URL names the origin only";
+  if (url.pathname !== "/") {
+    return `the URL has the path ${JSON.stringify(url.pathname)}, and ${appended}`;
+  }
+  if (url.search !== "") return `the URL holds a query, and ${appended}`;
+  if (url.hash !== "") return `the URL holds a fragment, and ${appended}`;
+  return undefined;
+}
+
+function devUrlFault(value: unknown): string | undefined {
+  if (typeof value !== "string") return "not a string";
+  if (!URL.canParse(value)) return "not an absolute URL";
+  const { protocol } = new URL(value);
+  return protocol === "http:" || protocol === "https:"
+    ? undefined
+    : `the scheme is ${JSON.stringify(protocol.slice(0, -1))}, and the dev server forwards over http or https`;
+}
 
 function configReport(
   where: string,
@@ -1338,7 +1557,7 @@ export function routingFaultReport(
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return (
       `${where}: "build.routing" must be an object of redirects, 404 pages,` +
-      ` header rules and experiments — ${ROUTING_SHAPE_FIX}`
+      ` header rules, experiments and upstreams — ${ROUTING_SHAPE_FIX}`
     );
   }
   const record = value as Record<string, unknown>;
@@ -1364,6 +1583,7 @@ export function routingFaultReport(
   const notLists: string[] = [];
   const notEntries: string[] = [];
   const fields: string[] = [];
+  const upstreamFields: string[] = [];
   const field = (
     at_: string,
     name: string,
@@ -1523,6 +1743,43 @@ export function routingFaultReport(
     });
   });
 
+  list("upstreams", (rule, at_) => {
+    const held = rule as Record<string, unknown>;
+    const upstreamField = (
+      name: string,
+      value: unknown,
+      reason: string | undefined,
+      fix: string,
+    ): void => {
+      if (reason === undefined) return;
+      upstreamFields.push(
+        `  ${at_} — "${name}" — ${quote(value)} — ${reason} — ${fix}`,
+      );
+    };
+    upstreamField(
+      "prefix",
+      held["prefix"],
+      upstreamPrefixFault(held["prefix"]),
+      UPSTREAM_PREFIX_FIX,
+    );
+    const url = optional(held, "url");
+    if (url !== undefined) {
+      upstreamField("url", url, upstreamUrlFault(url), UPSTREAM_URL_FIX);
+    }
+    const dev = optional(held, "dev");
+    if (dev !== undefined)
+      upstreamField("dev", dev, devUrlFault(dev), UPSTREAM_DEV_FIX);
+    const source = optional(held, "source");
+    if (source !== undefined) {
+      upstreamField(
+        "source",
+        source,
+        textFault(source, "source path"),
+        UPSTREAM_SOURCE_FIX,
+      );
+    }
+  });
+
   if (notLists.length > 0) {
     sections.push(
       configReport(
@@ -1562,6 +1819,34 @@ export function routingFaultReport(
       ),
     );
   }
+  if (upstreamFields.length > 0) {
+    sections.push(upstreamFieldsReport(where, upstreamFields));
+  }
 
   return sections.length === 0 ? undefined : sections.join("\n\n");
+}
+
+function upstreamFieldsReport(where: string, lines: readonly string[]): string {
+  return configReport(
+    where,
+    `declares ${count(
+      lines.length,
+      "upstream field this build cannot route to",
+      "upstream fields this build cannot route to",
+    )} — correct each as its own line says`,
+    lines,
+  );
+}
+
+export function missingUpstreamSourcesReport(
+  where: string,
+  missing: readonly { entry: number; source: string; at: string }[],
+): string {
+  return upstreamFieldsReport(
+    where,
+    missing.map(
+      ({ entry, source, at }) =>
+        `  upstreams[${String(entry)}] — "source" — ${quote(source)} — nothing is on disk at "${at}" — ${UPSTREAM_SOURCE_FIX}`,
+    ),
+  );
 }

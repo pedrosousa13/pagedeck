@@ -1,6 +1,6 @@
-// Every routing-document value reaches `_redirects` and `_headers` through this module, so
-// #49's sweep reads one file per adapter. Encoding only: nothing here changes which address a
-// value names.
+// Every routing-document value reaches `_redirects`, `_headers` and `_routes.json` through this
+// module, so #49's sweep reads one file per adapter. Encoding only: nothing here changes which
+// address a value names.
 
 // Cloudflare reads "*" as a splat and a path segment beginning ":" as a placeholder, with no
 // escape for a literal one of either
@@ -30,4 +30,14 @@ export function unexpressibleInCloudflarePagesPattern(
 // Identity, and kept so every emitted value passes through this module.
 export function cloudflarePagesPattern(value: string): string {
   return value;
+}
+
+// `_routes.json` reads only "*", a wildcard over any suffix, slashes included
+// (https://developers.cloudflare.com/pages/functions/routing/#create-a-_routesjson-file).
+export function unexpressibleInCloudflareRoutesRule(
+  value: string,
+): string | undefined {
+  return value.includes("*")
+    ? 'Cloudflare Pages reads "*" in a _routes.json rule as a wildcard, and offers no escape for a literal one'
+    : undefined;
 }

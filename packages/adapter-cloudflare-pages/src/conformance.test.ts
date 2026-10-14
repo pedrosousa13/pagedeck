@@ -8,4 +8,10 @@ describeConformance({
   interpret: interpretCloudflarePages,
   policies: ["always"],
   unverifiedNotFound: true,
+  upstreams: {
+    withUrl: "refused",
+    withoutUrl: "routed",
+    urlFix:
+      'Cloudflare Pages proxies only to paths on its own site ("You cannot proxy external domains", https://developers.cloudflare.com/pages/configuration/redirects/), so run the app as Pages Functions under the prefix and remove url',
+  },
 });

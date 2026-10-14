@@ -12,6 +12,7 @@ import type {
   ResolvedRedirect,
   RoutingManifest,
   RoutingTree,
+  UpstreamRoute,
   WeightedVariant,
 } from "./routing.js";
 import type {
@@ -820,6 +821,10 @@ const ROUTING_SHAPE = record<RoutingManifest>({
             ),
           }),
         ),
+        "a list",
+      ),
+      upstreams: optional(
+        list(record<UpstreamRoute>({ prefix: STRING, url: OPTIONAL_STRING })),
         "a list",
       ),
     }),

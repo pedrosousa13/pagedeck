@@ -589,9 +589,17 @@ the wire shape, the loader's choices and the budget table.
 ### The app example
 
 `packages/app-example` is a site with a Hono app beside it on Cloudflare
-Workers Static Assets (#141, ADR-0010). `wrangler.jsonc` sends `/api/*` to the
-app and every other request to `site/`. The island on `/signup/` imports the
-app's type only. `src/site.build.test.ts` builds the site in place, serves it
+Workers Static Assets (#141, ADR-0010). Its config declares the app in
+`build.routing.upstreams`, which the build checks against every path it
+writes, `pagedeck dev` forwards to `wrangler dev`, and the client build uses to
+refuse an island's value import of `src/app.ts`. `wrangler.jsonc` sends
+`/api/*` to the app and every other request to `site/`; keep its
+`run_worker_first` in step with the config's prefixes, since the build cannot
+read it. The island on `/signup/` imports the app's type only.
+Every adapter routes upstreams under a policy `defineAdapter` enforces: it
+requires, refuses or allows `url`, and an adapter that declares no policy
+refuses every upstream. `docs/deploy-recipe.md`, "An app beside the site",
+holds each host's steps and the host facts a first deploy still has to check. `src/site.build.test.ts` builds the site in place, serves it
 with `wrangler dev`, and requests both halves; it also fails if any file the
 build writes holds the app's error message. Its `README.md` holds the budget
 table.

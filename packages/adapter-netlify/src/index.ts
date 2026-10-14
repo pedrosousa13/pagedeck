@@ -12,5 +12,6 @@ export function netlify(): EdgeAdapter {
     limits: {},
     compileTree: compileNetlify,
     unsupportedFix: UNSUPPORTED_FIX,
+    upstreams: { url: "required" },
   });
 }

@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 115 below, 102 of them
+`x` at/from `path`, outside fenced blocks — there are 125 below, 112 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 276 messages fenced
-below, 220 are checked that way and 56 are not**, and that test lists the 56
-one by one with the reason each is out: 54 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 298 messages fenced
+below, 231 are checked that way and 67 are not**, and that test lists the 67
+one by one with the reason each is out: 65 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 220 checked messages pin 34612 of the 85751 fenced characters, and
+below**: the 231 checked messages pin 35206 of the 94938 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -138,6 +138,29 @@ The two store lines for `pagedeck dev` share one fix, written once as
 `UNREADABLE_STORE_FIX` (`packages/core/src/dev.ts`): the first is the refusal at
 startup, the second what a request meets for a store file that will not open.
 Rule 8 argues when each one runs.
+
+`forwardRequest` and `forwardUpgrade` (`packages/core/src/dev.ts`) answer the
+same way for a request or a WebSocket upgrade under an upstream prefix (#141):
+a 502 naming the entry, the prefix and the fix, when the entry declares no
+`dev` URL and when the app it names does not answer. Both also write to the dev server's own error channel.
+
+```
+Dev server: build.routing.upstreams[0] declares "/api/" with no "dev" URL, so pagedeck dev has no app to forward "/api/cart" to — set "dev" to the http or https URL the app listens on while you develop, such as "http://localhost:8787"
+
+Dev server: build.routing.upstreams[0] forwards "/api/" to "http://localhost:4000", which did not answer "/api/cart" (ECONNREFUSED) — start the app at "http://localhost:4000" first, or correct "dev" to the URL it listens on
+```
+
+The dev server refuses an island import that reaches an upstream app's source,
+as the client build does. `upstreamImportCheck`
+(`packages/core/src/upstream-imports.ts`) sees each import a browser module
+makes, and `upstreamImportReport` in the same file words the refusal for both
+commands. The dev server shows it on the overlay and writes it to its error
+channel:
+
+```
+Dev server: 1 import from island code reaches the source of an upstream app, so the app's code would ship to the browser — import only the app's types, with "import type", or move the code both need out of the app's source:
+  "./src/cart.js" imports "../app/index.ts" — build.routing.upstreams[0] source "app/"
+```
 
 Where the fix needs a reason, give the reason — the redirect failure in
 `packages/core/src/snapshot.ts` explains that redirects are not followed
@@ -658,7 +681,7 @@ collects across a whole compile and reports once through `throwIfAny`
 one paragraph per kind of fault so each keeps its own count and its own fix:
 
 ```
-Edge target "nginx": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+Edge target "nginx": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/price$" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one
   the default tree's header "Content-Security-Policy" under prefix "/en/" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one
 
@@ -684,7 +707,7 @@ Netlify and Cloudflare Pages write a path into a line of `_redirects` or
 segment, and any whitespace character, named by code point (#41):
 
 ```
-Edge target "netlify": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+Edge target "netlify": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/time-12:30/" — Netlify reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one
   the default tree's header prefix "/p q/" — Netlify reads U+0020, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
 ```
@@ -731,6 +754,111 @@ A tree is named here by its host key, the host the parser reads out of a
 locale's `domain` (#396), because the routing manifest this compiler reads
 carries the key and no declared spelling; `planRouting`, which has the pages,
 quotes each declared spelling beside the key instead.
+
+An upstream prefix is a fault kind of its own (#141). Every adapter routes one,
+and each declares how its host reaches the app, as an `UpstreamPolicy`
+(`packages/edge/src/adapter.ts`). `refuseUpstreams` in the same file holds every
+tree to that policy before the adapter's own grammar runs. An adapter that
+declares no policy refuses every tree with a prefix, with a fix that names no
+host. Netlify, Vercel, nginx and CloudFront proxy to the deployed app, so each
+needs a `url`:
+
+```
+Edge target "nginx": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+  the default tree's prefix "/api/" (build.routing.upstreams)
+```
+
+On Cloudflare Pages the app runs as Pages Functions, and Pages cannot proxy
+off its own site. So `cloudflarePages()` refuses a `url`, with a fix of its
+own:
+
+```
+Edge target "cloudflare-pages": 1 tree sends a prefix to an app at a url, which this target does not proxy to — Cloudflare Pages proxies only to paths on its own site ("You cannot proxy external domains", https://developers.cloudflare.com/pages/configuration/redirects/), so run the app as Pages Functions under the prefix and remove url:
+  the default tree's prefix "/api/" (build.routing.upstreams)
+```
+
+Each host also refuses a prefix or a `url` its own files cannot write. These
+join the paragraph of values the target cannot express, and each line says
+why. Netlify reads `:` as a placeholder in a path and in a destination, so a
+port in the `url` is refused too:
+
+```
+Edge target "netlify": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
+  the default tree's upstream prefix "/a:b/" — Netlify reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one
+  the default tree's upstream prefix "/api/" — its url "https://app.example:8443" names port 8443, and Netlify reads ":" in a destination as the start of a placeholder, and offers no escape for a literal one
+```
+
+Vercel reads `$` in a route's destination as a capture reference, and it never
+rewrites a path under `/.well-known/`:
+
+```
+Edge target "vercel": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
+  the default tree's upstream prefix "/.well-known/acme/" — Vercel answers /.well-known/ itself ("The /.well-known path is reserved and cannot be redirected or rewritten", https://vercel.com/docs/rewrites)
+  the default tree's upstream prefix "/a$b/" — Vercel reads "$" in a route's "dest" as the start of a capture reference, and offers no escape for a literal one
+```
+
+nginx interpolates `$` in the quoted `url` it writes after `proxy_pass`:
+
+```
+Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
+  the default tree's upstream url for "/api/" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one
+```
+
+CloudFront takes a custom origin by DNS name, never by IP address, and
+connects to it only on certain ports. It matches a cache behavior by a path
+pattern with a narrow character set. Its
+path pattern limit and its cache behavior quota are documented limits, so they
+go in the limit paragraph. The quota is 75 per distribution by default, and
+`cloudfront({ limits: { cacheBehaviors } })` raises it for an account whose
+quota is higher:
+
+```
+Edge target "cloudfront-function": 3 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
+  the default tree's upstream prefix "/api/" — its url "https://203.0.113.7" names an IP address, and CloudFront takes only a DNS name as a custom origin's domain name
+  the default tree's upstream prefix "/low/" — its url "https://app.example:444" names port 444, and CloudFront connects to a custom origin only on port 80, 443 or 1024 to 65535
+  the default tree's upstream prefix "/café,menu/" — CloudFront's path patterns hold only letters, digits and _ - . $ / ~ " ' @ : + &, so no cache behavior can match "é", ","
+
+Edge target "cloudfront-function": 2 values exceed a limit this target documents — reduce the rule set, or compile a target whose documented limit is higher:
+  the default tree's upstream prefix "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/" — its path pattern "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/*" is 256 characters, and CloudFront's limit is 255
+  the "shop.example" tree's upstream prefixes — 38 prefixes need 76 cache behaviors, and CloudFront's default quota is 75 per distribution; set cloudfront({ limits: { cacheBehaviors } }) if your account's is higher
+```
+
+Cloudflare Pages routes a prefix to its Functions through `_routes.json`,
+whose rules are capped at 100 and each at 100 characters. Two rules go in per
+prefix, the prefix and its unslashed path, and an oversized file is reported
+in the size paragraph. `_routes.json` reads `*` as a wildcard, so a prefix
+holding one is refused:
+
+```
+Edge target "cloudflare-pages": 2 artifacts exceed their size limit — reduce the rule set, or raise the limit if the host's is higher:
+  the default tree's _routes.json — 104 rules, limit 100
+  the default tree's _routes.json rule "/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp/*" — 101 characters, limit 100
+
+Edge target "cloudflare-pages": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
+  the default tree's upstream prefix "/a*b/" — Cloudflare Pages reads "*" in a _routes.json rule as a wildcard, and offers no escape for a literal one
+```
+
+The generated Cloudflare Worker reaches an app through a service binding named
+in `cloudflareWorker({ upstreams })`, or else through its `url`. So its policy
+takes a `url` as optional, and the prefix that has neither gets the Worker's
+own fix. `checkBindings` (`packages/adapter-cloudflare-worker/src/upstreams.ts`)
+refuses a binding for a prefix no tree declares and a binding name that is not
+a JavaScript variable name. `routesOf` in the same file refuses a prefix that
+names both a binding and a `url`. All four reach one refusal:
+
+```
+Edge target "cloudflare-worker": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — name a service binding for each in cloudflareWorker({ upstreams }), such as { "/api/": { binding: "APP" } }, or set url on each to the https origin the deployed app answers at:
+  the default tree's prefix "/hooks/" (build.routing.upstreams)
+
+Edge target "cloudflare-worker": 1 prefix in cloudflareWorker({ upstreams }) is one no tree sends to an app — correct each to a prefix in build.routing.upstreams, or remove it from the option:
+  "/apl/" — build.routing.upstreams declares "/api/", "/hooks/"
+
+Edge target "cloudflare-worker": 1 binding in cloudflareWorker({ upstreams }) is not a valid JavaScript variable name — rename each, in the option and in the Worker's wrangler configuration, to a name such as "APP" that starts with a letter, $ or _ and holds only letters, digits, $ and _:
+  "bad name" for "/apl/"
+
+Edge target "cloudflare-worker": 1 prefix names both a url and a service binding — remove url from each in build.routing.upstreams, or remove it from cloudflareWorker({ upstreams }):
+  the default tree's prefix "/api/" — url "https://app.example", binding "APP"
+```
 
 An unknown target and an unreadable routing version are thrown on the spot
 instead, on the boundary above: one leaves no compiler to run, the other no
@@ -1741,7 +1869,7 @@ object, a key this build never reads, a member that is not a list and an entry
 that is not a rule are four edits with four fixes.
 
 ```
-Config "/site/pagedeck.config.ts": "build.routing" declares 1 field this build does not read — delete the field, or correct it to one of: redirects, notFound, headers, experiments:
+Config "/site/pagedeck.config.ts": "build.routing" declares 1 field this build does not read — delete the field, or correct it to one of: redirects, notFound, headers, experiments, upstreams:
   "redirect"
 
 Config "/site/pagedeck.config.ts": "build.routing" declares 1 member that is not a list of rules — write each as an array, as routing: { redirects: [{ from: "/old", to: "/pricing" }] }:
@@ -1759,7 +1887,33 @@ records nowhere that any were written. A `routing` that is not an object at all
 and not one of them — is reported alone, on the non-object budget's argument.
 
 ```
-Config "/site/pagedeck.config.ts": "build.routing" must be an object of redirects, 404 pages, header rules and experiments — routing: { redirects: [{ from: "/old", to: "/pricing" }] }
+Config "/site/pagedeck.config.ts": "build.routing" must be an object of redirects, 404 pages, header rules, experiments and upstreams — routing: { redirects: [{ from: "/old", to: "/pricing" }] }
+```
+
+The same door checks each upstream rule's own `prefix`, `url`, `dev` and
+`source` fields, under one shared headline, `upstreamFieldsReport`
+(`packages/core/src/routing.ts`). A `source` that resolves to nothing on disk
+is one of its faults (#141): `upstreamSources`
+(`packages/core/src/upstream-imports.ts`) resolves every declared source before
+the client build starts, and reports what it cannot find through
+`missingUpstreamSourcesReport` (`packages/core/src/routing.ts`), on that same
+headline.
+
+```
+Config "/site/pagedeck.config.ts": "build.routing" declares 1 upstream field this build cannot route to — correct each as its own line says:
+  upstreams[0] — "source" — "app/" — nothing is on disk at "/site/app" — write the path of the app's file or directory, relative to the site root, such as "app/"
+```
+
+A `url` is the https origin the deployed app answers at, and an adapter writes
+it into the host's deploy files. So the door refuses plain http, a credential,
+a path, a query and a fragment. It quotes a URL with its credential, query and
+fragment elided, so a secret written there never reaches a log:
+
+```
+Config "/site/pagedeck.config.ts": "build.routing" declares 3 upstream fields this build cannot route to — correct each as its own line says:
+  upstreams[0] — "url" — "http://app.example" — the scheme is "http", and a request to the app crosses the internet from the host, so plain http is refused — write the https origin the deployed app answers at, with no credential, path, query or fragment, such as "https://app.example"
+  upstreams[1] — "url" — "https://…@auth.example" — the URL holds a user name or password, which the adapter would write into the host's deploy files — write the https origin the deployed app answers at, with no credential, path, query or fragment, such as "https://app.example"
+  upstreams[2] — "url" — "https://cart.example/v1" — the URL has the path "/v1", and the request's own path and query are appended to the origin, so the URL names the origin only — write the https origin the deployed app answers at, with no credential, path, query or fragment, such as "https://app.example"
 ```
 
 **`planRouting`'s own reports name the same field on the line rather than in the
@@ -2332,6 +2486,44 @@ A redirect is read by its source with the trailing slash stripped, so
 `/manifest.json/` is refused as well: the edge answers both spellings of an
 address, and a row on the slashed one would put a second row on the key.
 
+An upstream prefix sends every request under it to the site's own app
+(ADR-0010, #141), so anything else the build puts there is never served. The
+build refuses a prefix that covers a page, a 404 page included, a file it
+emits, a redirect's source or target, or a reserved deploy key. A prefix covers
+a path that starts with it, and also the path that is the prefix without its
+trailing slash, because `/api` and `/api/` are one address to every target
+under one `trailingSlash` policy or the other. Each prefix is named with its
+entry, and each path it covers is named with its claimant on a line below it:
+
+```
+Routing manifest: 1 upstream prefix covers paths this build serves — move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there:
+  "/api/" in the default tree — build.routing.upstreams[0] covers:
+    "/api" — the page en /api
+    "/api/assets/client-1a2b.js" — a file this build emits
+    "/api/old" — build.routing.redirects[0], the redirect's source
+```
+
+Two prefixes in one tree, where one starts with the other, are refused too.
+A path under both would have two apps to answer it, and ADR-0001 keeps the
+route table free of precedence:
+
+```
+Routing manifest: 1 upstream prefix is declared twice or inside another — give each app one prefix that no other upstream prefix in its tree starts with; a path under both has two apps to answer it, and the route table has no precedence rules:
+  "/api/v2/" in the default tree — build.routing.upstreams[1], inside "/api/" — build.routing.upstreams[0]
+```
+
+Every answer under an upstream prefix is the app's, and no host adds the
+site's headers to it. So a header rule at or inside a prefix never applies,
+and the build refuses it. The fix it names is `UNREACHABLE_HEADERS_FIX`
+(`packages/core/src/routing.ts`). A rule over the prefix, such as `/`, is kept
+for the pages:
+
+```
+Routing manifest: 2 header rules sit under an upstream prefix — set those headers in the app, or delete the rule; every answer under an upstream prefix is the app's, and no host adds the site's headers to it:
+  "/api/" in the default tree — build.routing.headers[2], under "/api/" — build.routing.upstreams[0]
+  "/api/v1/" in the default tree — build.routing.headers[1], under "/api/" — build.routing.upstreams[0]
+```
+
 **The image contract is checked at construction rather than at config load, so
 none of its refusals joins that throw** (#43). Spec §10's image settings are
 read by the site's own component and by nothing in the pipeline — the framework
@@ -2651,6 +2843,18 @@ reaches this one end to end is a specifier that resolves for the scan's SSR
 invocation and not for the browser build — a package exported under the `node`
 condition alone. #235 measured that case on a spawned `pagedeck build`;
 `client-build.test.ts` pins the report directly rather than spawning one.
+
+The client build also refuses an island import that reaches an upstream app's
+source (#141). `refuseUpstreamImports` (`packages/core/src/client-build.ts`)
+resolves every import of the island graph and reports each one that lands
+inside a declared `source` file or directory, because that import would ship
+the app's code to the browser. An `import type` never reaches the bundler, so
+a type-only import still builds.
+
+```
+Client build: 1 import from island code reaches the source of an upstream app, so the app's code would ship to the browser — import only the app's types, with "import type", or move the code both need out of the app's source:
+  "./components/Cart.tsx" imports "../app/server.ts" — build.routing.upstreams[0] source "app/"
+```
 
 `defineLocales` (`packages/core/src/locales.ts`) collects at the door a locale
 map is written at, and both halves of this rule land in the one function. A

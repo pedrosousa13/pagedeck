@@ -38,6 +38,18 @@ export interface AdapterUnderTest {
   unverifiedNotFound?: boolean;
   /** No rule can redirect one trailing-slash spelling to the other, so the origin answers (#35). */
   noSlashRedirects?: boolean;
+  /**
+   * Whether the adapter sends `build.routing.upstreams` to an app or refuses the document, for an
+   * upstream that names the deployed app's `url` and for one that does not. `urlFix` is the fix
+   * this adapter's refusal of a `url` names, where it routes an upstream without one, and
+   * `noUrlFix` the fix its refusal of an upstream with no `url` names, where it knows a better one.
+   */
+  upstreams: {
+    withUrl: "routed" | "refused";
+    withoutUrl: "routed" | "refused";
+    urlFix?: string;
+    noUrlFix?: string;
+  };
 }
 
 interface Spelling {
@@ -443,6 +455,51 @@ const hardenedRequests = ({
   { what: "a reserved deploy key", path: "/manifest.json", found: true },
 ];
 
+export const UPSTREAM_URL_MISSING_FIX =
+  'set url on each to the https origin the deployed app answers at, such as "https://app.example"';
+export const UPSTREAM_URL_REFUSED_FIX =
+  "remove url from each, and run the app where this target routes the prefix without one";
+
+const APP_URL = "https://app.example";
+
+function upstreamOf(trailingSlash: TrailingSlash, url?: string): RoutingManifest {
+  const slash = trailingSlash === "always" ? "/" : "";
+  return {
+    version: ROUTING_VERSION,
+    site: { trailingSlash },
+    trees: [
+      {
+        redirects: [
+          {
+            from: `/en/legacy${slash}`,
+            to: `/en/about${slash}`,
+            status: 301,
+            source: "config",
+            via: [],
+          },
+        ],
+        notFound: `/en/404${slash}`,
+        headers: [
+          { prefix: "/", set: [{ name: "X-Content-Type-Options", value: "nosniff" }] },
+        ],
+        upstreams: [url === undefined ? { prefix: "/api/" } : { prefix: "/api/", url }],
+      },
+    ],
+  };
+}
+
+const upstreamRequests = ({
+  page,
+}: Spelling): readonly (EdgeRequest & { what: string })[] => [
+  { what: "a path under the prefix", path: "/api/signup", found: false },
+  { what: "a path under the prefix with a query", path: "/api/signup?x=1", found: false },
+  { what: "the prefix itself", path: "/api/", found: false },
+  { what: "the prefix without its trailing slash", path: "/api", found: false },
+  { what: "a sibling the prefix's slash scopes out", path: "/apix/", found: true },
+  { what: "a page outside the prefix", path: page("/en/about"), found: true },
+  { what: "a redirect outside the prefix", path: page("/en/legacy"), found: false },
+];
+
 export function describeConformance({
   adapter,
   interpret,
@@ -450,11 +507,19 @@ export function describeConformance({
   policies,
   unverifiedNotFound = false,
   noSlashRedirects = false,
+  upstreams,
 }: AdapterUnderTest): void {
   for (const policy of policies) {
     describe(`under trailingSlash "${policy}"`, () => {
       describePolicy(
-        { adapter, interpret, servedStatus, unverifiedNotFound, noSlashRedirects },
+        {
+          adapter,
+          interpret,
+          servedStatus,
+          unverifiedNotFound,
+          noSlashRedirects,
+          upstreams,
+        },
         policy,
       );
     });
@@ -468,6 +533,7 @@ function describePolicy(
     servedStatus,
     unverifiedNotFound,
     noSlashRedirects,
+    upstreams,
   }: Required<Omit<AdapterUnderTest, "policies">>,
   policy: TrailingSlash,
 ): void {
@@ -479,6 +545,21 @@ function describePolicy(
   const file = underPolicy(FILE, policy);
   const bare = underPolicy(BARE, policy);
   const hardened = underPolicy(HARDENED, policy);
+  const upstreamTarget = `the default tree's prefix "/api/" (build.routing.upstreams)`;
+  const upstreamCases = [
+    {
+      what: "names the app's url",
+      manifest: upstreamOf(policy, APP_URL),
+      answer: upstreams.withUrl,
+      refusal: `Edge target "${name}": 1 tree sends a prefix to an app at a url, which this target does not proxy to — ${upstreams.urlFix ?? UPSTREAM_URL_REFUSED_FIX}:\n  ${upstreamTarget}`,
+    },
+    {
+      what: "names no url",
+      manifest: upstreamOf(policy),
+      answer: upstreams.withoutUrl,
+      refusal: `Edge target "${name}": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — ${upstreams.noUrlFix ?? UPSTREAM_URL_MISSING_FIX}:\n  ${upstreamTarget}`,
+    },
+  ];
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
   const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
     resolveRequest(manifest, request, servedStatus, noSlashRedirects);
@@ -670,6 +751,24 @@ function describePolicy(
       });
     }
   });
+
+  for (const { what, manifest, answer, refusal } of upstreamCases) {
+    describe(`a prefix the site sends to an app that ${what}`, () => {
+      if (answer === "routed") {
+        for (const request of upstreamRequests(spelling)) {
+          it(`${name} answers ${request.what} the way the document says`, async () => {
+            await expectAnswer(manifest, request);
+          });
+        }
+      } else {
+        it(`is refused by ${name}`, () => {
+          expect(() => adapter.compile(manifest)).toThrow(
+            new ConfigError(refusal),
+          );
+        });
+      }
+    });
+  }
 
   describe("compile refusals", () => {
     it(`refuses a header name holding a space on ${name}`, () => {

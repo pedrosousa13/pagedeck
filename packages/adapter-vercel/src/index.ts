@@ -12,5 +12,6 @@ export function vercel(): EdgeAdapter {
     limits: {},
     compileTree: compileVercel,
     unsupportedFix: UNSUPPORTED_FIX,
+    upstreams: { url: "required" },
   });
 }

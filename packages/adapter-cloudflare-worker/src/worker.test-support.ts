@@ -71,7 +71,13 @@ export function objectKey(domain: string | undefined, path: string): string {
 
 interface Worker {
   fetch(
-    request: { method: string; url: string; headers: Headers },
+    request: {
+      method: string;
+      url: string;
+      headers: Headers;
+      redirect: "manual";
+      body?: string;
+    },
     env: Record<string, unknown>,
   ): Promise<Response>;
 }
@@ -81,11 +87,22 @@ export interface IsolateOptions {
   now?: () => number;
   /** Collects each `console.error` line; forwarded to the host's console when absent. */
   errors?: string[];
+  /** The isolate's global `fetch`; absent, a reach for it throws. */
+  fetch?: (request: Request) => Promise<Response>;
 }
 
+export interface WorkerRequest {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+/** `services` joins the origin in `env`, as a service binding would. */
 export type Isolate = (
-  request: { method: string; url: string; headers?: Record<string, string> },
+  request: WorkerRequest,
   origin: OriginBinding,
+  services?: Record<string, unknown>,
 ) => Promise<Response>;
 
 /**
@@ -96,10 +113,12 @@ export type Isolate = (
 export function isolate(source: string, options: IsolateOptions = {}): Isolate {
   const exported = /^export default /m;
   if (!exported.test(source)) throw new Error("worker.js has no default export");
-  const { now, errors } = options;
+  const { now, errors, fetch } = options;
   const context = vm.createContext({
     Response,
     Headers,
+    Request,
+    ...(fetch === undefined ? {} : { fetch }),
     console: {
       error: (...args: unknown[]) => {
         if (errors === undefined) console.error(...args);
@@ -112,10 +131,18 @@ export function isolate(source: string, options: IsolateOptions = {}): Isolate {
     `${source.replace(exported, "var worker = ")}\nworker`,
     context,
   ) as Worker;
-  return async (request, origin) =>
+  // `redirect: "manual"`, the mode the Workers runtime gives an incoming request
+  // (https://developers.cloudflare.com/workers/runtime-apis/request/).
+  return async (request, origin, services = {}) =>
     await worker.fetch(
-      { method: request.method, url: request.url, headers: new Headers(request.headers) },
-      { [ORIGIN_BINDING]: origin },
+      {
+        method: request.method,
+        url: request.url,
+        headers: new Headers(request.headers),
+        redirect: "manual",
+        ...(request.body === undefined ? {} : { body: request.body }),
+      },
+      { ...services, [ORIGIN_BINDING]: origin },
     );
 }
 
@@ -123,8 +150,10 @@ export function isolate(source: string, options: IsolateOptions = {}): Isolate {
  * call is a fresh isolate, so nothing is cached from an earlier call. */
 export async function runWorker(
   source: string,
-  request: { method: string; url: string; headers?: Record<string, string> },
+  request: WorkerRequest,
   origin: OriginBinding,
+  options: IsolateOptions & { services?: Record<string, unknown> } = {},
 ): Promise<Response> {
-  return await isolate(source)(request, origin);
+  const { services, ...rest } = options;
+  return await isolate(source, rest)(request, origin, services);
 }

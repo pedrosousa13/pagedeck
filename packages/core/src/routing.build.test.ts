@@ -109,9 +109,9 @@ interface Run {
   err: string;
 }
 
-async function pagedeck(cwd: string, verb: string): Promise<Run> {
+async function pagedeck(cwd: string, ...argv: string[]): Promise<Run> {
   try {
-    const { stderr } = await execFileAsync(process.execPath, [BIN, verb], {
+    const { stderr } = await execFileAsync(process.execPath, [BIN, ...argv], {
       cwd,
       maxBuffer: 32 * 1024 * 1024,
     });
@@ -398,6 +398,42 @@ test("a redirect loop refuses the build, naming the hops in order", async () => 
   expect(result.err).toContain("Routing manifest: 1 redirect chain is a loop");
   expect(result.err).toContain('pagedeck:   the default tree — "/a" → "/b" → "/a"');
 }, 120_000);
+
+test("an incremental build that deletes a page and declares an upstream prefix over it builds, with no redirect from the page, and matches the full build", async () => {
+  const dir = at("upstream-removal", "", ["/about"]);
+  const gone = join(dir, "content", "en", "api", "old.json");
+  mkdirSync(dirname(gone), { recursive: true });
+  writeFileSync(
+    gone,
+    `${JSON.stringify({ rev: 1, data: { title: "Old", links: ["/"] } })}\n`,
+  );
+  expect((await build(dir)).code).toBe(EXIT_CODES.success);
+
+  writeFileSync(gone, `${JSON.stringify({ rev: 2, deleted: true })}\n`);
+  const config = join(dir, "pagedeck.config.ts");
+  writeFileSync(
+    config,
+    readFileSync(config, "utf8").replace(
+      'outDir: "./dist",',
+      'outDir: "./dist",\n    routing: { upstreams: [{ prefix: "/api/" }] },',
+    ),
+  );
+  const incremental = async (): Promise<Manifest["routing"]> => {
+    const synced = await pagedeck(dir, "sync", "--incremental");
+    expect(synced.code, synced.err).toBe(EXIT_CODES.success);
+    const built = await pagedeck(dir, "build", "--incremental");
+    expect(built.code, built.err).toBe(EXIT_CODES.success);
+    return emitted(dir).routing;
+  };
+
+  const first = await incremental();
+  expect(first.trees).toEqual([
+    { redirects: [], headers: [], upstreams: [{ prefix: "/api/" }] },
+  ]);
+  expect(await incremental()).toEqual(first);
+  expect((await build(dir)).code).toBe(EXIT_CODES.success);
+  expect(emitted(dir).routing).toEqual(first);
+}, 240_000);
 
 test("a malformed routing config is refused when the config loads, before anything renders", async () => {
   const dir = at(

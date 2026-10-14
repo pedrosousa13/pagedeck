@@ -75,11 +75,69 @@ function keyValueStore(tree: readonly EdgeArtifact[]): Map<string, string> {
   return store;
 }
 
+interface UpstreamConfig {
+  Origins: {
+    Items: readonly {
+      Id: string;
+      DomainName: string;
+      CustomOriginConfig: { HTTPSPort: number; OriginProtocolPolicy: string };
+    }[];
+  };
+  CacheBehaviors: {
+    Items: readonly { PathPattern: string; TargetOriginId: string }[];
+  };
+}
+
+// https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html#DownloadDistValuesPathPattern :
+// "*" matches 0 or more characters, "?" exactly 1, case-sensitive, the leading "/" implied, and
+// the query string not considered.
+function pathPatternMatches(pattern: string, path: string): boolean {
+  const rooted = pattern.startsWith("/") ? pattern : `/${pattern}`;
+  const source = [...rooted]
+    .map((one) =>
+      one === "*" ? ".*" : one === "?" ? "." : one.replace(/[\\^$.|+()[\]{}]/, "\\$&"),
+    )
+    .join("");
+  return new RegExp(`^${source}$`, "s").test(path);
+}
+
+// Behaviors in listed order, ahead of the default behavior, whose functions never see a match.
+function upstreamOf(
+  tree: readonly EdgeArtifact[],
+  path: string,
+): Resolution | undefined {
+  const config = find(tree, "upstreams.json");
+  if (config === undefined) return undefined;
+  const parsed = JSON.parse(config.contents) as UpstreamConfig;
+  const pathname = path.replace(/[?#].*$/s, "");
+  const behavior = parsed.CacheBehaviors.Items.find((candidate) =>
+    pathPatternMatches(candidate.PathPattern, pathname),
+  );
+  if (behavior === undefined) return undefined;
+  const origin = parsed.Origins.Items.find(
+    (candidate) => candidate.Id === behavior.TargetOriginId,
+  );
+  if (origin?.CustomOriginConfig.OriginProtocolPolicy !== "https-only") {
+    throw new Error(
+      `the behavior for "${behavior.PathPattern}" targets "${behavior.TargetOriginId}", no https-only origin in upstreams.json`,
+    );
+  }
+  const { HTTPSPort } = origin.CustomOriginConfig;
+  const pattern = behavior.PathPattern;
+  return {
+    kind: "upstream",
+    prefix: pattern.endsWith("/*") ? pattern.slice(0, -1) : `${pattern}/`,
+    url: `https://${origin.DomainName}${HTTPSPort === 443 ? "" : `:${String(HTTPSPort)}`}`,
+  };
+}
+
 export async function interpretCloudFront(
   artifacts: readonly EdgeArtifact[],
   request: EdgeRequest,
 ): Promise<Resolution> {
   const tree = forTree(artifacts, request.domain);
+  const upstream = upstreamOf(tree, request.path);
+  if (upstream !== undefined) return upstream;
   const store = keyValueStore(tree);
   // `context` and `cookies` keep a split from throwing a `TypeError` inside the function.
   const event = {

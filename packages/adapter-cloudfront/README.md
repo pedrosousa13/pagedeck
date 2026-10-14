@@ -106,6 +106,36 @@ CloudFront runs one function per event type on a cache behaviour, so a
 distribution with a viewer-request function of its own has to compose the two
 into one.
 
+## Upstream prefixes
+
+Each upstream in `build.routing.upstreams` must name `url`, the `https` origin
+the deployed app answers at. A tree with upstreams gets `upstreams.json`, a
+second `distribution-config` fragment beside `error-responses.json`. It holds,
+per prefix, one custom origin (`https-only`, TLSv1.2, the url's port or 443)
+and two cache behaviours, `/api` and `/api/*` for the prefix `/api/`. Each
+behaviour forwards all seven methods, uses the managed CachingDisabled cache
+policy and the managed AllViewerExceptHostHeader origin request policy, and
+has no function associations and no response headers policy, so the app's own
+headers are what the reader gets.
+
+The routing is in the distribution, not in the viewer-request function,
+because the default cache behaviour is always the last one CloudFront
+processes. A request under a prefix never runs the site's functions and never
+meets the default behaviour's cache policy, which would cache an API answer
+for its minimum TTL whatever `Cache-Control` says.
+
+Apply it by merging `Origins.Items` into the distribution's origins and
+`CacheBehaviors.Items` into its cache behaviours, ahead of any behaviour of
+your own whose path pattern could also match under a prefix: the first
+matching behaviour wins. Update both `Quantity` fields to the merged counts.
+
+The compile refuses a url whose host is an IP address, a url on a port
+CloudFront cannot connect to, a prefix holding a character a path pattern
+cannot hold, a path pattern over 255 characters, and more than 37 prefixes in
+one tree, which would need more than the default quota of 75 cache behaviours.
+An account whose quota AWS has raised sets it with
+`cloudfront({ limits: { cacheBehaviors } })`.
+
 ## Experiment splits
 
 A site that declares `build.routing.experiments` gets a page's variants built

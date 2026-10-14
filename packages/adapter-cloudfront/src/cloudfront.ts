@@ -6,7 +6,9 @@ import {
 import type { ResolvedExperiment, RoutingTree } from "@pagedeck/core/routing";
 
 import { jsLiteral, treeOf, UNSERVED_KEY } from "@pagedeck/edge";
-import type { CompiledTree, EdgeArtifact } from "@pagedeck/edge";
+import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
+
+import { upstreamConfig, UPSTREAMS_PATH } from "./upstreams.js";
 
 /**
  * CloudFront needs two functions: viewer-request cannot decorate an origin response, and
@@ -406,6 +408,8 @@ function errorResponses(notFound: string): string {
 export function compileCloudFront(
   tree: CompiledTree,
   limit: number | undefined,
+  cacheBehaviorLimit: number,
+  faults: Fault[],
 ): readonly CloudFrontArtifact[] {
   const artifacts: CloudFrontArtifact[] = [];
   const splits = tree.experiments ?? [];
@@ -496,6 +500,16 @@ export function compileCloudFront(
       role: "distribution-config",
       path: "error-responses.json",
       contents: errorResponses(tree.notFound),
+    });
+  }
+
+  const upstreams = upstreamConfig(tree, cacheBehaviorLimit, faults);
+  if (upstreams !== undefined) {
+    artifacts.push({
+      ...(tree.domain === undefined ? {} : { domain: tree.domain }),
+      role: "distribution-config",
+      path: UPSTREAMS_PATH,
+      contents: upstreams,
     });
   }
 

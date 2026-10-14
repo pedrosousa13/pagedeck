@@ -66,6 +66,9 @@ packages/core/.pagedeck-dev-layout/
 # Another: a site whose config imports its root provider by value (#703).
 packages/core/.pagedeck-dev-framed/
 
+# The fixture site `packages/core/src/dev-upstreams.test.ts` writes (#141).
+packages/core/.pagedeck-dev-upstreams/
+
 # The fixture site `packages/core/src/site-modules.test.ts` writes (#703).
 packages/core/.pagedeck-site-modules-test/
 
