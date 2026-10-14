@@ -123,7 +123,10 @@ rules per prefix, `/api` and `/api/*`, because Cloudflare's `/api/*` matches
 only what comes after `/api/`. Workers Static Assets reads `run_worker_first`
 instead and would serve the file as a page, so the example's
 `public/.assetsignore` names `/_routes.json` to keep it out of the upload.
-`wrangler dev` serves it locally all the same.
+wrangler reads that file only from `site/`, so the config passes `public/`
+through with `passthrough: { root: "./public" }`. Without it, a deploy serves
+`/_routes.json` and `manifest.json` to anyone who asks. `wrangler dev` serves
+them locally either way.
 
 One request reaches the app without matching the prefix: a path with no file.
 With `not_found_handling` set to `none`, Cloudflare hands a miss to the
