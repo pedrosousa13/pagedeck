@@ -3,32 +3,13 @@ import { join } from "node:path";
 import ts from "typescript";
 import { expect, test } from "vitest";
 import { EXAMPLE, HOW_TO, REPORT } from "./connect-a-cms.test-support.js";
-import { fences } from "./tutorial.test-support.js";
+import { fences, quotes } from "./tutorial.test-support.js";
 
 const BASE_CONFIG = join(import.meta.dirname, "..", "..", "..", "tsconfig.base.json");
 
 // The one file the page has the reader write that the example does not hold, since the
 // example's CMS takes no token. It is compiled rather than quoted.
 const WRITTEN = "src/token.ts";
-
-const indent = (line: string): number => line.length - line.trimStart().length;
-
-// The fence's lines, in order and next to each other, with every line moved by one indent:
-// an excerpt from inside a function may drop the function's indentation.
-function quotes(source: string, code: string): boolean {
-  const wanted = code.trimEnd().split("\n");
-  const lines = source.split("\n");
-  const first = wanted[0] as string;
-  return lines.some((_, start) => {
-    const shift = indent(lines[start] as string) - indent(first);
-    if (shift < 0) return false;
-    return wanted.every((line, offset) => {
-      const real = lines[start + offset];
-      if (real === undefined) return false;
-      return line.trim() === "" ? real.trim() === "" : real === " ".repeat(shift) + line;
-    });
-  });
-}
 
 function page(): ReturnType<typeof fences> {
   expect(existsSync(HOW_TO), HOW_TO).toBe(true);

@@ -1,0 +1,51 @@
+# App example
+
+A Pagedeck site with an app beside it (#141, ADR-0010). The site's pages are
+static files. Requests under `/api/` go to a [Hono](https://hono.dev) app that
+runs as the Worker on Cloudflare Workers Static Assets. Pagedeck never imports
+or runs the app: `wrangler.jsonc` routes the prefix, and the island on
+`/signup/` calls the app through Hono's typed client, importing only its type.
+
+[Run an app beside the site](../docs/how-to/run-an-app-beside-the-site.md)
+walks through it. Every code sample there is copied from this package.
+
+## Run it
+
+Build the workspace once with `pnpm build` from the repository root. Then, in
+`packages/app-example`:
+
+```sh
+node ../core/dist/bin.js sync
+node ../core/dist/bin.js build      # writes site/
+pnpm exec wrangler dev              # serves site/ and the app on one origin
+```
+
+`src/site.build.test.ts` does the same and sends requests to both halves.
+
+## What answers what
+
+| Request | Answered by | Headers from |
+| --- | --- | --- |
+| a built page, such as `/` or `/signup/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
+| `/api/*` | the app, because `run_worker_first` names it | the app's own middleware |
+| a path with no file | the app, because `not_found_handling` is `none` | the app's own middleware |
+
+`_headers` never applies to a response the Worker writes
+(<https://developers.cloudflare.com/workers/static-assets/headers/>), so the
+app sets its own headers, and registers its middleware before `basePath` so a
+miss gets them too.
+
+## Budgets
+
+The limits in `pagedeck.config.ts` are measured. Each one is the measurement
+plus about 16%, rounded to a whole kilobyte. If a limit starts to fail, measure
+again and give the reason. Do not raise it to make the failure go away.
+
+| Page | Limit | Measured | Made of |
+| --- | --- | --- | --- |
+| `/` | `0b` | 0 B (#141) | no chunks |
+| `/signup/` | `63kb` (64512 B) | 55237 B (#141) | `fw-core` 54150 B, `fw-startup` 881 B, entry 206 B |
+
+The island and Hono's client are in `fw-core`, since the site has one island.
+The whole build's JavaScript is held to 64 kB Brotli (65536 B), against 56159 B
+measured, counting the 922 B `slot` chunk.

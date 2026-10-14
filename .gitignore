@@ -382,6 +382,14 @@ packages/cms-example/.pagedeck/
 # (#697). The test removes it after each run.
 packages/cms-example/.pagedeck-how-to-cms-test-*/
 
+# The app example's own build output, store and retention store, and wrangler's
+# scratch directory beside its `wrangler.jsonc` (#141): its `site.build.test.ts`
+# builds it in place and serves it with `wrangler dev`.
+packages/app-example/site/
+packages/app-example/content.db
+packages/app-example/.pagedeck/
+packages/app-example/.wrangler/
+
 # The template copy `packages/create-pagedeck/src/template.build.test.ts` builds
 # (#77). The test removes it after each run.
 packages/create-pagedeck/.pagedeck-template-build-test-*/
