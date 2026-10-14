@@ -17,6 +17,26 @@ function netlifyMatches(pattern: string, path: string): boolean {
     : withoutSlash(pattern) === withoutSlash(path);
 }
 
+// https://docs.netlify.com/routing/redirects/rewrites-proxies/ : ":splat" is what "*" matched.
+// Netlify applies no `_headers` rule to proxied content, so the answer carries none.
+function netlifyProxy(pattern: string, to: string, path: string): Resolution {
+  const forwarded = new URL(
+    pattern.endsWith("*")
+      ? to.replace(":splat", path.slice(pattern.length - 1))
+      : to,
+  );
+  if (forwarded.pathname !== path) {
+    throw new Error(
+      `the row "${pattern} ${to}" sends "${path}" to the app as "${forwarded.pathname}"`,
+    );
+  }
+  return {
+    kind: "upstream",
+    prefix: pattern.endsWith("*") ? pattern.slice(0, -1) : `${pattern}/`,
+    url: forwarded.origin,
+  };
+}
+
 function netlifyAnswer(
   from: string,
   to: string,
@@ -71,12 +91,17 @@ export function interpretNetlify(
     .map((line) => line.split(" "));
   const headersFor = netlifyHeaders(tree);
 
+  // https://docs.netlify.com/manage/routing/redirects/redirect-options/ : a rule with no query
+  // parameters matches on the path alone.
+  const path = request.path.replace(/[?#].*$/s, "");
+
   const forced = rows.find(
     ([from, , status]) =>
-      netlifyMatches(from ?? "", request.path) && (status ?? "").endsWith("!"),
+      netlifyMatches(from ?? "", path) && (status ?? "").endsWith("!"),
   );
   if (forced !== undefined) {
-    const [, to, status] = forced;
+    const [from, to, status] = forced;
+    if (status === "200!") return netlifyProxy(from ?? "", to ?? "", path);
     return netlifyAnswer(
       request.path,
       to ?? "",
@@ -86,7 +111,7 @@ export function interpretNetlify(
   }
 
   if (!request.found) {
-    const row = rows.find(([from]) => netlifyMatches(from ?? "", request.path));
+    const row = rows.find(([from]) => netlifyMatches(from ?? "", path));
     if (row !== undefined) {
       const [, to, status] = row;
       return netlifyAnswer(request.path, to ?? "", status ?? "", headersFor);

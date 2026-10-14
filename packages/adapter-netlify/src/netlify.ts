@@ -8,6 +8,7 @@ import {
   netlifyHeaderValue,
   netlifyPattern,
   netlifyStatus,
+  unexpressibleInNetlifyDestination,
   unexpressibleInNetlifyPattern,
 } from "./encode.js";
 
@@ -59,6 +60,26 @@ export function compileNetlify(
     DEPLOY_DIRECTORY,
     `${DEPLOY_DIRECTORY}/*`,
   ].map((pattern) => `${pattern} ${denied} 404!`);
+  // https://docs.netlify.com/routing/redirects/rewrites-proxies/ : a forced 200 to an absolute URL
+  // proxies, and Netlify applies no `_headers` rule to what it proxies. The splat row comes first
+  // because Netlify matches a rule with or without a trailing slash, so the exact row would also
+  // send "/api/" to the app as "/api".
+  for (const { prefix, url } of tree.upstreams ?? []) {
+    check(tree, `upstream prefix "${prefix}"`, prefix, faults);
+    const port =
+      url === undefined ? undefined : unexpressibleInNetlifyDestination(url);
+    if (port !== undefined) {
+      faults.push({
+        kind: "unexpressible",
+        line: `${treeOf(tree.domain)}'s upstream prefix "${prefix}" — ${port}`,
+      });
+    }
+    const bare = withoutSlash(prefix);
+    rows.push(
+      `${netlifyPattern(prefix)}* ${netlifyPattern(`${url ?? ""}${prefix}`)}:splat 200!`,
+      `${netlifyPattern(bare)} ${netlifyPattern(`${url ?? ""}${bare}`)} 200!`,
+    );
+  }
   for (const rule of tree.redirects) {
     // Netlify matches with or without a trailing slash, so this row would redirect to itself (#35).
     if (withoutSlash(rule.from) === withoutSlash(rule.to)) {
