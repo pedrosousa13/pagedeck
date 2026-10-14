@@ -421,6 +421,12 @@ quoted budget report rows to its report, with chunk hashes and byte figures
 normalised and each `actual` within 5%. Edit the example, and copy the changed
 lines and figures into the page.
 
+`packages/docs/how-to/run-an-app-beside-the-site.md` quotes
+`packages/app-example` (#141). `src/run-an-app-beside-the-site.test.ts`
+requires each fence's lead to name an example file and the fence to be a run
+of that file's lines, as `connect-a-cms.test.ts` does. Edit the example, and
+copy the changed lines into the page.
+
 `packages/docs/how-to/deploy-a-site.md` shows `pagedeck` commands (#698).
 `src/deploy-a-site.test.ts` runs each `pagedeck` line in its fences through
 `runCli` in an empty directory, so each verb's own parser takes or refuses the
@@ -579,6 +585,16 @@ contract (#694). Its sync needs the CMS running: `node dist/serve.js` first,
 or set `PAGEDECK_CMS_EXAMPLE_URL` to where it serves. It names no CMS vendor:
 it is the model a site author copies for their own CMS. Its `README.md` holds
 the wire shape, the loader's choices and the budget table.
+
+### The app example
+
+`packages/app-example` is a site with a Hono app beside it on Cloudflare
+Workers Static Assets (#141, ADR-0010). `wrangler.jsonc` sends `/api/*` to the
+app and every other request to `site/`. The island on `/signup/` imports the
+app's type only. `src/site.build.test.ts` builds the site in place, serves it
+with `wrangler dev`, and requests both halves; it also fails if any file the
+build writes holds the app's error message. Its `README.md` holds the budget
+table.
 
 ### The shared brand
 

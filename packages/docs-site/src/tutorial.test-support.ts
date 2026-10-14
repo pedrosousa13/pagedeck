@@ -17,6 +17,25 @@ export const STARTER_TEMPLATE = join(
   "template",
 );
 
+const indent = (line: string): number => line.length - line.trimStart().length;
+
+// The fence's lines, in order and next to each other, with every line moved by one indent:
+// an excerpt from inside a function may drop the function's indentation.
+export function quotes(source: string, code: string): boolean {
+  const wanted = code.trimEnd().split("\n");
+  const lines = source.split("\n");
+  const first = wanted[0] as string;
+  return lines.some((_, start) => {
+    const shift = indent(lines[start] as string) - indent(first);
+    if (shift < 0) return false;
+    return wanted.every((line, offset) => {
+      const real = lines[start + offset];
+      if (real === undefined) return false;
+      return line.trim() === "" ? real.trim() === "" : real === " ".repeat(shift) + line;
+    });
+  });
+}
+
 export interface Fence {
   lang: string;
   code: string;
