@@ -5,6 +5,7 @@ import { refuseOffsite, treeOf } from "@pagedeck/edge";
 import type { CompiledTree, EdgeArtifact, Fault } from "@pagedeck/edge";
 
 import {
+  unexpressibleInVercelDestination,
   unexpressibleInVercelPattern,
   vercelHeaderValue,
   vercelPattern,
@@ -13,6 +14,8 @@ import {
 // https://vercel.com/docs/routing/redirects/configuration-redirects#limits
 const MAX_REDIRECTS = 2048;
 const MAX_PATTERN_LENGTH = 4096;
+
+const WELL_KNOWN = "/.well-known/";
 
 function check(
   tree: RoutingTree,
@@ -43,11 +46,12 @@ function checkLength(
 }
 
 // Vercel applies every matching `headers` rule, so each excludes its nested siblings to keep one
-// match per path; the excluded text sits in a regex group, so it is escaped (#37).
+// match per path; the excluded text sits in a regex group, so it is escaped (#37). A rule also
+// applies to an external rewrite's response (https://vercel.com/docs/rewrites sets
+// `CDN-Cache-Control` on one through `headers`), and the app sets its own, so each excludes the
+// upstream prefixes under it, the unslashed path included.
 function headerSource(prefix: string, exclusions: readonly string[]): string {
-  const lookaheads = exclusions
-    .map((relative) => `(?!${escapePcre(relative)})`)
-    .join("");
+  const lookaheads = exclusions.map((pattern) => `(?!${pattern})`).join("");
   return `${prefix}:rest(${lookaheads}.*)`;
 }
 
@@ -70,6 +74,11 @@ function headerRecord(set: readonly HeaderField[]): Record<string, string> {
 // is escaped.
 function escapePcre(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+interface UpstreamRoute {
+  src: string;
+  dest: string;
 }
 
 interface ReservedRoute {
@@ -127,15 +136,26 @@ export function compileVercel(
     };
   });
 
-  const headers = tree.headers.map((rule, index) => {
+  const upstreams = tree.upstreams ?? [];
+  const siteHeaders = tree.headers.filter(
+    (rule) => !upstreams.some(({ prefix }) => rule.prefix.startsWith(prefix)),
+  );
+  const headers = siteHeaders.map((rule, index) => {
     check(tree, `header prefix "${rule.prefix}"`, rule.prefix, faults);
-    const exclusions = tree.headers
+    const nested = siteHeaders
       .slice(0, index)
       .filter(
         (other) =>
           other.prefix !== rule.prefix && other.prefix.startsWith(rule.prefix),
       )
-      .map((other) => other.prefix.slice(rule.prefix.length));
+      .map((other) => escapePcre(other.prefix.slice(rule.prefix.length)));
+    const proxied = upstreams
+      .filter(({ prefix }) => prefix.startsWith(rule.prefix))
+      .map(
+        ({ prefix }) =>
+          `${escapePcre(prefix.slice(rule.prefix.length, -1))}(?:/|$)`,
+      );
+    const exclusions = [...nested, ...proxied];
     return {
       source: headerSource(vercelPattern(rule.prefix), exclusions),
       headers: rule.set.map((field) => ({
@@ -161,10 +181,34 @@ export function compileVercel(
       : { headers: headerRecord(notFoundHeaders) }),
   });
 
-  const routes: readonly (ReservedRoute | { handle: "filesystem" })[] = [
+  // Before the filesystem, so a file the host holds under a prefix never answers in the app's
+  // place. "src" matches the pathname without its query, and "dest" may be a full URL
+  // (https://vercel.com/docs/build-output-api/v3/configuration#routes); a route with no
+  // "methods" takes every method.
+  const upstreamRoutes = upstreams.flatMap(({ prefix, url }): UpstreamRoute[] => {
+    if (url === undefined) return [];
+    const path = prefix.slice(0, -1);
+    const why = prefix.startsWith(WELL_KNOWN)
+      ? `Vercel answers ${WELL_KNOWN} itself ("The /.well-known path is reserved and cannot be redirected or rewritten", https://vercel.com/docs/rewrites)`
+      : unexpressibleInVercelDestination(path);
+    if (why !== undefined) {
+      faults.push({
+        kind: "unexpressible",
+        line: `${treeOf(tree.domain)}'s upstream prefix "${prefix}" — ${why}`,
+      });
+    }
+    return [{ src: `^${escapePcre(path)}(/.*)?$`, dest: `${url}${path}$1` }];
+  });
+
+  const routes: readonly (
+    | ReservedRoute
+    | UpstreamRoute
+    | { handle: "filesystem" }
+  )[] = [
     reservedRoute(`^${escapePcre(DEPLOY_MANIFEST_PATH)}$`),
     reservedRoute(`^${escapePcre(DEPLOY_DIRECTORY)}$`),
     reservedRoute(`^${escapePcre(DEPLOY_DIRECTORY)}/.*$`),
+    ...upstreamRoutes,
     { handle: "filesystem" },
     // Last, after the real files: every other miss gets the same forced rule, so a 404
     // anywhere in the tree carries the 404 page's own headers rather than whichever

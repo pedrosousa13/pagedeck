@@ -90,7 +90,66 @@ function headersForPath(
     );
 }
 
-function fromRoute(route: VercelRoute): Resolution {
+/** The site's headers Vercel's `headers` rules give `path`, whatever answers it. */
+export function vercelHeadersAt(
+  artifacts: readonly EdgeArtifact[],
+  domain: string | undefined,
+  path: string,
+): readonly HeaderField[] {
+  return headersForPath(configFor(artifacts, domain), path);
+}
+
+// "src" matches "each incoming pathname (excluding querystring)"
+// (https://vercel.com/docs/build-output-api/v3/configuration#routes), and "the `src` property is
+// case-insensitive" (https://vercel.com/docs/project-configuration/vercel-json#case-sensitivity).
+function matchRoute(
+  routes: readonly VercelRoute[],
+  pathname: string,
+): { route: VercelRoute; match: RegExpExecArray } | undefined {
+  for (const route of routes) {
+    if (route.src === undefined) continue;
+    const match = new RegExp(route.src, "i").exec(pathname);
+    if (match !== null) return { route, match };
+  }
+  return undefined;
+}
+
+const UPSTREAM_SOURCE = /^\^(.*)\(\/\.\*\)\?\$$/s;
+
+// Assumes Vercel substitutes "" for "$1" when the group took no part in the match: "dest" is
+// documented only as embedding "capture groups as $1, $2".
+function fromUpstream(
+  route: VercelRoute & { dest: string },
+  match: RegExpExecArray,
+  pathname: string,
+): Resolution {
+  const target = route.dest.replace("$1", match[1] ?? "");
+  const { origin } = new URL(target);
+  if (target !== `${origin}${pathname}`) {
+    throw new Error(
+      `Route "${String(route.src)}" sends "${pathname}" to "${target}" — vercel() must send the request's own path to the app's origin`,
+    );
+  }
+  const escaped = UPSTREAM_SOURCE.exec(route.src ?? "")?.[1];
+  if (escaped === undefined) {
+    throw new Error(
+      `Route "${String(route.src)}" sends to "${route.dest}" from a "src" interpretVercel does not read — model it here, or stop emitting it from vercel()`,
+    );
+  }
+  return {
+    kind: "upstream",
+    prefix: `${escaped.replace(/\\(.)/gs, "$1")}/`,
+    url: origin,
+  };
+}
+
+function fromRoute(
+  { route, match }: { route: VercelRoute; match: RegExpExecArray },
+  pathname: string,
+): Resolution {
+  if (route.dest !== undefined && /^https:\/\//.test(route.dest)) {
+    return fromUpstream({ ...route, dest: route.dest }, match, pathname);
+  }
   if (route.dest === undefined) return { kind: "not-found" };
   return {
     kind: "not-found",
@@ -125,10 +184,9 @@ export function interpretVercel(
   const preFilesystem = config.routes.slice(0, handleIndex);
   const postFilesystem = config.routes.slice(handleIndex + 1);
 
-  const reserved = preFilesystem.find(
-    (route) => route.src !== undefined && new RegExp(route.src).test(request.path),
-  );
-  if (reserved !== undefined) return fromRoute(reserved);
+  const pathname = request.path.replace(/[?#].*$/s, "");
+  const early = matchRoute(preFilesystem, pathname);
+  if (early !== undefined) return fromRoute(early, pathname);
 
   const exact = (config.redirects ?? []).find(
     (rule) => rule.source === request.path,
@@ -169,10 +227,10 @@ export function interpretVercel(
   }
 
   if (!request.found) {
-    const fallback = postFilesystem.find(
-      (route) => route.src !== undefined && new RegExp(route.src).test(request.path),
-    );
-    return fallback === undefined ? { kind: "not-found" } : fromRoute(fallback);
+    const fallback = matchRoute(postFilesystem, pathname);
+    return fallback === undefined
+      ? { kind: "not-found" }
+      : fromRoute(fallback, pathname);
   }
 
   return { kind: "pass", headers: headersForPath(config, request.path) };

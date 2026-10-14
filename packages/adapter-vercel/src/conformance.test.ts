@@ -6,5 +6,5 @@ describeConformance({
   adapter: vercel(),
   interpret: interpretVercel,
   policies: ["never", "always"],
-  upstreams: { withUrl: "refused", withoutUrl: "refused" },
+  upstreams: { withUrl: "routed", withoutUrl: "refused" },
 });

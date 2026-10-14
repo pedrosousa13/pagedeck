@@ -24,3 +24,12 @@ export function vercelPattern(value: string): string {
 export function vercelHeaderValue(value: string): string {
   return value;
 }
+
+// A route's `dest` embeds "capture groups as $1, $2, or named capture value $name"
+// (https://vercel.com/docs/build-output-api/v3/configuration#routes), and no escape for a
+// literal "$" is documented.
+export function unexpressibleInVercelDestination(value: string): string | undefined {
+  return value.includes("$")
+    ? 'Vercel reads "$" in a route\'s "dest" as the start of a capture reference, and offers no escape for a literal one'
+    : undefined;
+}
