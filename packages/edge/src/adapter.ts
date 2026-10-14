@@ -36,8 +36,6 @@ export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   unsupportedFix?: string;
   /** Absent, `defineAdapter` refuses every tree that declares an upstream prefix. */
   upstreams?: UpstreamPolicy;
-  /** The fix an `upstream` fault names, where this adapter knows a better one. */
-  upstreamFix?: string;
   /** Pushes the faults no one tree holds, such as an adapter option naming a prefix no tree declares. */
   checkManifest?(manifest: RoutingManifest, faults: Fault[]): void;
 }
@@ -172,7 +170,6 @@ export function defineAdapter<A extends EdgeArtifact>(
       const policy = definition.upstreams;
       throwIfAny(name, faults, {
         unsupported: definition.unsupportedFix,
-        upstream: definition.upstreamFix,
         upstreamUrlMissing: policy?.url === "optional" ? policy.fix : undefined,
         upstreamUrlRefused: policy?.url === "refused" ? policy.fix : undefined,
       });

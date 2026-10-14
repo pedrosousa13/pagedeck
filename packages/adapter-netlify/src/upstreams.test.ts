@@ -42,7 +42,7 @@ describe("upstream prefixes", () => {
     );
     expect(() => netlify().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "netlify": 2 trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+        `Edge target "netlify": 2 trees send prefixes to apps with no url, which this target needs to reach each app — set url on each to the https origin the deployed app answers at, such as "https://app.example":
   the default tree's prefixes "/api/", "/hooks/" (build.routing.upstreams)
   the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
       ),
@@ -119,7 +119,7 @@ describe("upstream prefixes", () => {
     );
     expect(() => netlify().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "netlify": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "netlify": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream prefix "/a:b/" — Netlify reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one`,
       ),
     );
@@ -138,7 +138,7 @@ describe("upstream prefixes", () => {
     );
     expect(() => netlify().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "netlify": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "netlify": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream prefix "/api/" — its url "https://app.example:8443" names port 8443, and Netlify reads ":" in a destination as the start of a placeholder, and offers no escape for a literal one
   the "shop.example" tree's upstream prefix "/cart/" — its url "https://cart.example:8080" names port 8080, and Netlify reads ":" in a destination as the start of a placeholder, and offers no escape for a literal one`,
       ),

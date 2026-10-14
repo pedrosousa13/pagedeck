@@ -66,7 +66,7 @@ describe("compile refusals", () => {
     };
     expect(() => cloudflarePages().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:\n  the default tree's redirect from "/a*b/" — Cloudflare Pages reads "*" in a path pattern as a splat, and offers no escape for a literal one`,
+        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:\n  the default tree's redirect from "/a*b/" — Cloudflare Pages reads "*" in a path pattern as a splat, and offers no escape for a literal one`,
       ),
     );
   });
@@ -130,7 +130,7 @@ describe("compile refusals", () => {
     };
     expect(() => cloudflarePages().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:\n  the default tree's header "X-Frame-Options" under prefix "/en/docs/" — also set under the enclosing prefix "/en/", and Cloudflare Pages joins a header set twice with a comma rather than letting a nested rule replace it`,
+        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:\n  the default tree's header "X-Frame-Options" under prefix "/en/docs/" — also set under the enclosing prefix "/en/", and Cloudflare Pages joins a header set twice with a comma rather than letting a nested rule replace it`,
       ),
     );
   });
@@ -189,7 +189,7 @@ describe("compile refusals", () => {
     };
     expect(() => cloudflarePages().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:\n  the default tree's header "X-Frame-Options" under prefix "/en/docs/" — also set under the enclosing prefix "/", and Cloudflare Pages joins a header set twice with a comma rather than letting a nested rule replace it`,
+        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:\n  the default tree's header "X-Frame-Options" under prefix "/en/docs/" — also set under the enclosing prefix "/", and Cloudflare Pages joins a header set twice with a comma rather than letting a nested rule replace it`,
       ),
     );
   });
@@ -351,7 +351,7 @@ describe("paths off the site", () => {
     };
     expect(() => cloudflarePages().compile(colon)).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/time-12:30/" — Cloudflare Pages reads ":" in a path pattern as the start of a placeholder, and offers no escape for a literal one`,
       ),
     );
@@ -373,7 +373,7 @@ describe("paths off the site", () => {
     };
     expect(() => cloudflarePages().compile(spaced)).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 4 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "cloudflare-pages": 4 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's 404 page — Cloudflare Pages reads U+0009, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
   the default tree's redirect from "/a b/" — Cloudflare Pages reads U+0020, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
   the default tree's redirect target on "/c/" — Cloudflare Pages reads U+00A0, a whitespace character, as the end of a path pattern, and offers no escape for a literal one
@@ -424,7 +424,7 @@ describe("_routes.json limits", () => {
   it('refuses a "*" in a prefix, which _routes.json reads as a wildcard', () => {
     expect(() => cloudflarePages().compile(withUpstreams(["/a*b/"]))).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream prefix "/a*b/" — Cloudflare Pages reads "*" in a _routes.json rule as a wildcard, and offers no escape for a literal one`,
       ),
     );

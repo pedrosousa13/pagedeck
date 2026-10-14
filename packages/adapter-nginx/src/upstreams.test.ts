@@ -74,7 +74,7 @@ describe("upstream prefixes", () => {
     };
     expect(() => nginx().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "nginx": 2 trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+        `Edge target "nginx": 2 trees send prefixes to apps with no url, which this target needs to reach each app — set url on each to the https origin the deployed app answers at, such as "https://app.example":
   the default tree's prefix "/api/" (build.routing.upstreams)
   the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
       ),
@@ -205,7 +205,7 @@ ${proxied('^~ "/my app;v1/"', "https://app.example")}
     };
     expect(() => nginx().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "nginx": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream url for "/api/" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one`,
       ),
     );

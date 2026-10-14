@@ -82,7 +82,7 @@ describe("upstream prefixes", () => {
     );
     expect(() => cloudfront().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "cloudfront-function": 2 trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+        `Edge target "cloudfront-function": 2 trees send prefixes to apps with no url, which this target needs to reach each app — set url on each to the https origin the deployed app answers at, such as "https://app.example":
   the default tree's prefixes "/api/", "/hooks/" (build.routing.upstreams)
   the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
       ),
@@ -207,7 +207,7 @@ describe("upstream prefixes", () => {
     );
     expect(() => cloudfront().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "cloudfront-function": 4 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "cloudfront-function": 4 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream prefix "/api/" — its url "https://203.0.113.7" names an IP address, and CloudFront takes only a DNS name as a custom origin's domain name
   the default tree's upstream prefix "/v6/" — its url "https://[2001:db8::1]:8443" names an IP address, and CloudFront takes only a DNS name as a custom origin's domain name
   the default tree's upstream prefix "/low/" — its url "https://app.example:444" names port 444, and CloudFront connects to a custom origin only on port 80, 443 or 1024 to 65535

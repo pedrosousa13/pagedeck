@@ -45,7 +45,7 @@ describe("upstream prefixes", () => {
     };
     expect(() => vercel().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "vercel": 2 trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+        `Edge target "vercel": 2 trees send prefixes to apps with no url, which this target needs to reach each app — set url on each to the https origin the deployed app answers at, such as "https://app.example":
   the default tree's prefix "/api/" (build.routing.upstreams)
   the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
       ),
@@ -115,7 +115,7 @@ describe("upstream prefixes", () => {
     });
     expect(() => vercel().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "vercel": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "vercel": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream prefix "/a$b/" — Vercel reads "$" in a route's "dest" as the start of a capture reference, and offers no escape for a literal one`,
       ),
     );
@@ -133,7 +133,7 @@ describe("upstream prefixes", () => {
     });
     expect(() => vercel().compile(manifest)).toThrow(
       new ConfigError(
-        `Edge target "vercel": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "vercel": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's upstream prefix "/.well-known/" — Vercel answers /.well-known/ itself ("The /.well-known path is reserved and cannot be redirected or rewritten", https://vercel.com/docs/rewrites)
   the default tree's upstream prefix "/.well-known/acme/" — Vercel answers /.well-known/ itself ("The /.well-known path is reserved and cannot be redirected or rewritten", https://vercel.com/docs/rewrites)`,
       ),

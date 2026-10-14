@@ -460,9 +460,6 @@ export const UPSTREAM_URL_MISSING_FIX =
 export const UPSTREAM_URL_REFUSED_FIX =
   "remove url from each, and run the app where this target routes the prefix without one";
 
-export const UPSTREAM_FIX =
-  "deploy with cloudflarePages(), the one adapter that routes a prefix to an app so far, or remove build.routing.upstreams and route each prefix in the host's own configuration";
-
 const APP_URL = "https://app.example";
 
 function upstreamOf(trailingSlash: TrailingSlash, url?: string): RoutingManifest {
@@ -549,24 +546,18 @@ function describePolicy(
   const bare = underPolicy(BARE, policy);
   const hardened = underPolicy(HARDENED, policy);
   const upstreamTarget = `the default tree's prefix "/api/" (build.routing.upstreams)`;
-  const routesNone = upstreams.withUrl === "refused" && upstreams.withoutUrl === "refused";
-  const unrouted = `Edge target "${name}": 1 tree sends a prefix to an app, which this target cannot route — ${UPSTREAM_FIX}:\n  ${upstreamTarget}`;
   const upstreamCases = [
     {
       what: "names the app's url",
       manifest: upstreamOf(policy, APP_URL),
       answer: upstreams.withUrl,
-      refusal: routesNone
-        ? unrouted
-        : `Edge target "${name}": 1 tree sends a prefix to an app at a url, which this target does not proxy to — ${upstreams.urlFix ?? UPSTREAM_URL_REFUSED_FIX}:\n  ${upstreamTarget}`,
+      refusal: `Edge target "${name}": 1 tree sends a prefix to an app at a url, which this target does not proxy to — ${upstreams.urlFix ?? UPSTREAM_URL_REFUSED_FIX}:\n  ${upstreamTarget}`,
     },
     {
       what: "names no url",
       manifest: upstreamOf(policy),
       answer: upstreams.withoutUrl,
-      refusal: routesNone
-        ? unrouted
-        : `Edge target "${name}": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — ${upstreams.noUrlFix ?? UPSTREAM_URL_MISSING_FIX}:\n  ${upstreamTarget}`,
+      refusal: `Edge target "${name}": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — ${upstreams.noUrlFix ?? UPSTREAM_URL_MISSING_FIX}:\n  ${upstreamTarget}`,
     },
   ];
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).

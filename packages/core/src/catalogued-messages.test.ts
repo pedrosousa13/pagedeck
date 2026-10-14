@@ -247,6 +247,7 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: "Island scan: 2 component modules will", because: "assembled" },
   { names: 'Collection "posts": 2 entries have', because: "assembled" },
   { names: 'Edge target "nginx": 2 values cannot', because: "assembled" },
+  { names: 'Edge target "nginx": 1 value cannot', because: "assembled" },
   {
     names: 'Edge target "cloudflare-worker": 1 header name',
     because: "assembled",
@@ -256,8 +257,20 @@ const UNCHECKED: readonly Unchecked[] = [
     because: "assembled",
   },
   { names: 'Edge target "netlify": 1 redirect source', because: "assembled" },
-  { names: 'Edge target "netlify": 2 values cannot', because: "assembled" },
+  { names: 'redirect from "/time-12:30/"', because: "assembled" },
   { names: 'Edge target "netlify": 1 header name', because: "assembled" },
+  {
+    names: 'Edge target "cloudflare-worker": 1 prefix in cloudflareWorker',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-worker": 1 binding in',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-worker": 1 prefix names both',
+    because: "assembled",
+  },
   {
     names: '"build.budget" declares 1 limit',
     because: "assembled",
@@ -278,6 +291,10 @@ const UNCHECKED: readonly Unchecked[] = [
     names: '"build.routing" declares 1 upstream field',
     because: "assembled",
   },
+  {
+    names: '"build.routing" declares 3 upstream fields',
+    because: "assembled",
+  },
   { names: '"build.routing" must', because: "assembled" },
   { names: "Routing manifest: 1 redirect target", because: "assembled" },
   { names: "Routing manifest: 1 path is redirected", because: "assembled" },
@@ -288,6 +305,7 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: "Routing manifest: 2 experiments name", because: "assembled" },
   { names: "Routing manifest: 1 upstream prefix covers", because: "assembled" },
   { names: "Routing manifest: 1 upstream prefix is declared", because: "assembled" },
+  { names: "Routing manifest: 2 header rules sit under", because: "assembled" },
   { names: "Image settings: declares 1 width that", because: "assembled" },
   { names: "Critical CSS: 1 inlined stylesheet", because: "assembled" },
   { names: "Critical CSS: 1 stylesheet cannot be", because: "assembled" },
@@ -295,6 +313,10 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: "Client build: 1 component specifier", because: "assembled" },
   {
     names: "Client build: 1 import from island code reaches",
+    because: "assembled",
+  },
+  {
+    names: "Dev server: 1 import from island code reaches",
     because: "assembled",
   },
   { names: "Locale set: 1 locale declares a domain", because: "assembled" },

@@ -71,7 +71,7 @@ const UPSTREAM_URL_MISSING_FIX =
 const UPSTREAM_URL_REFUSED_FIX =
   "remove url from each, and run the app where this target routes the prefix without one";
 const UNEXPRESSIBLE_FIX =
-  "remove the character, or compile a target that can express it";
+  "change each value as its line says, or compile a target that can express it";
 const OVERSIZE_FIX =
   "reduce the rule set, or raise the limit if the host's is higher";
 const TRAILING_SLASH_FIX = 'set trailingSlash: "always"';
@@ -96,7 +96,6 @@ function paragraph(
 // nothing that ships.
 export interface Fixes {
   unsupported?: string | undefined;
-  upstream?: string | undefined;
   upstreamUrlMissing?: string | undefined;
   upstreamUrlRefused?: string | undefined;
 }
@@ -200,7 +199,7 @@ export function throwIfAny(
         upstream.length === 1
           ? "tree sends a prefix to an app, which this target cannot route"
           : "trees send prefixes to an app, which this target cannot route",
-        fixes.upstream ?? UPSTREAM_FIX,
+        UPSTREAM_FIX,
         upstream,
       ),
     );
@@ -211,8 +210,8 @@ export function throwIfAny(
         target,
         urlMissing.length,
         urlMissing.length === 1
-          ? "tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at"
-          : "trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at",
+          ? "tree sends a prefix to an app with no url, which this target needs to reach the app"
+          : "trees send prefixes to apps with no url, which this target needs to reach each app",
         fixes.upstreamUrlMissing ?? UPSTREAM_URL_MISSING_FIX,
         urlMissing,
       ),

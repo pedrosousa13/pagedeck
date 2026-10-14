@@ -53,7 +53,7 @@ describe("compile refusals", () => {
     };
     expect(() => vercel().compile(special)).toThrow(
       new ConfigError(
-        `Edge target "vercel": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "vercel": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/a:b" — Vercel reads ":" in a path pattern as path-to-regexp syntax, and offers no escape for a literal one`,
       ),
     );

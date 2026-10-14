@@ -239,7 +239,7 @@ describe("upstream refusals", () => {
       ),
     ).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-worker": 2 trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at — name a service binding for each in cloudflareWorker({ upstreams }), such as { "/api/": { binding: "APP" } }, or set url on each to the https origin the deployed app answers at:
+        `Edge target "cloudflare-worker": 2 trees send prefixes to apps with no url, which this target needs to reach each app — name a service binding for each in cloudflareWorker({ upstreams }), such as { "/api/": { binding: "APP" } }, or set url on each to the https origin the deployed app answers at:
   the default tree's prefixes "/api/", "/hooks/" (build.routing.upstreams)
   the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
       ),
@@ -316,7 +316,7 @@ describe("upstream refusals", () => {
       ),
     ).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-worker": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — name a service binding for each in cloudflareWorker({ upstreams }), such as { "/api/": { binding: "APP" } }, or set url on each to the https origin the deployed app answers at:
+        `Edge target "cloudflare-worker": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — name a service binding for each in cloudflareWorker({ upstreams }), such as { "/api/": { binding: "APP" } }, or set url on each to the https origin the deployed app answers at:
   the default tree's prefix "/hooks/" (build.routing.upstreams)
 
 Edge target "cloudflare-worker": 1 prefix in cloudflareWorker({ upstreams }) is one no tree sends to an app — correct each to a prefix in build.routing.upstreams, or remove it from the option:

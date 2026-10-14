@@ -59,7 +59,7 @@ describe("nginx refuses an escape it cannot match on", () => {
       nginx().compile(withRedirectFrom("/a%2Fb")),
     ).toThrow(
       new ConfigError(
-        `Edge target "nginx": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/a%2Fb" — nginx decodes the request URI before it selects a location, so an escaped "%2F" cannot be told apart from a real path separator`,
       ),
     );
@@ -70,7 +70,7 @@ describe("nginx refuses an escape it cannot match on", () => {
       nginx().compile(withRedirectFrom("/price%24")),
     ).toThrow(
       new ConfigError(
-        `Edge target "nginx": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/price%24" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one`,
       ),
     );
@@ -81,7 +81,7 @@ describe("nginx refuses an escape it cannot match on", () => {
       nginx().compile(withRedirectFrom("/a%FFb")),
     ).toThrow(
       new ConfigError(
-        `Edge target "nginx": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/a%FFb" — nginx decodes the request URI as bytes, and this path holds a percent-escape that is not valid UTF-8`,
       ),
     );
@@ -92,7 +92,7 @@ describe("nginx refuses an escape it cannot match on", () => {
       nginx().compile(withRedirectFrom("/a%0Ab")),
     ).toThrow(
       new ConfigError(
-        `Edge target "nginx": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/a%0Ab" — nginx decodes the request URI before it selects a location, and the decoded path holds a control character no directive can carry`,
       ),
     );

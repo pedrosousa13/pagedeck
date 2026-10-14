@@ -34,7 +34,7 @@ describe("compile refusals", () => {
     };
     expect(() => nginx().compile(dollars)).toThrow(
       new ConfigError(
-        `Edge target "nginx": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's redirect from "/price$" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one
   the default tree's header "Content-Security-Policy" under prefix "/en/" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one`,
       ),
@@ -58,7 +58,7 @@ describe("compile refusals", () => {
     };
     expect(() => nginx().compile(named)).toThrow(
       new ConfigError(
-        `Edge target "nginx": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "nginx": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   the default tree's header name "X-$request_uri" under prefix "/" — nginx interpolates "$" inside a quoted string, and offers no escape for a literal one`,
       ),
     );

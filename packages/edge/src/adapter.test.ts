@@ -48,7 +48,7 @@ describe("defineAdapter", () => {
   it("reports every tree's faults and every oversized artifact in one refusal, cause first", () => {
     expect(() => stub.compile(FIXTURE)).toThrow(
       new ConfigError(
-        `Edge target "stub": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
+        `Edge target "stub": 1 value cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   tree "shop.example"
 
 Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set, or raise the limit if the host's is higher:
@@ -79,7 +79,7 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
         },
       ],
     };
-    const quiet = (extra: Pick<AdapterDefinition, "upstreams" | "upstreamFix">) =>
+    const quiet = (extra: Pick<AdapterDefinition, "upstreams">) =>
       defineAdapter({ name: "quiet", limits: {}, compileTree: () => [], ...extra });
 
     it("is refused by an adapter that does not route it", () => {
@@ -88,12 +88,6 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
           `Edge target "quiet": 1 tree sends a prefix to an app, which this target cannot route — compile with an adapter that routes build.routing.upstreams, or remove build.routing.upstreams and route each prefix in the host's own configuration:
   the default tree's prefix "/api/" (build.routing.upstreams)`,
         ),
-      );
-    });
-
-    it("is refused with the adapter's own fix, where it names one", () => {
-      expect(() => quiet({ upstreamFix: "route it elsewhere" }).compile(routed)).toThrow(
-        /cannot route — route it elsewhere:/,
       );
     });
 
@@ -118,7 +112,7 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
     it("is refused, per tree, where an adapter that proxies finds no url", () => {
       expect(() => quiet({ upstreams: { url: "required" } }).compile(proxied)).toThrow(
         new ConfigError(
-          `Edge target "quiet": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+          `Edge target "quiet": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — set url on each to the https origin the deployed app answers at, such as "https://app.example":
   the default tree's prefix "/auth/" (build.routing.upstreams)`,
         ),
       );
@@ -158,7 +152,7 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
       });
       expect(() => adapter.compile(routed)).toThrow(
         new ConfigError(
-          `Edge target "picky": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — bind it, or set url:
+          `Edge target "picky": 1 tree sends a prefix to an app with no url, which this target needs to reach the app — bind it, or set url:
   default's "/auth/"`,
         ),
       );
@@ -191,7 +185,7 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
   default
   shop.example
 
-Edge target "own": 2 values cannot be expressed by this target — remove the character, or compile a target that can express it:
+Edge target "own": 2 values cannot be expressed by this target — change each value as its line says, or compile a target that can express it:
   a value
   a value`,
       ),
