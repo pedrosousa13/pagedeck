@@ -428,7 +428,7 @@ test("an incremental build that deletes a page and declares an upstream prefix o
 
   const first = await incremental();
   expect(first.trees).toEqual([
-    { redirects: [], headers: [], upstreams: ["/api/"] },
+    { redirects: [], headers: [], upstreams: [{ prefix: "/api/" }] },
   ]);
   expect(await incremental()).toEqual(first);
   expect((await build(dir)).code).toBe(EXIT_CODES.success);

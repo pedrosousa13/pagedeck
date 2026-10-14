@@ -4,6 +4,7 @@ import { ConfigError } from "@pagedeck/core/exit";
 import type { RoutingManifest } from "@pagedeck/core/routing";
 
 import { defineAdapter } from "./adapter.js";
+import type { AdapterDefinition } from "./adapter.js";
 import { FIXTURE } from "./fixture.test-support.js";
 
 // A host the base has never heard of: the contract is what is under test, not a grammar.
@@ -60,9 +61,25 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
   describe("a tree that sends a prefix to an app", () => {
     const routed: RoutingManifest = {
       ...FIXTURE,
-      trees: [{ redirects: [], headers: [], upstreams: ["/api/"] }],
+      trees: [{ redirects: [], headers: [], upstreams: [{ prefix: "/api/" }] }],
     };
-    const quiet = (extra: { routesUpstreams?: true; upstreamFix?: string }) =>
+    const proxied: RoutingManifest = {
+      ...FIXTURE,
+      trees: [
+        {
+          redirects: [],
+          headers: [],
+          upstreams: [{ prefix: "/api/", url: "https://app.example" }, { prefix: "/auth/" }],
+        },
+        {
+          domain: "shop.example",
+          redirects: [],
+          headers: [],
+          upstreams: [{ prefix: "/cart/", url: "https://cart.example" }],
+        },
+      ],
+    };
+    const quiet = (extra: Pick<AdapterDefinition, "upstreams" | "upstreamFix">) =>
       defineAdapter({ name: "quiet", limits: {}, compileTree: () => [], ...extra });
 
     it("is refused by an adapter that does not route it", () => {
@@ -80,8 +97,47 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
       );
     });
 
-    it("reaches the compiler of an adapter that routes it", () => {
-      expect(quiet({ routesUpstreams: true }).compile(routed).artifacts).toEqual([]);
+    it("reaches the compiler of an adapter that routes it without a url", () => {
+      expect(quiet({ upstreams: { url: "refused" } }).compile(routed).artifacts).toEqual([]);
+    });
+
+    it("reaches the compiler of an adapter that proxies it to its url", () => {
+      const withUrl: RoutingManifest = {
+        ...FIXTURE,
+        trees: [
+          {
+            redirects: [],
+            headers: [],
+            upstreams: [{ prefix: "/api/", url: "https://app.example" }],
+          },
+        ],
+      };
+      expect(quiet({ upstreams: { url: "required" } }).compile(withUrl).artifacts).toEqual([]);
+    });
+
+    it("is refused, per tree, where an adapter that proxies finds no url", () => {
+      expect(() => quiet({ upstreams: { url: "required" } }).compile(proxied)).toThrow(
+        new ConfigError(
+          `Edge target "quiet": 1 tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at — set url on each to the https origin the deployed app answers at, such as "https://app.example":
+  the default tree's prefix "/auth/" (build.routing.upstreams)`,
+        ),
+      );
+    });
+
+    it("is refused, per tree, where an adapter that routes without a url finds one", () => {
+      expect(() => quiet({ upstreams: { url: "refused" } }).compile(proxied)).toThrow(
+        new ConfigError(
+          `Edge target "quiet": 2 trees send prefixes to apps at a url, which this target does not proxy to — remove url from each, and run the app where this target routes the prefix without one:
+  the default tree's prefix "/api/" (build.routing.upstreams)
+  the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
+        ),
+      );
+    });
+
+    it("is refused with the adapter's own fix for a url, where it names one", () => {
+      expect(() =>
+        quiet({ upstreams: { url: "refused", fix: "run it on the host" } }).compile(proxied),
+      ).toThrow(/does not proxy to — run it on the host:/);
     });
 
     it("is not refused when its prefix list is empty", () => {

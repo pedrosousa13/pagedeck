@@ -5,7 +5,11 @@ import {
   unusableHeaderValue,
   unwritableHeaderName,
 } from "@pagedeck/core/routing";
-import type { RoutingManifest, RoutingTree } from "@pagedeck/core/routing";
+import type {
+  RoutingManifest,
+  RoutingTree,
+  UpstreamRoute,
+} from "@pagedeck/core/routing";
 
 import type { ArtifactRole, EdgeArtifact, EdgeOutput } from "./artifact.js";
 import type { Fault } from "./faults.js";
@@ -31,10 +35,20 @@ export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   /** The fix an `unsupported` fault names, where this adapter knows a better one. */
   unsupportedFix?: string;
   /** Absent, `defineAdapter` refuses every tree that declares an upstream prefix. */
-  routesUpstreams?: true;
+  upstreams?: UpstreamPolicy;
   /** The fix an `upstream` fault names, where this adapter knows a better one. */
   upstreamFix?: string;
 }
+
+/**
+ * How an adapter that routes upstreams reaches the app: through the deployed
+ * origin each upstream's `url` names, or with no `url`, where the host runs the
+ * app itself. `fix` is what a refused `url` names, where this adapter knows a
+ * better one.
+ */
+export type UpstreamPolicy =
+  | { url: "required" }
+  | { url: "refused"; fix?: string };
 
 function checkVersion(name: string, version: number): void {
   if (version === ROUTING_VERSION) return;
@@ -80,16 +94,34 @@ function checkHeaders(tree: RoutingTree, faults: Fault[]): void {
   }
 }
 
+function upstreamsLine(
+  domain: string | undefined,
+  upstreams: readonly UpstreamRoute[],
+): string {
+  return `${treeOf(domain)}'s ${
+    upstreams.length === 1 ? "prefix" : "prefixes"
+  } ${upstreams.map(({ prefix }) => JSON.stringify(prefix)).join(", ")} (build.routing.upstreams)`;
+}
+
 // Refused, not dropped: a host that serves the prefix as files answers the app's requests with
 // the site's 404.
-function refuseUpstreams(tree: RoutingTree, faults: Fault[]): void {
-  const prefixes = tree.upstreams ?? [];
-  if (prefixes.length === 0) return;
+function refuseUpstreams(
+  tree: RoutingTree,
+  policy: UpstreamPolicy | undefined,
+  faults: Fault[],
+): void {
+  const upstreams = tree.upstreams ?? [];
+  if (upstreams.length === 0) return;
+  if (policy === undefined) {
+    faults.push({ kind: "upstream", line: upstreamsLine(tree.domain, upstreams) });
+    return;
+  }
+  const required = policy.url === "required";
+  const wrong = upstreams.filter(({ url }) => (url === undefined) === required);
+  if (wrong.length === 0) return;
   faults.push({
-    kind: "upstream",
-    line: `${treeOf(tree.domain)}'s ${
-      prefixes.length === 1 ? "prefix" : "prefixes"
-    } ${prefixes.map((prefix) => JSON.stringify(prefix)).join(", ")} (build.routing.upstreams)`,
+    kind: required ? "upstream-url-missing" : "upstream-url-refused",
+    line: upstreamsLine(tree.domain, wrong),
   });
 }
 
@@ -110,7 +142,7 @@ export function defineAdapter<A extends EdgeArtifact>(
       const faults: Fault[] = [];
       for (const tree of manifest.trees) {
         checkHeaders(tree, faults);
-        if (definition.routesUpstreams !== true) refuseUpstreams(tree, faults);
+        refuseUpstreams(tree, definition.upstreams, faults);
       }
       // Folded once here, so no two adapters can derive different normalizing rules.
       const artifacts = manifest.trees.flatMap((tree) =>
@@ -131,7 +163,14 @@ export function defineAdapter<A extends EdgeArtifact>(
           line: `${describe(artifact)} — ${String(bytes)} bytes, limit ${String(limit)}`,
         });
       }
-      throwIfAny(name, faults, definition.unsupportedFix, definition.upstreamFix);
+      throwIfAny(name, faults, {
+        unsupported: definition.unsupportedFix,
+        upstream: definition.upstreamFix,
+        upstreamUrlRefused:
+          definition.upstreams?.url === "refused"
+            ? definition.upstreams.fix
+            : undefined,
+      });
 
       return { target: name, artifacts };
     },

@@ -195,12 +195,17 @@ function headersFile(tree: CompiledTree, faults: Fault[]): string | undefined {
 
 // Functions run only for an `include` match, and every other request is served as a file
 // (https://developers.cloudflare.com/pages/functions/routing/#create-a-_routesjson-file).
+// "/users/*" matches "everything after the /users/ path", which leaves "/users" out, so each
+// prefix also gets its exact unslashed path, which `covers` and pagedeck dev send to the app.
 function routesFile(
   tree: CompiledTree,
   prefixes: readonly string[],
   faults: Fault[],
 ): string {
-  const include = prefixes.map((prefix) => `${cloudflarePagesPattern(prefix)}*`);
+  const include = prefixes.flatMap((prefix) => [
+    cloudflarePagesPattern(prefix.slice(0, -1)),
+    `${cloudflarePagesPattern(prefix)}*`,
+  ]);
   if (include.length > ROUTES_RULE_LIMIT) {
     faults.push({
       kind: "oversize",
@@ -274,7 +279,7 @@ export function compileCloudflarePages(
     artifacts.push({ ...domain, role: "tree-file", path: "/_headers", contents: headers });
   }
 
-  const prefixes = tree.upstreams ?? [];
+  const prefixes = (tree.upstreams ?? []).map(({ prefix }) => prefix);
   if (prefixes.length > 0) {
     artifacts.push({
       ...domain,

@@ -61,8 +61,8 @@ describe("cloudflare-pages", () => {
       ...ALWAYS_FIXTURE,
       trees: ALWAYS_FIXTURE.trees.map((tree) =>
         tree.domain === undefined
-          ? { ...tree, upstreams: ["/api/", "/auth/"] }
-          : { ...tree, upstreams: ["/cart/"] },
+          ? { ...tree, upstreams: [{ prefix: "/api/" }, { prefix: "/auth/" }] }
+          : { ...tree, upstreams: [{ prefix: "/cart/" }] },
       ),
     };
     const artifacts = cloudflarePages().compile(withUpstreams).artifacts;
@@ -75,7 +75,9 @@ describe("cloudflare-pages", () => {
         contents: `{
   "version": 1,
   "include": [
+    "/api",
     "/api/*",
+    "/auth",
     "/auth/*"
   ],
   "exclude": []
@@ -89,6 +91,7 @@ describe("cloudflare-pages", () => {
         contents: `{
   "version": 1,
   "include": [
+    "/cart",
     "/cart/*"
   ],
   "exclude": []

@@ -384,21 +384,21 @@ describe("paths off the site", () => {
 });
 
 describe("_routes.json limits", () => {
-  const withUpstreams = (upstreams: readonly string[]): RoutingManifest => ({
+  const withUpstreams = (prefixes: readonly string[]): RoutingManifest => ({
     ...ALWAYS_FIXTURE,
-    trees: [{ redirects: [], headers: [], upstreams }],
+    trees: [{ redirects: [], headers: [], upstreams: prefixes.map((prefix) => ({ prefix })) }],
   });
   const prefixes = (count: number): string[] =>
     Array.from({ length: count }, (_, index) => `/app${String(index).padStart(3, "0")}/`);
 
-  it("compiles 100 rules, Cloudflare Pages' limit", () => {
-    expect(() => cloudflarePages().compile(withUpstreams(prefixes(100)))).not.toThrow();
+  it("compiles 100 rules, Cloudflare Pages' limit, two for each prefix", () => {
+    expect(() => cloudflarePages().compile(withUpstreams(prefixes(50)))).not.toThrow();
   });
 
-  it("refuses more rules than Cloudflare Pages' limit", () => {
-    expect(() => cloudflarePages().compile(withUpstreams(prefixes(101)))).toThrow(
+  it("refuses more rules than Cloudflare Pages' limit, counting both rules of each prefix", () => {
+    expect(() => cloudflarePages().compile(withUpstreams(prefixes(51)))).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 1 artifact exceeds its size limit — reduce the rule set, or raise the limit if the host's is higher:\n  the default tree's _routes.json — 101 rules, limit 100`,
+        `Edge target "cloudflare-pages": 1 artifact exceeds its size limit — reduce the rule set, or raise the limit if the host's is higher:\n  the default tree's _routes.json — 102 rules, limit 100`,
       ),
     );
   });
@@ -408,13 +408,14 @@ describe("_routes.json limits", () => {
     expect(() => cloudflarePages().compile(withUpstreams([prefix]))).not.toThrow();
   });
 
-  it("refuses a rule over Cloudflare Pages' character limit, naming every one", () => {
+  it("refuses a rule over Cloudflare Pages' character limit, naming every one, the unslashed prefix too", () => {
     const long = `/${"p".repeat(98)}/`;
     const longer = `/${"q".repeat(120)}/`;
     expect(() => cloudflarePages().compile(withUpstreams([long, longer]))).toThrow(
       new ConfigError(
-        `Edge target "cloudflare-pages": 2 artifacts exceed their size limit — reduce the rule set, or raise the limit if the host's is higher:
+        `Edge target "cloudflare-pages": 3 artifacts exceed their size limit — reduce the rule set, or raise the limit if the host's is higher:
   the default tree's _routes.json rule "${long}*" — 101 characters, limit 100
+  the default tree's _routes.json rule "${longer.slice(0, -1)}" — 121 characters, limit 100
   the default tree's _routes.json rule "${longer}*" — 123 characters, limit 100`,
       ),
     );
@@ -425,6 +426,26 @@ describe("_routes.json limits", () => {
       new ConfigError(
         `Edge target "cloudflare-pages": 1 value cannot be expressed by this target — remove the character, or compile a target that can express it:
   the default tree's upstream prefix "/a*b/" — Cloudflare Pages reads "*" in a _routes.json rule as a wildcard, and offers no escape for a literal one`,
+      ),
+    );
+  });
+});
+
+describe("an upstream's url", () => {
+  it("is refused in every tree, since the app runs as Pages Functions under the prefix", () => {
+    const manifest: RoutingManifest = {
+      ...ALWAYS_FIXTURE,
+      trees: ALWAYS_FIXTURE.trees.map((tree) =>
+        tree.domain === undefined
+          ? { ...tree, upstreams: [{ prefix: "/api/", url: "https://app.example" }, { prefix: "/auth/" }] }
+          : { ...tree, upstreams: [{ prefix: "/cart/", url: "https://cart.example" }] },
+      ),
+    };
+    expect(() => cloudflarePages().compile(manifest)).toThrow(
+      new ConfigError(
+        `Edge target "cloudflare-pages": 2 trees send prefixes to apps at a url, which this target does not proxy to — Cloudflare Pages proxies only to paths on its own site ("You cannot proxy external domains", https://developers.cloudflare.com/pages/configuration/redirects/), so run the app as Pages Functions under the prefix and remove url:
+  the default tree's prefix "/api/" (build.routing.upstreams)
+  the "shop.example" tree's prefix "/cart/" (build.routing.upstreams)`,
       ),
     );
   });

@@ -54,7 +54,7 @@ app:
 
 | Host | How the prefix reaches the app |
 | --- | --- |
-| Cloudflare Pages | a `_routes.json` include rule per prefix, the app as Pages Functions |
+| Cloudflare Pages | two `_routes.json` include rules per prefix, its unslashed path and everything under it, the app as Pages Functions |
 | Cloudflare Workers Static Assets | `assets.run_worker_first` patterns in the site's own `wrangler.jsonc`, the app as the Worker; the build cannot write that file |
 | Cloudflare Worker | the generated Worker forwards the prefix to a service binding |
 | Vercel | a route in the build output to a function |
@@ -63,7 +63,11 @@ app:
 | nginx | a `location` that proxies to the app |
 
 `defineAdapter` refuses upstreams for every adapter that does not declare it
-routes them, so a new adapter cannot drop a prefix without a word.
+routes them, so a new adapter cannot drop a prefix without a word. An adapter
+that routes them also declares whether each upstream must name `url`, the
+`https` origin the deployed app answers at, or must not. A host that proxies to
+the app needs the origin. A host that runs the app itself, such as Cloudflare
+Pages with Pages Functions, refuses it.
 
 **No precedence.** A prefix may not cover a built page, a redirect, a 404 page
 or a reserved deploy key, and one prefix may not contain another. The build

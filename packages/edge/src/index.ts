@@ -1,5 +1,5 @@
 export { defineAdapter } from "./adapter.js";
-export type { AdapterDefinition, EdgeAdapter } from "./adapter.js";
+export type { AdapterDefinition, EdgeAdapter, UpstreamPolicy } from "./adapter.js";
 export type {
   ArtifactRole,
   EdgeArtifact,

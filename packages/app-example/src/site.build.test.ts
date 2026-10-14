@@ -119,7 +119,7 @@ test("no emitted file carries the app's code", () => {
 test("the build routes the prefix for Cloudflare Pages, and the upload leaves that file out", () => {
   expect(JSON.parse(readFileSync(join(OUT, "_routes.json"), "utf8"))).toEqual({
     version: 1,
-    include: ["/api/*"],
+    include: ["/api", "/api/*"],
     exclude: [],
   });
   expect(readFileSync(join(SITE, "public", ".assetsignore"), "utf8").split("\n")).toContain(

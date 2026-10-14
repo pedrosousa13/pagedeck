@@ -12,7 +12,10 @@ describe("upstream prefixes", () => {
       ...FIXTURE,
       trees: FIXTURE.trees.map((tree) => ({
         ...tree,
-        upstreams: tree.domain === undefined ? ["/api/", "/auth/"] : ["/cart/"],
+        upstreams:
+          tree.domain === undefined
+            ? [{ prefix: "/api/" }, { prefix: "/auth/", url: "https://auth.example" }]
+            : [{ prefix: "/cart/" }],
       })),
     };
     expect(() => netlify().compile(manifest)).toThrow(

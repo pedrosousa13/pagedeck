@@ -1442,23 +1442,35 @@ test("an empty headers list is the same silence, and one rule of any kind ends i
 const COVERED_FIX =
   "move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there";
 
-test("upstream prefixes reach each tree sorted, and nothing local to the developer does", () => {
+test("upstream prefixes reach each tree sorted with their deployed origin, and nothing local to the developer does", () => {
   const document = plan({
     config: {
       upstreams: [
-        { prefix: "/hooks/" },
-        { prefix: "/api/", dev: "http://localhost:8787", source: "app/" },
+        { prefix: "/hooks/", url: "https://Hooks.Example:443/" },
+        {
+          prefix: "/api/",
+          url: "https://app.example",
+          dev: "http://localhost:8787",
+          source: "app/",
+        },
         { domain: "shop.example", prefix: "/api/" },
       ],
     },
   });
   expect(document.trees).toEqual([
-    { redirects: [], headers: [], upstreams: ["/api/", "/hooks/"] },
+    {
+      redirects: [],
+      headers: [],
+      upstreams: [
+        { prefix: "/api/", url: "https://app.example" },
+        { prefix: "/hooks/", url: "https://hooks.example" },
+      ],
+    },
     {
       domain: "shop.example",
       redirects: [],
       headers: [],
-      upstreams: ["/api/"],
+      upstreams: [{ prefix: "/api/" }],
     },
   ]);
   const text = JSON.stringify(document);
@@ -1487,6 +1499,10 @@ test("every upstream field the config door cannot route to is reported in one re
     'write the http or https URL the app listens on while you develop, such as "http://localhost:8787"';
   const SOURCE =
     'write the path of the app\'s file or directory, relative to the site root, such as "app/"';
+  const URL_FIX =
+    'write the https origin the deployed app answers at, with no credential, path, query or fragment, such as "https://app.example"';
+  const APPENDED =
+    "the request's own path and query are appended to the origin, so the URL names the origin only";
   const report = routingFaultReport(
     {
       upstreams: [
@@ -1507,10 +1523,18 @@ test("every upstream field the config door cannot route to is reported in one re
         { prefix: "/api/", source: 3 },
         { prefix: "/api/", domain: 5 },
         "/api/",
+        { prefix: "/api/", url: 443 },
+        { prefix: "/api/", url: "app.example" },
+        { prefix: "/api/", url: "http://app.example" },
+        { prefix: "/api/", url: "https://deploy:hunter2@app.example" },
+        { prefix: "/api/", url: "https://app.example/v1" },
+        { prefix: "/api/", url: "https://app.example/?token=hunter2" },
+        { prefix: "/api/", url: "https://app.example/#top" },
       ],
     },
     'Config "/site/pagedeck.config.ts"',
   );
+  expect(report).not.toContain("hunter2");
   expect(report).toBe(
     [
       'Config "/site/pagedeck.config.ts": "build.routing" declares 1 entry that is not a rule — write each as an object, as routing: { redirects: [{ from: "/old", to: "/pricing" }] }:',
@@ -1519,7 +1543,7 @@ test("every upstream field the config door cannot route to is reported in one re
       'Config "/site/pagedeck.config.ts": "build.routing" declares 1 rule field this build cannot route with — declare each as the type its own line names:',
       '  upstreams[15] — "domain" — 5 — not a string — write the host of the output tree this rule is in, such as "shop.example"',
       "",
-      'Config "/site/pagedeck.config.ts": "build.routing" declares 15 upstream fields this build cannot route to — correct each as its own line says:',
+      'Config "/site/pagedeck.config.ts": "build.routing" declares 22 upstream fields this build cannot route to — correct each as its own line says:',
       `  upstreams[0] — "prefix" — undefined — not a string — ${PREFIX}`,
       `  upstreams[1] — "prefix" — 7 — not a string — ${PREFIX}`,
       `  upstreams[2] — "prefix" — "api/" — the prefix does not start with "/" — ${PREFIX}`,
@@ -1535,6 +1559,13 @@ test("every upstream field the config door cannot route to is reported in one re
       `  upstreams[12] — "dev" — "not a url" — not an absolute URL — ${DEV}`,
       `  upstreams[13] — "source" — "" — the source path is empty — ${SOURCE}`,
       `  upstreams[14] — "source" — 3 — not a string — ${SOURCE}`,
+      `  upstreams[17] — "url" — 443 — not a string — ${URL_FIX}`,
+      `  upstreams[18] — "url" — "app.example" — not an absolute URL — ${URL_FIX}`,
+      `  upstreams[19] — "url" — "http://app.example" — the scheme is "http", and a request to the app crosses the internet from the host, so plain http is refused — ${URL_FIX}`,
+      `  upstreams[20] — "url" — "https://…@app.example" — the URL holds a user name or password, which the adapter would write into the host's deploy files — ${URL_FIX}`,
+      `  upstreams[21] — "url" — "https://app.example/v1" — the URL has the path "/v1", and ${APPENDED} — ${URL_FIX}`,
+      `  upstreams[22] — "url" — "https://app.example/?…" — the URL holds a query, and ${APPENDED} — ${URL_FIX}`,
+      `  upstreams[23] — "url" — "https://app.example/#…" — the URL holds a fragment, and ${APPENDED} — ${URL_FIX}`,
     ].join("\n"),
   );
 });
@@ -1555,6 +1586,7 @@ test("an upstreams member that is not a list is refused, and a well-formed one p
           {
             domain: "shop.example",
             prefix: "/api/v2/",
+            url: "https://app.example/",
             dev: "https://127.0.0.1:8787/",
             source: "app/index.ts",
           },
@@ -1689,7 +1721,7 @@ test("a redirect for a deleted page under an upstream prefix is dropped, not ref
       upstreams: tree.upstreams,
     })),
   ).toEqual([
-    { redirects: ["/old"], upstreams: ["/api/"] },
+    { redirects: ["/old"], upstreams: [{ prefix: "/api/" }] },
     { redirects: ["/api/old"], upstreams: undefined },
   ]);
 });

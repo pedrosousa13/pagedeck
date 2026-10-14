@@ -94,7 +94,12 @@ export interface RoutingTree {
   notFound?: string;
   headers: readonly HeaderRule[];
   experiments?: readonly ResolvedExperiment[];
-  upstreams?: readonly string[];
+  upstreams?: readonly UpstreamRoute[];
+}
+
+export interface UpstreamRoute {
+  prefix: string;
+  url?: string;
 }
 
 export interface RoutingManifest {
@@ -127,6 +132,8 @@ export interface VariantRule {
 export interface UpstreamRule {
   domain?: string;
   prefix: string;
+  /** The https origin the deployed app answers at, for a host that proxies. */
+  url?: string;
   dev?: string;
   source?: string;
 }
@@ -266,6 +273,7 @@ interface DraftNotFound {
 interface DraftUpstream {
   domain?: string;
   prefix: string;
+  url?: string;
   where: string;
 }
 
@@ -467,6 +475,7 @@ function draft(input: RoutingInput): Drafted {
     (rule, index) => ({
       ...inTree(rule.domain),
       prefix: rule.prefix,
+      ...(rule.url === undefined ? {} : { url: new URL(rule.url).origin }),
       where: at(UPSTREAMS, index),
     }),
   );
@@ -1313,10 +1322,14 @@ export function planRouting(input: RoutingInput): RoutingManifest {
       const notFound = input.pages.find(
         (page) => page.domain === domain && isNotFound(page),
       );
-      const prefixes = drafted.upstreams
+      const upstreams: UpstreamRoute[] = drafted.upstreams
         .filter((rule) => rule.domain === domain)
-        .map((rule) => rule.prefix)
-        .sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
+        .map(({ prefix, url }) =>
+          url === undefined ? { prefix } : { prefix, url },
+        )
+        .sort((a, b) =>
+          a.prefix === b.prefix ? 0 : a.prefix < b.prefix ? -1 : 1,
+        );
       return {
         ...(domain === undefined ? {} : { domain }),
         redirects: [...byFrom.values()].sort((a, b) =>
@@ -1338,7 +1351,7 @@ export function planRouting(input: RoutingInput): RoutingManifest {
         // Last and omitted when empty, so a site with no split keeps its bytes
         // (#34).
         ...(splits.length === 0 ? {} : { experiments: splits }),
-        ...(prefixes.length === 0 ? {} : { upstreams: prefixes }),
+        ...(upstreams.length === 0 ? {} : { upstreams }),
       };
     }),
   };
@@ -1413,6 +1426,8 @@ const VARIANT_TYPE_FIX =
 const WEIGHT_FIX = "write this variant's share of visitors, such as weight: 50";
 const UPSTREAM_PREFIX_FIX =
   'write the path prefix the app answers under, starting and ending with "/", such as "/api/"';
+const UPSTREAM_URL_FIX =
+  'write the https origin the deployed app answers at, with no credential, path, query or fragment, such as "https://app.example"';
 const UPSTREAM_DEV_FIX =
   'write the http or https URL the app listens on while you develop, such as "http://localhost:8787"';
 const UPSTREAM_SOURCE_FIX =
@@ -1450,6 +1465,26 @@ function upstreamPrefixFault(value: unknown): string | undefined {
   if (prefix.split("/").some((segment) => segment === "." || segment === "..")) {
     return 'the prefix holds a "." or ".." segment, which a URL resolves away before any host matches it';
   }
+  return undefined;
+}
+
+function upstreamUrlFault(value: unknown): string | undefined {
+  if (typeof value !== "string") return "not a string";
+  if (!URL.canParse(value)) return "not an absolute URL";
+  const url = new URL(value);
+  if (url.protocol !== "https:") {
+    return `the scheme is ${JSON.stringify(url.protocol.slice(0, -1))}, and a request to the app crosses the internet from the host, so plain http is refused`;
+  }
+  if (url.username !== "" || url.password !== "") {
+    return "the URL holds a user name or password, which the adapter would write into the host's deploy files";
+  }
+  const appended =
+    "the request's own path and query are appended to the origin, so the URL names the origin only";
+  if (url.pathname !== "/") {
+    return `the URL has the path ${JSON.stringify(url.pathname)}, and ${appended}`;
+  }
+  if (url.search !== "") return `the URL holds a query, and ${appended}`;
+  if (url.hash !== "") return `the URL holds a fragment, and ${appended}`;
   return undefined;
 }
 
@@ -1708,6 +1743,10 @@ export function routingFaultReport(
       upstreamPrefixFault(held["prefix"]),
       UPSTREAM_PREFIX_FIX,
     );
+    const url = optional(held, "url");
+    if (url !== undefined) {
+      upstreamField("url", url, upstreamUrlFault(url), UPSTREAM_URL_FIX);
+    }
     const dev = optional(held, "dev");
     if (dev !== undefined)
       upstreamField("dev", dev, devUrlFault(dev), UPSTREAM_DEV_FIX);

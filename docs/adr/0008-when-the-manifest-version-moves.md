@@ -111,9 +111,11 @@ Columns added without a bump:
   the ground of `routing.trees[].experiments`. An older edge adapter that does
   not know the field compiles the document without the prefix, which is the
   site as it was before the upstream was declared. A tree with no upstream
-  omits the key, so a site that declares none keeps its bytes. The prefixes
-  are the only part of an upstream the document carries: its `dev` URL and its
-  `source` path are facts about the developer's machine, not the deploy.
+  omits the key, so a site that declares none keeps its bytes. Each row is an
+  object of the prefix and, when the site declares one, the `url` origin the
+  deployed app answers at, sorted by prefix. Those are the only parts of an
+  upstream the document carries: its `dev` URL and its `source` path are facts
+  about the developer's machine, not the deploy.
 
 ## Consequences
 

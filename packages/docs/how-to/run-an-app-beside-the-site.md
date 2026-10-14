@@ -50,6 +50,11 @@ Each field changes what Pagedeck does:
   an island's calls work in development as they do once deployed.
 - `source` is the app's file or directory. The build refuses an island that
   imports a value from it, as the island section below explains.
+- `url` is the `https` origin the deployed app answers at, such as
+  `"https://app.example"`, with no path, query or credential. A host that
+  proxies the prefix to an app running elsewhere needs it. The example leaves
+  it out, because the app runs on the same host as the pages, and
+  `cloudflarePages()` refuses it for the same reason.
 
 ## The app answers one path prefix
 
@@ -113,10 +118,12 @@ prefix, written as the prefix followed by `*`.
 
 `cloudflarePages()` also writes `site/_routes.json`, which sends the same
 prefixes to Pages Functions on Cloudflare Pages
-(<https://developers.cloudflare.com/pages/functions/routing/>). Workers Static
-Assets reads `run_worker_first` instead and would serve the file as a page, so
-the example's `public/.assetsignore` names `/_routes.json` to keep it out of
-the upload. `wrangler dev` serves it locally all the same.
+(<https://developers.cloudflare.com/pages/functions/routing/>). It writes two
+rules per prefix, `/api` and `/api/*`, because Cloudflare's `/api/*` matches
+only what comes after `/api/`. Workers Static Assets reads `run_worker_first`
+instead and would serve the file as a page, so the example's
+`public/.assetsignore` names `/_routes.json` to keep it out of the upload.
+`wrangler dev` serves it locally all the same.
 
 One request reaches the app without matching the prefix: a path with no file.
 With `not_found_handling` set to `none`, Cloudflare hands a miss to the

@@ -12,6 +12,8 @@ export interface Fault {
   kind:
     | "unsupported"
     | "upstream"
+    | "upstream-url-missing"
+    | "upstream-url-refused"
     | "unexpressible"
     | "offsite"
     | "offsite-source"
@@ -57,6 +59,10 @@ const UNSUPPORTED_FIX =
   "drop the experiment, or compile with an adapter that compiles a split";
 const UPSTREAM_FIX =
   "compile with an adapter that routes build.routing.upstreams, or remove build.routing.upstreams and route each prefix in the host's own configuration";
+const UPSTREAM_URL_MISSING_FIX =
+  'set url on each to the https origin the deployed app answers at, such as "https://app.example"';
+const UPSTREAM_URL_REFUSED_FIX =
+  "remove url from each, and run the app where this target routes the prefix without one";
 const UNEXPRESSIBLE_FIX =
   "remove the character, or compile a target that can express it";
 const OVERSIZE_FIX =
@@ -81,17 +87,28 @@ function paragraph(
 
 // Cause before consequence: a size measured over output with faults left out measures
 // nothing that ships.
+export interface Fixes {
+  unsupported?: string | undefined;
+  upstream?: string | undefined;
+  upstreamUrlRefused?: string | undefined;
+}
+
 export function throwIfAny(
   target: string,
   faults: readonly Fault[],
-  unsupportedFix: string = UNSUPPORTED_FIX,
-  upstreamFix: string = UPSTREAM_FIX,
+  fixes: Fixes = {},
 ): void {
   const unsupported = faults
     .filter((fault) => fault.kind === "unsupported")
     .map((fault) => fault.line);
   const upstream = faults
     .filter((fault) => fault.kind === "upstream")
+    .map((fault) => fault.line);
+  const urlMissing = faults
+    .filter((fault) => fault.kind === "upstream-url-missing")
+    .map((fault) => fault.line);
+  const urlRefused = faults
+    .filter((fault) => fault.kind === "upstream-url-refused")
     .map((fault) => fault.line);
   const unexpressible = faults
     .filter((fault) => fault.kind === "unexpressible")
@@ -132,7 +149,7 @@ export function throwIfAny(
         unsupported.length === 1
           ? "tree declares an experiment this target cannot compile"
           : "trees declare experiments this target cannot compile",
-        unsupportedFix,
+        fixes.unsupported ?? UNSUPPORTED_FIX,
         unsupported,
       ),
     );
@@ -145,8 +162,34 @@ export function throwIfAny(
         upstream.length === 1
           ? "tree sends a prefix to an app, which this target cannot route"
           : "trees send prefixes to an app, which this target cannot route",
-        upstreamFix,
+        fixes.upstream ?? UPSTREAM_FIX,
         upstream,
+      ),
+    );
+  }
+  if (urlMissing.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        urlMissing.length,
+        urlMissing.length === 1
+          ? "tree sends a prefix to an app with no url, and this target proxies each prefix to the url its app answers at"
+          : "trees send prefixes to apps with no url, and this target proxies each prefix to the url its app answers at",
+        UPSTREAM_URL_MISSING_FIX,
+        urlMissing,
+      ),
+    );
+  }
+  if (urlRefused.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        urlRefused.length,
+        urlRefused.length === 1
+          ? "tree sends a prefix to an app at a url, which this target does not proxy to"
+          : "trees send prefixes to apps at a url, which this target does not proxy to",
+        fixes.upstreamUrlRefused ?? UPSTREAM_URL_REFUSED_FIX,
+        urlRefused,
       ),
     );
   }

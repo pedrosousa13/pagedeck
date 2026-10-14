@@ -101,8 +101,11 @@ export function interpretCloudflarePages(
   // first. "*" matches any suffix, slashes included.
   if (routes !== undefined) {
     const { include } = JSON.parse(routes.contents) as { include: readonly string[] };
-    const rule = include.find((candidate) => matchesSource(candidate, request.path));
-    if (rule !== undefined) return { kind: "upstream", prefix: rule.slice(0, -1) };
+    const pathname = request.path.replace(/[?#].*$/s, "");
+    const rule = include.find((candidate) => matchesSource(candidate, pathname));
+    if (rule !== undefined) {
+      return { kind: "upstream", prefix: rule.endsWith("*") ? rule.slice(0, -1) : `${rule}/` };
+    }
   }
 
   // "Redirects are always followed, regardless of whether or not an asset matches the incoming
