@@ -132,14 +132,15 @@ and nothing else (#185). Every package declares the same three fields:
 
 `packages/core/src/publishable-packages.test.ts` packs every package for real.
 **`create-pagedeck` is one exception** (#691). It also packs `template/`,
-the site it copies, and its `files` names each template file one by one
+the site it copies, and `template-app/`, the files `--app` writes over and
+beside it, and its `files` names each of those files one by one
 (#731). That one list decides three things: npm packs those files, `create()`
 copies those files, and `packedBesideDist` in
 `packages/core/src/public-packages.test-support.ts` admits those files and no
 others, in this test and in the pack harness. A directory named in `files`
-admits nothing under it. A file in `template/` that the list does not name is
-never packed or written, and fails `create-pagedeck`'s own suite. Add a new
-template file to `files`. The template's
+admits nothing under it. A file in `template/` or `template-app/` that the
+list does not name is never packed or written, and fails `create-pagedeck`'s
+own suite. Add a new template file to `files`. The template's
 `.gitignore` is stored as `_gitignore`, because npm and pnpm leave every file
 named `.gitignore` out of a tarball, and is renamed when the site is written.
 **`@pagedeck/docs` is the other** (#108). It is the documentation as
@@ -703,7 +704,7 @@ every subpath from there, and follows
 tarball to a built site. `ci.yml` runs it on every push, and `release.yml`
 before publishing. It fails on a tarball file outside
 `package.json`, `README*`, `LICENSE`, `dist`, for `create-pagedeck` alone
-the `template/` files its `files` names one by one, and for `@pagedeck/docs`
+the `template/` and `template-app/` files its `files` names one by one, and for `@pagedeck/docs`
 alone its markdown, `nav.json` and `assets/`, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
 and on a packed manifest that still says

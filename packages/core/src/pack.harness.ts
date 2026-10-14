@@ -170,7 +170,7 @@ test("every tarball holds its manifest, readme, licence and emitted dist, and no
     );
     if (stowaways.length > 0) {
       faults.push(
-        `Package "${manifest.name}": its tarball carries ${String(stowaways.length)} file(s) outside package.json, README*, LICENSE, dist, for create-pagedeck alone the template/ files its "files" names one by one, and for @pagedeck/docs alone its markdown, nav.json and assets/, or a build cache, test, harness or source map inside dist — ${stowaways.join(", ")} — narrow its "files", or keep the file out of the emitted dist in its tsconfig.build.json`,
+        `Package "${manifest.name}": its tarball carries ${String(stowaways.length)} file(s) outside package.json, README*, LICENSE, dist, for create-pagedeck alone the template/ and template-app/ files its "files" names one by one, and for @pagedeck/docs alone its markdown, nav.json and assets/, or a build cache, test, harness or source map inside dist — ${stowaways.join(", ")} — narrow its "files", or keep the file out of the emitted dist in its tsconfig.build.json`,
       );
     }
     if (!entries.includes("LICENSE")) {

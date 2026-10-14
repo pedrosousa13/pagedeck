@@ -35,17 +35,26 @@
     "template/content/index.md",
     "template/favicon.ico",
     "template/pagedeck.config.ts",
-    "template/tsconfig.json"
+    "template/tsconfig.json",
+    "template-app/README.md",
+    "template-app/app/dev.ts",
+    "template-app/app/index.ts",
+    "template-app/components/hello.tsx",
+    "template-app/content/hello.md",
+    "template-app/content/index.md",
+    "template-app/pagedeck.config.ts"
   ],
   "scripts": {
     "prepack": "tsc -b tsconfig.build.json"
   },
   "devDependencies": {
+    "@hono/node-server": "^2.1.5",
     "@pagedeck/content": "workspace:*",
     "@pagedeck/core": "workspace:*",
     "@pagedeck/islands": "workspace:*",
     "@pagedeck/markdown-loader": "workspace:*",
     "@types/react": "^19.2.0",
+    "hono": "^4.13.13",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

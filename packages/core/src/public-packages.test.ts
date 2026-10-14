@@ -19,26 +19,35 @@ test("any package but create-pagedeck packs nothing beside dist, even a file its
 test("create-pagedeck may pack each template file its files names, and nothing else beside dist", () => {
   const admitted = packedBesideDist({
     name: "create-pagedeck",
-    files: [...DIST_ONLY, "template/README.md", "template/_gitignore", "notes.txt"],
+    files: [
+      ...DIST_ONLY,
+      "template/README.md",
+      "template/_gitignore",
+      "template-app/app/index.ts",
+      "notes.txt",
+    ],
   });
 
   expect(
     [
       "template/README.md",
       "template/_gitignore",
+      "template-app/app/index.ts",
       "notes.txt",
       "template/.env",
       "template/node_modules/x/index.js",
+      "template-app/.env",
     ].filter((entry) => !admitted.has(entry)),
-  ).toEqual(["notes.txt", "template/.env", "template/node_modules/x/index.js"]);
+  ).toEqual(["notes.txt", "template/.env", "template/node_modules/x/index.js", "template-app/.env"]);
 });
 
 test("a directory in create-pagedeck's files admits none of the files packed under it", () => {
-  expect(
-    packedBesideDist({ name: "create-pagedeck", files: [...DIST_ONLY, "template"] }).has(
-      "template/README.md",
-    ),
-  ).toBe(false);
+  const admitted = packedBesideDist({
+    name: "create-pagedeck",
+    files: [...DIST_ONLY, "template", "template-app"],
+  });
+  expect(admitted.has("template/README.md")).toBe(false);
+  expect(admitted.has("template-app/app/index.ts")).toBe(false);
 });
 
 test("create-pagedeck's files admits its template file by file", () => {
@@ -47,6 +56,7 @@ test("create-pagedeck's files admits its template file by file", () => {
   ) as { name: string; files: string[] };
 
   expect(packedBesideDist(manifest).has("template/pagedeck.config.ts")).toBe(true);
+  expect(packedBesideDist(manifest).has("template-app/app/index.ts")).toBe(true);
 });
 
 test("@pagedeck/docs packs its pages, nav.json and assets/ in place of dist", () => {
