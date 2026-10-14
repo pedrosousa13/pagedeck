@@ -7,6 +7,7 @@ import {
   notFoundPages,
   planRouting,
   redirectIndex,
+  routingFaultReport,
   ROUTING_VERSION,
   SECURITY_HEADERS,
   undeclaredHeadersWarning,
@@ -1436,4 +1437,293 @@ test("an empty headers list is the same silence, and one rule of any kind ends i
       ],
     }),
   ).toBeUndefined();
+});
+
+const COVERED_FIX =
+  "move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there";
+
+test("upstream prefixes reach each tree sorted, and nothing local to the developer does", () => {
+  const document = plan({
+    config: {
+      upstreams: [
+        { prefix: "/hooks/" },
+        { prefix: "/api/", dev: "http://localhost:8787", source: "app/" },
+        { domain: "shop.example", prefix: "/api/" },
+      ],
+    },
+  });
+  expect(document.trees).toEqual([
+    { redirects: [], headers: [], upstreams: ["/api/", "/hooks/"] },
+    {
+      domain: "shop.example",
+      redirects: [],
+      headers: [],
+      upstreams: ["/api/"],
+    },
+  ]);
+  const text = JSON.stringify(document);
+  expect(text).not.toContain("localhost");
+  expect(text).not.toContain("app/");
+});
+
+test("a tree with no upstream gains no key, and a site with none keeps its bytes", () => {
+  const today =
+    '{"version":1,"site":{"trailingSlash":"never"},"trees":[{"redirects":[{"from":"/plans","to":"/pricing","status":308,"source":"config","via":[]}],"headers":[]},{"domain":"shop.example","redirects":[],"headers":[]}]}';
+  const redirects = [{ from: "/plans", to: "/pricing" }];
+  expect(JSON.stringify(plan({ config: { redirects } }))).toBe(today);
+  expect(JSON.stringify(plan({ config: { redirects, upstreams: [] } }))).toBe(
+    today,
+  );
+  const one = plan({
+    config: { upstreams: [{ domain: "shop.example", prefix: "/api/" }] },
+  });
+  expect(one.trees[0]).not.toHaveProperty("upstreams");
+});
+
+test("every upstream field the config door cannot route to is reported in one refusal", () => {
+  const PREFIX =
+    'write the path prefix the app answers under, starting and ending with "/", such as "/api/"';
+  const DEV =
+    'write the http or https URL the app listens on while you develop, such as "http://localhost:8787"';
+  const SOURCE =
+    'write the path of the app\'s file or directory, relative to the site root, such as "app/"';
+  const report = routingFaultReport(
+    {
+      upstreams: [
+        {},
+        { prefix: 7 },
+        { prefix: "api/" },
+        { prefix: "/api" },
+        { prefix: "/" },
+        { prefix: "/api/*/" },
+        { prefix: "/api?v=2/" },
+        { prefix: "/a pi/" },
+        { prefix: "/api/../" },
+        { prefix: "/api/", dev: "localhost:8787" },
+        { prefix: "/api/", dev: "ftp://localhost/" },
+        { prefix: "/api/", dev: 8787 },
+        { prefix: "/api/", dev: "not a url" },
+        { prefix: "/api/", source: "" },
+        { prefix: "/api/", source: 3 },
+        { prefix: "/api/", domain: 5 },
+        "/api/",
+      ],
+    },
+    'Config "/site/pagedeck.config.ts"',
+  );
+  expect(report).toBe(
+    [
+      'Config "/site/pagedeck.config.ts": "build.routing" declares 1 entry that is not a rule — write each as an object, as routing: { redirects: [{ from: "/old", to: "/pricing" }] }:',
+      '  upstreams[16] — "/api/"',
+      "",
+      'Config "/site/pagedeck.config.ts": "build.routing" declares 1 rule field this build cannot route with — declare each as the type its own line names:',
+      '  upstreams[15] — "domain" — 5 — not a string — write the host of the output tree this rule is in, such as "shop.example"',
+      "",
+      'Config "/site/pagedeck.config.ts": "build.routing" declares 15 upstream fields this build cannot route to — correct each as its own line says:',
+      `  upstreams[0] — "prefix" — undefined — not a string — ${PREFIX}`,
+      `  upstreams[1] — "prefix" — 7 — not a string — ${PREFIX}`,
+      `  upstreams[2] — "prefix" — "api/" — the prefix does not start with "/" — ${PREFIX}`,
+      `  upstreams[3] — "prefix" — "/api" — the prefix does not end with "/", so it would also match every path that only begins with the same characters — ${PREFIX}`,
+      `  upstreams[4] — "prefix" — "/" — the prefix is "/", which sends every path to the app — ${PREFIX}`,
+      `  upstreams[5] — "prefix" — "/api/*/" — the prefix holds "*", and a prefix is matched character for character, never as a pattern — ${PREFIX}`,
+      `  upstreams[6] — "prefix" — "/api?…" — the prefix holds "?", which ends the path part of a URL — ${PREFIX}`,
+      `  upstreams[7] — "prefix" — "/a pi/" — the prefix holds whitespace or a control character — ${PREFIX}`,
+      `  upstreams[8] — "prefix" — "/api/../" — the prefix holds a "." or ".." segment, which a URL resolves away before any host matches it — ${PREFIX}`,
+      `  upstreams[9] — "dev" — "localhost:8787" — the scheme is "localhost", and the dev server forwards over http or https — ${DEV}`,
+      `  upstreams[10] — "dev" — "ftp://localhost/" — the scheme is "ftp", and the dev server forwards over http or https — ${DEV}`,
+      `  upstreams[11] — "dev" — 8787 — not a string — ${DEV}`,
+      `  upstreams[12] — "dev" — "not a url" — not an absolute URL — ${DEV}`,
+      `  upstreams[13] — "source" — "" — the source path is empty — ${SOURCE}`,
+      `  upstreams[14] — "source" — 3 — not a string — ${SOURCE}`,
+    ].join("\n"),
+  );
+});
+
+test("an upstreams member that is not a list is refused, and a well-formed one passes", () => {
+  expect(
+    routingFaultReport({ upstreams: "/api/" }, 'Config "/site/pagedeck.config.ts"'),
+  ).toBe(
+    [
+      'Config "/site/pagedeck.config.ts": "build.routing" declares 1 member that is not a list of rules — write each as an array, as routing: { redirects: [{ from: "/old", to: "/pricing" }] }:',
+      '  "upstreams" — "/api/"',
+    ].join("\n"),
+  );
+  expect(
+    routingFaultReport(
+      {
+        upstreams: [
+          {
+            domain: "shop.example",
+            prefix: "/api/v2/",
+            dev: "https://127.0.0.1:8787/",
+            source: "app/index.ts",
+          },
+        ],
+      },
+      'Config "/site/pagedeck.config.ts"',
+    ),
+  ).toBeUndefined();
+});
+
+test("an upstream prefix over pages is refused, naming every page it covers", () => {
+  const failure = failureOf(() =>
+    plan({
+      pages: [...PAGES, page("en", "/about/team", "/about/team")],
+      config: { upstreams: [{ prefix: "/about/" }] },
+    }),
+  );
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 1 upstream prefix covers paths this build serves — ${COVERED_FIX}:`,
+      '  "/about/" in the default tree — build.routing.upstreams[0] covers:',
+      '    "/about" — the page en /about',
+      '    "/about/team" — the page en /about/team',
+    ].join("\n"),
+  );
+});
+
+test("an upstream prefix over a 404 page is refused like any other page", () => {
+  const failure = failureOf(() =>
+    plan({
+      trailingSlash: "always",
+      pages: [page("en", "/", "/"), page("en", "/404/", "/404/")],
+      config: {
+        notFound: [{ locale: "en", path: "/404" }],
+        upstreams: [{ prefix: "/404/" }],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 1 upstream prefix covers paths this build serves — ${COVERED_FIX}:`,
+      '  "/404/" in the default tree — build.routing.upstreams[0] covers:',
+      '    "/404/" — the page en /404/',
+    ].join("\n"),
+  );
+});
+
+test("an upstream prefix over files the build emits is refused, and a reserved file is reported once, as a key", () => {
+  const failure = failureOf(() =>
+    plan({
+      emitted: [
+        { path: "/assets/island-1a2b.js" },
+        { path: "/assets/global-3c4d.css" },
+        { domain: "shop.example", path: "/assets/island-1a2b.js" },
+        { path: "/.pagedeck/manifests/build-1.json" },
+      ],
+      config: {
+        upstreams: [{ prefix: "/assets/" }, { prefix: "/.pagedeck/" }],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 2 upstream prefixes cover paths this build serves — ${COVERED_FIX}:`,
+      '  "/.pagedeck/" in the default tree — build.routing.upstreams[1] covers:',
+      '    "/.pagedeck/" — a key the deploy keeps off the edge for its own manifest and history',
+      '  "/assets/" in the default tree — build.routing.upstreams[0] covers:',
+      '    "/assets/global-3c4d.css" — a file this build emits',
+      '    "/assets/island-1a2b.js" — a file this build emits',
+    ].join("\n"),
+  );
+});
+
+test("an upstream prefix at the deploy's own manifest is refused", () => {
+  const failure = failureOf(() =>
+    plan({ config: { upstreams: [{ prefix: "/manifest.json/" }] } }),
+  );
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 1 upstream prefix covers paths this build serves — ${COVERED_FIX}:`,
+      '  "/manifest.json/" in the default tree — build.routing.upstreams[0] covers:',
+      '    "/manifest.json/" — a key the deploy keeps off the edge for its own manifest and history',
+    ].join("\n"),
+  );
+});
+
+test("an upstream prefix over a redirect's source or target is refused, beside every other fault of the pass", () => {
+  const failure = failureOf(() =>
+    plan({
+      config: {
+        redirects: [
+          { from: "/api/old", to: "/about" },
+          { from: "/old", to: "/api/new" },
+        ],
+        upstreams: [{ prefix: "/api/" }],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      "Routing manifest: 1 redirect target is no page of this build — point it at a page this build routes or a file it emits, or drop the rule:",
+      '  build.routing.redirects[1] — "/api/new" in the default tree',
+      "",
+      `Routing manifest: 1 upstream prefix covers paths this build serves — ${COVERED_FIX}:`,
+      '  "/api/" in the default tree — build.routing.upstreams[0] covers:',
+      `    "/api/new" — build.routing.redirects[1], the redirect's target`,
+      `    "/api/old" — build.routing.redirects[0], the redirect's source`,
+    ].join("\n"),
+  );
+});
+
+test("two upstream prefixes where one starts with the other, or one declared twice, are refused per tree", () => {
+  const failure = failureOf(() =>
+    plan({
+      config: {
+        upstreams: [
+          { prefix: "/api/" },
+          { prefix: "/api/v2/" },
+          { prefix: "/api/" },
+          { domain: "shop.example", prefix: "/api/" },
+        ],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      "Routing manifest: 3 upstream prefixes are declared twice or inside others — give each app one prefix that no other upstream prefix in its tree starts with; a path under both has two apps to answer it, and the route table has no precedence rules:",
+      '  "/api/" in the default tree — declared by build.routing.upstreams[0] and build.routing.upstreams[2]',
+      '  "/api/v2/" in the default tree — build.routing.upstreams[1], inside "/api/" — build.routing.upstreams[0]',
+      '  "/api/v2/" in the default tree — build.routing.upstreams[1], inside "/api/" — build.routing.upstreams[2]',
+    ].join("\n"),
+  );
+});
+
+test("an upstream prefix over a page and inside another prefix is refused for both in one report", () => {
+  const failure = failureOf(() =>
+    plan({
+      pages: [...PAGES, page("en", "/about/team", "/about/team")],
+      config: {
+        upstreams: [{ prefix: "/about/" }, { prefix: "/about/team/" }],
+      },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      `Routing manifest: 2 upstream prefixes cover paths this build serves — ${COVERED_FIX}:`,
+      '  "/about/" in the default tree — build.routing.upstreams[0] covers:',
+      '    "/about" — the page en /about',
+      '    "/about/team" — the page en /about/team',
+      '  "/about/team/" in the default tree — build.routing.upstreams[1] covers:',
+      '    "/about/team" — the page en /about/team',
+      "",
+      "Routing manifest: 1 upstream prefix is declared twice or inside another — give each app one prefix that no other upstream prefix in its tree starts with; a path under both has two apps to answer it, and the route table has no precedence rules:",
+      '  "/about/team/" in the default tree — build.routing.upstreams[1], inside "/about/" — build.routing.upstreams[0]',
+    ].join("\n"),
+  );
+});
+
+test("an upstream prefix in a tree no page occupies is refused like any other rule", () => {
+  const failure = failureOf(() =>
+    plan({
+      config: { upstreams: [{ domain: "blog.example", prefix: "/api/" }] },
+    }),
+  );
+  expect(failure.message).toBe(
+    [
+      "Routing manifest: 1 rule names a domain no page occupies — route a locale to that domain, or move the rule to a tree this build emits:",
+      '  build.routing.upstreams[0] — "blog.example"',
+    ].join("\n"),
+  );
 });

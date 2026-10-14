@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 276 messages fenced
-below, 220 are checked that way and 56 are not**, and that test lists the 56
-one by one with the reason each is out: 54 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 278 messages fenced
+below, 220 are checked that way and 58 are not**, and that test lists the 58
+one by one with the reason each is out: 56 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 220 checked messages pin 34612 of the 85751 fenced characters, and
+below**: the 220 checked messages pin 34612 of the 86603 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1741,7 +1741,7 @@ object, a key this build never reads, a member that is not a list and an entry
 that is not a rule are four edits with four fixes.
 
 ```
-Config "/site/pagedeck.config.ts": "build.routing" declares 1 field this build does not read — delete the field, or correct it to one of: redirects, notFound, headers, experiments:
+Config "/site/pagedeck.config.ts": "build.routing" declares 1 field this build does not read — delete the field, or correct it to one of: redirects, notFound, headers, experiments, upstreams:
   "redirect"
 
 Config "/site/pagedeck.config.ts": "build.routing" declares 1 member that is not a list of rules — write each as an array, as routing: { redirects: [{ from: "/old", to: "/pricing" }] }:
@@ -1759,7 +1759,7 @@ records nowhere that any were written. A `routing` that is not an object at all
 and not one of them — is reported alone, on the non-object budget's argument.
 
 ```
-Config "/site/pagedeck.config.ts": "build.routing" must be an object of redirects, 404 pages, header rules and experiments — routing: { redirects: [{ from: "/old", to: "/pricing" }] }
+Config "/site/pagedeck.config.ts": "build.routing" must be an object of redirects, 404 pages, header rules, experiments and upstreams — routing: { redirects: [{ from: "/old", to: "/pricing" }] }
 ```
 
 **`planRouting`'s own reports name the same field on the line rather than in the
@@ -2331,6 +2331,32 @@ Routing manifest: 2 pages or redirects are at paths this build keeps off the edg
 A redirect is read by its source with the trailing slash stripped, so
 `/manifest.json/` is refused as well: the edge answers both spellings of an
 address, and a row on the slashed one would put a second row on the key.
+
+An upstream prefix sends every request under it to the site's own app
+(ADR-0010, #141), so anything else the build puts there is never served. The
+build refuses a prefix that covers a page, a 404 page included, a file it
+emits, a redirect's source or target, or a reserved deploy key. A prefix covers
+a path that starts with it, and also the path that is the prefix without its
+trailing slash, because `/api` and `/api/` are one address to every target
+under one `trailingSlash` policy or the other. Each prefix is named with its
+entry, and each path it covers is named with its claimant on a line below it:
+
+```
+Routing manifest: 1 upstream prefix covers paths this build serves — move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there:
+  "/api/" in the default tree — build.routing.upstreams[0] covers:
+    "/api" — the page en /api
+    "/api/assets/client-1a2b.js" — a file this build emits
+    "/api/old" — build.routing.redirects[0], the redirect's source
+```
+
+Two prefixes in one tree, where one starts with the other, are refused too.
+A path under both would have two apps to answer it, and ADR-0001 keeps the
+route table free of precedence:
+
+```
+Routing manifest: 1 upstream prefix is declared twice or inside another — give each app one prefix that no other upstream prefix in its tree starts with; a path under both has two apps to answer it, and the route table has no precedence rules:
+  "/api/v2/" in the default tree — build.routing.upstreams[1], inside "/api/" — build.routing.upstreams[0]
+```
 
 **The image contract is checked at construction rather than at config load, so
 none of its refusals joins that throw** (#43). Spec §10's image settings are

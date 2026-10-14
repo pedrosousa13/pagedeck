@@ -488,6 +488,7 @@ function everyColumn(): Record<string, unknown> {
         variants: [{ name: "b", weight: 50 }],
       },
     ],
+    upstreams: ["/api/"],
   });
   doc.files[0] = {
     domain: "de.example",
@@ -551,6 +552,8 @@ test.each<[string, readonly (string | number)[], unknown, string]>([
   ["a redirect's file", ["routing", "trees", 0, "redirects", 0, "file"], false, "routing.trees[0].redirects[0].file: expected true or nothing, found false"],
   ["a header's value", ["routing", "trees", 0, "headers", 0, "set", 0, "value"], ABSENT, "routing.trees[0].headers[0].set[0].value: expected a string, found nothing"],
   ["a split's weight", ["routing", "trees", 1, "experiments", 0, "variants", 0, "weight"], "50", "routing.trees[1].experiments[0].variants[0].weight: expected a number, found a string"],
+  ["an upstream prefix", ["routing", "trees", 1, "upstreams", 0], 7, "routing.trees[1].upstreams[0]: expected a string, found a number"],
+  ["the upstreams", ["routing", "trees", 1, "upstreams"], "/api/", "routing.trees[1].upstreams: expected a list or nothing, found a string"],
   ["files", ["files"], ABSENT, "files: expected a list, found nothing"],
   ["a files row", ["files", 0], null, "files[0]: expected an object, found null"],
   ["a file's path", ["files", 0, "path"], ABSENT, "files[0].path: expected a string, found nothing"],

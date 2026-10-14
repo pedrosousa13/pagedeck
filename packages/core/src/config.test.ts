@@ -1880,7 +1880,7 @@ test("a routing key this build does not read is refused rather than ignored", as
   );
 
   expect((error as Error).message).toContain(
-    `"build.routing" declares 1 field this build does not read — delete the field, or correct it to one of: redirects, notFound, headers, experiments:\n  "redirect"`,
+    `"build.routing" declares 1 field this build does not read — delete the field, or correct it to one of: redirects, notFound, headers, experiments, upstreams:\n  "redirect"`,
   );
 });
 
@@ -1919,7 +1919,7 @@ test("a routing that is not an object at all is reported alone", async () => {
   ).message;
 
   expect(message).toContain(
-    `"build.routing" must be an object of redirects, 404 pages, header rules and experiments — routing: { redirects: [{ from: "/old", to: "/pricing" }] }`,
+    `"build.routing" must be an object of redirects, 404 pages, header rules, experiments and upstreams — routing: { redirects: [{ from: "/old", to: "/pricing" }] }`,
   );
   expect(message).not.toContain("declares");
 });

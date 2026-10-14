@@ -822,6 +822,7 @@ const ROUTING_SHAPE = record<RoutingManifest>({
         ),
         "a list",
       ),
+      upstreams: optional(list(STRING), "a list"),
     }),
   ),
 });

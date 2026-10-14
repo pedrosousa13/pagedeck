@@ -107,6 +107,13 @@ Columns added without a bump:
   predates the column", and under both readings an incremental build pins
   nothing, which is what every incremental build did before #720. A site whose
   islands share no module outside the tiers keeps its manifest bytes.
+- **`routing.trees[].upstreams`, #141**, without a bump of either version, on
+  the ground of `routing.trees[].experiments`. An older edge adapter that does
+  not know the field compiles the document without the prefix, which is the
+  site as it was before the upstream was declared. A tree with no upstream
+  omits the key, so a site that declares none keeps its bytes. The prefixes
+  are the only part of an upstream the document carries: its `dev` URL and its
+  `source` path are facts about the developer's machine, not the deploy.
 
 ## Consequences
 

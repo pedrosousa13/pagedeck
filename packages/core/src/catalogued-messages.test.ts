@@ -282,6 +282,8 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: "Routing manifest: 1 variant weight", because: "assembled" },
   { names: "Routing manifest: 2 experiments declare", because: "assembled" },
   { names: "Routing manifest: 2 experiments name", because: "assembled" },
+  { names: "Routing manifest: 1 upstream prefix covers", because: "assembled" },
+  { names: "Routing manifest: 1 upstream prefix is declared", because: "assembled" },
   { names: "Image settings: declares 1 width that", because: "assembled" },
   { names: "Critical CSS: 1 inlined stylesheet", because: "assembled" },
   { names: "Critical CSS: 1 stylesheet cannot be", because: "assembled" },

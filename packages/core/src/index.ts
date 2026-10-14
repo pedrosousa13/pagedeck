@@ -280,6 +280,7 @@ export type {
   RoutingInput,
   RoutingManifest,
   RoutingTree,
+  UpstreamRule,
   VariantRule,
   WeightedVariant,
 } from "./routing.js";
