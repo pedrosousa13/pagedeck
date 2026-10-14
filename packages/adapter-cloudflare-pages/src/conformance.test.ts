@@ -8,4 +8,5 @@ describeConformance({
   interpret: interpretCloudflarePages,
   policies: ["always"],
   unverifiedNotFound: true,
+  upstreams: "routed",
 });

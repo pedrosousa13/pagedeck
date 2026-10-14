@@ -11,6 +11,7 @@ import {
 export interface Fault {
   kind:
     | "unsupported"
+    | "upstream"
     | "unexpressible"
     | "offsite"
     | "offsite-source"
@@ -54,6 +55,8 @@ export function refuseOffsite(
 
 const UNSUPPORTED_FIX =
   "drop the experiment, or compile with an adapter that compiles a split";
+const UPSTREAM_FIX =
+  "compile with an adapter that routes build.routing.upstreams, or remove build.routing.upstreams and route each prefix in the host's own configuration";
 const UNEXPRESSIBLE_FIX =
   "remove the character, or compile a target that can express it";
 const OVERSIZE_FIX =
@@ -82,9 +85,13 @@ export function throwIfAny(
   target: string,
   faults: readonly Fault[],
   unsupportedFix: string = UNSUPPORTED_FIX,
+  upstreamFix: string = UPSTREAM_FIX,
 ): void {
   const unsupported = faults
     .filter((fault) => fault.kind === "unsupported")
+    .map((fault) => fault.line);
+  const upstream = faults
+    .filter((fault) => fault.kind === "upstream")
     .map((fault) => fault.line);
   const unexpressible = faults
     .filter((fault) => fault.kind === "unexpressible")
@@ -127,6 +134,19 @@ export function throwIfAny(
           : "trees declare experiments this target cannot compile",
         unsupportedFix,
         unsupported,
+      ),
+    );
+  }
+  if (upstream.length > 0) {
+    sections.push(
+      paragraph(
+        target,
+        upstream.length,
+        upstream.length === 1
+          ? "tree sends a prefix to an app, which this target cannot route"
+          : "trees send prefixes to an app, which this target cannot route",
+        upstreamFix,
+        upstream,
       ),
     );
   }

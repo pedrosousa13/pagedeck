@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { RoutingManifest } from "@pagedeck/core/routing";
 import type { EdgeArtifact } from "@pagedeck/edge";
 
 import { ALWAYS_FIXTURE } from "./fixture.test-support.js";
@@ -45,5 +46,58 @@ describe("cloudflare-pages", () => {
 
   it("writes no fallback 404.html when the tree declares its own 404 page", () => {
     expect(defaultTree().find((artifact) => artifact.path === "/404.html")).toBeUndefined();
+  });
+
+  it("writes no _routes.json for a site that sends no prefix to an app", () => {
+    expect(
+      cloudflarePages()
+        .compile(ALWAYS_FIXTURE)
+        .artifacts.filter((artifact) => artifact.path === "/_routes.json"),
+    ).toEqual([]);
+  });
+
+  it("includes each upstream prefix in its own tree's _routes.json, and changes nothing else", () => {
+    const withUpstreams: RoutingManifest = {
+      ...ALWAYS_FIXTURE,
+      trees: ALWAYS_FIXTURE.trees.map((tree) =>
+        tree.domain === undefined
+          ? { ...tree, upstreams: ["/api/", "/auth/"] }
+          : { ...tree, upstreams: ["/cart/"] },
+      ),
+    };
+    const artifacts = cloudflarePages().compile(withUpstreams).artifacts;
+    const routes = artifacts.filter((artifact) => artifact.path === "/_routes.json");
+
+    expect(routes).toEqual([
+      {
+        role: "tree-file",
+        path: "/_routes.json",
+        contents: `{
+  "version": 1,
+  "include": [
+    "/api/*",
+    "/auth/*"
+  ],
+  "exclude": []
+}
+`,
+      },
+      {
+        domain: "shop.example",
+        role: "tree-file",
+        path: "/_routes.json",
+        contents: `{
+  "version": 1,
+  "include": [
+    "/cart/*"
+  ],
+  "exclude": []
+}
+`,
+      },
+    ]);
+    expect(artifacts.filter((artifact) => artifact.path !== "/_routes.json")).toEqual(
+      cloudflarePages().compile(ALWAYS_FIXTURE).artifacts,
+    );
   });
 });

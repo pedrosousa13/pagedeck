@@ -6,4 +6,5 @@ describeConformance({
   adapter: cloudflareWorker(),
   interpret: interpretWorker,
   policies: ["never", "always"],
+  upstreams: "refused",
 });

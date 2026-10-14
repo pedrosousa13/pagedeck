@@ -15,6 +15,9 @@ export interface CloudflareWorkerOptions {
   limits?: Partial<Record<"edge-module", number>>;
 }
 
+const UPSTREAM_FIX =
+  "deploy with cloudflarePages(), the one adapter that routes a prefix to an app so far, or remove build.routing.upstreams and route each prefix in the host's own configuration";
+
 export function cloudflareWorker(
   options: CloudflareWorkerOptions = {},
 ): EdgeAdapter {
@@ -23,5 +26,6 @@ export function cloudflareWorker(
     limits: { "edge-module": CLOUDFLARE_WORKER_LIMIT, ...options.limits },
     compileTree: compileWorker,
     unsupportedFix: UNSUPPORTED_FIX,
+    upstreamFix: UPSTREAM_FIX,
   });
 }

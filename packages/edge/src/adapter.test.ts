@@ -56,4 +56,37 @@ Edge target "stub": 2 artifacts exceed their size limit — reduce the rule set,
       ),
     );
   });
+
+  describe("a tree that sends a prefix to an app", () => {
+    const routed: RoutingManifest = {
+      ...FIXTURE,
+      trees: [{ redirects: [], headers: [], upstreams: ["/api/"] }],
+    };
+    const quiet = (extra: { routesUpstreams?: true; upstreamFix?: string }) =>
+      defineAdapter({ name: "quiet", limits: {}, compileTree: () => [], ...extra });
+
+    it("is refused by an adapter that does not route it", () => {
+      expect(() => quiet({}).compile(routed)).toThrow(
+        new ConfigError(
+          `Edge target "quiet": 1 tree sends a prefix to an app, which this target cannot route — compile with an adapter that routes build.routing.upstreams, or remove build.routing.upstreams and route each prefix in the host's own configuration:
+  the default tree's prefix "/api/" (build.routing.upstreams)`,
+        ),
+      );
+    });
+
+    it("is refused with the adapter's own fix, where it names one", () => {
+      expect(() => quiet({ upstreamFix: "route it elsewhere" }).compile(routed)).toThrow(
+        /cannot route — route it elsewhere:/,
+      );
+    });
+
+    it("reaches the compiler of an adapter that routes it", () => {
+      expect(quiet({ routesUpstreams: true }).compile(routed).artifacts).toEqual([]);
+    });
+
+    it("is not refused when its prefix list is empty", () => {
+      const empty = { ...routed, trees: [{ redirects: [], headers: [], upstreams: [] }] };
+      expect(quiet({}).compile(empty).artifacts).toEqual([]);
+    });
+  });
 });

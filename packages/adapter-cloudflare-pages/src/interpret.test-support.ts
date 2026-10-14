@@ -93,6 +93,17 @@ export function interpretCloudflarePages(
   const tree = forTree(artifacts, request.domain);
   const rows = parseRedirects(find(tree, "/_redirects")?.contents ?? "");
   const blocks = parseHeaders(find(tree, "/_headers")?.contents ?? "");
+  const routes = find(tree, "/_routes.json");
+
+  // A Function's response takes neither `_redirects` nor `_headers`
+  // (https://developers.cloudflare.com/pages/configuration/redirects/,
+  // https://developers.cloudflare.com/pages/configuration/headers/), so an include match answers
+  // first. "*" matches any suffix, slashes included.
+  if (routes !== undefined) {
+    const { include } = JSON.parse(routes.contents) as { include: readonly string[] };
+    const rule = include.find((candidate) => matchesSource(candidate, request.path));
+    if (rule !== undefined) return { kind: "upstream", prefix: rule.slice(0, -1) };
+  }
 
   // "Redirects are always followed, regardless of whether or not an asset matches the incoming
   // request" (redirects.md) — checked before the origin, whatever `request.found` says.

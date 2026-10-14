@@ -33,7 +33,9 @@ export type Resolution =
    * headers reports them, and `comparable` drops them: the claim is about the 404 page.
    */
   | { kind: "not-found"; headers?: readonly HeaderField[] }
-  | { kind: "pass"; headers: readonly HeaderField[] };
+  | { kind: "pass"; headers: readonly HeaderField[] }
+  /** Sent to the app the prefix names; what the app answers is no host's claim. */
+  | { kind: "upstream"; prefix: string };
 
 function treeFor(
   manifest: RoutingManifest,
@@ -58,6 +60,13 @@ export function resolveRequest(
 ): Resolution {
   const tree = treeFor(manifest, request.domain);
   if (tree === undefined) return { kind: "pass", headers: [] };
+
+  // `planRouting` refuses a page, file, redirect or reserved key under a prefix, so nothing below
+  // could have answered a path this matches.
+  const prefix = tree.upstreams?.find((candidate) =>
+    request.path.startsWith(candidate),
+  );
+  if (prefix !== undefined) return { kind: "upstream", prefix };
 
   if (isReservedDeployKey(request.path)) return notFound(tree);
 

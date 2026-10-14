@@ -12,5 +12,6 @@ export function cloudflarePages(): EdgeAdapter {
     limits: {},
     compileTree: compileCloudflarePages,
     unsupportedFix: UNSUPPORTED_FIX,
+    routesUpstreams: true,
   });
 }

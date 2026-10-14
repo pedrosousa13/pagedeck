@@ -8,6 +8,7 @@ describeConformance({
   interpret: interpretNetlify,
   servedStatus: netlifyStatus,
   policies: ["never", "always"],
+  upstreams: "refused",
   // https://docs.netlify.com/manage/routing/redirects/redirect-options/ : "You cannot use a
   // redirect rule to add or remove a trailing slash."
   noSlashRedirects: true,

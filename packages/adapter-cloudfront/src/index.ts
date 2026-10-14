@@ -22,6 +22,9 @@ export interface CloudFrontOptions {
   limits?: Partial<Record<"function" | "dataset", number>>;
 }
 
+const UPSTREAM_FIX =
+  "deploy with cloudflarePages(), the one adapter that routes a prefix to an app so far, or remove build.routing.upstreams and route each prefix in the host's own configuration";
+
 export function cloudfront(
   options: CloudFrontOptions = {},
 ): EdgeAdapter<CloudFrontArtifact> {
@@ -34,6 +37,7 @@ export function cloudfront(
     name: "cloudfront-function",
     limits,
     compileTree: (tree) => compileCloudFront(tree, limits.function),
+    upstreamFix: UPSTREAM_FIX,
     describe: (artifact) =>
       artifact.slot === undefined
         ? `${treeOf(artifact.domain)}'s "${artifact.path}"`

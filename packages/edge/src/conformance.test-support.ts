@@ -38,6 +38,8 @@ export interface AdapterUnderTest {
   unverifiedNotFound?: boolean;
   /** No rule can redirect one trailing-slash spelling to the other, so the origin answers (#35). */
   noSlashRedirects?: boolean;
+  /** Whether the adapter sends `build.routing.upstreams` to an app, or refuses the document. */
+  upstreams: "routed" | "refused";
 }
 
 interface Spelling {
@@ -443,6 +445,45 @@ const hardenedRequests = ({
   { what: "a reserved deploy key", path: "/manifest.json", found: true },
 ];
 
+export const UPSTREAM_FIX =
+  "deploy with cloudflarePages(), the one adapter that routes a prefix to an app so far, or remove build.routing.upstreams and route each prefix in the host's own configuration";
+
+function upstreamOf(trailingSlash: TrailingSlash): RoutingManifest {
+  const slash = trailingSlash === "always" ? "/" : "";
+  return {
+    version: ROUTING_VERSION,
+    site: { trailingSlash },
+    trees: [
+      {
+        redirects: [
+          {
+            from: `/en/legacy${slash}`,
+            to: `/en/about${slash}`,
+            status: 301,
+            source: "config",
+            via: [],
+          },
+        ],
+        notFound: `/en/404${slash}`,
+        headers: [
+          { prefix: "/", set: [{ name: "X-Content-Type-Options", value: "nosniff" }] },
+        ],
+        upstreams: ["/api/"],
+      },
+    ],
+  };
+}
+
+const upstreamRequests = ({
+  page,
+}: Spelling): readonly (EdgeRequest & { what: string })[] => [
+  { what: "a path under the prefix", path: "/api/signup", found: false },
+  { what: "the prefix itself", path: "/api/", found: false },
+  { what: "a sibling the prefix's slash scopes out", path: "/apix/", found: true },
+  { what: "a page outside the prefix", path: page("/en/about"), found: true },
+  { what: "a redirect outside the prefix", path: page("/en/legacy"), found: false },
+];
+
 export function describeConformance({
   adapter,
   interpret,
@@ -450,11 +491,19 @@ export function describeConformance({
   policies,
   unverifiedNotFound = false,
   noSlashRedirects = false,
+  upstreams,
 }: AdapterUnderTest): void {
   for (const policy of policies) {
     describe(`under trailingSlash "${policy}"`, () => {
       describePolicy(
-        { adapter, interpret, servedStatus, unverifiedNotFound, noSlashRedirects },
+        {
+          adapter,
+          interpret,
+          servedStatus,
+          unverifiedNotFound,
+          noSlashRedirects,
+          upstreams,
+        },
         policy,
       );
     });
@@ -468,6 +517,7 @@ function describePolicy(
     servedStatus,
     unverifiedNotFound,
     noSlashRedirects,
+    upstreams,
   }: Required<Omit<AdapterUnderTest, "policies">>,
   policy: TrailingSlash,
 ): void {
@@ -479,6 +529,7 @@ function describePolicy(
   const file = underPolicy(FILE, policy);
   const bare = underPolicy(BARE, policy);
   const hardened = underPolicy(HARDENED, policy);
+  const upstream = upstreamOf(policy);
   // The oracle's own claim, narrowed the way this adapter's host narrows a status (#10).
   const claimFor = (manifest: RoutingManifest, request: EdgeRequest): Resolution =>
     resolveRequest(manifest, request, servedStatus, noSlashRedirects);
@@ -667,6 +718,25 @@ function describePolicy(
           "x-frame-options",
         ]);
         await expectAnswer(hardened, request);
+      });
+    }
+  });
+
+  describe("a prefix the site sends to an app", () => {
+    if (upstreams === "routed") {
+      for (const request of upstreamRequests(spelling)) {
+        it(`${name} answers ${request.what} the way the document says`, async () => {
+          await expectAnswer(upstream, request);
+        });
+      }
+    } else {
+      it(`is refused by ${name}, which cannot route it`, () => {
+        expect(() => adapter.compile(upstream)).toThrow(
+          new ConfigError(
+            `Edge target "${name}": 1 tree sends a prefix to an app, which this target cannot route — ${UPSTREAM_FIX}:
+  the default tree's prefix "/api/" (build.routing.upstreams)`,
+          ),
+        );
       });
     }
   });

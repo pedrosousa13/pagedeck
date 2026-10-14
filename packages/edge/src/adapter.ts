@@ -30,6 +30,10 @@ export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   describe?(artifact: A): string;
   /** The fix an `unsupported` fault names, where this adapter knows a better one. */
   unsupportedFix?: string;
+  /** Absent, `defineAdapter` refuses every tree that declares an upstream prefix. */
+  routesUpstreams?: true;
+  /** The fix an `upstream` fault names, where this adapter knows a better one. */
+  upstreamFix?: string;
 }
 
 function checkVersion(name: string, version: number): void {
@@ -76,6 +80,19 @@ function checkHeaders(tree: RoutingTree, faults: Fault[]): void {
   }
 }
 
+// Refused, not dropped: a host that serves the prefix as files answers the app's requests with
+// the site's 404.
+function refuseUpstreams(tree: RoutingTree, faults: Fault[]): void {
+  const prefixes = tree.upstreams ?? [];
+  if (prefixes.length === 0) return;
+  faults.push({
+    kind: "upstream",
+    line: `${treeOf(tree.domain)}'s ${
+      prefixes.length === 1 ? "prefix" : "prefixes"
+    } ${prefixes.map((prefix) => JSON.stringify(prefix)).join(", ")} (build.routing.upstreams)`,
+  });
+}
+
 function describePath(artifact: EdgeArtifact): string {
   return `${treeOf(artifact.domain)}'s "${artifact.path}"`;
 }
@@ -91,7 +108,10 @@ export function defineAdapter<A extends EdgeArtifact>(
       checkVersion(name, manifest.version);
 
       const faults: Fault[] = [];
-      for (const tree of manifest.trees) checkHeaders(tree, faults);
+      for (const tree of manifest.trees) {
+        checkHeaders(tree, faults);
+        if (definition.routesUpstreams !== true) refuseUpstreams(tree, faults);
+      }
       // Folded once here, so no two adapters can derive different normalizing rules.
       const artifacts = manifest.trees.flatMap((tree) =>
         definition.compileTree(
@@ -111,7 +131,7 @@ export function defineAdapter<A extends EdgeArtifact>(
           line: `${describe(artifact)} — ${String(bytes)} bytes, limit ${String(limit)}`,
         });
       }
-      throwIfAny(name, faults, definition.unsupportedFix);
+      throwIfAny(name, faults, definition.unsupportedFix, definition.upstreamFix);
 
       return { target: name, artifacts };
     },
