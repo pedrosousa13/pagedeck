@@ -66,6 +66,10 @@ packages/core/.pagedeck-dev-layout/
 # Another: a site whose config imports its root provider by value (#703).
 packages/core/.pagedeck-dev-framed/
 
+# Another: a site with a `worker` script and no script runtime, whose fallback
+# warning is reported once per config.
+packages/core/.pagedeck-dev-worker-fallback/
+
 # The fixture site `packages/core/src/dev-upstreams.test.ts` writes (#141).
 packages/core/.pagedeck-dev-upstreams/
 
