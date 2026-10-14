@@ -180,7 +180,7 @@ position from a field its types do not declare.
 writes a new site (#691); and `@pagedeck/docs`, Pagedeck's documentation as
 markdown, which deck.cool's docs site reads at build time (#108). They are
 listed in
-`packages/core/src/public-packages.test-support.ts`. Each is `0.2.3`, MIT,
+`packages/core/src/public-packages.test-support.ts`. Each is `0.3.0`, MIT,
 with `repository`, `engines.node` and `publishConfig.access`; every other
 package stays `private` (#689).
 `engines.node` is the lowest Node the package and its dependencies need:
