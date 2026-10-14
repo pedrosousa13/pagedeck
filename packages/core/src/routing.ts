@@ -1755,18 +1755,33 @@ export function routingFaultReport(
     );
   }
   if (upstreamFields.length > 0) {
-    sections.push(
-      configReport(
-        where,
-        `declares ${count(
-          upstreamFields.length,
-          "upstream field this build cannot route to",
-          "upstream fields this build cannot route to",
-        )} — correct each as its own line says`,
-        upstreamFields,
-      ),
-    );
+    sections.push(upstreamFieldsReport(where, upstreamFields));
   }
 
   return sections.length === 0 ? undefined : sections.join("\n\n");
+}
+
+function upstreamFieldsReport(where: string, lines: readonly string[]): string {
+  return configReport(
+    where,
+    `declares ${count(
+      lines.length,
+      "upstream field this build cannot route to",
+      "upstream fields this build cannot route to",
+    )} — correct each as its own line says`,
+    lines,
+  );
+}
+
+export function missingUpstreamSourcesReport(
+  where: string,
+  missing: readonly { entry: number; source: string; at: string }[],
+): string {
+  return upstreamFieldsReport(
+    where,
+    missing.map(
+      ({ entry, source, at }) =>
+        `  upstreams[${String(entry)}] — "source" — ${quote(source)} — nothing is on disk at "${at}" — ${UPSTREAM_SOURCE_FIX}`,
+    ),
+  );
 }

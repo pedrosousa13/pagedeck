@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
@@ -12,6 +12,8 @@ import {
 import { ConfigError } from "./exit.js";
 import type { EmittedFile, FileKind, ManifestChunk } from "./manifest.js";
 import { compileIslands } from "./react-compiler.js";
+import { missingUpstreamSourcesReport } from "./routing.js";
+import type { UpstreamRule } from "./routing.js";
 import { redactTarget } from "./snapshot.js";
 import { CORE_GROUP, MID_GROUP, codeSplitting } from "./tiers.js";
 import type { ModuleIds, TierPlan } from "./tiers.js";
@@ -24,6 +26,7 @@ export interface ClientBuildInput {
   globalCss?: readonly string[];
   plugins?: readonly PluginOption[];
   split?: readonly ManifestChunk[];
+  upstreams?: readonly UpstreamRule[];
 }
 
 export interface ClientBuild {
@@ -382,6 +385,7 @@ export function checkClientGraph(input: {
 export async function buildClient(
   input: ClientBuildInput,
 ): Promise<ClientBuild> {
+  const sources = upstreamSources(input.root, input.origin, input.upstreams ?? []);
   if (input.plan.entries.length === 0) {
     const globalStyles =
       (input.globalCss ?? []).length === 0
@@ -503,6 +507,9 @@ export async function buildClient(
         },
       },
       plugins: [
+        ...(sources.length === 0
+          ? []
+          : [refuseUpstreamImports(input.root, input.origin, input.plan, sources)]),
         compiler.plugin,
         serveEntryModules(input.plan, input.origin, input.globalCss),
         resolver.plugin,
@@ -613,6 +620,126 @@ export async function buildClient(
     imports,
     ids,
     warnings: compiler.taken(),
+  };
+}
+
+interface UpstreamSource {
+  entry: number;
+  declared: string;
+  path: string;
+  directory: boolean;
+}
+
+const UPSTREAM_IMPORT_FIX =
+  'import only the app\'s types, with "import type", or move the code both need out of the app\'s source';
+
+function upstreamSources(
+  root: string,
+  origin: string,
+  upstreams: readonly UpstreamRule[],
+): readonly UpstreamSource[] {
+  const sources: UpstreamSource[] = [];
+  const missing: { entry: number; source: string; at: string }[] = [];
+  upstreams.forEach((rule, entry) => {
+    if (rule.source === undefined) return;
+    const at = resolve(root, rule.source);
+    try {
+      const path = realpathSync(at);
+      sources.push({
+        entry,
+        declared: rule.source,
+        path,
+        directory: statSync(path).isDirectory(),
+      });
+    } catch {
+      missing.push({ entry, source: rule.source, at });
+    }
+  });
+  if (missing.length > 0) {
+    throw new ConfigError(
+      missingUpstreamSourcesReport(`Config "${origin}"`, missing),
+    );
+  }
+  return sources;
+}
+
+function realFile(id: string): string | undefined {
+  const plain = withoutQuery(id);
+  if (!isAbsolute(plain)) return undefined;
+  try {
+    return realpathSync(plain);
+  } catch {
+    return plain;
+  }
+}
+
+// Pre-enforced, or Vite's own resolver answers a relative import before this
+// hook sees it.
+function refuseUpstreamImports(
+  root: string,
+  origin: string,
+  plan: EntryPlan,
+  sources: readonly UpstreamSource[],
+): Plugin {
+  const entries = new Map(
+    plan.entries.map((entry) => [
+      entry.id,
+      `the entry for ${entry.locale} ${entry.path}`,
+    ]),
+  );
+  const faults = new Set<string>();
+  return {
+    name: "pagedeck:upstream-sources",
+    enforce: "pre",
+
+    buildStart() {
+      faults.clear();
+    },
+
+    async resolveId(specifier, importer, options) {
+      const resolved = await this.resolve(specifier, importer, {
+        ...options,
+        skipSelf: true,
+      });
+      if (
+        resolved === null ||
+        resolved.external !== false ||
+        importer === undefined ||
+        importer === origin
+      ) {
+        return resolved;
+      }
+      const file = realFile(resolved.id);
+      if (file === undefined) return resolved;
+      const from =
+        entries.get(importer) ??
+        `"${recordedId(root, withoutQuery(importer))}"`;
+      for (const source of sources) {
+        const inside =
+          file === source.path ||
+          (source.directory && file.startsWith(`${source.path}${sep}`));
+        if (!inside) continue;
+        faults.add(
+          `  ${from} imports ${JSON.stringify(specifier)} — build.routing.upstreams[${String(source.entry)}] source ${JSON.stringify(source.declared)}`,
+        );
+      }
+      return resolved;
+    },
+
+    buildEnd(error) {
+      if (error !== undefined || faults.size === 0) return;
+      const lines = [...faults].sort();
+      throw new ConfigError(
+        paragraph(
+          lines.length,
+          lines.length === 1
+            ? "import from island code reaches the source of an upstream app, so the app's code would ship to the browser"
+            : "imports from island code reach the source of an upstream app, so the app's code would ship to the browser",
+          UPSTREAM_IMPORT_FIX,
+          lines,
+        ),
+      );
+    },
   };
 }
 

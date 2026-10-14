@@ -971,6 +971,9 @@ async function stageSite(input: {
     ...(incremental === undefined || input.previous === undefined
       ? {}
       : { split: previousSplit(input.previous) }),
+    ...(section.routing?.upstreams === undefined
+      ? {}
+      : { upstreams: section.routing.upstreams }),
   });
 
   const previewBundle =
