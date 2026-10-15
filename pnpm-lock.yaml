@@ -351,6 +351,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@pagedeck/adapter-cloudflare-worker':
+        specifier: workspace:*
+        version: link:../adapter-cloudflare-worker
       '@pagedeck/adapter-cloudfront':
         specifier: workspace:*
         version: link:../adapter-cloudfront
@@ -360,6 +363,9 @@ importers:
       '@pagedeck/adapter-nginx':
         specifier: workspace:*
         version: link:../adapter-nginx
+      '@pagedeck/adapter-vercel':
+        specifier: workspace:*
+        version: link:../adapter-vercel
       '@pagedeck/preview':
         specifier: workspace:*
         version: link:../preview
