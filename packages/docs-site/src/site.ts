@@ -92,7 +92,7 @@ const CODE_THEME = {
   dark: "github-dark-default",
 } as const;
 
-export const LANGUAGES = ["css", "html", "js", "json", "sh", "toml", "ts", "tsx"] as const;
+export const LANGUAGES = ["css", "html", "js", "json", "nginx", "sh", "toml", "ts", "tsx"] as const;
 
 // `src` under Vitest and `dist` under Node, so `..` is this package either way.
 const PACKAGE = join(import.meta.dirname, "..");

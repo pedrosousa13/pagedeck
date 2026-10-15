@@ -24,7 +24,7 @@ Each artifact's `role` says where it goes, as
 [`@pagedeck/edge`'s README](../edge/README.md#what-comes-out) lists. What every
 adapter shares (the refusals, the 404 page's headers, the reserved deploy keys
 and trailing slashes) is documented there too.
-[Deploy a site](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/deploy-a-site/#vercel)
+[Deploy to Vercel](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/deploy-to-vercel/)
 covers Vercel's own project settings and where `vercel.json` has to end up.
 
 ## What it writes, and why not only `redirects` and `headers`

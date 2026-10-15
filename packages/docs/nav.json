@@ -17,6 +17,12 @@
       "how-to/add-an-island.md",
       "how-to/connect-a-cms.md",
       "how-to/deploy-a-site.md",
+      "how-to/deploy-to-a-cloudflare-worker.md",
+      "how-to/deploy-to-cloudflare-pages.md",
+      "how-to/deploy-to-cloudfront.md",
+      "how-to/deploy-to-netlify.md",
+      "how-to/deploy-to-nginx.md",
+      "how-to/deploy-to-vercel.md",
       "how-to/run-an-app-beside-the-site.md",
       "how-to/write-a-loader.md"
     ]

@@ -7,7 +7,17 @@ import { afterAll, expect, test } from "vitest";
 import { runCli } from "@pagedeck/core";
 import { fences } from "./tutorial.test-support.js";
 
-const HOW_TO = join(import.meta.dirname, "..", "..", "docs", "how-to", "deploy-a-site.md");
+const HOW_TO = join(import.meta.dirname, "..", "..", "docs", "how-to");
+// The deploy how-to and a guide per adapter.
+const PAGES = [
+  "deploy-a-site.md",
+  "deploy-to-a-cloudflare-worker.md",
+  "deploy-to-cloudflare-pages.md",
+  "deploy-to-cloudfront.md",
+  "deploy-to-netlify.md",
+  "deploy-to-nginx.md",
+  "deploy-to-vercel.md",
+].map((page) => join(HOW_TO, page));
 const DOCS = join(import.meta.dirname, "..");
 const BASE_CONFIG = join(DOCS, "..", "..", "tsconfig.base.json");
 const ADAPTER_NETLIFY_PACKAGE = join(DOCS, "..", "adapter-netlify", "package.json");
@@ -20,8 +30,8 @@ afterAll(() => {
 });
 
 function markdown(): string {
-  expect(existsSync(HOW_TO), HOW_TO).toBe(true);
-  return readFileSync(HOW_TO, "utf8");
+  for (const page of PAGES) expect(existsSync(page), page).toBe(true);
+  return PAGES.map((page) => readFileSync(page, "utf8")).join("\n");
 }
 
 // A command ends where the shell takes over: a comment, a redirect, a pipe or a second command.
@@ -136,7 +146,7 @@ test("every flag the page names on its own is in the CLI's help", async () => {
 
 test("every edge sample compiles in a site", () => {
   const samples = fences(markdown()).filter(({ lang }) => lang === "ts");
-  expect(samples).toHaveLength(2);
+  expect(samples).toHaveLength(13);
   const { options, errors } = ts.convertCompilerOptionsFromJson(
     (JSON.parse(readFileSync(BASE_CONFIG, "utf8")) as { compilerOptions: object }).compilerOptions,
     DOCS,

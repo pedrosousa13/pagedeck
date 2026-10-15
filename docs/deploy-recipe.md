@@ -1099,7 +1099,7 @@ repository has not observed, and the equivalence check assumes it:
   in the tree gets no header from the routing document, or masks a page that
   does exist. A third fact, outside this check: that Vercel reads `vercel.json`
   from the Output Directory, which is where `pagedeck build` writes it. The
-  how-to's "Vercel" section names the Output Directory setting that assumes it.
+  how-to "Deploy to Vercel" names the Output Directory setting that assumes it.
 
 Check all of these on a staging deploy before relying on them, by requesting a
 missing path, a redirect source and a reserved deploy key, and reading the
