@@ -1,4 +1,4 @@
-export const ISLANDS_VERSION = "0.3.0";
+export const ISLANDS_VERSION = "0.3.1";
 
 export {
   ISLAND_COMPONENT_ATTRIBUTE,
