@@ -1,4 +1,4 @@
-export const CONTENT_VERSION = "0.3.0";
+export const CONTENT_VERSION = "0.3.1";
 
 export {
   CollectionError,
