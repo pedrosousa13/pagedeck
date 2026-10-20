@@ -312,7 +312,7 @@ function capturingLogger(): { logger: Logger; warnings: string[] } {
   return { logger, warnings };
 }
 
-test.each(["use client", "use server"])(
+test.each(["use client", "use server", "use no memo", "use no forget"])(
   'a "%s" directive prints no bundler warning',
   async (directive) => {
     const { logger, warnings } = capturingLogger();

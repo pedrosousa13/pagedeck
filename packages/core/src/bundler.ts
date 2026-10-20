@@ -81,8 +81,10 @@ function guardPlugin(
 
 type OnLog = NonNullable<Rolldown.InputOptions["onLog"]>;
 
-// Rolldown names the directive only inside the message (#74).
-const OWN_DIRECTIVE = /module level directive "use (?:client|server)"/;
+// Rolldown names the directive only inside the message (#74). React Compiler
+// has read its opt-outs before Rolldown sees them (#165).
+const OWN_DIRECTIVE =
+  /module level directive "use (?:client|server|no memo|no forget)"/;
 
 function droppingOwnDirectives(site: OnLog | undefined): OnLog {
   return (level, log, handler) => {
