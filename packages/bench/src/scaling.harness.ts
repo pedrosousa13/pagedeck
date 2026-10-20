@@ -147,7 +147,7 @@ async function pagedeck(verb: readonly string[], cwd: string): Promise<Run> {
         );
         return;
       }
-      // The framework's own channel only: Babel remarks on `react-dom` on every run.
+      // The framework's own channel only.
       const mine = stderr
         .split("\n")
         .filter((line) => line.startsWith(`${DIAGNOSTIC_MARKER} `));

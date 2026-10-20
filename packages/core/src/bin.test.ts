@@ -116,10 +116,9 @@ test("the pagedeck executable builds a real site end to end", async () => {
     join(dir, "components", "Hero.js"),
     `import { rows } from "./rows.js";\nexport default function Hero() { return "marker-hero-bin-6f31" + rows.length; }\n`,
   );
-  // Past Babel's 500KB, so the build writes Babel's note: a line of another tool's to pass through.
   writeFileSync(
     join(dir, "components", "rows.js"),
-    `export const rows = ${JSON.stringify(Array.from({ length: 50_000 }, (_, index) => `row-${String(index)}`))};\n`,
+    `export const rows = ["row-0", "row-1"];\n`,
   );
   writeFileSync(
     join(dir, "content", "en", "home.json"),
@@ -152,6 +151,8 @@ export default defineConfig({
     components: {
       Hero: { path: "./components/Hero.js", hydrate: "visible" },
     },
+    // A line of another tool's, which the build passes through unmarked.
+    vite: { plugins: [{ name: "another-tool", buildStart() { console.error("[another-tool] note: marker-foreign-3a9c"); } }] },
     // Rolldown ignores a group whose modules do not reach \`minSize\`.
     tierPolicy: { minSize: 0 },
     content: () => ({ tree: [{ component: "Hero" }] }),
@@ -172,7 +173,7 @@ export default defineConfig({
   const passedThrough = stderr
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER));
-  expect(passedThrough.filter((line) => line.startsWith("[BABEL]")).length).toBeGreaterThan(0);
+  expect(passedThrough).toEqual(["[another-tool] note: marker-foreign-3a9c"]);
   expect(existsSync(join(dir, "dist", "manifest.json"))).toBe(true);
   const html = readFileSync(join(dir, "dist", "index.html"), "utf8");
   expect(html).toContain("marker-hero-bin-6f31");

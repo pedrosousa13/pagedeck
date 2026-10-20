@@ -1,4 +1,4 @@
-import type { PluginOption } from "vite";
+import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
 import { inProductionEnv } from "./client-build.js";
 
@@ -8,6 +8,7 @@ export async function clientBuild(
   root: string,
   entries: readonly string[],
   plugins: readonly PluginOption[],
+  guarded: readonly Plugin[] = [],
 ): Promise<{ code: string; warnings: string[] }> {
   const warnings: string[] = [];
   const result = await inProductionEnv(async () =>
@@ -50,8 +51,9 @@ export async function clientBuild(
         },
       },
       // Through `sitePlugins`, unguarded: these suites measure what their plugin does, and
-      // a guard catching a hook's throw would change it.
-      plugins: [],
+      // a guard catching a hook's throw would change it. `guarded` is for a case
+      // that measures the class a throw keeps through the guard.
+      plugins: guarded,
       sitePlugins: plugins,
     }),
   );

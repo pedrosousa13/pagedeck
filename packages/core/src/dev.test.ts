@@ -195,7 +195,7 @@ async function start(): Promise<string> {
   child.stderr?.setEncoding("utf8");
   child.stderr?.on("data", (chunk: string) => {
     for (const line of chunk.split("\n")) {
-      if (line !== "" && !line.startsWith("[BABEL]")) diagnostics.push(line);
+      if (line !== "") diagnostics.push(line);
     }
   });
 

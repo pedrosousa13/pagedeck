@@ -1,17 +1,178 @@
-import { isAbsolute, relative, sep } from "node:path";
-import { transformSync } from "@babel/core";
-import type { PluginObj } from "@babel/core";
-import reactCompiler, { OPT_OUT_DIRECTIVES } from "babel-plugin-react-compiler";
-import type {
-  CompilerDiagnostic,
-  CompilerErrorDetail,
-  PluginOptions,
-} from "babel-plugin-react-compiler";
+import { fork } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { extname, isAbsolute, relative, sep } from "node:path";
+import { parseAst } from "rolldown/parseAst";
 import type { Plugin } from "vite";
+import { ConfigError } from "./exit.js";
+import type {
+  CompileReply,
+  CompileRequest,
+  Diagnostic,
+  Lang,
+} from "./react-compiler-worker.js";
 
-const SCRIPT = /\.[cm]?[jt]sx?$/;
+// The slowest real module measured, `packages/core/src/build.ts` at 93 kB,
+// compiles in 5 ms; a module past this is a runaway (#164).
+export const MODULE_TIME_LIMIT_MS = 5_000;
+
+const WORKER = new URL(
+  import.meta.url.endsWith(".ts")
+    ? "./react-compiler-worker.ts"
+    : "./react-compiler-worker.js",
+  import.meta.url,
+);
+
+// Oxc reads the language off the extension, refuses JSX in a `.js` file and
+// reads `<T>value` in a `.mts` file as JSX.
+const LANG: Record<string, Lang> = {
+  ".js": "jsx",
+  ".mjs": "jsx",
+  ".cjs": "jsx",
+  ".jsx": "jsx",
+  ".ts": "ts",
+  ".mts": "ts",
+  ".cts": "ts",
+  ".tsx": "tsx",
+};
 
 const REACT_RUNTIME = new Set(["react", "react-dom", "scheduler"]);
+
+const OPT_OUT_DIRECTIVES = new Set(["use no memo", "use no forget"]);
+
+type Outcome =
+  | {
+      kind: "compiled";
+      code: string;
+      map: CompileReply["map"];
+      diagnostics: readonly Diagnostic[];
+    }
+  | { kind: "fatal"; diagnostics: readonly Diagnostic[] }
+  | { kind: "crashed"; signal: NodeJS.Signals | null; code: number | null }
+  | { kind: "timedOut"; limitMs: number };
+
+interface Pending {
+  request: CompileRequest;
+  resolve: (outcome: Outcome) => void;
+  reject: (error: Error) => void;
+}
+
+type Child =
+  | { state: "none" }
+  | { state: "idle"; process: ChildProcess }
+  | {
+      state: "busy";
+      process: ChildProcess;
+      pending: Pending;
+      timer: NodeJS.Timeout;
+    };
+
+interface CompilerProcess {
+  compile(request: CompileRequest): Promise<Outcome>;
+  stop(): void;
+}
+
+function isReply(value: unknown): value is CompileReply {
+  const reply = value as Partial<CompileReply> | null;
+  return (
+    typeof reply === "object" &&
+    reply !== null &&
+    typeof reply.fatal === "boolean" &&
+    typeof reply.code === "string" &&
+    Array.isArray(reply.diagnostics)
+  );
+}
+
+function outcomeOf(reply: CompileReply): Outcome {
+  return reply.fatal
+    ? { kind: "fatal", diagnostics: reply.diagnostics }
+    : {
+        kind: "compiled",
+        code: reply.code,
+        map: reply.map,
+        diagnostics: reply.diagnostics,
+      };
+}
+
+/** One module at a time, so the time limit measures that module alone. */
+function compilerProcess(limitMs: number): CompilerProcess {
+  let child: Child = { state: "none" };
+  const queue: Pending[] = [];
+
+  const spawn = (): ChildProcess => {
+    const worker = fork(WORKER, [], { execArgv: [] });
+    worker.unref();
+    worker.on("message", (reply: unknown) => {
+      if (child.state !== "busy" || child.process !== worker) return;
+      if (!isReply(reply)) return;
+      clearTimeout(child.timer);
+      const { pending } = child;
+      child = { state: "idle", process: worker };
+      worker.channel?.unref();
+      pending.resolve(outcomeOf(reply));
+      pump();
+    });
+    worker.on("exit", (code, signal) => {
+      if (child.state === "none" || child.process !== worker) return;
+      const was = child;
+      child = { state: "none" };
+      if (was.state === "busy") {
+        clearTimeout(was.timer);
+        was.pending.resolve({ kind: "crashed", signal, code });
+      }
+      pump();
+    });
+    worker.on("error", (error) => {
+      if (child.state === "none" || child.process !== worker) return;
+      const was = child;
+      child = { state: "none" };
+      if (was.state === "busy") {
+        clearTimeout(was.timer);
+        was.pending.reject(
+          new Error(
+            `Module "${was.pending.request.filename}": React Compiler's process could not be reached — this is a framework fault, not a site one; report it against @pagedeck/core`,
+            { cause: error },
+          ),
+        );
+      }
+      pump();
+    });
+    return worker;
+  };
+
+  const pump = (): void => {
+    if (child.state === "busy") return;
+    const pending = queue.shift();
+    if (pending === undefined) return;
+    const worker = child.state === "idle" ? child.process : spawn();
+    const timer = setTimeout(() => {
+      child = { state: "none" };
+      worker.kill("SIGKILL");
+      pending.resolve({ kind: "timedOut", limitMs });
+      pump();
+    }, limitMs);
+    child = { state: "busy", process: worker, pending, timer };
+    worker.channel?.ref();
+    worker.send(pending.request);
+  };
+
+  return {
+    compile: (request) =>
+      new Promise<Outcome>((resolve, reject) => {
+        queue.push({ request, resolve, reject });
+        pump();
+      }),
+    stop: () => {
+      if (child.state === "none") return;
+      const was = child;
+      child = { state: "none" };
+      was.process.kill("SIGKILL");
+      if (was.state === "busy") {
+        clearTimeout(was.timer);
+        was.pending.resolve({ kind: "crashed", signal: "SIGKILL", code: null });
+      }
+    },
+  };
+}
 
 function packageOf(path: string): string | undefined {
   const segments = path.split(/[/\\]/);
@@ -21,76 +182,148 @@ function packageOf(path: string): string | undefined {
   return name?.startsWith("@") === true ? `${name}/${segments[last + 2] ?? ""}` : name;
 }
 
-/** No JSX for `.ts`: there `<T>value` is a type assertion, not an element. */
-function parserPlugins(path: string): ("jsx" | "typescript")[] {
-  if (path.endsWith(".ts") || path.endsWith(".mts") || path.endsWith(".cts")) {
-    return ["typescript"];
-  }
-  return ["jsx", "typescript"];
-}
-
-function lineOf(
-  detail: CompilerDiagnostic | CompilerErrorDetail,
-): number | undefined {
-  const loc = detail.primaryLocation();
-  return typeof loc === "object" && loc !== null ? loc.start.line : undefined;
-}
-
-function componentName(
-  source: string,
-  fnLoc: { start: { line: number } } | null,
-): string | undefined {
-  if (fnLoc === null) return undefined;
-  const line = source.split("\n")[fnLoc.start.line - 1];
-  const declared = line?.match(
-    /\b(?:function|class)\s+([A-Za-z_$][\w$]*)|\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/,
-  );
-  return declared?.[1] ?? declared?.[2];
-}
-
-function bailoutWarning(
-  moduleId: string,
-  source: string,
-  event: { fnLoc: { start: { line: number } } | null },
-  detail: CompilerDiagnostic | CompilerErrorDetail,
-): string {
-  const line = lineOf(detail);
-  const where = line === undefined ? "" : ` line ${line}`;
-  const name = componentName(source, event.fnLoc);
-  const which = name === undefined ? "a component" : `component "${name}"`;
-  const fix =
-    detail.description ??
-    'rewrite it so the rule holds, or add "use no memo" to keep it as written on purpose';
-  return `Module "${moduleId}"${where}: React Compiler skipped ${which} — ${detail.reason}: ${fix}. It renders as written, without automatic memoization.`;
-}
-
-function crashWarning(
-  moduleId: string,
-  source: string,
-  event: { fnLoc: { start: { line: number } } | null; data: string },
-): string {
-  const where = event.fnLoc === null ? "" : ` line ${event.fnLoc.start.line}`;
-  const name = componentName(source, event.fnLoc);
-  const which = name === undefined ? "a component" : `component "${name}"`;
-  const newline = event.data.indexOf("\n");
-  const crash = newline === -1 ? event.data : event.data.slice(0, newline);
-  return `Module "${moduleId}"${where}: React Compiler crashed on ${which} — ${crash}. That is a fault in the compiler rather than a rule the component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash is logged whether or not the directive is present. It renders as written, without automatic memoization.`;
-}
-
-function disablesMemo(directive: { value: { value: string } }): boolean {
-  return OPT_OUT_DIRECTIVES.has(directive.value.value);
-}
-
-function positionOf(
-  loc: { start: { line: number; column: number } } | null | undefined,
-): string | undefined {
-  return loc == null ? undefined : `${loc.start.line}:${loc.start.column}`;
-}
-
 function isAuthored(root: string, path: string): boolean {
   const rel = relative(root, path);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) return false;
   return !rel.split(sep).includes("node_modules");
+}
+
+interface Node {
+  type: string;
+  start: number;
+  end: number;
+  [key: string]: unknown;
+}
+
+function isNode(value: unknown): value is Node {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Node).type === "string" &&
+    typeof (value as Node).start === "number" &&
+    typeof (value as Node).end === "number"
+  );
+}
+
+function children(node: Node): Node[] {
+  const found: Node[] = [];
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "type" || key === "start" || key === "end") continue;
+    if (Array.isArray(value)) {
+      for (const item of value) if (isNode(item)) found.push(item);
+    } else if (isNode(value)) {
+      found.push(value);
+    }
+  }
+  return found;
+}
+
+const FUNCTIONS = new Set([
+  "FunctionDeclaration",
+  "FunctionExpression",
+  "ArrowFunctionExpression",
+]);
+
+function optsOut(statements: unknown): boolean {
+  if (!Array.isArray(statements)) return false;
+  for (const statement of statements) {
+    if (!isNode(statement) || statement.type !== "ExpressionStatement") break;
+    const directive = statement["directive"];
+    if (typeof directive !== "string") break;
+    if (OPT_OUT_DIRECTIVES.has(directive)) return true;
+  }
+  return false;
+}
+
+function nameOf(fn: Node, parent: Node | undefined): string | undefined {
+  const id = fn["id"];
+  if (isNode(id) && typeof id["name"] === "string") return id["name"];
+  if (parent?.type !== "VariableDeclarator") return undefined;
+  const declared = parent["id"];
+  return isNode(declared) && typeof declared["name"] === "string"
+    ? declared["name"]
+    : undefined;
+}
+
+/** Oxc reports UTF-8 byte offsets; the AST and `String` index UTF-16. */
+function indexOf(code: string, byteStart: number): number {
+  return Buffer.from(code, "utf8").subarray(0, byteStart).toString("utf8")
+    .length;
+}
+
+function lineOf(code: string, byteStart: number | undefined): number | undefined {
+  return byteStart === undefined
+    ? undefined
+    : code.slice(0, indexOf(code, byteStart)).split("\n").length;
+}
+
+interface Site {
+  line: number | undefined;
+  component: string | undefined;
+  optedOut: boolean;
+}
+
+/** Where a diagnostic sits: its line, the outermost named function around it,
+ * and whether that function, one inside it, or the module opted out. */
+function locate(
+  program: Node,
+  code: string,
+  byteStart: number | undefined,
+): Site {
+  let optedOut = optsOut(program["body"]);
+  const line = lineOf(code, byteStart);
+  if (byteStart === undefined) return { line, component: undefined, optedOut };
+  const index = indexOf(code, byteStart);
+  let component: string | undefined;
+  let parent: Node | undefined;
+  let node: Node | undefined = program;
+  while (node !== undefined) {
+    if (FUNCTIONS.has(node.type)) {
+      component ??= nameOf(node, parent);
+      const body = node["body"];
+      if (isNode(body) && optsOut(body["body"])) optedOut = true;
+    }
+    parent = node;
+    node = children(node).find(
+      (child) => child.start <= index && index < child.end,
+    );
+  }
+  return { line, component, optedOut };
+}
+
+function bailoutWarning(
+  moduleId: string,
+  site: Site,
+  diagnostic: Diagnostic,
+): string {
+  const where = site.line === undefined ? "" : ` line ${String(site.line)}`;
+  const which =
+    site.component === undefined ? "a component" : `component "${site.component}"`;
+  const fix =
+    diagnostic.help ??
+    'rewrite it so the rule holds, or add "use no memo" to keep it as written on purpose';
+  return `Module "${moduleId}"${where}: React Compiler skipped ${which} — ${diagnostic.message}: ${fix}. It renders as written, without automatic memoization.`;
+}
+
+function crashWarning(moduleId: string, how: string): string {
+  return `Module "${moduleId}": React Compiler crashed — its process ${how} while compiling the module. That is a fault in the compiler rather than a rule a component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash happens whether or not the directive is present. The module renders as written, without automatic memoization.`;
+}
+
+function fatalError(
+  moduleId: string,
+  code: string,
+  diagnostics: readonly Diagnostic[],
+): ConfigError {
+  const lines = diagnostics.map((diagnostic) => {
+    const line = lineOf(code, diagnostic.byteStart);
+    const where = line === undefined ? "" : `line ${String(line)}: `;
+    const help = diagnostic.help === null ? "" : ` — ${diagnostic.help}`;
+    return `  ${where}${diagnostic.message}${help}`;
+  });
+  const count = diagnostics.length;
+  return new ConfigError(
+    `Module "${moduleId}": React Compiler stopped on ${String(count)} fatal diagnostic${count === 1 ? "" : "s"} and produced no code — correct each line below, then build again:\n${lines.join("\n")}`,
+  );
 }
 
 export interface IslandCompilation {
@@ -98,7 +331,9 @@ export interface IslandCompilation {
   taken(): readonly string[];
 }
 
-export function compileIslands(): IslandCompilation {
+export function compileIslands(
+  { moduleTimeLimitMs = MODULE_TIME_LIMIT_MS }: { moduleTimeLimitMs?: number } = {},
+): IslandCompilation {
   let root = process.cwd();
   const warned = new Map<string, string[]>();
   const warn = (id: string, warning: string): void => {
@@ -106,6 +341,55 @@ export function compileIslands(): IslandCompilation {
     if (module === undefined) warned.set(id, [warning]);
     else module.push(warning);
   };
+  const compiler = compilerProcess(moduleTimeLimitMs);
+
+  const report = (
+    id: string,
+    path: string,
+    lang: Lang,
+    code: string,
+    outcome: Outcome,
+  ): { code: string; map: CompileReply["map"] } | null => {
+    switch (outcome.kind) {
+      case "compiled": {
+        // A bailout warns only in the author's modules (#106), and not for a
+        // function the compiler left as written on request (#165). Parsed only
+        // then, which is rare.
+        if (outcome.diagnostics.length > 0 && isAuthored(root, path)) {
+          const parsed: unknown = parseAst(code, { lang }, path);
+          const program = isNode(parsed) ? parsed : undefined;
+          for (const diagnostic of outcome.diagnostics) {
+            const site =
+              program === undefined
+                ? { line: lineOf(code, diagnostic.byteStart), component: undefined, optedOut: false }
+                : locate(program, code, diagnostic.byteStart);
+            if (!site.optedOut) warn(id, bailoutWarning(id, site, diagnostic));
+          }
+        }
+        return { code: outcome.code, map: outcome.map };
+      }
+      case "fatal":
+        throw fatalError(id, code, outcome.diagnostics);
+      case "crashed":
+        warn(
+          id,
+          crashWarning(
+            id,
+            outcome.signal === null
+              ? `exited with code ${String(outcome.code)}`
+              : `exited on ${outcome.signal}`,
+          ),
+        );
+        return null;
+      case "timedOut":
+        warn(
+          id,
+          crashWarning(id, `ran past ${String(outcome.limitMs / 1000)} s`),
+        );
+        return null;
+    }
+  };
+
   const plugin: Plugin = {
     name: "pagedeck:compile-islands",
     enforce: "pre",
@@ -121,71 +405,18 @@ export function compileIslands(): IslandCompilation {
 
     transform(code, id) {
       const path = id.split("?")[0] ?? id;
-      if (!SCRIPT.test(path)) return null;
-      // Compiling React itself changes nothing and makes Babel print a note (#70).
+      const lang = LANG[extname(path)];
+      if (lang === undefined) return null;
+      // Compiling React itself changes nothing (#70).
       if (REACT_RUNTIME.has(packageOf(path) ?? "")) return null;
+      return compiler
+        .compile({ filename: path, code, lang })
+        .then((outcome) => report(id, path, lang, code, outcome));
+    },
 
-      const logged: { warning: string; bailoutIn?: string | undefined }[] = [];
-      const options: PluginOptions = {
-        target: "19",
-        // The default skips `node_modules`, where a design system's islands
-        // live.
-        sources: () => true,
-        logger: {
-          logEvent: (_filename, event) => {
-            // A bailout warns only in the author's modules; a crash is a
-            // compiler bug to report wherever the module came from (#106).
-            if (event.kind === "CompileError") {
-              if (isAuthored(root, path)) {
-                logged.push({
-                  warning: bailoutWarning(id, code, event, event.detail),
-                  bailoutIn: positionOf(event.fnLoc),
-                });
-              }
-            } else if (event.kind === "PipelineError") {
-              logged.push({ warning: crashWarning(id, code, event) });
-            }
-          },
-        },
-      };
-      // The compiler logs a bailout even for a function it leaves as written
-      // on request (#165).
-      let moduleOptedOut = false;
-      const optedOut = new Set<string>();
-      const findOptOuts: PluginObj = {
-        pre(file) {
-          moduleOptedOut = file.path.node.directives.some(disablesMemo);
-          file.path.traverse({
-            Function(fn) {
-              const body = fn.node.body;
-              const position = positionOf(fn.node.loc);
-              if (
-                position !== undefined &&
-                body.type === "BlockStatement" &&
-                body.directives.some(disablesMemo)
-              ) {
-                optedOut.add(position);
-              }
-            },
-          });
-        },
-        visitor: {},
-      };
-      const compiled = transformSync(code, {
-        filename: path,
-        babelrc: false,
-        configFile: false,
-        sourceMaps: true,
-        parserOpts: { plugins: parserPlugins(path) },
-        plugins: [findOptOuts, [reactCompiler, options]],
-      });
-      for (const { warning, bailoutIn } of logged) {
-        const asked =
-          bailoutIn !== undefined && (moduleOptedOut || optedOut.has(bailoutIn));
-        if (!asked) warn(id, warning);
-      }
-      if (compiled?.code == null) return null;
-      return { code: compiled.code, map: compiled.map };
+    // Runs on a failed build too.
+    buildEnd() {
+      compiler.stop();
     },
   };
   return {

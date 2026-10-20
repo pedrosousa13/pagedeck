@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 125 below, 112 of them
+`x` at/from `path`, outside fenced blocks — there are 126 below, 113 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 231 checked messages pin 35206 of the 94938 fenced characters, and
+below**: the 231 checked messages pin 35245 of the 94979 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3623,8 +3623,9 @@ only says the fault is not the site's wiring.
 
 A message follows rules 1 to 7 and still fails its reader if the reader cannot
 tell it apart from the output of everything else in the process. A spawned
-`pagedeck build` loads Babel and the bundler into itself, and they write to the same
-stderr. Until #70 stopped compiling React's own packages, every build printed:
+`pagedeck build` loads the bundler and a site's own plugins into itself, and
+they write to the same stderr. Until #70 stopped compiling React's own packages,
+every build printed Babel's note, which then compiled the islands (#164):
 
 ```
 [BABEL] Note: The code generator has deoptimised the styling of .../react-dom/cjs/react-dom-client.production.js as it exceeds the max of 500KB.
@@ -3636,7 +3637,7 @@ loaded is not something this repo controls. Issue #184 ruled that the promise
 to keep is "nothing of *mine*", and rejected suppressing other people's
 advisories: enumerating their prefixes is a treadmill, and they are worth
 reading in a CI log. `packages/core/src/bin.test.ts` holds the passthrough: its
-fixture provokes Babel's note, and the build must write it unmarked.
+fixture's own Vite plugin writes a line, and the build must write it unmarked.
 
 Two halves follow, and new code has to hold both.
 
@@ -4326,39 +4327,47 @@ at all; it is about a value that must not be able to stop being a value.
 The seventeenth and eighteenth are `bailoutWarning`'s and `crashWarning`'s
 (`packages/core/src/react-compiler.ts`, #106), and they are the two things React
 Compiler can say about a module the client build compiled: it refused a
-component over a rule, or it fell over on one. Both leave the same output — the
-component the author wrote, rendering correctly and memoizing nothing — so a
-reader who is not told cannot tell either event from a component there was
-nothing to do for, and the two need opposite responses.
+component over a rule, or its process fell over on the module. Both leave the
+same output — the component the author wrote, rendering correctly and memoizing
+nothing — so a reader who is not told cannot tell either event from a component
+there was nothing to do for, and the two need opposite responses.
 
-The seventeenth is the bailout. The compiler's own `reason` names the rule and its
-`description` states the fix, so both are quoted rather than paraphrased, and
-the closing sentence is what makes the loss visible at all. The line below is
+The seventeenth is the bailout. The compiler's own `message` names the rule and
+its `helpMessage` states the fix, so both are quoted rather than paraphrased,
+and the closing sentence is what makes the loss visible at all. One line per
+diagnostic, each at its own line and component (#164): the compiler reports a
+rule at every place it is broken. The line below is
 `packages/core/src/react-compiler.test.ts`', which pins it character for
 character off a build of a component that writes to its props:
 
 ```
-Module "/site/components/Title.tsx" line 3: React Compiler skipped component "Title" — This value cannot be modified: Modifying component props or hook arguments is not allowed. Consider using a local variable instead. It renders as written, without automatic memoization.
+Module "/site/components/Title.tsx" line 3: React Compiler skipped component "Title" — This value cannot be modified: Do not mutate component props or hook arguments. If the value should change, update it where it is owned and pass an update callback, or use local state. It renders as written, without automatic memoization.
 ```
 
 The eighteenth is the crash, and the wording is the whole of what separates it
 from the line above: one is a rule to accept or rewrite around, the other is a
-compiler bug to report. Only the first line of the thrown error is quoted, rule
-6's reason — the rest is the compiler's own stack under absolute paths from
-whatever machine ran the build. The line below is
-`packages/core/src/react-compiler.harness.ts`', which provokes a real crash by
-exhausting the stack and therefore runs under
+compiler bug to report. The compiler runs in a child process the build forks
+(#164), so a crash is that process dying under the module, or running past the
+limit `MODULE_TIME_LIMIT_MS` (`packages/core/src/react-compiler.ts`) sets and
+being killed, and the first clause says which: `exited on SIGSEGV`, or `ran past
+5 s`. No line and no component, because a dead process reports neither. The
+line below is `packages/core/src/react-compiler.test.ts`', off a module that
+segfaults the compiler (oxc-project/oxc#27995); the window that crash sits in is
+what `packages/core/src/react-compiler.harness.ts` measures under
 `pnpm test:compiler-crash-harness` rather than under `pnpm test` — `AGENTS.md`
 gives the placement and the trigger to re-measure on.
 
 ```
-Module "/site/components/Chart.tsx" line 2: React Compiler crashed on component "Chart" — RangeError: Maximum call stack size exceeded. That is a fault in the compiler rather than a rule the component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash is logged whether or not the directive is present. It renders as written, without automatic memoization.
+Module "/site/components/Chart.tsx": React Compiler crashed — its process exited on SIGSEGV while compiling the module. That is a fault in the compiler rather than a rule a component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash happens whether or not the directive is present. The module renders as written, without automatic memoization.
 ```
 
 Neither is a refusal, on `workerFallbackWarning`'s argument: the compiler's
 `panicThreshold` is left at its default, which does not throw, and failing a
 site's build over a memoization it can do without would fail a build whose
-output nobody can fault. Not silence either, which is the whole reason these
+output nobody can fault. A module the compiler cannot parse is the one
+exception: it produces no code at all, so `fatalError` in the same file throws a
+`ConfigError` naming the module and quoting each diagnostic at its line, and the
+build stops. Not silence either, which is the whole reason these
 exist — a bailout is invisible from a green build and from the emitted bytes
 alike. A bailout inside a dependency *is* silent, and that is the one narrowing:
 the author cannot edit the component, so the line would be noise. A crash is not
@@ -4677,8 +4686,8 @@ which is what keeps the count at two console writes rather than three.
 default console filter hides `warn` in some setups and a warning nobody sees is
 not a warning. Which of the two it is is stated in the prose, which is a claim text
 can make and a log level cannot. No marker: `bin.ts` writes `pagedeck:` because a
-build's stderr is shared with Babel and the bundler, and a console line the
-framework wrote is already attributed by the stack frame beside it.
+build's stderr is shared with the bundler and a site's plugins, and a console
+line the framework wrote is already attributed by the stack frame beside it.
 
 The divergence report is the first (criterion 5). `build.rootProviders` is two
 halves of one declaration — the `stack` the build renders with and the `module`

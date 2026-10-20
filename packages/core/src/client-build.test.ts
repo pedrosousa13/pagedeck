@@ -236,8 +236,12 @@ test("a fault a build hook raised outranks the unresolved-specifier report", asy
     (error: unknown) => error,
   );
 
-  expect(failure).not.toBeInstanceOf(ConfigError);
-  expect((failure as Error).message).toContain("Broken.js");
+  // The compiler's refusal of the module it cannot parse (#164), not the
+  // unresolved-specifier report, which is also a ConfigError.
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect((failure as Error).message).toMatch(
+    /^Module ".*Broken\.js": React Compiler stopped on 1 fatal diagnostic/,
+  );
   expect((failure as Error).message).not.toContain("@ds/absent-component");
 }, 120_000);
 

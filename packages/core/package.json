@@ -88,10 +88,9 @@
     "prepack": "tsc -b tsconfig.build.json"
   },
   "dependencies": {
-    "@babel/core": "^7.29.7",
     "@pagedeck/content": "workspace:*",
     "@pagedeck/islands": "workspace:*",
-    "babel-plugin-react-compiler": "1.0.0",
+    "oxc-transform-react": "0.155.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "rolldown": "1.2.13",
@@ -103,7 +102,6 @@
   "devDependencies": {
     "@pagedeck/fixtures": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
-    "@types/babel__core": "^7.20.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "6.1.0",

@@ -62,7 +62,7 @@ afterAll(() => {
   rmSync(SITE, { recursive: true, force: true });
 });
 
-test("a build compiles its island and writes no Babel note about React's own runtime to stderr", async () => {
+test("a build compiles its island and writes nothing but its own diagnostics to stderr", async () => {
   rmSync(SITE, { recursive: true, force: true });
   write("components/counter.tsx", COUNTER);
   write("content/en/home.json", `${JSON.stringify({ rev: 1, data: { title: "Home" } })}\n`);
@@ -71,7 +71,9 @@ test("a build compiles its island and writes no Babel note about React's own run
 
   const stderr = await pagedeck("build");
 
-  expect(stderr.split("\n").filter((line) => line.startsWith("[BABEL]"))).toEqual([]);
+  expect(
+    stderr.split("\n").filter((line) => line !== "" && !line.startsWith("pagedeck:")),
+  ).toEqual([]);
   const manifest = JSON.parse(readFileSync(join(SITE, "site", "manifest.json"), "utf8")) as {
     files: readonly { path: string; kind: string }[];
   };
