@@ -111,3 +111,9 @@ producing and removing them.
 original suspicion. Measurement showed the plugin is not the source of the
 risk, and dropping the option would break the map chain for the dev server and
 for any future tooling that consumes it, in exchange for nothing.
+
+## Amendment (#164)
+
+`compileIslands` now runs `oxc-transform-react` in a child process in place of
+Babel, with `sourcemap: true` in place of `sourceMaps: true`. The map it returns
+has the same shape and the same `sources` entry, and the decision stands.

@@ -18,8 +18,6 @@ const STARTUP_TIMEOUT = 60_000;
 
 let server: ChildProcess;
 let origin: string;
-// `[BABEL]` lines are dropped: a tool's remark about a vendor file, not a
-// diagnostic about this site.
 const diagnostics: string[] = [];
 
 async function get(path: string): Promise<{ status: number; body: string }> {
@@ -41,7 +39,7 @@ async function start(): Promise<string> {
   child.stderr?.setEncoding("utf8");
   child.stderr?.on("data", (chunk: string) => {
     for (const line of chunk.split("\n")) {
-      if (line !== "" && !line.startsWith("[BABEL]")) diagnostics.push(line);
+      if (line !== "") diagnostics.push(line);
     }
   });
 

@@ -173,7 +173,11 @@ an amendment to the "packs only `dist`" standing decision, a maintainer call.
 versions**, because a patch release may change the bytes they emit. Core pins
 **`rolldown`** exactly for `transformSync`, which compiles a site's `.tsx` and
 `.jsx` (#702): rolldown marks it experimental, and core reads a compile error's
-position from a field its types do not declare.
+position from a field its types do not declare. Core pins
+**`oxc-transform-react`** exactly (#164): it is the React Compiler that
+`compileIslands` runs over every island, it is `0.x`, it calls itself
+experimental and publishes almost daily, and a release may change what a
+component compiles to or segfault on a module the last one took.
 
 **The public set** is seventeen packages: the fifteen a site author installs
 (#690), the six edge adapters among them (#19); `create-pagedeck`, which
@@ -754,12 +758,19 @@ and no chunk to hold a string that only `app/index.ts` has.
 | --- | --- | --- |
 | `pnpm test:slot-harness`, then with `PAGEDECK_REACT_COMPILER=1` | `packages/islands/src/slot-rerender.harness.tsx`, the evidence for ADR-0005 | a React or React Compiler upgrade |
 | `pnpm test:aria-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/islands/src/aria-engine.harness.ts`, the evidence in `docs/research/2026-08-28-aria-snapshot-engine-blindness.md`; a failure reopens #92 | a Playwright release |
-| `pnpm test:compiler-crash-harness` | `packages/core/src/react-compiler.harness.ts`, what a build reports when React Compiler crashes (#106) | a Node, Babel or React Compiler upgrade |
+| `pnpm test:compiler-crash-harness` | `packages/core/src/react-compiler.harness.ts`, what a build reports when React Compiler's process dies or runs past its time limit (#106, #164) | a Node, Rolldown or `oxc-transform-react` upgrade |
 
-The compiler crash harness provokes the crash with a property chain whose depth
-must land in a window (500 to 2100 on the dev box) that moves with Node's stack
-size, which is why it is out of `pnpm test`. On a failure, measure the window
-again and set `CRASH_DEPTH` from it.
+The compiler crash harness provokes the crash with a property chain that
+segfaults `oxc-transform-react` (oxc-project/oxc#27995) from a depth that moves
+with the host's stack (4929 on the dev box), which is why it is out of
+`pnpm test`, whose `react-compiler.test.ts` kills the process with SIGSEGV
+itself: a depth of 7000 crashed on the dev box and compiled on a CI runner.
+Rolldown has its own edge: it prints a chain up to 5500 and drops an unused
+one up to 11000, so the crashing function is imported and never exported. The
+harness also times a slow chain out under a 100 ms limit, and holds it under the
+shipped `MODULE_TIME_LIMIT_MS` (5 s, against 5 ms for the slowest real module).
+On a failure, measure each edge again and set `CRASH_DEPTH` and `SLOW_DEPTH`
+from them.
 
 ### Browser harnesses
 
