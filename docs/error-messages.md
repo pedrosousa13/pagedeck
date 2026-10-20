@@ -3625,7 +3625,7 @@ A message follows rules 1 to 7 and still fails its reader if the reader cannot
 tell it apart from the output of everything else in the process. A spawned
 `pagedeck build` loads the bundler and a site's own plugins into itself, and
 they write to the same stderr. Until #70 stopped compiling React's own packages,
-every build printed Babel's note, which then compiled the islands (#164):
+every build printed this note from Babel, which compiled the islands until #164:
 
 ```
 [BABEL] Note: The code generator has deoptimised the styling of .../react-dom/cjs/react-dom-client.production.js as it exceeds the max of 500KB.
