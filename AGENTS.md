@@ -763,8 +763,9 @@ and no chunk to hold a string that only `app/index.ts` has.
 The compiler crash harness provokes the crash with a property chain that
 segfaults `oxc-transform-react` (oxc-project/oxc#27995) from a depth that moves
 with the host's stack (4929 on the dev box), which is why it is out of
-`pnpm test`; `react-compiler.test.ts` runs the same input at 7000, well past the
-edge. Rolldown has its own edge: it prints a chain up to 5500 and drops an unused
+`pnpm test`, whose `react-compiler.test.ts` kills the process with SIGSEGV
+itself: a depth of 7000 crashed on the dev box and compiled on a CI runner.
+Rolldown has its own edge: it prints a chain up to 5500 and drops an unused
 one up to 11000, so the crashing function is imported and never exported. The
 harness also times a slow chain out under a 100 ms limit, and holds it under the
 shipped `MODULE_TIME_LIMIT_MS` (5 s, against 5 ms for the slowest real module).

@@ -4351,9 +4351,10 @@ compiler bug to report. The compiler runs in a child process the build forks
 limit `MODULE_TIME_LIMIT_MS` (`packages/core/src/react-compiler.ts`) sets and
 being killed, and the first clause says which: `exited on SIGSEGV`, or `ran past
 5 s`. No line and no component, because a dead process reports neither. The
-line below is `packages/core/src/react-compiler.test.ts`', off a module that
-segfaults the compiler (oxc-project/oxc#27995); the window that crash sits in is
-what `packages/core/src/react-compiler.harness.ts` measures under
+line below is `packages/core/src/react-compiler.test.ts`', off a process that test
+kills with SIGSEGV. The real crash, a module that segfaults the compiler
+(oxc-project/oxc#27995), sits in a window
+`packages/core/src/react-compiler.harness.ts` measures under
 `pnpm test:compiler-crash-harness` rather than under `pnpm test` — `AGENTS.md`
 gives the placement and the trigger to re-measure on.
 

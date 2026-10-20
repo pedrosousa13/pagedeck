@@ -3,9 +3,23 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import react from "@vitejs/plugin-react";
 import { ConfigError } from "./exit.js";
+import type { ChildProcess } from "node:child_process";
+
+// Where Oxc's real segfault starts moves with the host's stack (#164), so the
+// suite kills the process itself; `react-compiler.harness.ts` provokes the real one.
+const forked = vi.hoisted((): ChildProcess[] => []);
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  const fork = ((...args: Parameters<typeof actual.fork>) => {
+    const child = actual.fork(...args);
+    forked.push(child);
+    return child;
+  }) as typeof actual.fork;
+  return { ...actual, fork };
+});
 import { compileIslands } from "./react-compiler.js";
 import {
   MEMO_CACHE_IMPORT,
@@ -109,29 +123,6 @@ const FIXTURE: Record<string, string> = {
     `"use client";`,
     `export default function Broken( {`,
     `  return <p>;`,
-    `}`,
-    "",
-  ].join("\n"),
-
-  // oxc-project/oxc#27995: a member chain this deep segfaults the compiler, from
-  // 4929 on the dev box. Rolldown drops the unused function before printing it,
-  // which it could not do past 11000; `label` is what the entry keeps.
-  "Crash.jsx": [
-    `"use client";`,
-    `export const label = "marker-crash-2b7e";`,
-    `export default function Crash(props) {`,
-    `  const value = props${".a".repeat(7000)};`,
-    `  return <p>{String(value)}</p>;`,
-    `}`,
-    "",
-  ].join("\n"),
-
-  "UsesCrash.tsx": [
-    `"use client";`,
-    `import { label } from "./Crash.jsx";`,
-    `export default function UsesCrash({ items }: { items: readonly string[] }) {`,
-    `  const shouted = items.map((item) => item.toUpperCase());`,
-    `  return <ul>{shouted.map((item) => <li key={item}>{label}{item}</li>)}</ul>;`,
     `}`,
     "",
   ].join("\n"),
@@ -312,19 +303,38 @@ test("a module the compiler cannot parse fails the build, naming the module and 
   await expect(workersLeft()).resolves.toEqual([]);
 }, 60_000);
 
-test("a module that crashes the compiler's process is left as written, warned about, and the next module still compiles", async () => {
+test("a module whose compiler process dies is left as written and warned about, and the next module goes to a new process", async () => {
   const compiler = compileIslands();
-  const { code, warnings } = await clientBuild(
-    ["UsesCrash.tsx"],
-    [compiler.plugin],
+  const { configResolved, buildStart, transform, buildEnd } = compiler.plugin;
+  if (
+    typeof configResolved !== "function" ||
+    typeof buildStart !== "function" ||
+    typeof transform !== "function" ||
+    typeof buildEnd !== "function"
+  ) {
+    throw new Error("compileIslands no longer has plain hooks");
+  }
+  const context = {} as never;
+  configResolved.call(context, { root: FIXTURE_DIR } as never);
+  buildStart.call(context, {} as never);
+
+  const killed = Promise.resolve(
+    transform.call(context, FIXTURE["Counter.tsx"] ?? "", at("Counter.tsx"), undefined),
   );
+  forked.at(-1)?.kill("SIGSEGV");
+  await expect(killed).resolves.toBeNull();
+  const next = (await transform.call(
+    context,
+    FIXTURE["Static.tsx"] ?? "",
+    at("Static.tsx"),
+    undefined,
+  )) as { code: string };
+  buildEnd.call(context, undefined);
 
   expect(compiler.taken()).toEqual([
-    `Module "${at("Crash.jsx")}": React Compiler crashed — its process exited on SIGSEGV while compiling the module. That is a fault in the compiler rather than a rule a component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash happens whether or not the directive is present. The module renders as written, without automatic memoization.`,
+    `Module "${at("Counter.tsx")}": React Compiler crashed — its process exited on SIGSEGV while compiling the module. That is a fault in the compiler rather than a rule a component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash happens whether or not the directive is present. The module renders as written, without automatic memoization.`,
   ]);
-  expect(warnings).toEqual([]);
-  expect(code).toContain("marker-crash-2b7e");
-  expect(count(code, MEMO_CACHE_INIT)).toBe(1);
+  expect(next.code).toMatch(MEMO_CACHE_INIT);
   await expect(workersLeft()).resolves.toEqual([]);
 }, 60_000);
 
