@@ -1,6 +1,7 @@
 import { isAbsolute, relative, sep } from "node:path";
 import { transformSync } from "@babel/core";
-import reactCompiler from "babel-plugin-react-compiler";
+import type { PluginObj } from "@babel/core";
+import reactCompiler, { OPT_OUT_DIRECTIVES } from "babel-plugin-react-compiler";
 import type {
   CompilerDiagnostic,
   CompilerErrorDetail,
@@ -76,6 +77,16 @@ function crashWarning(
   return `Module "${moduleId}"${where}: React Compiler crashed on ${which} — ${crash}. That is a fault in the compiler rather than a rule the component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash is logged whether or not the directive is present. It renders as written, without automatic memoization.`;
 }
 
+function disablesMemo(directive: { value: { value: string } }): boolean {
+  return OPT_OUT_DIRECTIVES.has(directive.value.value);
+}
+
+function positionOf(
+  loc: { start: { line: number; column: number } } | null | undefined,
+): string | undefined {
+  return loc == null ? undefined : `${loc.start.line}:${loc.start.column}`;
+}
+
 function isAuthored(root: string, path: string): boolean {
   const rel = relative(root, path);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) return false;
@@ -114,6 +125,7 @@ export function compileIslands(): IslandCompilation {
       // Compiling React itself changes nothing and makes Babel print a note (#70).
       if (REACT_RUNTIME.has(packageOf(path) ?? "")) return null;
 
+      const logged: { warning: string; bailoutIn?: string | undefined }[] = [];
       const options: PluginOptions = {
         target: "19",
         // The default skips `node_modules`, where a design system's islands
@@ -125,13 +137,39 @@ export function compileIslands(): IslandCompilation {
             // compiler bug to report wherever the module came from (#106).
             if (event.kind === "CompileError") {
               if (isAuthored(root, path)) {
-                warn(id, bailoutWarning(id, code, event, event.detail));
+                logged.push({
+                  warning: bailoutWarning(id, code, event, event.detail),
+                  bailoutIn: positionOf(event.fnLoc),
+                });
               }
             } else if (event.kind === "PipelineError") {
-              warn(id, crashWarning(id, code, event));
+              logged.push({ warning: crashWarning(id, code, event) });
             }
           },
         },
+      };
+      // The compiler logs a bailout even for a function it leaves as written
+      // on request (#165).
+      let moduleOptedOut = false;
+      const optedOut = new Set<string>();
+      const findOptOuts: PluginObj = {
+        pre(file) {
+          moduleOptedOut = file.path.node.directives.some(disablesMemo);
+          file.path.traverse({
+            Function(fn) {
+              const body = fn.node.body;
+              const position = positionOf(fn.node.loc);
+              if (
+                position !== undefined &&
+                body.type === "BlockStatement" &&
+                body.directives.some(disablesMemo)
+              ) {
+                optedOut.add(position);
+              }
+            },
+          });
+        },
+        visitor: {},
       };
       const compiled = transformSync(code, {
         filename: path,
@@ -139,8 +177,13 @@ export function compileIslands(): IslandCompilation {
         configFile: false,
         sourceMaps: true,
         parserOpts: { plugins: parserPlugins(path) },
-        plugins: [[reactCompiler, options]],
+        plugins: [findOptOuts, [reactCompiler, options]],
       });
+      for (const { warning, bailoutIn } of logged) {
+        const asked =
+          bailoutIn !== undefined && (moduleOptedOut || optedOut.has(bailoutIn));
+        if (!asked) warn(id, warning);
+      }
       if (compiled?.code == null) return null;
       return { code: compiled.code, map: compiled.map };
     },

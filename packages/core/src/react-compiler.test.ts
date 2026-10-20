@@ -50,6 +50,30 @@ const FIXTURE: Record<string, string> = {
     "",
   ].join("\n"),
 
+  "OptedOutBailout.tsx": [
+    `"use client";`,
+    `export function Marked(props: { title: string }) {`,
+    `  "use no forget";`,
+    `  props.title = props.title.trim();`,
+    `  return <p>{props.title}</p>;`,
+    `}`,
+    `export default function Unmarked(props: { title: string }) {`,
+    `  props.title = props.title.trim();`,
+    `  return <Marked title={props.title} />;`,
+    `}`,
+    "",
+  ].join("\n"),
+
+  "ModuleOptedOut.tsx": [
+    `"use client";`,
+    `"use no memo";`,
+    `export default function ModuleOptedOut(props: { title: string }) {`,
+    `  props.title = props.title.trim();`,
+    `  return <p>{props.title}</p>;`,
+    `}`,
+    "",
+  ].join("\n"),
+
   // The one construct the two parser flags disagree about: with JSX on, `<string>value`
   // reads as an unterminated element.
   "Legacy.ts": [
@@ -157,6 +181,30 @@ test("a second build through one pass does not pool the first build's warnings",
 test('a component opting out with "use no memo" is not warned about', async () => {
   const compiler = compileIslands();
   const { code, warnings } = await clientBuild(["OptedOut.tsx"], [
+    compiler.plugin,
+  ]);
+
+  expect(compiler.taken()).toEqual([]);
+  expect(warnings).toEqual([]);
+  expect(code).not.toMatch(MEMO_CACHE_INIT);
+}, 60_000);
+
+test("a component opting out that breaks a rule is not warned about, and one beside it that does not opt out is", async () => {
+  const compiler = compileIslands();
+  const { code, warnings } = await clientBuild(["OptedOutBailout.tsx"], [
+    compiler.plugin,
+  ]);
+
+  expect(compiler.taken()).toEqual([
+    `Module "${at("OptedOutBailout.tsx")}" line 8: React Compiler skipped component "Unmarked" — This value cannot be modified: Modifying component props or hook arguments is not allowed. Consider using a local variable instead. It renders as written, without automatic memoization.`,
+  ]);
+  expect(warnings).toEqual([]);
+  expect(code).not.toMatch(MEMO_CACHE_INIT);
+}, 60_000);
+
+test('a module opting out with "use no memo" is not warned about', async () => {
+  const compiler = compileIslands();
+  const { code, warnings } = await clientBuild(["ModuleOptedOut.tsx"], [
     compiler.plugin,
   ]);
 
