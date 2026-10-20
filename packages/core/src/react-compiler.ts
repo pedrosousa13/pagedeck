@@ -15,6 +15,7 @@ import type {
 // compiles in 5 ms; a module past this is a runaway (#164).
 export const MODULE_TIME_LIMIT_MS = 5_000;
 
+// Under Vitest this module runs from `src`, where Node strips the worker's types.
 const WORKER = new URL(
   import.meta.url.endsWith(".ts")
     ? "./react-compiler-worker.ts"
@@ -48,7 +49,8 @@ type Outcome =
     }
   | { kind: "fatal"; diagnostics: readonly Diagnostic[] }
   | { kind: "crashed"; signal: NodeJS.Signals | null; code: number | null }
-  | { kind: "timedOut"; limitMs: number };
+  | { kind: "timedOut"; limitMs: number }
+  | { kind: "stopped" };
 
 interface Pending {
   request: CompileRequest;
@@ -162,13 +164,14 @@ function compilerProcess(limitMs: number): CompilerProcess {
         pump();
       }),
     stop: () => {
+      for (const pending of queue.splice(0)) pending.resolve({ kind: "stopped" });
       if (child.state === "none") return;
       const was = child;
       child = { state: "none" };
       was.process.kill("SIGKILL");
       if (was.state === "busy") {
         clearTimeout(was.timer);
-        was.pending.resolve({ kind: "crashed", signal: "SIGKILL", code: null });
+        was.pending.resolve({ kind: "stopped" });
       }
     },
   };
@@ -356,13 +359,9 @@ export function compileIslands(
         // function the compiler left as written on request (#165). Parsed only
         // then, which is rare.
         if (outcome.diagnostics.length > 0 && isAuthored(root, path)) {
-          const parsed: unknown = parseAst(code, { lang }, path);
-          const program = isNode(parsed) ? parsed : undefined;
+          const program = parseAst(code, { lang }, path) as unknown as Node;
           for (const diagnostic of outcome.diagnostics) {
-            const site =
-              program === undefined
-                ? { line: lineOf(code, diagnostic.byteStart), component: undefined, optedOut: false }
-                : locate(program, code, diagnostic.byteStart);
+            const site = locate(program, code, diagnostic.byteStart);
             if (!site.optedOut) warn(id, bailoutWarning(id, site, diagnostic));
           }
         }
@@ -386,6 +385,8 @@ export function compileIslands(
           id,
           crashWarning(id, `ran past ${String(outcome.limitMs / 1000)} s`),
         );
+        return null;
+      case "stopped":
         return null;
     }
   };

@@ -361,6 +361,36 @@ test("no compiler process outlives a build another plugin fails", async () => {
   await expect(workersLeft()).resolves.toEqual([]);
 }, 60_000);
 
+test("a build that ends with modules still compiling reports none of them, then or in the next build", async () => {
+  const compiler = compileIslands();
+  const { configResolved, buildStart, transform, buildEnd } = compiler.plugin;
+  if (
+    typeof configResolved !== "function" ||
+    typeof buildStart !== "function" ||
+    typeof transform !== "function" ||
+    typeof buildEnd !== "function"
+  ) {
+    throw new Error("compileIslands no longer has plain hooks");
+  }
+  const context = {} as never;
+  configResolved.call(context, { root: FIXTURE_DIR } as never);
+  buildStart.call(context, {} as never);
+  const cut = ["Bailout.tsx", "Accented.tsx", "OptedOutBailout.tsx"].map((file) =>
+    Promise.resolve(transform.call(context, FIXTURE[file] ?? "", at(file), undefined)),
+  );
+  buildEnd.call(context, new Error("marker-cut-5d20"));
+
+  await expect(Promise.all(cut)).resolves.toEqual([null, null, null]);
+  expect(compiler.taken()).toEqual([]);
+
+  buildStart.call(context, {} as never);
+  await transform.call(context, FIXTURE["Counter.tsx"] ?? "", at("Counter.tsx"), undefined);
+  buildEnd.call(context, undefined);
+
+  expect(compiler.taken()).toEqual([]);
+  await expect(workersLeft()).resolves.toEqual([]);
+}, 60_000);
+
 // Spawned from `dist`, because Node cannot follow this file's `.js` specifiers
 // to `.ts`: a process that compiles once and never ends a build must still exit.
 test("an idle compiler process does not keep its parent alive", async () => {
