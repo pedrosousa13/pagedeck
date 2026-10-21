@@ -238,6 +238,56 @@ test("a second build through one pass does not pool the first build's warnings",
   expect(first).toHaveLength(1);
 }, 60_000);
 
+test("a warning is written through err as it is raised, and the build still takes it", async () => {
+  const lines: string[] = [];
+  const compiler = compileIslands({ err: (line) => lines.push(line) });
+
+  await clientBuild(["Bailout.tsx"], [compiler.plugin]);
+
+  expect(lines).toEqual(compiler.taken());
+  expect(lines).toHaveLength(1);
+}, 60_000);
+
+// The dev server transforms a module again after each edit, and a fatal thrown
+// from its hook reaches no channel on its own.
+test("a module transformed again keeps only its latest warnings, and a fatal is written through err before it is thrown", async () => {
+  const lines: string[] = [];
+  const compiler = compileIslands({ err: (line) => lines.push(line) });
+  const { configResolved, buildStart, transform, buildEnd } = compiler.plugin;
+  if (
+    typeof configResolved !== "function" ||
+    typeof buildStart !== "function" ||
+    typeof transform !== "function" ||
+    typeof buildEnd !== "function"
+  ) {
+    throw new Error("compileIslands no longer has plain hooks");
+  }
+  const context = {} as never;
+  configResolved.call(context, { root: FIXTURE_DIR } as never);
+  buildStart.call(context, {} as never);
+
+  await transform.call(context, FIXTURE["Bailout.tsx"] ?? "", at("Bailout.tsx"), undefined);
+  expect(compiler.taken()).toHaveLength(1);
+  await transform.call(context, FIXTURE["Counter.tsx"] ?? "", at("Bailout.tsx"), undefined);
+  expect(compiler.taken()).toEqual([]);
+
+  const failure = await Promise.resolve(
+    transform.call(context, FIXTURE["Broken.tsx"] ?? "", at("Broken.tsx"), undefined),
+  ).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  buildEnd.call(context, undefined);
+
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect(lines).toEqual([
+    `Module "${at("Bailout.tsx")}" line 3: React Compiler skipped component "Bailout" — ${MUTATION}. It renders as written, without automatic memoization.`,
+    (failure as Error).message,
+  ]);
+  expect(compiler.taken()).toEqual([]);
+  await expect(workersLeft()).resolves.toEqual([]);
+}, 60_000);
+
 test('a component opting out with "use no memo" is not warned about', async () => {
   const compiler = compileIslands();
   const { code, warnings } = await clientBuild(["OptedOut.tsx"], [

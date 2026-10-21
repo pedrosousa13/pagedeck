@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { lanAddresses } from "./cli.js";
 import { ConfigError, EXIT_CODES } from "./exit.js";
+import { MEMO_CACHE_INIT } from "./react-compiler.test-support.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,6 +21,9 @@ const COUNTER = join(SOURCE, "Counter.js");
 const NOTE = join(SOURCE, "Note.tsx");
 const PATH_NOTE = join(SOURCE, "PathNote.tsx");
 const QUOTE_TEXT = join(SOURCE, "quote-text.ts");
+const SHOUT = join(SOURCE, "Shout.tsx");
+const BAILING = join(SOURCE, "Bailing.tsx");
+const FLAKY = join(SOURCE, "Flaky.tsx");
 const CONFIG = join(SITE, "pagedeck.config.ts");
 const GLOBAL_CSS = join(SITE, "styles", "global.css");
 const BIN = join(import.meta.dirname, "..", "dist", "bin.js");
@@ -27,6 +31,8 @@ const BIN = join(import.meta.dirname, "..", "dist", "bin.js");
 const UNSYNCED = join(import.meta.dirname, "..", ".pagedeck-dev-unsynced");
 
 const FALLBACK = join(import.meta.dirname, "..", ".pagedeck-dev-worker-fallback");
+
+const COMPILED = join(import.meta.dirname, "..", ".pagedeck-dev-compiled");
 
 const STARTUP_TIMEOUT = 60_000;
 const MESSAGE_TIMEOUT = 20_000;
@@ -43,6 +49,45 @@ function noteSource(marker: string): string {
 function quoteTextSource(marker: string): string {
   return `export const QUOTE: string = ${JSON.stringify(marker)};\n`;
 }
+
+function shoutSource(marker: string): string {
+  return [
+    `"use client";`,
+    `export default function Shout({ items }: { items: readonly string[] }) {`,
+    `  const shouted = items.map((item) => item.toUpperCase());`,
+    `  return <ul data-marker=${JSON.stringify(marker)}>{shouted.map((item) => <li key={item}>{item}</li>)}</ul>;`,
+    `}`,
+    "",
+  ].join("\n");
+}
+
+// `Trimmed` is never rendered: the server freezes props in development, so a
+// rendered write to them would throw.
+function bailingSource(fixed: boolean): string {
+  return [
+    `"use client";`,
+    `export default function Bailing({ title }: { title: string }) {`,
+    `  return <p>{title}</p>;`,
+    `}`,
+    `export function Trimmed(props: { title: string }) {`,
+    fixed ? `  const title = props.title.trim();` : `  props.title = props.title.trim();`,
+    `  return <p>{${fixed ? "title" : "props.title"}}${fixed ? "bailing-fixed-3c7a" : ""}</p>;`,
+    `}`,
+    "",
+  ].join("\n");
+}
+
+function flakySource(marker: string): string {
+  return `"use client";\n${noteSource(marker)}`;
+}
+
+const BROKEN_FLAKY = [
+  `"use client";`,
+  `export default function Flaky( {`,
+  `  return <p>;`,
+  `}`,
+  "",
+].join("\n");
 
 function counterSource(marker: string): string {
   return [
@@ -88,11 +133,14 @@ function writeSite(): void {
     ].join("\n"),
   );
   writeFileSync(QUOTE_TEXT, quoteTextSource("quote-before-5c62"));
+  writeFileSync(SHOUT, shoutSource("shout-before-7b2e"));
+  writeFileSync(BAILING, bailingSource(false));
+  writeFileSync(FLAKY, flakySource("flaky-before-2d9c"));
   writeFileSync(
     join(SOURCE, "Foot.js"),
     `export default function Foot() { return "foot-5a90"; }\n`,
   );
-  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "path-noted", "quoted"]) {
+  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "path-noted", "quoted", "shouted", "bailing", "flaky"]) {
     writeFileSync(
       join(CONTENT, "en", `${path}.json`),
       `${JSON.stringify({ rev: 1, data: { title: path } })}\n`,
@@ -125,6 +173,9 @@ const TREES = {
   "/pathed": [{ component: "pathed" }],
   "/path-noted": [{ component: "path_note", props: { text: "path-noted" } }],
   "/quoted": [{ component: "quote" }],
+  "/shouted": [{ component: "shout", props: { items: ["shout-item-41af"] } }],
+  "/bailing": [{ component: "bailing", props: { title: "bailing" } }],
+  "/flaky": [{ component: "flaky", props: { text: "flaky" } }],
 };
 
 export default defineConfig({
@@ -158,6 +209,9 @@ export default defineConfig({
       pathed: "./src/Pathed.js",
       path_note: { path: "./src/PathNote.tsx" },
       quote: "./src/Quote.tsx",
+      shout: "./src/Shout.tsx",
+      bailing: "./src/Bailing.tsx",
+      flaky: "./src/Flaky.tsx",
     },
     content: (page) => ({ tree: TREES[page.path] }),
     chrome: (page) =>
@@ -396,6 +450,96 @@ test("an island component edit updates that page's entry rather than reloading",
     expect(importSpecifier((await get(coldEntryUrl)).body, "Sidebar.js")).toBe(
       coldSpecifier,
     );
+  } finally {
+    client.close();
+  }
+}, 60_000);
+
+async function until<T>(
+  read: () => Promise<T>,
+  done: (value: T) => boolean,
+): Promise<T> {
+  const deadline = Date.now() + MESSAGE_TIMEOUT;
+  for (;;) {
+    const value = await read();
+    if (done(value) || Date.now() >= deadline) return value;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+async function islandModule(
+  page: string,
+  file: string,
+): Promise<{ url: string; body: string }> {
+  const served = await get(page);
+  expect(served.status).toBe(200);
+  const entryUrl = scriptUrls(served.body).find(
+    (url) => url !== "/@vite/client",
+  ) as string;
+  const entry = await get(entryUrl);
+  expect(entry.status).toBe(200);
+  const url = importSpecifier(entry.body, file);
+  const module = await get(url);
+  expect(module.status).toBe(200);
+  return { url, body: module.body };
+}
+
+test("a served island module carries React Compiler's output", async () => {
+  const { body } = await islandModule("/shouted", "Shout.tsx");
+
+  expect(body).toMatch(MEMO_CACHE_INIT);
+  expect(body).toMatch(/compiler-runtime/);
+});
+
+test("a bailout in an island is written once, not once per request, and not again once it is fixed", async () => {
+  const skipped = (): string[] =>
+    diagnostics.filter((line) =>
+      line.startsWith(`pagedeck: Module "${BAILING}" line 6: React Compiler skipped component "Trimmed"`),
+    );
+  const { url, body } = await islandModule("/bailing", "Bailing.tsx");
+  expect(body).toMatch(MEMO_CACHE_INIT);
+  expect((await get(url)).status).toBe(200);
+  expect((await get(url)).status).toBe(200);
+  expect(skipped()).toHaveLength(1);
+  expect(skipped()[0]).toContain("It renders as written, without automatic memoization.");
+
+  writeFileSync(BAILING, bailingSource(true));
+  const fixed = await until(
+    () => get(url),
+    (module) => module.body.includes("bailing-fixed-3c7a"),
+  );
+  expect(fixed.body).toMatch(MEMO_CACHE_INIT);
+  expect(skipped()).toHaveLength(1);
+}, 60_000);
+
+test("an island module the compiler cannot parse is reported through the run's channel and the overlay, and a save recovers it", async () => {
+  const stopped = (): string[] =>
+    diagnostics.filter((line) =>
+      line.startsWith(`pagedeck: Module "${FLAKY}": React Compiler stopped on 1 fatal diagnostic`),
+    );
+  const { url } = await islandModule("/flaky", "Flaky.tsx");
+  expect(stopped()).toEqual([]);
+
+  const client = await HotClient.connect();
+  try {
+    writeFileSync(FLAKY, BROKEN_FLAKY);
+    const refused = await until(() => get(url), (module) => module.status !== 200);
+    expect(refused.status).not.toBe(200);
+    const headline = `Module "${FLAKY}": React Compiler stopped on 1 fatal diagnostic and produced no code — correct each line below, then build again:`;
+    const detail = "  line 3: Expected `:` but found `<`";
+    expect(stopped()[0]).toBe(`pagedeck: ${headline}`);
+    expect(diagnostics).toContain(`pagedeck: ${detail}`);
+    const overlay = await client.next("error");
+    expect(overlay.err?.message).toBe(`${headline}\n${detail}`);
+    expect((await get("/hot")).status).toBe(200);
+
+    writeFileSync(FLAKY, flakySource("flaky-after-6e07"));
+    const recovered = await until(
+      () => get(url),
+      (module) => module.status === 200 && module.body.includes("flaky-after-6e07"),
+    );
+    expect(recovered.status).toBe(200);
+    expect(recovered.body).toMatch(MEMO_CACHE_INIT);
   } finally {
     client.close();
   }
@@ -656,26 +800,26 @@ function writeUnreadableStore(): void {
   writeFileSync(join(UNSYNCED, "content.db"), "not a database\n");
 }
 
-function writeFallbackSite(script: string): void {
-  mkdirSync(join(FALLBACK, "src"), { recursive: true });
-  mkdirSync(join(FALLBACK, "content", "en"), { recursive: true });
+function writeFallbackSite(script: string, root: string = FALLBACK): void {
+  mkdirSync(join(root, "src"), { recursive: true });
+  mkdirSync(join(root, "content", "en"), { recursive: true });
   writeFileSync(
-    join(FALLBACK, "src", "Prose.js"),
+    join(root, "src", "Prose.js"),
     `export default function Prose() { return "prose-9a52"; }\n`,
   );
   writeFileSync(
-    join(FALLBACK, "content", "en", "home.json"),
+    join(root, "content", "en", "home.json"),
     `${JSON.stringify({ rev: 1, data: { title: "home" } })}\n`,
   );
   writeFileSync(
-    join(FALLBACK, "pagedeck.config.ts"),
+    join(root, "pagedeck.config.ts"),
     `
 import { defineConfig, defineLocales, definePages, defineScripts, fromCollection } from "@pagedeck/core";
 import { createFixtureLoader } from "@pagedeck/fixtures";
 
 const pages = {
   name: "pages",
-  loader: createFixtureLoader(${JSON.stringify(join(FALLBACK, "content"))}),
+  loader: createFixtureLoader(${JSON.stringify(join(root, "content"))}),
   schema: false,
 };
 
@@ -773,6 +917,48 @@ async function announcementOf(
     await stop(child);
   }
 }
+
+// `pgrep` exits 1 for no match. Polled: a killed child is listed until reaped.
+async function compilerChildren(parent: number): Promise<string[]> {
+  return new Promise<string[]>((resolve) => {
+    execFile(
+      "pgrep",
+      ["-P", String(parent), "-f", "react-compiler-worker"],
+      (_error, stdout) => {
+        resolve(stdout.split("\n").filter((line) => line !== ""));
+      },
+    );
+  });
+}
+
+// In process, so the close is `DevServer.close()` and not the loss of a parent.
+// Its own site: this file's `SITE` holds islands Vitest has already loaded.
+test("no compiler process outlives a closed dev server", async () => {
+  rmSync(COMPILED, { recursive: true, force: true });
+  writeFallbackSite("telemetry", COMPILED);
+  await execFileAsync(process.execPath, [BIN, "sync"], { cwd: COMPILED });
+
+  const { loadConfig } = await import("./config.js");
+  const { startDevServer } = await import("./dev.js");
+  const dev = await startDevServer({
+    config: await loadConfig(COMPILED),
+    port: 0,
+    err: () => {},
+  });
+  try {
+    expect((await fetch(`${dev.url}/src/Prose.js`)).status).toBe(200);
+    expect(await compilerChildren(process.pid)).toHaveLength(1);
+  } finally {
+    await dev.close();
+    rmSync(COMPILED, { recursive: true, force: true });
+  }
+
+  const left = await until(
+    () => compilerChildren(process.pid),
+    (children) => children.length === 0,
+  );
+  expect(left).toEqual([]);
+}, 60_000);
 
 test("a bind beyond loopback names a reachable address and the exposure", async () => {
   writeUnsyncedSite();

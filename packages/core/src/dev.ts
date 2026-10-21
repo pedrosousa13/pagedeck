@@ -28,6 +28,7 @@ import type { IslandFacts } from "./island-facts.js";
 import { contentOf, layoutContents } from "./layout.js";
 import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
+import { compileIslands } from "./react-compiler.js";
 import { renderPage } from "./render.js";
 import { covers } from "./routing.js";
 import type { UpstreamRule } from "./routing.js";
@@ -170,6 +171,7 @@ export async function startDevServer(
             throw new ConfigError(message);
           },
         }),
+        compileIslands({ err: input.err }).plugin,
         serveGeneratedEntries(entrySources, config.configPath),
         // Last: a site plugin ahead of these could claim the generated entries'
         // ids.

@@ -4380,6 +4380,18 @@ order the compiler raised them, so a reader can diff one build's stderr against
 the next; `compileIslands` sorts, because Rolldown transforms modules
 concurrently and recording order is the scheduler's.
 
+`pagedeck dev` runs the same pass over each module the browser requests (#167),
+and there the two lines are written as each is raised, through the run's `err`,
+rather than collected: a dev server has no end of build to collect to. Once per
+edit and not per request, because Vite keeps a module's transform until its
+file changes, and `compileIslands` keeps only a module's latest warnings, so an
+edit that fixes a bailout is not warned about again. The fatal is written the
+same way and then thrown, since a throw from a dev hook reaches no channel on
+its own (`AGENTS.md`, "One door onto the bundler"); Vite's overlay carries the
+thrown copy, the server keeps serving, and the module is compiled again on the
+next save. A crash or time-out warns once and serves the module as written,
+and the next module, or the same one after an edit, goes to a new process.
+
 **Until #242 these two were the exception to this whole rule**, written through
 Rolldown's `this.warn` and so reaching stderr unmarked. The move costs two
 things. A reader hears of a bailout after the build rather than while its
