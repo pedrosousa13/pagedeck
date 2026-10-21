@@ -70,6 +70,9 @@ packages/core/.pagedeck-dev-framed/
 # warning is reported once per config.
 packages/core/.pagedeck-dev-worker-fallback/
 
+# Another: a site a dev server compiles in process and closes (#167).
+packages/core/.pagedeck-dev-compiled/
+
 # The fixture site `packages/core/src/dev-upstreams.test.ts` writes (#141).
 packages/core/.pagedeck-dev-upstreams/
 
