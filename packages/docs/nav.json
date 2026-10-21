@@ -50,6 +50,7 @@
       "reference/passthrough.md",
       "reference/preview.md",
       "reference/publication-window.md",
+      "reference/react-compiler.md",
       "reference/robots.md",
       "reference/routing.md",
       "reference/shared-store.md",

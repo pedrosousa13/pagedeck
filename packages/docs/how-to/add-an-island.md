@@ -41,6 +41,8 @@ component's own module. A page that uses the component writes nothing extra,
 and a component without the line renders to HTML and ships no JavaScript.
 [Why this site ships no JavaScript](../explanation/why-this-site-ships-no-javascript.md)
 explains where the build gets the script tag from.
+The build compiles an island with [React Compiler](../reference/react-compiler.md),
+which memoizes its components for you and warns about one it has to skip.
 
 Register the component under a name, in `build.components` in `pagedeck.config.ts`:
 
