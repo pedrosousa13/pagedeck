@@ -331,18 +331,27 @@ function fatalError(
 
 export interface IslandCompilation {
   plugin: Plugin;
+  /** Every warning since `buildStart`, in module id order. */
   taken(): readonly string[];
 }
 
-export function compileIslands(
-  { moduleTimeLimitMs = MODULE_TIME_LIMIT_MS }: { moduleTimeLimitMs?: number } = {},
-): IslandCompilation {
+export interface CompileIslandsOptions {
+  moduleTimeLimitMs?: number;
+  /** Each warning as it is raised, and a fatal's message before it is thrown. */
+  err?: (line: string) => void;
+}
+
+export function compileIslands({
+  moduleTimeLimitMs = MODULE_TIME_LIMIT_MS,
+  err,
+}: CompileIslandsOptions = {}): IslandCompilation {
   let root = process.cwd();
   const warned = new Map<string, string[]>();
   const warn = (id: string, warning: string): void => {
     const module = warned.get(id);
     if (module === undefined) warned.set(id, [warning]);
     else module.push(warning);
+    err?.(warning);
   };
   const compiler = compilerProcess(moduleTimeLimitMs);
 
@@ -353,6 +362,9 @@ export function compileIslands(
     code: string,
     outcome: Outcome,
   ): { code: string; map: CompileReply["map"] } | null => {
+    if (outcome.kind === "stopped") return null;
+    // A dev server transforms a module again after each edit.
+    warned.delete(id);
     switch (outcome.kind) {
       case "compiled": {
         // A bailout warns only in the author's modules (#106), and not for a
@@ -367,8 +379,13 @@ export function compileIslands(
         }
         return { code: outcome.code, map: outcome.map };
       }
-      case "fatal":
-        throw fatalError(id, code, outcome.diagnostics);
+      case "fatal": {
+        // A throw in a dev hook loses its class and reaches no channel
+        // (AGENTS.md, "One door onto the bundler").
+        const fatal = fatalError(id, code, outcome.diagnostics);
+        err?.(fatal.message);
+        throw fatal;
+      }
       case "crashed":
         warn(
           id,
@@ -385,8 +402,6 @@ export function compileIslands(
           id,
           crashWarning(id, `ran past ${String(outcome.limitMs / 1000)} s`),
         );
-        return null;
-      case "stopped":
         return null;
     }
   };
