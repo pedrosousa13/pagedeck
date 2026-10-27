@@ -280,7 +280,23 @@ const UNCHECKED: readonly Unchecked[] = [
     because: "assembled",
   },
   {
-    names: 'Edge target "cloudflare-pages": 1 negative pattern',
+    names: 'Edge target "cloudflare-pages": 1 wrangler file sets',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file\'s',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler.toml cannot',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file is not',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file cannot',
     because: "assembled",
   },
   {

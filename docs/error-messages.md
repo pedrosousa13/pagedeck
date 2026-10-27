@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 300 messages fenced
-below, 230 are checked that way and 70 are not**, and that test lists the 70
-one by one with the reason each is out: 68 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 305 messages fenced
+below, 231 are checked that way and 74 are not**, and that test lists the 74
+one by one with the reason each is out: 72 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -855,14 +855,40 @@ prefix it leaves out, a pattern no prefix declares and a negative pattern
 under a prefix are three different edits to that file:
 
 ```
-Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:
-  the default tree's prefix "/hooks/" — "/site/wrangler.jsonc" lists no "/hooks/*"
+Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file, the prefix followed by * and its unslashed path, since Cloudflare does not document that * matches nothing; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:
+  the default tree's prefix "/hooks/" — "/site/wrangler.jsonc" lists no "/hooks/*" or "/hooks"
 
 Edge target "cloudflare-pages": 1 pattern in assets.run_worker_first names no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:
   "/admin/*" in "/site/wrangler.jsonc" — build.routing.upstreams declares "/api/", "/hooks/"
 
 Edge target "cloudflare-pages": 1 negative pattern in assets.run_worker_first keeps part of an upstream prefix from the app — remove each; a request it matches is answered from the site's files, which hold nothing under an upstream prefix:
-  "!/api/docs/*" in "/site/wrangler.jsonc" — under "/api/"
+  "!/api/docs/*" in "/site/wrangler.jsonc" — it matches a path under "/api/"
+```
+
+A file the check cannot get patterns from stops it, so each of these is the
+only fault the wrangler file contributes. `true` runs the app before every
+request, a `run_worker_first` of another shape is no list of patterns, and
+TOML is a format the build does not parse:
+
+```
+Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list the patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"]; true runs the app before every request, so each built page costs a Worker invocation:
+  "/site/wrangler.jsonc"
+Edge target "cloudflare-pages": 1 wrangler file's assets.run_worker_first is neither true, false nor a list of patterns — write a list of patterns, the two for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]:
+  "/site/wrangler.jsonc" — it is ["/api/*",3]
+Edge target "cloudflare-pages": 1 wrangler.toml cannot be checked against build.routing.upstreams — write it as wrangler.jsonc, which wrangler also reads; the build reads JSON and JSONC only, so it cannot check assets.run_worker_first in TOML:
+  "/site/wrangler.toml"
+```
+
+A file that will not read or parse carries the error as the refusal's
+`cause`, which the CLI prints after the line (rule 4). Comments and trailing
+commas are blanked to spaces before the parse, so the parser's line and
+column are the file's own:
+
+```
+Edge target "cloudflare-pages": 1 wrangler file is not valid JSON with comments — correct it where the cause says; wrangler refuses the same file when it deploys:
+  "/site/wrangler.jsonc"
+Edge target "cloudflare-pages": 1 wrangler file cannot be read — make it a file this user can read, or remove it; the build reads it to check assets.run_worker_first against build.routing.upstreams:
+  "/site/wrangler.jsonc"
 ```
 
 An unknown target and an unreadable routing version are thrown on the spot
