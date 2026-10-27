@@ -128,8 +128,8 @@ dashboard.
 | --- | --- | --- |
 | a built page, such as `/` or `/signup/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
 | `/signup/thanks/`, `/signup/invalid/`, `/signup/failed/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
-| `/api/*` | the app, because `run_worker_first` names it | the app's own middleware |
-| `/account/*` | the app, because `run_worker_first` names it | the app's own middleware |
+| `/api` and `/api/*` | the app, because `run_worker_first` names them | the app's own middleware |
+| `/account` and `/account/*` | the app, because `run_worker_first` names them | the app's own middleware |
 | a path with no file | the app, because `not_found_handling` is `none` | the app's own middleware |
 
 `_headers` never applies to a response the Worker writes

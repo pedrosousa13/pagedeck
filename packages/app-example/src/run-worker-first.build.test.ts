@@ -21,8 +21,8 @@ test("the build refuses a wrangler.jsonc whose run_worker_first misses /api/", a
   }
   const wrangler = join(SITE, "wrangler.jsonc");
   const text = readFileSync(wrangler, "utf8");
-  expect(text).toContain('"run_worker_first": ["/api/*"]');
-  writeFileSync(wrangler, text.replace('"run_worker_first": ["/api/*"]', '"run_worker_first": []'));
+  expect(text).toContain('"run_worker_first": ["/api", "/api/*"]');
+  writeFileSync(wrangler, text.replace('"run_worker_first": ["/api", "/api/*"]', '"run_worker_first": ["/api"]'));
 
   await run(process.execPath, [BIN, "sync"], { cwd: SITE });
   const failed = await run(process.execPath, [BIN, "build"], { cwd: SITE }).then(
@@ -30,7 +30,7 @@ test("the build refuses a wrangler.jsonc whose run_worker_first misses /api/", a
     (error: { code: number; stderr: string }) => error,
   );
   expect(failed.code).not.toBe(0);
-  const message = `Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:\n  the default tree's prefix "/api/" — "${wrangler}" lists no "/api/*"`;
+  const message = `Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file, the prefix followed by * and its unslashed path, since Cloudflare does not document that * matches nothing; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:\n  the default tree's prefix "/api/" — "${wrangler}" lists no "/api/*"`;
   // The CLI marks each line of a refusal as its own.
   expect(failed.stderr).toContain(message.replaceAll(/^/gm, "pagedeck: "));
 }, 120_000);

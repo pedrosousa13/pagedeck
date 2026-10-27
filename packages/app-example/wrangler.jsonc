@@ -6,7 +6,7 @@
     "directory": "./site",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none",
-    "run_worker_first": ["/api/*", "/account/*"]
+    "run_worker_first": ["/api", "/api/*", "/account", "/account/*"]
   },
   "kv_namespaces": [{ "binding": "SESSIONS" }]
 }
