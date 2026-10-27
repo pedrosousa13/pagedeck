@@ -1371,7 +1371,12 @@ async function stageSite(input: {
   const edge =
     section.adapter === undefined
       ? undefined
-      : { name: section.adapter.name, output: section.adapter.compile(routing) };
+      : {
+          name: section.adapter.name,
+          output: section.adapter.compile(routing, {
+            root: dirname(input.config.configPath),
+          }),
+        };
   if (edge !== undefined) files.push(...adapterTreeFiles(edge.output));
   // Read off the routing document, not `section.routing`, so the tree and the
   // manifest agree.

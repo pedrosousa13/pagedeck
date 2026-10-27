@@ -2,6 +2,7 @@ import { defineAdapter } from "@pagedeck/edge";
 import type { EdgeAdapter } from "@pagedeck/edge";
 
 import { compileCloudflarePages } from "./cloudflare-pages.js";
+import { checkWrangler } from "./wrangler.js";
 
 const UPSTREAM_URL_FIX =
   'Cloudflare Pages proxies only to paths on its own site ("You cannot proxy external domains", https://developers.cloudflare.com/pages/configuration/redirects/), so run the app as Pages Functions under the prefix and remove url';
@@ -16,5 +17,6 @@ export function cloudflarePages(): EdgeAdapter {
     compileTree: compileCloudflarePages,
     unsupportedFix: UNSUPPORTED_FIX,
     upstreams: { url: "refused", fix: UPSTREAM_URL_FIX },
+    checkManifest: checkWrangler,
   });
 }
