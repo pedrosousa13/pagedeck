@@ -121,6 +121,7 @@ function writeSite(): void {
   writeFileSync(join(SOURCE, "Sidebar.js"), counterSource("sidebar-2c07"));
   writeFileSync(NOTE, noteSource("note-before-4e1a"));
   writeFileSync(join(SOURCE, "Pathed.js"), counterSource("pathed-6d2b"));
+  writeFileSync(join(SOURCE, "Aliased.js"), counterSource("aliased-9b14"));
   writeFileSync(PATH_NOTE, noteSource("path-note-before-8a40"));
   writeFileSync(
     join(SOURCE, "Quote.tsx"),
@@ -140,7 +141,7 @@ function writeSite(): void {
     join(SOURCE, "Foot.js"),
     `export default function Foot() { return "foot-5a90"; }\n`,
   );
-  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "path-noted", "quoted", "shouted", "bailing", "flaky"]) {
+  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "aliased", "path-noted", "quoted", "shouted", "bailing", "flaky"]) {
     writeFileSync(
       join(CONTENT, "en", `${path}.json`),
       `${JSON.stringify({ rev: 1, data: { title: path } })}\n`,
@@ -171,11 +172,20 @@ const TREES = {
   "/framed": [{ component: "prose" }],
   "/noted": [{ component: "note", props: { text: "noted" } }],
   "/pathed": [{ component: "pathed" }],
+  "/aliased": [{ component: "aliased" }],
   "/path-noted": [{ component: "path_note", props: { text: "path-noted" } }],
   "/quoted": [{ component: "quote" }],
   "/shouted": [{ component: "shout", props: { items: ["shout-item-41af"] } }],
   "/bailing": [{ component: "bailing", props: { title: "bailing" } }],
   "/flaky": [{ component: "flaky", props: { text: "flaky" } }],
+};
+
+// \`@/\` is an alias only the site's plugin knows.
+const alias = {
+  name: "site:alias",
+  resolveId(source: string) {
+    return source.startsWith("@/") ? ${JSON.stringify(`${SOURCE}/`)} + source.slice(2) : undefined;
+  },
 };
 
 export default defineConfig({
@@ -184,6 +194,7 @@ export default defineConfig({
   build: {
     outDir: "./dist",
     css: ["./styles/global.css"],
+    vite: { plugins: [alias] },
     // \`worker\` as well as \`idle\`: only \`worker\` calls the site's own \`runtime\`, in the server process.
     scripts: defineScripts({
       scripts: [
@@ -207,6 +218,7 @@ export default defineConfig({
       foot: "./src/Foot.js",
       note: "./src/Note.tsx",
       pathed: "./src/Pathed.js",
+      aliased: "@/Aliased.js",
       path_note: { path: "./src/PathNote.tsx" },
       quote: "./src/Quote.tsx",
       shout: "./src/Shout.tsx",
@@ -694,6 +706,19 @@ test("a component declared by path is islanded, and its page's entry imports it"
   expect(entry.status).toBe(200);
   expect(importSpecifier(entry.body, "Pathed.js")).toBeDefined();
   expect((await get("/src/Pathed.js")).status).toBe(200);
+}, 60_000);
+
+test("a component behind a site plugin's alias is islanded, and its module serves", async () => {
+  const page = await get("/aliased");
+  expect(page.status).toBe(200);
+  expect(page.body).toContain('data-fw-component="aliased"');
+  expect(page.body).toContain("aliased-9b14");
+
+  const entries = scriptUrls(page.body).filter((url) => url.startsWith("/@id/"));
+  expect(entries).toHaveLength(1);
+  const entry = await get(entries[0] as string);
+  expect(entry.status).toBe(200);
+  expect((await get(importSpecifier(entry.body, "Aliased.js"))).status).toBe(200);
 }, 60_000);
 
 test("a component declared by path renders, and an edit to it is rendered after the reload", async () => {

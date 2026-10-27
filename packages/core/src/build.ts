@@ -840,6 +840,9 @@ async function stageSite(input: {
     modules: section.componentModules,
     components: section.components,
     css: globalCss,
+    ...(section.vite?.plugins === undefined
+      ? {}
+      : { plugins: section.vite.plugins }),
   });
 
   const previewEntry =

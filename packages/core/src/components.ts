@@ -8,6 +8,7 @@ import type {
   ComponentRegistry,
   HydrationMode,
 } from "@pagedeck/islands";
+import type { PluginOption } from "vite";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
 
@@ -50,6 +51,7 @@ interface Declared {
 export async function deriveComponents(
   declared: ComponentDeclarations,
   configPath: string,
+  plugins?: readonly PluginOption[],
 ): Promise<SiteComponents> {
   const root = dirname(configPath);
   const registry: Record<string, ComponentDefinition> = {};
@@ -84,7 +86,7 @@ export async function deriveComponents(
     const { resolveComponentModules } = await import("./island-facts.js");
     const { ids } = await resolveComponentModules(
       [...new Set(packages.map(({ path }) => path))],
-      { root, origin: configPath },
+      { root, origin: configPath, plugins },
     );
     for (const { name, path, hydrate } of packages) {
       const id = Object.hasOwn(ids, path) ? ids[path] : undefined;

@@ -235,7 +235,11 @@ async function loadBuildSection(
   configPath: string,
 ): Promise<LoadedBuildSection> {
   const { components, ...rest } = section;
-  const derived = await deriveComponents(components, configPath);
+  const derived = await deriveComponents(
+    components,
+    configPath,
+    section.vite?.plugins,
+  );
   return {
     ...rest,
     components: derived.registry,

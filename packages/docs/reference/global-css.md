@@ -93,6 +93,27 @@ pnpm check:build-twice
 
 which builds the site as two separate processes and compares the trees.
 
+### Where the plugins run
+
+Every bundler pass over the site's own modules applies `build.vite.plugins`, so
+a path alias or a loader a plugin adds works in all of them:
+
+- **Loading the config**, in every verb: each component declared by a package
+  specifier rather than a `./` path is resolved through them.
+- **The island scan**, in `pagedeck build` and `pagedeck dev`, which reads each
+  component's `"use client"` directive and the modules it imports.
+- **The client build**, in `pagedeck build`, which bundles the islands and the
+  global stylesheets.
+- **The global stylesheet build**, in `pagedeck build`, on a site with no
+  islands.
+- **The preview build**, in `pagedeck build`, when `build.preview` is set.
+- **The dev server**, in `pagedeck dev`.
+
+In each pass the site's plugins come after the framework's own; a plugin with
+`enforce: "pre"` still runs first. Resolving components and the island scan
+are server-side builds, so a plugin that assumes a browser build must accept
+those too.
+
 ## CSS tiers
 
 Every page links its stylesheets widest-shared first:
