@@ -211,3 +211,50 @@ test("a signature that is not base64 is refused as a mismatch, not thrown", asyn
   expect(status).toBe(401);
   expect(dispatches()).toBe(0);
 });
+
+test("a limit that is not a whole number above zero is refused when the receiver is made, every fault named at once", () => {
+  let message = "";
+  try {
+    createWebhookReceiver({
+      secret: SECRET,
+      dispatch: () => undefined,
+      maximumBodyBytes: 0,
+      toleranceSeconds: Number.POSITIVE_INFINITY,
+      rememberedDeliveries: 1.5,
+    });
+  } catch (error) {
+    message = (error as Error).message;
+  }
+
+  expect(message).toMatch(/^Webhook receiver options: 3 limits/);
+  expect(message).toContain('"maximumBodyBytes" is 0');
+  expect(message).toContain('"toleranceSeconds" is Infinity');
+  expect(message).toContain('"rememberedDeliveries" is 1.5');
+  expect(message).toContain("whole number above zero");
+});
+
+test("only the first four v1 signatures are checked", async () => {
+  const { receive, dispatches } = receiver();
+  const request = await delivery();
+  const good = request.headers.get("webhook-signature") as string;
+  const wrong = "v1,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  request.headers.set("webhook-signature", [wrong, wrong, wrong, wrong, good].join(" "));
+
+  const { status } = await answer(await receive(request));
+
+  expect(status).toBe(401);
+  expect(dispatches()).toBe(0);
+});
+
+test("a refusal before the signature is checked does not echo the delivery's id", async () => {
+  const { receive } = receiver({ maximumBodyBytes: 16 });
+  const id = "<script>attacker-chosen-id</script>";
+
+  const stale = await answer(await receive(await delivery({ id, timestamp: SECONDS - 3600 })));
+  const large = await answer(await receive(await delivery({ id })));
+  const forged = await answer(
+    await receive(await delivery({ id, secret: "another-secret-of-at-least-32-bytes-9876543210" })),
+  );
+
+  for (const { text } of [stale, large, forged]) expect(text).not.toContain("attacker-chosen-id");
+});

@@ -24,9 +24,11 @@ export interface Delivery {
 
 const MINIMUM_SECRET_BYTES = 32;
 
+const MAXIMUM_SIGNATURES = 4;
+
 const encoder = new TextEncoder();
 
-function key(secret: string, usage: "sign" | "verify"): Promise<webcrypto.CryptoKey> {
+function hmacKey(secret: string, usage: "sign" | "verify"): Promise<webcrypto.CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
@@ -36,7 +38,7 @@ function key(secret: string, usage: "sign" | "verify"): Promise<webcrypto.Crypto
   );
 }
 
-function signed(id: string, timestamp: string, body: Uint8Array): Uint8Array<ArrayBuffer> {
+function signedContent(id: string, timestamp: string, body: Uint8Array): Uint8Array<ArrayBuffer> {
   const head = encoder.encode(`${id}.${timestamp}.`);
   const bytes = new Uint8Array(head.byteLength + body.byteLength);
   bytes.set(head);
@@ -49,8 +51,8 @@ export async function signDelivery(secret: string, delivery: Delivery): Promise<
   const timestamp = String(delivery.timestamp);
   const mac = await crypto.subtle.sign(
     "HMAC",
-    await key(secret, "sign"),
-    signed(delivery.id, timestamp, encoder.encode(delivery.body)),
+    await hmacKey(secret, "sign"),
+    signedContent(delivery.id, timestamp, encoder.encode(delivery.body)),
   );
   return {
     "content-type": "application/json",
@@ -97,6 +99,7 @@ function signatures(header: string): Uint8Array<ArrayBuffer>[] {
   return header
     .split(" ")
     .filter((part) => part.startsWith("v1,"))
+    .slice(0, MAXIMUM_SIGNATURES)
     .flatMap((part) => {
       try {
         return [Uint8Array.from(atob(part.slice(3)), (character) => character.charCodeAt(0))];
@@ -119,11 +122,24 @@ export function createWebhookReceiver(
       `Webhook receiver: the secret is ${String(secretBytes)} bytes, under the ${String(MINIMUM_SECRET_BYTES)} an HMAC-SHA256 key needs — generate one with "openssl rand -base64 32" and give the same value to the CMS`,
     );
   }
-  const tolerance = options.toleranceSeconds ?? 300;
-  const cap = options.maximumBodyBytes ?? 65_536;
-  const remembered = options.rememberedDeliveries ?? 1000;
+  const limits = {
+    maximumBodyBytes: options.maximumBodyBytes ?? 65_536,
+    toleranceSeconds: options.toleranceSeconds ?? 300,
+    rememberedDeliveries: options.rememberedDeliveries ?? 1000,
+  };
+  const faults = Object.entries(limits)
+    .filter(([, value]) => !(Number.isSafeInteger(value) && value > 0))
+    .map(([name, value]) => `"${name}" is ${String(value)}`);
+  if (faults.length > 0) {
+    throw new Error(
+      `Webhook receiver options: ${String(faults.length)} ${faults.length === 1 ? "limit is" : "limits are"} not a whole number above zero — give each one as such, or leave it out for its default: ${faults.join(", ")}`,
+    );
+  }
+  const cap = limits.maximumBodyBytes;
+  const tolerance = limits.toleranceSeconds;
+  const remembered = limits.rememberedDeliveries;
   const now = options.now ?? Date.now;
-  const verifying = key(options.secret, "verify");
+  const verifying = hmacKey(options.secret, "verify");
   const seen = new Set<string>();
 
   return async (request) => {
@@ -133,29 +149,28 @@ export function createWebhookReceiver(
     const id = request.headers.get("webhook-id");
     const timestamp = request.headers.get("webhook-timestamp");
     const signature = request.headers.get("webhook-signature");
-    const missing = [
-      ...(id === null ? ["webhook-id"] : []),
-      ...(timestamp === null ? ["webhook-timestamp"] : []),
-      ...(signature === null ? ["webhook-signature"] : []),
-    ];
     if (id === null || timestamp === null || signature === null) {
+      const headers = { "webhook-id": id, "webhook-timestamp": timestamp, "webhook-signature": signature };
+      const missing = Object.entries(headers)
+        .filter(([, value]) => value === null)
+        .map(([name]) => name);
       return refuse(400, `Webhook: the delivery has no ${missing.join(", ")} header — send each one the CMS signs with`);
     }
     const seconds = /^\d{1,12}$/.test(timestamp) ? Number(timestamp) : Number.NaN;
     if (!(Math.abs(now() / 1000 - seconds) <= tolerance)) {
       return refuse(
         401,
-        `Webhook delivery ${JSON.stringify(id)}: webhook-timestamp is not within ${String(tolerance)} seconds of the receiver's clock — check both clocks; a replayed delivery is refused the same way`,
+        `Webhook delivery: webhook-timestamp is not within ${String(tolerance)} seconds of the receiver's clock — check both clocks; a replayed delivery is refused the same way`,
       );
     }
     const body = await readCapped(request, cap);
     if (body.kind === "too-large") {
       return refuse(
         413,
-        `Webhook delivery ${JSON.stringify(id)}: the body is over ${String(cap)} bytes — a delivery names what changed, not the content; raise maximumBodyBytes only if the CMS sends more`,
+        `Webhook delivery: the body is over ${String(cap)} bytes — a delivery names what changed, not the content; raise maximumBodyBytes only if the CMS sends more`,
       );
     }
-    const content = signed(id, timestamp, body.bytes);
+    const content = signedContent(id, timestamp, body.bytes);
     let valid = false;
     for (const candidate of signatures(signature)) {
       if (await crypto.subtle.verify("HMAC", await verifying, candidate, content)) valid = true;
@@ -163,14 +178,19 @@ export function createWebhookReceiver(
     if (!valid) {
       return refuse(
         401,
-        `Webhook delivery ${JSON.stringify(id)}: no webhook-signature matches the body — check that the CMS and the receiver hold the same secret`,
+        `Webhook delivery: none of the first ${String(MAXIMUM_SIGNATURES)} webhook-signature values matches the body — check that the CMS and the receiver hold the same secret`,
       );
     }
     if (seen.has(id)) {
       return Response.json({ received: id, duplicate: true }, { status: 200 });
     }
     seen.add(id);
-    if (seen.size > remembered) seen.delete(seen.values().next().value as string);
+    if (seen.size > remembered) {
+      for (const oldest of seen) {
+        seen.delete(oldest);
+        break;
+      }
+    }
     options.dispatch();
     return Response.json({ received: id }, { status: 202 });
   };
