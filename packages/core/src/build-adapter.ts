@@ -29,8 +29,13 @@ export interface BuildAdapterOutput {
  */
 export interface BuildAdapter {
   readonly name: string;
-  /** `site.root` is the directory holding `pagedeck.config.ts`. */
-  compile(routing: RoutingManifest, site?: { readonly root: string }): BuildAdapterOutput;
+  compile(routing: RoutingManifest, site?: AdapterSite): BuildAdapterOutput;
+}
+
+/** What `pagedeck build` tells an adapter about the site it compiles for. */
+export interface AdapterSite {
+  /** The directory holding `pagedeck.config.ts`. */
+  readonly root: string;
 }
 
 const SHAPE_FIX =

@@ -5,6 +5,7 @@ import {
   unusableHeaderValue,
   unwritableHeaderName,
 } from "@pagedeck/core/routing";
+import type { AdapterSite } from "@pagedeck/core";
 import type {
   RoutingManifest,
   RoutingTree,
@@ -21,14 +22,10 @@ export interface EdgeAdapter<A extends EdgeArtifact = EdgeArtifact> {
   /** Quoted in every refusal, as `Edge target "<name>"`, and carried in `EdgeOutput.target`. */
   readonly name: string;
   /**
-   * Throws one `ConfigError` naming every fault the document holds for this host. `site.root`
-   * is the directory holding `pagedeck.config.ts`; `pagedeck build` passes it.
+   * Throws one `ConfigError` naming every fault the document holds for this host. `pagedeck
+   * build` passes `site`.
    */
   compile(routing: RoutingManifest, site?: AdapterSite): EdgeOutput<A>;
-}
-
-export interface AdapterSite {
-  readonly root: string;
 }
 
 export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {

@@ -8,6 +8,7 @@ export function workspaceVersions(): { core: string; content: string } {
 
 export { budgetReportPath } from "./budgets.js";
 export type {
+  AdapterSite,
   BuildAdapter,
   BuildAdapterArtifact,
   BuildAdapterOutput,
