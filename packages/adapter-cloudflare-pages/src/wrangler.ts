@@ -13,7 +13,15 @@ const UNPARSED = {
     one: "wrangler file is not valid JSON with comments",
     many: "wrangler files are not valid JSON with comments",
   },
-  fix: "correct it where the line says; wrangler refuses the same file when it deploys",
+  fix: "correct it where the cause says; wrangler refuses the same file when it deploys",
+};
+
+const UNREAD = {
+  subject: {
+    one: "wrangler file cannot be read",
+    many: "wrangler files cannot be read",
+  },
+  fix: "make it a file this user can read, or remove it; the build reads it to check assets.run_worker_first against build.routing.upstreams",
 };
 
 const MISSHAPEN = {
@@ -21,7 +29,7 @@ const MISSHAPEN = {
     one: "wrangler file's assets.run_worker_first is neither true, false nor a list of patterns",
     many: "wrangler files' assets.run_worker_first are neither true, false nor lists of patterns",
   },
-  fix: 'write a list of patterns, one per prefix in build.routing.upstreams, such as ["/api/*"]',
+  fix: 'write a list of patterns, the two for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]',
 };
 
 const TOML = {
@@ -37,7 +45,7 @@ const EVERY_REQUEST = {
     one: "wrangler file sets assets.run_worker_first to true",
     many: "wrangler files set assets.run_worker_first to true",
   },
-  fix: 'list one pattern per prefix in build.routing.upstreams instead, such as ["/api/*"]; true runs the app before every request, so each built page costs a Worker invocation',
+  fix: 'list the patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"]; true runs the app before every request, so each built page costs a Worker invocation',
 };
 
 const UNROUTED = {
@@ -45,7 +53,7 @@ const UNROUTED = {
     one: "prefix in build.routing.upstreams does not reach the app through assets.run_worker_first",
     many: "prefixes in build.routing.upstreams do not reach the app through assets.run_worker_first",
   },
-  fix: "add each pattern its line names to assets.run_worker_first in the wrangler file; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app",
+  fix: "add each pattern its line names to assets.run_worker_first in the wrangler file, the prefix followed by * and its unslashed path, since Cloudflare does not document that * matches nothing; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app",
 };
 
 const STRAY = {
@@ -64,8 +72,9 @@ const EXCLUDED = {
   fix: "remove each; a request it matches is answered from the site's files, which hold nothing under an upstream prefix",
 };
 
-/** The text with every comment and trailing comma removed, strings left as written. */
-function stripJsonc(text: string): string {
+// Each comment and trailing comma becomes spaces, newlines kept, so a parse error's line and
+// column are the file's own. An unterminated comment or string is left for JSON.parse to refuse.
+function blankJsonc(text: string): string {
   let out = "";
   let index = 0;
   while (index < text.length) {
@@ -75,25 +84,64 @@ function stripJsonc(text: string): string {
       while (end < text.length && text[end] !== '"') end += text[end] === "\\" ? 2 : 1;
       out += text.slice(index, end + 1);
       index = end + 1;
-    } else if (text.startsWith("//", index)) {
-      const end = text.indexOf("\n", index);
-      index = end === -1 ? text.length : end;
+      continue;
+    }
+    let end: number | undefined;
+    if (text.startsWith("//", index)) {
+      const newline = text.indexOf("\n", index);
+      end = newline === -1 ? text.length : newline;
     } else if (text.startsWith("/*", index)) {
-      const end = text.indexOf("*/", index + 2);
-      index = end === -1 ? text.length : end + 2;
-    } else if (char === "," && /^\s*[}\]]/.test(text.slice(index + 1))) {
-      index += 1;
-    } else {
+      const close = text.indexOf("*/", index + 2);
+      end = close === -1 ? undefined : close + 2;
+    }
+    if (end === undefined) {
       out += char;
       index += 1;
+      continue;
     }
+    out += text.slice(index, end).replace(/[^\n]/g, " ");
+    index = end;
   }
-  return out;
+  return out.replace(/("(?:\\.|[^"\\])*")|,(?=\s*[}\]])/g, (_match, string?: string) =>
+    string ?? " ",
+  );
 }
 
 function isTomlPagesProject(text: string): boolean {
   const topLevel = text.split(/^\s*\[/m)[0] ?? "";
   return /^\s*pages_build_output_dir\s*=/m.test(topLevel);
+}
+
+// run_worker_first takes "glob patterns with * for deep matching"
+// (https://developers.cloudflare.com/workers/static-assets/binding/#run_worker_first): `*`
+// matches any run of characters, `/` included, and every other character only itself.
+function globStates(glob: string, text: string): ReadonlySet<number> {
+  const close = (states: Iterable<number>): Set<number> => {
+    const closed = new Set<number>();
+    for (let state of states) {
+      closed.add(state);
+      while (glob[state] === "*") closed.add(++state);
+    }
+    return closed;
+  };
+  let states = close([0]);
+  for (const char of text) {
+    const next: number[] = [];
+    for (const state of states) {
+      if (glob[state] === "*") next.push(state);
+      else if (glob[state] === char) next.push(state + 1);
+    }
+    states = close(next);
+  }
+  return states;
+}
+
+function matchesUnder(glob: string, prefix: string): boolean {
+  return globStates(glob, unslashed(prefix)).has(glob.length) || globStates(glob, prefix).size > 0;
+}
+
+function unslashed(prefix: string): string {
+  return prefix.slice(0, -1);
 }
 
 function quoteAll(values: readonly string[]): string {
@@ -102,13 +150,77 @@ function quoteAll(values: readonly string[]): string {
 
 interface WranglerConfig {
   pages_build_output_dir?: unknown;
-  assets?: { run_worker_first?: unknown; not_found_handling?: unknown };
+  assets?: { run_worker_first?: unknown };
+}
+
+interface Upstream {
+  domain: string | undefined;
+  prefix: string;
 }
 
 function patternsOf(setting: unknown): readonly string[] | undefined {
   if (setting === false) return [];
   if (!Array.isArray(setting)) return undefined;
   return setting.every((pattern) => typeof pattern === "string") ? (setting as string[]) : undefined;
+}
+
+function readWrangler(root: string, faults: Fault[]): { file: string; text: string } | undefined {
+  const name = NAMES.find((candidate) => existsSync(join(root, candidate)));
+  if (name === undefined) return undefined;
+  const file = join(root, name);
+  try {
+    return { file, text: readFileSync(file, "utf8") };
+  } catch (cause) {
+    faults.push({ kind: "adapter", ...UNREAD, line: JSON.stringify(file), cause });
+    return undefined;
+  }
+}
+
+function parseWrangler(file: string, text: string, faults: Fault[]): WranglerConfig | undefined {
+  try {
+    return JSON.parse(blankJsonc(text)) as WranglerConfig;
+  } catch (cause) {
+    faults.push({ kind: "adapter", ...UNPARSED, line: JSON.stringify(file), cause });
+    return undefined;
+  }
+}
+
+function checkPatterns(
+  file: string,
+  patterns: readonly string[],
+  upstreams: readonly Upstream[],
+  faults: Fault[],
+): void {
+  for (const { domain, prefix } of upstreams) {
+    const unlisted = [`${prefix}*`, unslashed(prefix)].filter((pattern) => !patterns.includes(pattern));
+    if (unlisted.length === 0) continue;
+    faults.push({
+      kind: "adapter",
+      ...UNROUTED,
+      line: `${treeOf(domain)}'s prefix ${JSON.stringify(prefix)} — ${JSON.stringify(file)} lists no ${quoteAll(unlisted)}`,
+    });
+  }
+
+  const prefixes = [...new Set(upstreams.map(({ prefix }) => prefix))];
+  const declared =
+    prefixes.length === 0
+      ? "build.routing.upstreams declares no prefix"
+      : `build.routing.upstreams declares ${prefixes.map((prefix) => JSON.stringify(prefix)).join(", ")}`;
+  for (const pattern of patterns) {
+    const where = `${JSON.stringify(pattern)} in ${JSON.stringify(file)}`;
+    if (pattern.startsWith("!")) {
+      const under = prefixes.find((prefix) => matchesUnder(pattern.slice(1), prefix));
+      if (under === undefined) continue;
+      faults.push({
+        kind: "adapter",
+        ...EXCLUDED,
+        line: `${where} — it matches a path under ${JSON.stringify(under)}`,
+      });
+      continue;
+    }
+    if (prefixes.some((prefix) => pattern === `${prefix}*` || pattern === unslashed(prefix))) continue;
+    faults.push({ kind: "adapter", ...STRAY, line: `${where} — ${declared}` });
+  }
 }
 
 /**
@@ -121,33 +233,22 @@ export function checkWrangler(
   site: AdapterSite | undefined,
 ): void {
   if (site === undefined) return;
-  const name = NAMES.find((candidate) => existsSync(join(site.root, candidate)));
-  if (name === undefined) return;
-  const file = join(site.root, name);
-  const text = readFileSync(file, "utf8");
+  const read = readWrangler(site.root, faults);
+  if (read === undefined) return;
+  const { file, text } = read;
   const upstreams = manifest.trees.flatMap((tree) =>
     (tree.upstreams ?? []).map(({ prefix }) => ({ domain: tree.domain, prefix })),
   );
 
-  if (name === "wrangler.toml") {
+  if (file.endsWith(".toml")) {
     if (upstreams.length > 0 && !isTomlPagesProject(text)) {
       faults.push({ kind: "adapter", ...TOML, line: JSON.stringify(file) });
     }
     return;
   }
 
-  let config: WranglerConfig;
-  try {
-    config = JSON.parse(stripJsonc(text)) as WranglerConfig;
-  } catch (error) {
-    faults.push({
-      kind: "adapter",
-      ...UNPARSED,
-      line: `${JSON.stringify(file)} — ${(error as Error).message}`,
-    });
-    return;
-  }
-  if (config.pages_build_output_dir !== undefined) return;
+  const config = parseWrangler(file, text, faults);
+  if (config === undefined || config.pages_build_output_dir !== undefined) return;
 
   const setting = config.assets?.run_worker_first ?? false;
   if (setting === true) {
@@ -163,48 +264,5 @@ export function checkWrangler(
     });
     return;
   }
-
-  const notFound = config.assets?.not_found_handling ?? "none";
-  for (const { domain, prefix } of upstreams) {
-    const bare = prefix.slice(0, -1);
-    const missing = [`${prefix}*`];
-    // The build writes nothing at the unslashed path, so it reaches the Worker as a miss
-    // unless not_found_handling answers misses from the site's files.
-    if (notFound !== "none") missing.push(bare);
-    const unlisted = missing.filter((pattern) => !patterns.includes(pattern));
-    if (unlisted.length === 0) continue;
-    const why = unlisted.includes(bare)
-      ? `, and its not_found_handling ${JSON.stringify(notFound)} answers ${JSON.stringify(bare)} from the site's files`
-      : "";
-    faults.push({
-      kind: "adapter",
-      ...UNROUTED,
-      line: `${treeOf(domain)}'s prefix ${JSON.stringify(prefix)} — ${JSON.stringify(file)} lists no ${quoteAll(unlisted)}${why}`,
-    });
-  }
-
-  const prefixes = [...new Set(upstreams.map(({ prefix }) => prefix))];
-  const declared =
-    prefixes.length === 0
-      ? "build.routing.upstreams declares no prefix"
-      : `build.routing.upstreams declares ${prefixes.map((prefix) => JSON.stringify(prefix)).join(", ")}`;
-  for (const pattern of patterns) {
-    if (pattern.startsWith("!")) {
-      const path = pattern.slice(1);
-      const under = prefixes.find((prefix) => path.startsWith(prefix) || path === prefix.slice(0, -1));
-      if (under === undefined) continue;
-      faults.push({
-        kind: "adapter",
-        ...EXCLUDED,
-        line: `${JSON.stringify(pattern)} in ${JSON.stringify(file)} — under ${JSON.stringify(under)}`,
-      });
-      continue;
-    }
-    if (prefixes.some((prefix) => pattern === `${prefix}*` || pattern === prefix.slice(0, -1))) continue;
-    faults.push({
-      kind: "adapter",
-      ...STRAY,
-      line: `${JSON.stringify(pattern)} in ${JSON.stringify(file)} — ${declared}`,
-    });
-  }
+  checkPatterns(file, patterns, upstreams, faults);
 }

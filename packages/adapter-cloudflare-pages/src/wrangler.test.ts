@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -35,67 +35,55 @@ function workerFirst(assets: unknown): string {
   return JSON.stringify({ name: "site", main: "src/app.ts", assets });
 }
 
-function refusal(manifest: RoutingManifest, root: string): string {
+function refused(manifest: RoutingManifest, root: string): ConfigError {
   try {
     cloudflarePages().compile(manifest, { root });
   } catch (error) {
     expect(error).toBeInstanceOf(ConfigError);
-    return (error as ConfigError).message;
+    return error as ConfigError;
   }
   return expect.unreachable("expected a refusal");
 }
 
-const UNROUTED_ONE = `Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:`;
+function refusal(manifest: RoutingManifest, root: string): string {
+  return refused(manifest, root).message;
+}
+
+const UNROUTED_ONE = `Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file, the prefix followed by * and its unslashed path, since Cloudflare does not document that * matches nothing; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:`;
 
 describe("a declared prefix run_worker_first does not reach", () => {
   it("is refused when no pattern is the prefix followed by *", () => {
     const { root, file } = siteWith(
       "wrangler.jsonc",
-      workerFirst({ directory: "./site", run_worker_first: [] }),
+      workerFirst({ directory: "./site", run_worker_first: ["/api"] }),
     );
     expect(refusal(declaring("/api/"), root)).toBe(
       `${UNROUTED_ONE}\n  the default tree's prefix "/api/" — "${file}" lists no "/api/*"`,
     );
   });
 
+  it("is refused when no pattern is the unslashed path, whatever not_found_handling says", () => {
+    for (const notFound of ["none", "404-page", undefined]) {
+      const { root, file } = siteWith(
+        "wrangler.jsonc",
+        workerFirst({ not_found_handling: notFound, run_worker_first: ["/api/*"] }),
+      );
+      expect(refusal(declaring("/api/"), root)).toBe(
+        `${UNROUTED_ONE}\n  the default tree's prefix "/api/" — "${file}" lists no "/api"`,
+      );
+    }
+  });
+
   it("is refused when run_worker_first and assets are absent", () => {
     const { root, file } = siteWith("wrangler.json", JSON.stringify({ name: "site" }));
     expect(refusal(declaring("/api/", "/hooks/"), root)).toBe(
-      `Edge target "cloudflare-pages": 2 prefixes in build.routing.upstreams do not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:\n  the default tree's prefix "/api/" — "${file}" lists no "/api/*"\n  the default tree's prefix "/hooks/" — "${file}" lists no "/hooks/*"`,
+      `Edge target "cloudflare-pages": 2 prefixes in build.routing.upstreams do not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file, the prefix followed by * and its unslashed path, since Cloudflare does not document that * matches nothing; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:\n  the default tree's prefix "/api/" — "${file}" lists no "/api/*" or "/api"\n  the default tree's prefix "/hooks/" — "${file}" lists no "/hooks/*" or "/hooks"`,
     );
   });
 
-  it("needs the unslashed path listed when a miss does not reach the Worker", () => {
-    const { root, file } = siteWith(
-      "wrangler.jsonc",
-      workerFirst({ not_found_handling: "404-page", run_worker_first: ["/api/*"] }),
-    );
-    expect(refusal(declaring("/api/"), root)).toBe(
-      `${UNROUTED_ONE}\n  the default tree's prefix "/api/" — "${file}" lists no "/api", and its not_found_handling "404-page" answers "/api" from the site's files`,
-    );
-  });
-
-  it("names both patterns when both are missing", () => {
-    const { root, file } = siteWith(
-      "wrangler.jsonc",
-      workerFirst({ not_found_handling: "single-page-application" }),
-    );
-    expect(refusal(declaring("/api/"), root)).toBe(
-      `${UNROUTED_ONE}\n  the default tree's prefix "/api/" — "${file}" lists no "/api/*" or "/api", and its not_found_handling "single-page-application" answers "/api" from the site's files`,
-    );
-  });
-
-  it("passes with the prefix's pattern, and the unslashed path where a miss is the site's", () => {
-    const missToWorker = siteWith(
-      "wrangler.jsonc",
-      workerFirst({ not_found_handling: "none", run_worker_first: ["/api/*"] }),
-    );
-    expect(() => cloudflarePages().compile(declaring("/api/"), missToWorker)).not.toThrow();
-    const missToSite = siteWith(
-      "wrangler.jsonc",
-      workerFirst({ not_found_handling: "404-page", run_worker_first: ["/api", "/api/*"] }),
-    );
-    expect(() => cloudflarePages().compile(declaring("/api/"), missToSite)).not.toThrow();
+  it("passes with the prefix followed by * and the unslashed path", () => {
+    const site = siteWith("wrangler.jsonc", workerFirst({ run_worker_first: ["/api", "/api/*"] }));
+    expect(() => cloudflarePages().compile(declaring("/api/"), site)).not.toThrow();
   });
 });
 
@@ -103,38 +91,58 @@ describe("run_worker_first: true", () => {
   it("is refused", () => {
     const { root, file } = siteWith("wrangler.jsonc", workerFirst({ run_worker_first: true }));
     expect(refusal(declaring("/api/"), root)).toBe(
-      `Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list one pattern per prefix in build.routing.upstreams instead, such as ["/api/*"]; true runs the app before every request, so each built page costs a Worker invocation:\n  "${file}"`,
+      `Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list the patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"]; true runs the app before every request, so each built page costs a Worker invocation:\n  "${file}"`,
     );
   });
 });
+
+const STRAY = `Edge target "cloudflare-pages": %COUNT% in assets.run_worker_first %VERB% no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:`;
+
+const EXCLUDED_ONE = `Edge target "cloudflare-pages": 1 negative pattern in assets.run_worker_first keeps part of an upstream prefix from the app — remove each; a request it matches is answered from the site's files, which hold nothing under an upstream prefix:`;
 
 describe("a pattern no upstream declares", () => {
   it("is refused, naming what build.routing.upstreams declares", () => {
     const { root, file } = siteWith(
       "wrangler.jsonc",
-      workerFirst({ run_worker_first: ["/api/*", "/admin/*", "/*"] }),
+      workerFirst({ run_worker_first: ["/api", "/api/*", "/admin/*", "/*"] }),
     );
     expect(refusal(declaring("/api/"), root)).toBe(
-      `Edge target "cloudflare-pages": 2 patterns in assets.run_worker_first name no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:\n  "/admin/*" in "${file}" — build.routing.upstreams declares "/api/"\n  "/*" in "${file}" — build.routing.upstreams declares "/api/"`,
+      `${STRAY.replace("%COUNT%", "2 patterns").replace("%VERB%", "name")}\n  "/admin/*" in "${file}" — build.routing.upstreams declares "/api/"\n  "/*" in "${file}" — build.routing.upstreams declares "/api/"`,
     );
   });
 
   it("is refused when no upstream is declared at all", () => {
     const { root, file } = siteWith("wrangler.jsonc", workerFirst({ run_worker_first: ["/api/*"] }));
     expect(refusal(ALWAYS_FIXTURE, root)).toBe(
-      `Edge target "cloudflare-pages": 1 pattern in assets.run_worker_first names no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:\n  "/api/*" in "${file}" — build.routing.upstreams declares no prefix`,
+      `${STRAY.replace("%COUNT%", "1 pattern").replace("%VERB%", "names")}\n  "/api/*" in "${file}" — build.routing.upstreams declares no prefix`,
     );
   });
+});
 
-  it("is refused when it keeps part of a declared prefix from the app", () => {
-    const { root, file } = siteWith(
-      "wrangler.jsonc",
-      workerFirst({ run_worker_first: ["/api/*", "!/api/docs/*", "!/assets/*"] }),
-    );
-    expect(refusal(declaring("/api/"), root)).toBe(
-      `Edge target "cloudflare-pages": 1 negative pattern in assets.run_worker_first keeps part of an upstream prefix from the app — remove each; a request it matches is answered from the site's files, which hold nothing under an upstream prefix:\n  "!/api/docs/*" in "${file}" — under "/api/"`,
-    );
-  });
+describe("a negative pattern", () => {
+  it.each(["!/api/docs/*", "!/*", "!/api*", "!/api", "!/a*i/x"])(
+    "is refused when %s matches a path under a declared prefix",
+    (negative) => {
+      const { root, file } = siteWith(
+        "wrangler.jsonc",
+        workerFirst({ run_worker_first: ["/api", "/api/*", negative] }),
+      );
+      expect(refusal(declaring("/api/"), root)).toBe(
+        `${EXCLUDED_ONE}\n  ${JSON.stringify(negative)} in "${file}" — it matches a path under "/api/"`,
+      );
+    },
+  );
+
+  it.each(["!/assets/*", "!/apis/*", "!/ap", "!/apx*"])(
+    "passes when %s matches no path under a declared prefix",
+    (negative) => {
+      const site = siteWith(
+        "wrangler.jsonc",
+        workerFirst({ run_worker_first: ["/api", "/api/*", negative] }),
+      );
+      expect(() => cloudflarePages().compile(declaring("/api/"), site)).not.toThrow();
+    },
+  );
 });
 
 describe("reading the wrangler file", () => {
@@ -146,7 +154,7 @@ describe("reading the wrangler file", () => {
   "name": "site", /* block
   comment */
   "assets": {
-    "run_worker_first": ["/api/*", "/x//y",],
+    "run_worker_first": ["/api", "/api/*", "/x//y",],
   },
 }
 `,
@@ -154,19 +162,56 @@ describe("reading the wrangler file", () => {
     expect(refusal(declaring("/api/"), root)).toContain(`"/x//y" in `);
   });
 
-  it("refuses a file that does not parse", () => {
-    const { root, file } = siteWith("wrangler.jsonc", `{ "assets": { "run_worker_first": [ } }`);
-    expect(refusal(declaring("/api/"), root)).toMatch(
-      new RegExp(
-        `^Edge target "cloudflare-pages": 1 wrangler file is not valid JSON with comments — correct it where the line says; wrangler refuses the same file when it deploys:\\n  "${file.replaceAll("/", "\\/")}" — Unexpected token .+$`,
-      ),
+  it("reads a trailing comma followed by a comment", () => {
+    const { root } = siteWith(
+      "wrangler.jsonc",
+      `{
+  "assets": {
+    "run_worker_first": ["/api", "/api/*", // the app
+    ],
+    "html_handling": "auto-trailing-slash", /* last */ },
+}
+`,
     );
+    expect(() => cloudflarePages().compile(declaring("/api/"), { root })).not.toThrow();
+  });
+
+  it("refuses a file that does not parse, with the parser's error as the cause", () => {
+    const { root, file } = siteWith("wrangler.jsonc", `{\n  /* block */ "a" 1\n}`);
+    const error = refused(declaring("/api/"), root);
+    expect(error.message).toBe(
+      `Edge target "cloudflare-pages": 1 wrangler file is not valid JSON with comments — correct it where the cause says; wrangler refuses the same file when it deploys:\n  "${file}"`,
+    );
+    expect(error.cause).toBeInstanceOf(SyntaxError);
+    expect((error.cause as SyntaxError).message).toBe(
+      "Expected ':' after property name in JSON at position 20 (line 2 column 19)",
+    );
+  });
+
+  it("refuses an unterminated block comment", () => {
+    const { root, file } = siteWith("wrangler.jsonc", `{ "name": "site" /* open`);
+    const error = refused(declaring("/api/"), root);
+    expect(error.message).toContain(`not valid JSON with comments`);
+    expect(error.message).toContain(`"${file}"`);
+    expect(error.cause).toBeInstanceOf(SyntaxError);
+  });
+
+  it("refuses a file it cannot read, with the read error as the cause", () => {
+    const root = mkdtempSync(join(tmpdir(), "pagedeck-wrangler-"));
+    roots.push(root);
+    const file = join(root, "wrangler.jsonc");
+    mkdirSync(file);
+    const error = refused(declaring("/api/"), root);
+    expect(error.message).toBe(
+      `Edge target "cloudflare-pages": 1 wrangler file cannot be read — make it a file this user can read, or remove it; the build reads it to check assets.run_worker_first against build.routing.upstreams:\n  "${file}"`,
+    );
+    expect((error.cause as NodeJS.ErrnoException).code).toBe("EISDIR");
   });
 
   it("refuses a run_worker_first that is neither a boolean nor a list of strings", () => {
     const { root, file } = siteWith("wrangler.jsonc", workerFirst({ run_worker_first: ["/api/*", 3] }));
     expect(refusal(declaring("/api/"), root)).toBe(
-      `Edge target "cloudflare-pages": 1 wrangler file's assets.run_worker_first is neither true, false nor a list of patterns — write a list of patterns, one per prefix in build.routing.upstreams, such as ["/api/*"]:\n  "${file}" — it is ["/api/*",3]`,
+      `Edge target "cloudflare-pages": 1 wrangler file's assets.run_worker_first is neither true, false nor a list of patterns — write a list of patterns, the two for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]:\n  "${file}" — it is ["/api/*",3]`,
     );
   });
 
@@ -178,7 +223,7 @@ describe("reading the wrangler file", () => {
   });
 
   it("reads wrangler.json before wrangler.jsonc and wrangler.toml", () => {
-    const { root } = siteWith("wrangler.json", workerFirst({ run_worker_first: ["/api/*"] }));
+    const { root } = siteWith("wrangler.json", workerFirst({ run_worker_first: ["/api", "/api/*"] }));
     writeFileSync(join(root, "wrangler.jsonc"), "not json");
     writeFileSync(join(root, "wrangler.toml"), "not toml");
     expect(() => cloudflarePages().compile(declaring("/api/"), { root })).not.toThrow();
@@ -213,10 +258,10 @@ describe("one report", () => {
   it("names every fault together", () => {
     const { root, file } = siteWith(
       "wrangler.jsonc",
-      workerFirst({ run_worker_first: ["/admin/*"] }),
+      workerFirst({ run_worker_first: ["/api", "/admin/*"] }),
     );
     expect(refusal(declaring("/api/"), root)).toBe(
-      `${UNROUTED_ONE}\n  the default tree's prefix "/api/" — "${file}" lists no "/api/*"\n\nEdge target "cloudflare-pages": 1 pattern in assets.run_worker_first names no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:\n  "/admin/*" in "${file}" — build.routing.upstreams declares "/api/"`,
+      `${UNROUTED_ONE}\n  the default tree's prefix "/api/" — "${file}" lists no "/api/*"\n\n${STRAY.replace("%COUNT%", "1 pattern").replace("%VERB%", "names")}\n  "/admin/*" in "${file}" — build.routing.upstreams declares "/api/"`,
     );
   });
 });
