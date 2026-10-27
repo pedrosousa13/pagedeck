@@ -15,6 +15,7 @@ import { join, relative } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { MANIFEST_VERSION, RETENTION_DIR } from "@pagedeck/core";
+import { CONTENT_SECURITY_POLICY } from "./csp.js";
 import { checkLive, prepareRelease } from "./release.js";
 import type { ReleaseRecord } from "./release.js";
 import { BIN, serve, SITE as EXAMPLE, stop, WRANGLER } from "./wrangler.test-support.js";
@@ -40,6 +41,12 @@ let releaseA = "";
 let releaseB = "";
 let releaseC = "";
 let onlyInB: string[] = [];
+
+function copySource(): void {
+  for (const path of ["app.ts", "csp.ts", "components"]) {
+    cpSync(join(EXAMPLE, "src", path), join(SITE, "src", path), { recursive: true });
+  }
+}
 
 async function build(): Promise<void> {
   await run(process.execPath, [BIN, "sync"], { cwd: SITE });
@@ -87,9 +94,7 @@ beforeAll(async () => {
   for (const path of ["pagedeck.config.ts", "wrangler.jsonc", "favicon.ico", "content", "public"]) {
     cpSync(join(EXAMPLE, path), join(SITE, path), { recursive: true });
   }
-  mkdirSync(join(SITE, "src"));
-  cpSync(join(EXAMPLE, "src", "app.ts"), join(SITE, "src", "app.ts"));
-  cpSync(join(EXAMPLE, "src", "components"), join(SITE, "src", "components"), { recursive: true });
+  copySource();
 
   await build();
   releaseA = (await prepareRelease({ site: SITE, releases: RELEASES })).id;
@@ -193,6 +198,7 @@ test("the first release restores from its directory alone, across a manifest ver
     ["X-Frame-Options", "DENY"],
     ["X-Content-Type-Options", "nosniff"],
     ["Referrer-Policy", "strict-origin-when-cross-origin"],
+    ["Content-Security-Policy", CONTENT_SECURITY_POLICY],
   ]) {
     expect(page.headers.get(name as string), name).toBe(value);
   }
@@ -220,7 +226,23 @@ test("with the first release restored, the second's assets are gone and nothing 
     expect(response.status, file).toBe(404);
     expect(response.headers.get("Cache-Control"), file).toBe("no-store");
   }
-  for (const path of ["/manifest.json", "/_routes.json", "/.pagedeck/manifests", "/release.json", "/wrangler.jsonc", "/worker/app.js", "/.dev.vars"]) {
+  // On disk in the release, and kept from the host by `.assetsignore`, which `wrangler dev` applies.
+  for (const file of ["manifest.json", "_routes.json", "404.html"]) {
+    expect(existsSync(join(RELEASES, releaseA, "site", file)), file).toBe(true);
+  }
+  for (const path of [
+    "/manifest.json",
+    "/_routes.json",
+    "/404.html",
+    "/.pagedeck/manifests",
+    "/content.db",
+    "/release.json",
+    "/wrangler.jsonc",
+    "/worker/app.js",
+    "/.dev.vars",
+    "/.env",
+    "/.env.production",
+  ]) {
     expect((await fetch(`${origin}${path}`)).status, path).toBe(404);
   }
 }, 30_000);
@@ -239,3 +261,30 @@ test("a release over a live release whose manifest cannot be read is refused, na
   );
   expect(existsSync(join(RELEASES, releaseC))).toBe(true);
 }, 30_000);
+
+test("a build after a restore, made on the newer release's manifest, is refused until --force", async () => {
+  const origin = served?.origin as string;
+  // Readable again, so the check reaches the parents.
+  const manifest = join(RELEASES, releaseA, "site", "manifest.json");
+  writeFileSync(manifest, readFileSync(manifest, "utf8").replace(`"version": ${String(MANIFEST_VERSION - 1)},`, `"version": ${String(MANIFEST_VERSION)},`));
+  // The runner restores the retention store, whose newest document is release B's.
+  copySource();
+  mkdirSync(join(SITE, RETENTION_DIR), { recursive: true });
+  cpSync(join(RELEASES, releaseB, "site", "manifest.json"), join(SITE, RETENTION_DIR, `${releaseB}.json`));
+  await build();
+  const releaseD = (await prepareRelease({ site: SITE, releases: RELEASES })).id;
+
+  const check = (...extra: string[]) =>
+    run(process.execPath, [join(EXAMPLE, "src", "release.ts"), "check", releaseD, "--live", origin, "--releases", RELEASES, ...extra], {
+      cwd: SITE,
+    });
+  const refused = await check().then(
+    () => undefined,
+    (error: unknown) => error as { code: number; stderr: string },
+  );
+  expect(refused?.code).toBe(1);
+  expect(refused?.stderr.trim()).toBe(
+    `Release "${releaseD}" over live release "${releaseA}": Manifest diff: build "${releaseD}" was built on "${releaseB}" and is being deployed over build "${releaseA}", so another deploy wrote this site after this build read it — re-run pagedeck build so it is based on what is live, or pass --force to overwrite that deploy`,
+  );
+  expect((await check("--force")).stdout.trim()).toBe("--force: the live release was not checked");
+}, 300_000);
