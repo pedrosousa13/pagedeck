@@ -404,6 +404,12 @@ packages/app-example/content.db
 packages/app-example/.pagedeck/
 packages/app-example/.wrangler/
 
+# The copy of the app example `packages/app-example/src/release.build.test.ts` releases
+# twice and restores (#160), and the releases `node src/release.ts prepare` writes by
+# default. The test removes its copy after each run.
+packages/app-example/.pagedeck-release-test-*/
+packages/app-example/releases/
+
 # The template copy `packages/create-pagedeck/src/template.build.test.ts` builds
 # (#77). The test removes it after each run.
 packages/create-pagedeck/.pagedeck-template-build-test-*/
