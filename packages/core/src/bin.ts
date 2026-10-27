@@ -1,9 +1,11 @@
 #!/usr/bin/env node
+import { recordImporters } from "./client-reference-loader.js";
 import { runCli } from "./cli.js";
 import { markDiagnostic } from "./diagnostic-marker.js";
 import { installJsxLoader } from "./jsx-loader.js";
 
 installJsxLoader();
+recordImporters();
 
 const code = await runCli(process.argv.slice(2), {
   cwd: process.cwd(),

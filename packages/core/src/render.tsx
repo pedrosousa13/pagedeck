@@ -40,6 +40,7 @@ import {
   refusedFailure,
 } from "./tree.js";
 import {
+  closeProxyScope,
   openProxyScope,
   throwContradictedHydration,
   throwProxyFaults,
@@ -942,7 +943,7 @@ export async function renderPage(
 
     for (const instance of renderable) {
       const own = await pass(
-        createElement(instance.component, instance.props),
+        closeProxyScope(createElement(instance.component, instance.props)),
         instance.prefix,
         instance.name,
       );
@@ -1020,7 +1021,9 @@ export async function renderPage(
     }
 
     const result = await pass(
-      islandElement(instance.node, components, instance.position, slots),
+      closeProxyScope(
+        islandElement(instance.node, components, instance.position, slots),
+      ),
       prefix,
       instance.node.component,
     );

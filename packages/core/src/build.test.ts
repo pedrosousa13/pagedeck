@@ -249,8 +249,10 @@ export default function Wrap() {
       : "./components/Hero.js";
   const nested = options.nestedClient === true;
   const copyHydrate = options.staticCopy === true ? `, hydrate: "none"` : "";
+  // Static when nested: as an island, Hero would carry Copy in its own chunk,
+  // with no marker of Copy's (#174).
   const heroHydrate =
-    options.staticHero === true || options.noIslands === true
+    options.staticHero === true || options.noIslands === true || nested
       ? "none"
       : "visible";
   const aboutComponent = badge ? "Badge" : "Copy";
