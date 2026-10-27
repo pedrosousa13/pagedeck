@@ -45,6 +45,7 @@
     "packages/docs-site/vitest.a11y.config.ts",
     "packages/site/vitest.lighthouse.config.ts",
     "packages/site/vitest.origin.config.ts",
+    "packages/app-example/vitest.signup-harness.config.ts",
     "packages/app-example/pagedeck.config.ts",
     "packages/cms-example/pagedeck.config.ts",
     "packages/docs-site/pagedeck.config.ts",

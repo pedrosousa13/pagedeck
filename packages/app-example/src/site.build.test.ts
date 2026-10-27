@@ -1,19 +1,10 @@
-import { execFile, spawn } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
-import { readFileSync, readdirSync, rmSync } from "node:fs";
-import { createServer } from "node:net";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { budgetReportPath, RETENTION_DIR } from "@pagedeck/core";
-
-const execFileAsync = promisify(execFile);
-
-const SITE = join(import.meta.dirname, "..");
-const OUT = join(SITE, "site");
-const BIN = join(SITE, "..", "core", "dist", "bin.js");
-const WRANGLER = join(SITE, "node_modules", ".bin", "wrangler");
+import { budgetReportPath } from "@pagedeck/core";
+import { build, clean, OUT, serve, SITE } from "./wrangler.test-support.js";
+import type { Served } from "./wrangler.test-support.js";
 
 // Spelled again rather than imported, so a limit raised in the config fails here.
 const LIMITS = { "/": "0b", "/signup/": "63kb", "/signup/thanks/": "0b", "/signup/invalid/": "0b" };
@@ -24,53 +15,8 @@ const BUILD_CEILING = 64 * 1024;
 // A string only the app holds: found in `site/`, it means an island shipped server code.
 const SERVER_ONLY = "Enter an email address.";
 
-let wrangler: ChildProcess | undefined;
+let wrangler: Served | undefined;
 let origin: string;
-
-function clean(): void {
-  for (const path of [OUT, join(SITE, "content.db"), join(SITE, RETENTION_DIR), join(SITE, ".wrangler")]) {
-    rmSync(path, { recursive: true, force: true });
-  }
-}
-
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      server.close(() =>
-        typeof address === "object" && address !== null
-          ? resolve(address.port)
-          : reject(new Error("no port")),
-      );
-    });
-  });
-}
-
-async function serve(): Promise<string> {
-  const port = await freePort();
-  const child = spawn(WRANGLER, ["dev", "--ip", "127.0.0.1", "--port", String(port)], {
-    cwd: SITE,
-    env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  wrangler = child;
-  let log = "";
-  child.stdout?.on("data", (data: Buffer) => (log += data.toString()));
-  child.stderr?.on("data", (data: Buffer) => (log += data.toString()));
-  const url = `http://127.0.0.1:${String(port)}`;
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (child.exitCode !== null) throw new Error(`wrangler dev exited:\n${log}`);
-    try {
-      await fetch(url);
-      return url;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  throw new Error(`wrangler dev did not answer on ${url}:\n${log}`);
-}
 
 function signup(email: string, accept = "application/json"): Promise<Response> {
   return fetch(`${origin}/api/signup`, {
@@ -82,14 +28,13 @@ function signup(email: string, accept = "application/json"): Promise<Response> {
 }
 
 beforeAll(async () => {
-  clean();
-  await execFileAsync(process.execPath, [BIN, "sync"], { cwd: SITE });
-  await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE });
-  origin = await serve();
+  await build();
+  wrangler = await serve();
+  origin = wrangler.origin;
 }, 180_000);
 
 afterAll(() => {
-  wrangler?.kill();
+  wrangler?.child.kill();
   clean();
 });
 
