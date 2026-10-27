@@ -25,7 +25,7 @@ const WORKER = new URL(
 
 // Oxc reads the language off the extension, refuses JSX in a `.js` file and
 // reads `<T>value` in a `.mts` file as JSX.
-const LANG: Record<string, Lang> = {
+export const LANG: Readonly<Record<string, Lang>> = {
   ".js": "jsx",
   ".mjs": "jsx",
   ".cjs": "jsx",

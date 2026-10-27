@@ -138,10 +138,43 @@ function writeSite(): void {
   writeFileSync(BAILING, bailingSource(false));
   writeFileSync(FLAKY, flakySource("flaky-before-2d9c"));
   writeFileSync(
+    join(SOURCE, "NestBadge.tsx"),
+    [
+      `"use client";`,
+      `import { useId } from "react";`,
+      `export default function NestBadge({ label }: { label: string }) {`,
+      `  return <output id={useId()}>{label}</output>;`,
+      `}`,
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(SOURCE, "NestPanel.tsx"),
+    [
+      `"use client";`,
+      `import NestBadge from "./NestBadge.tsx";`,
+      `export default function NestPanel() {`,
+      `  return <section>nest-panel-6b0d<NestBadge label="nest-inside-2e85" /></section>;`,
+      `}`,
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(SOURCE, "NestPage.tsx"),
+    [
+      `import NestBadge from "./NestBadge.tsx";`,
+      `import NestPanel from "./NestPanel.tsx";`,
+      `export default function NestPage() {`,
+      `  return <div><NestPanel /><NestBadge label="nest-direct-c39a" /></div>;`,
+      `}`,
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
     join(SOURCE, "Foot.js"),
     `export default function Foot() { return "foot-5a90"; }\n`,
   );
-  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "aliased", "path-noted", "quoted", "shouted", "bailing", "flaky"]) {
+  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "aliased", "path-noted", "quoted", "shouted", "bailing", "flaky", "nested"]) {
     writeFileSync(
       join(CONTENT, "en", `${path}.json`),
       `${JSON.stringify({ rev: 1, data: { title: path } })}\n`,
@@ -178,6 +211,7 @@ const TREES = {
   "/shouted": [{ component: "shout", props: { items: ["shout-item-41af"] } }],
   "/bailing": [{ component: "bailing", props: { title: "bailing" } }],
   "/flaky": [{ component: "flaky", props: { text: "flaky" } }],
+  "/nested": [{ component: "nest_page" }],
 };
 
 // \`@/\` is an alias only the site's plugin knows.
@@ -224,6 +258,9 @@ export default defineConfig({
       shout: "./src/Shout.tsx",
       bailing: "./src/Bailing.tsx",
       flaky: "./src/Flaky.tsx",
+      nest_page: "./src/NestPage.tsx",
+      nest_panel: { path: "./src/NestPanel.tsx", hydrate: "load" },
+      nest_badge: { path: "./src/NestBadge.tsx", hydrate: "load" },
     },
     content: (page) => ({ tree: TREES[page.path] }),
     chrome: (page) =>
@@ -771,6 +808,24 @@ test("a config that will not load leaves the last good one serving", async () =>
     restored.close();
   }
 }, 60_000);
+
+test("a client module another client module imports islands where the server renders it, and renders inside the other's island, as the build does", async () => {
+  const { status, body } = await get("/nested");
+  expect(status).toBe(200);
+
+  const islands = [
+    ...body.matchAll(
+      /<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>([\s\S]*?)<\/fw-island>/g,
+    ),
+  ].map((match) => ({ component: match[1], inner: match[2] as string }));
+  expect(islands.map((island) => island.component)).toEqual([
+    "nest_panel",
+    "nest_badge",
+  ]);
+  expect(islands[0]?.inner).toContain("nest-panel-6b0d");
+  expect(islands[0]?.inner).toContain(">nest-inside-2e85</output>");
+  expect(islands[1]?.inner).toContain(">nest-direct-c39a</output>");
+}, 30_000);
 
 test("a dev run wrote no site tree", () => {
   expect(existsSync(join(SITE, "dist"))).toBe(false);

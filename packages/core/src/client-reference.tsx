@@ -58,9 +58,42 @@ export type ProxyScope = {
       contradictions: Map<string, ContradictedHydration>;
     }
   | { phase: "compose"; composed: ReadonlyMap<string, ComposedIsland> }
+  | {
+      phase: "island";
+      contradictions: Map<string, ContradictedHydration> | undefined;
+    }
 );
 
 const ProxyScopeContext = createContext<ProxyScope | undefined>(undefined);
+
+function IslandScope({ children }: { children: ReactNode }) {
+  const scope = useContext(ProxyScopeContext);
+  return createElement(
+    ProxyScopeContext.Provider,
+    {
+      value:
+        scope === undefined
+          ? undefined
+          : {
+              page: scope.page,
+              derive: scope.derive,
+              renderedBy: scope.renderedBy,
+              phase: "island",
+              contradictions:
+                scope.phase === "compose" ? undefined : scope.contradictions,
+            },
+    },
+    children,
+  );
+}
+
+/**
+ * An island's own render: a client component it imports renders as itself,
+ * as it does in the island's chunk, and has no marker of its own (#174).
+ */
+export function closeProxyScope(inner: ReactNode): ReactElement {
+  return createElement(IslandScope, { children: inner });
+}
 
 export function openProxyScope(
   scope: ProxyScope,
@@ -92,25 +125,40 @@ export function clientReference<P extends Record<string, unknown>>(
 
   function ClientReferenceProxy(props: Record<string, unknown>) {
     const scope = useContext(ProxyScopeContext);
-    const id = useId();
     if (scope === undefined) return createElement(real, props);
 
     // Before a prefix is derived: this instance is not becoming an island.
     if (mode === "none") {
-      if (scope.phase === "collect") {
-        const contradiction = scope.contradictions.get(name);
-        if (contradiction === undefined) {
-          scope.contradictions.set(name, {
-            component: name,
-            renderedBy: new Set([scope.renderedBy]),
-          });
-        } else {
-          contradiction.renderedBy.add(scope.renderedBy);
-        }
+      const contradictions =
+        scope.phase === "compose" ? undefined : scope.contradictions;
+      const contradiction = contradictions?.get(name);
+      if (contradiction !== undefined) {
+        contradiction.renderedBy.add(scope.renderedBy);
+      } else {
+        contradictions?.set(name, {
+          component: name,
+          renderedBy: new Set([scope.renderedBy]),
+        });
       }
       return null;
     }
 
+    if (scope.phase === "island") return createElement(real, props);
+    return createElement(ScopedProxy, { scope, props, mode });
+  }
+
+  // Apart from the proxy: a component that calls `useId` moves every id below
+  // it, and inside an island this one must render as the browser does (#174).
+  function ScopedProxy({
+    scope,
+    props,
+    mode,
+  }: {
+    scope: Exclude<ProxyScope, { phase: "island" }>;
+    props: Record<string, unknown>;
+    mode: Exclude<HydrationMode, "none">;
+  }) {
+    const id = useId();
     const prefix = scope.derive(id, name);
     if (scope.phase === "compose") {
       const composed = scope.composed.get(prefix);
@@ -139,8 +187,7 @@ export function clientReference<P extends Record<string, unknown>>(
       hasChildren: rendersChildren(children),
       renderedBy: scope.renderedBy,
     });
-    // Renders nothing, which is also what ends the recursion: a nested proxy
-    // waits for this instance's own pass.
+    // Renders nothing: this instance's own pass renders it.
     return null;
   }
 
