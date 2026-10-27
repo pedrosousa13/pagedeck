@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { coalesce, publish } from "./publish.js";
-import type { PublishResult } from "./publish.js";
+import type { PublishResult, StepName } from "./publish.js";
 import { startCms } from "./server.js";
 import type { Cms, PageContent } from "./server.js";
 import { createWebhookReceiver } from "./webhook.js";
@@ -33,6 +33,7 @@ interface Span {
 let cms: Cms;
 let receiver: Server;
 let schedule = true;
+let gate: ((step: StepName) => Promise<void>) | undefined;
 const spans: Span[] = [];
 
 function job(url = cms.url): Promise<PublishResult> {
@@ -42,7 +43,12 @@ function job(url = cms.url): Promise<PublishResult> {
     pagedeck: PAGEDECK,
     deploy: [DEPLOY, "--origin", ORIGIN],
     env: { ...process.env, PAGEDECK_CMS_EXAMPLE_URL: url },
+    afterStep: async (step) => gate?.(step),
   });
+}
+
+function failedAt(result: PublishResult): string | undefined {
+  return result.ok ? undefined : result.failed;
 }
 
 const runs = coalesce(async () => {
@@ -50,7 +56,7 @@ const runs = coalesce(async () => {
   spans.push(span);
   span.result = await job();
   span.end = performance.now();
-  if (!span.result.ok) throw new Error(`the run failed at ${span.result.failed ?? "?"}`);
+  if (!span.result.ok) throw new Error(`the run failed at ${span.result.failed}`);
 });
 
 function hero(heading: string): PageContent {
@@ -119,7 +125,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cms.close();
-  receiver.close();
+  await new Promise<void>((resolve, reject) =>
+    receiver.close((error) => (error === undefined ? resolve() : reject(error))),
+  );
   rmSync(SITE, { recursive: true, force: true });
   rmSync(OUTSIDE, { recursive: true, force: true });
 });
@@ -127,7 +135,7 @@ afterAll(async () => {
 test("a first run on no retained state syncs and builds in full, deploys, and saves the state", async () => {
   const result = await job();
 
-  expect(result.ok, result.failed).toBe(true);
+  expect(result.ok, failedAt(result)).toBe(true);
   expect(result.incremental).toBe(false);
   expect(result.steps.map(({ argv }) => argv.slice(1).join(" "))).toEqual([
     "sync",
@@ -186,6 +194,32 @@ test("a burst of edits runs one job at a time, folds into two runs, and serves t
   expect(served("faq")).not.toContain("Burst edit 7");
 }, 480_000);
 
+test("an edit made after a run's sync read the CMS is deployed by the run waiting behind it", async () => {
+  const before = spans.length;
+  let firstDeployed: string | undefined;
+  gate = async (step) => {
+    if (spans.length !== before + 1) return;
+    if (step === "sync") {
+      cms.put("faq", hero("Edited after the sync"));
+      await cms.delivered();
+    }
+    if (step === "deploy") firstDeployed = served("faq");
+  };
+  try {
+    cms.put("faq", hero("Edited before the sync"));
+    await published();
+  } finally {
+    gate = undefined;
+  }
+
+  const runsMade = spans.slice(before);
+  expect(runsMade).toHaveLength(2);
+  expect(runsMade[1]?.start).toBeGreaterThanOrEqual(runsMade[0]?.end ?? Infinity);
+  expect(firstDeployed).toContain("Edited before the sync");
+  expect(firstDeployed).not.toContain("Edited after the sync");
+  expect(served("faq")).toContain("Edited after the sync");
+}, 480_000);
+
 test("a scheduled page is published by the first run after its publishAt and retracted by the first run after its unpublishAt", async () => {
   const publishAt = Math.ceil((Date.now() + 15_000) / 1000) * 1000;
   const unpublishAt = publishAt + 15_000;
@@ -214,28 +248,27 @@ test("a scheduled page is published by the first run after its publishAt and ret
 }, 480_000);
 
 async function failsAndRecovers(
-  break_: () => string | undefined,
+  fail: () => string | undefined,
   mend: () => void,
-  failedAt: string,
+  step: StepName,
 ): Promise<{ failed: PublishResult; recovered: PublishResult }> {
   schedule = false;
   try {
     const origin = tree(ORIGIN);
     const state = tree(STATE);
-    const url = break_();
+    const url = fail();
     await cms.delivered();
 
     const failed = await job(url);
 
-    expect(failed.ok).toBe(false);
-    expect(failed.failed).toBe(failedAt);
+    expect(failedAt(failed)).toBe(step);
     expect(tree(ORIGIN)).toEqual(origin);
     expect(tree(STATE)).toEqual(state);
 
     mend();
     await cms.delivered();
     const recovered = await job();
-    expect(recovered.ok, recovered.failed).toBe(true);
+    expect(recovered.ok, failedAt(recovered)).toBe(true);
     expect(recovered.incremental).toBe(true);
     expect(recovered.steps.flatMap(({ argv }) => argv)).not.toContain("--force");
     return { failed, recovered };
@@ -293,6 +326,36 @@ test("a build that fails its budget fails the run at build, and the corrected pa
   expect(served("")).toContain("Welcome back");
 }, 480_000);
 
+// Root writes through a read-only directory, so the deploy could not fail this way.
+test.skipIf(process.getuid?.() === 0)(
+  "a deploy that cannot write leaves the live build serving, and a re-run deploys the edit",
+  async () => {
+    const faq = join(ORIGIN, "faq");
+    try {
+      const { failed } = await failsAndRecovers(
+        () => {
+          cms.put("faq", hero("Written while the origin refused it"));
+          chmodSync(join(faq, "index.html"), 0o444);
+          chmodSync(faq, 0o555);
+          return undefined;
+        },
+        () => {
+          chmodSync(faq, 0o755);
+          chmodSync(join(faq, "index.html"), 0o644);
+        },
+        "deploy",
+      );
+
+      expect(failed.steps.at(-1)?.code).toBe(1);
+    } finally {
+      chmodSync(faq, 0o755);
+      chmodSync(join(faq, "index.html"), 0o644);
+    }
+    expect(served("faq")).toContain("Written while the origin refused it");
+  },
+  480_000,
+);
+
 test("a run whose retained state was lost is refused at deploy, and the live build's document put back in the retention store lets the next run deploy", async () => {
   schedule = false;
   try {
@@ -301,7 +364,7 @@ test("a run whose retained state was lost is refused at deploy, and the live bui
 
     const refused = await job();
 
-    expect(refused.failed).toBe("deploy");
+    expect(failedAt(refused)).toBe("deploy");
     expect(refused.incremental).toBe(false);
     expect(refused.steps.at(-1)?.code).toBe(2);
     expect(refused.steps.at(-1)?.stderr).toContain("records no parent");
@@ -315,7 +378,7 @@ test("a run whose retained state was lost is refused at deploy, and the live bui
     );
     const seeded = await job();
 
-    expect(seeded.ok, seeded.failed).toBe(true);
+    expect(seeded.ok, failedAt(seeded)).toBe(true);
     expect(seeded.incremental).toBe(false);
     expect(seeded.steps.flatMap(({ argv }) => argv)).not.toContain("--force");
   } finally {
