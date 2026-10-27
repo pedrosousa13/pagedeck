@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const PACKAGE = join(import.meta.dirname, "..");
@@ -39,7 +39,7 @@ function walk(root: string, prefix = ""): string[] {
   });
 }
 
-const top = (file: string): string => file.split("/")[0] ?? file;
+export const top = (file: string): string => file.split("/")[0] ?? file;
 
 const isPublished = (file: string): boolean => listed(top(file), REPOSITORY_DOCS.published);
 
@@ -54,3 +54,17 @@ export const published = (): string[] => walk(REPOSITORY).filter(isPublished).so
 
 // Where a page `nav.json` lists is read from: the package, or `docs/` for a published copy.
 export const sourceOf = (page: string): string => join(isPublished(page) ? REPOSITORY : PACKAGE, page);
+
+// The route deck-cool's `docsHref` (packages/docs/src/loader.ts in pedrosousa13/deck-cool) serves
+// a page at, under its base: the file without `.md`, a last `index` segment dropped, with a
+// trailing slash.
+export function routeOf(file: string): string {
+  const parts = file.slice(0, -".md".length).split("/");
+  if (parts.at(-1) === "index") parts.pop();
+  return parts.length === 0 ? "/" : `/${parts.join("/")}/`;
+}
+
+export const navPages = (): string[] =>
+  (JSON.parse(readFileSync(join(PACKAGE, "nav.json"), "utf8")) as { pages: string[] }[]).flatMap(
+    (group) => group.pages,
+  );

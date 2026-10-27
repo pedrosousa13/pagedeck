@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parseFrontmatter } from "@pagedeck/markdown-loader";
-import { guides, listed, PACKAGE, published, REPOSITORY, REPOSITORY_DOCS } from "./pages.test-support.js";
+import { guides, listed, PACKAGE, published, REPOSITORY, REPOSITORY_DOCS, routeOf, top } from "./pages.test-support.js";
 
 // Editorial order, not sorted: alphabetical would open on "Explanation".
 const SECTIONS = [
@@ -18,19 +18,15 @@ const SECTION_OF_DIRECTORY: Readonly<Record<string, string>> = {
   adr: "explanation",
 };
 
-const top = (file: string): string => file.split("/")[0] ?? file;
+const SECTION_NAMES: readonly string[] = SECTIONS.map(({ name }) => name);
 
+// A declared section that is not one of SECTIONS is refused, never read as the directory's.
 function sectionOf(root: string, file: string): string | undefined {
   const { frontmatter } = parseFrontmatter(readFileSync(join(root, file), "utf8"), file);
   const declared = frontmatter["section"];
-  if (typeof declared === "string" && SECTIONS.some(({ name }) => name === declared)) return declared;
+  if (declared !== undefined) return typeof declared === "string" && SECTION_NAMES.includes(declared) ? declared : undefined;
   return SECTION_OF_DIRECTORY[file.includes("/") ? top(file) : ""];
 }
-
-const route = (file: string): string => {
-  const path = file.slice(0, -".md".length);
-  return path === "index" ? "/" : `/${path}/`;
-};
 
 test("every entry directly under docs/ is either published in @pagedeck/docs or excluded from it", () => {
   const unclassified = readdirSync(REPOSITORY)
@@ -49,14 +45,14 @@ test("nav.json lists every page under its section, sections in SECTIONS order an
   ];
   expect(
     pages.filter(({ section }) => section === undefined).map(({ file }) => file),
-    `declare "section" in each page's frontmatter as one of ${SECTIONS.map(({ name }) => name).join(", ")}, or add its directory to SECTION_OF_DIRECTORY`,
+    `each page is in no section, or declares one this list does not have — set "section" in its frontmatter to one of ${SECTION_NAMES.join(", ")}, or leave "section" out and add its directory to SECTION_OF_DIRECTORY`,
   ).toEqual([]);
   const expected = SECTIONS.map(({ name, label }) => ({
     label,
     pages: pages
       .filter(({ section }) => section === name)
       .map(({ file }) => file)
-      .sort((left, right) => (route(left) < route(right) ? -1 : 1)),
+      .sort((left, right) => (routeOf(left) < routeOf(right) ? -1 : 1)),
   })).filter((group) => group.pages.length > 0);
 
   expect(

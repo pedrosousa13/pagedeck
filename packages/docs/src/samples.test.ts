@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 
-// By position, one entry per fence. `null` is a sample of the landing site, which #124 moved
-// to deck-cool, so nothing here can hold it.
+// By position, one entry per fence. `null` is an example a site might write, which quotes no
+// file in this repository.
 const FONTS_SAMPLES: readonly (readonly string[] | null)[] = [null, ["packages/site/src/site.ts"]];
 
 function unsourcedSampleLines(name: string, samples: readonly (readonly string[] | null)[]): string[] {

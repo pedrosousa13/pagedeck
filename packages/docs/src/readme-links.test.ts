@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parseFrontmatter } from "@pagedeck/markdown-loader";
-import { PACKAGE, sourceOf } from "./pages.test-support.js";
+import { navPages, PACKAGE, routeOf, sourceOf } from "./pages.test-support.js";
 import { docsRenderer } from "./render.test-support.js";
 
 // Where deck-cool's `sites/pagedeck` serves these pages. Every README spells it, and this is
@@ -28,18 +28,7 @@ const DOCS_LINK = new RegExp(
   "g",
 );
 
-// Each page `nav.json` lists, by the route the docs serve it at.
-function pagesByRoute(): Map<string, string> {
-  const pages = (JSON.parse(readFileSync(join(PACKAGE, "nav.json"), "utf8")) as { pages: string[] }[]).flatMap(
-    (group) => group.pages,
-  );
-  return new Map(
-    pages.map((page) => {
-      const path = page.slice(0, -".md".length);
-      return [path === "index" ? "/" : `/${path}/`, page];
-    }),
-  );
-}
+const pagesByRoute = (): Map<string, string> => new Map(navPages().map((page) => [routeOf(page), page]));
 
 test("every docs link a README writes names a page nav.json lists, and a heading on it", async () => {
   const pages = pagesByRoute();
