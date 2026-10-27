@@ -173,7 +173,9 @@ an amendment to the "packs only `dist`" standing decision, a maintainer call.
 versions**, because a patch release may change the bytes they emit. Core pins
 **`rolldown`** exactly for `transformSync`, which compiles a site's `.tsx` and
 `.jsx` (#702): rolldown marks it experimental, and core reads a compile error's
-position from a field its types do not declare. Core pins
+position from a field its types do not declare. The pin also holds
+`parseSync` from `rolldown/utils`, which `client-reference-loader.ts` uses to
+read a `"use client"` module's exports without running it (#174). Core pins
 **`oxc-transform-react`** exactly (#164): it is the React Compiler that
 `compileIslands` runs over every island, it is `0.x`, it calls itself
 experimental and publishes almost daily, and a release may change what a

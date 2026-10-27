@@ -16,6 +16,14 @@ function dialect(moduleId: string): "ts" | "tsx" | "jsx" {
 export const UNPARSABLE_REFUSAL =
   'will not parse, so the scan cannot tell whether a "use client" boundary is declared — fix the syntax error the parser names';
 
+/** A parser's message, code frame included, as one entry of a report's list. */
+export function indentFrame(message: string): string {
+  return message
+    .split("\n")
+    .map((line) => `    ${line}`)
+    .join("\n");
+}
+
 export function readDirective(
   moduleId: string,
   source: string,

@@ -23,7 +23,7 @@ export interface BadgeTone {
 
 export default function Badge({ label }: BadgeProps) {
   const id = useId();
-  return <output id={id}>{label}</output>;
+  return <output id={id} data-code="badge-code-58e0">{label}</output>;
 }
 `,
   "components/Panel.tsx": `"use client";
@@ -72,6 +72,8 @@ export default defineConfig({
       panel: { path: "./components/Panel.tsx", hydrate: "load" },
       badge: { path: "./components/Badge.tsx", hydrate: "load" },
     },
+    // Out of reach of every tier group, so each island is a chunk of its own.
+    tierPolicy: { minSize: 100_000_000 },
     content: () => ({ tree: [{ component: "page" }] }),
   },
 });
@@ -82,15 +84,31 @@ afterAll(() => {
   rmSync(SITE, { recursive: true, force: true });
 });
 
-function islandsIn(html: string): { component: string; inner: string }[] {
-  return [
-    ...html.matchAll(
-      /<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>([\s\S]*?)<\/fw-island>/g,
-    ),
-  ].map((match) => ({
-    component: match[1] as string,
-    inner: match[2] as string,
-  }));
+interface Manifest {
+  files: readonly { path: string; kind: string }[];
+}
+
+function islandTags(html: string): { component: string; at: number }[] {
+  return [...html.matchAll(/<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>/g)].map(
+    (match) => ({ component: match[1] as string, at: match.index }),
+  );
+}
+
+// A chunk and every chunk it imports statically, not the ones it loads on demand.
+function staticClosure(chunk: string): string {
+  const seen = new Set<string>();
+  const visit = (path: string): void => {
+    if (seen.has(path)) return;
+    seen.add(path);
+    const code = readFileSync(join(SITE, "site", "assets", path), "utf8");
+    for (const match of code.matchAll(/(?:from|import)\s*"\.\/([^"]+\.js)"/g)) {
+      visit(match[1] as string);
+    }
+  };
+  visit(chunk);
+  return [...seen]
+    .map((path) => readFileSync(join(SITE, "site", "assets", path), "utf8"))
+    .join("\n");
 }
 
 test("a client module another client module imports islands where the server renders it, and renders inside the other's island", async () => {
@@ -103,13 +121,25 @@ test("a client module another client module imports islands where the server ren
   await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE });
 
   const html = readFileSync(join(SITE, "site", "index.html"), "utf8");
-  const islands = islandsIn(html);
-  expect(islands.map((island) => island.component)).toEqual(["panel", "badge"]);
-  const [panel, badge] = islands as [
-    { component: string; inner: string },
-    { component: string; inner: string },
+  expect(html.match(/<fw-island\b/g)).toHaveLength(2);
+  const [panel, badge] = islandTags(html) as [
+    { component: string; at: number },
+    { component: string; at: number },
   ];
-  expect(panel.inner).toContain("panel-7c1e");
-  expect(panel.inner).toContain(">inside-3f2a</output>");
-  expect(badge.inner).toContain(">direct-91d4</output>");
+  expect([panel.component, badge.component]).toEqual(["panel", "badge"]);
+  const panelMarkup = html.slice(panel.at, html.indexOf("</fw-island>", panel.at));
+  expect(panelMarkup).toContain("panel-7c1e");
+  expect(panelMarkup).toContain(">inside-3f2a</output>");
+  expect(html.slice(badge.at)).toContain(">direct-91d4</output>");
+
+  const manifest = JSON.parse(
+    readFileSync(join(SITE, "site", "manifest.json"), "utf8"),
+  ) as Manifest;
+  const panelChunk = manifest.files.find((file) =>
+    /^\/assets\/Panel-[^/]+\.js$/.test(file.path),
+  );
+  expect(panelChunk).toBeDefined();
+  expect(
+    staticClosure((panelChunk as { path: string }).path.slice("/assets/".length)),
+  ).toContain("badge-code-58e0");
 }, 180_000);

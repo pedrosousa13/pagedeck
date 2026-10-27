@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { findPackageJSON, registerHooks } from "node:module";
 import { extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseSync } from "rolldown/utils";
@@ -7,6 +7,7 @@ import type { ESTree } from "rolldown/utils";
 import { getComponent } from "@pagedeck/islands";
 import type { ComponentRegistry, HydrationMode } from "@pagedeck/islands";
 import { clientReference } from "./client-reference.js";
+import { indentFrame } from "./directive-source.js";
 import { ConfigError } from "./exit.js";
 import { LANG } from "./react-compiler.js";
 import { CLIENT_REFERENCE_TARGET } from "./tree.js";
@@ -18,6 +19,7 @@ export interface ClientReferenceInstall {
 export interface InstallInput {
   clientComponents: Readonly<Record<string, string>>;
   registry: ComponentRegistry;
+  config: string;
 }
 
 const ORIGINAL_QUERY = "fw-client-original";
@@ -28,17 +30,11 @@ const ORIGINAL_QUERY = "fw-client-original";
  */
 const FACTORY = Symbol.for("@pagedeck/core client reference factory");
 
-/**
- * Read from the source, never by loading it, so the hooks are in place before
- * any registered module runs (#174). `wrap` is false only where the
- * declaration shows a value no component can be: a variable initialised with
- * nothing, a literal, a template, an object or an array, an enum, a namespace,
- * or `export * as`. Those are re-exported as live bindings. Every other export
- * is wrapped if it is a function once loaded, and passed through if not.
- */
 interface ExportedName {
   key: string;
   wrap: boolean;
+  /** The module and export name the binding comes from, which tells one `export *` name from two. */
+  origin: string;
 }
 
 interface Proxied {
@@ -48,12 +44,39 @@ interface Proxied {
   exports: readonly ExportedName[];
 }
 
-interface ModuleShape {
-  exports: readonly ExportedName[];
-  imports: readonly string[];
+type ModuleShape =
+  | { kind: "module"; exports: readonly ExportedName[] }
+  | { kind: "commonjs" };
+
+interface Fault {
+  module: string;
+  text: string;
+}
+
+interface Reading {
+  faults: Fault[];
+  shapes: Map<string, ModuleShape>;
 }
 
 type Kind = "function" | "value" | "unknown";
+
+const importers = new Map<string, string>();
+
+/**
+ * Before the config loads: a module found loaded before an install can be
+ * traced to what imported it only if this saw the import.
+ */
+export function recordImporters(): void {
+  registerHooks({
+    resolve: (specifier, context, nextResolve) => {
+      const resolved = nextResolve(specifier, context);
+      if (context.parentURL !== undefined && !importers.has(resolved.url)) {
+        importers.set(resolved.url, context.parentURL);
+      }
+      return resolved;
+    },
+  });
+}
 
 export async function installClientReferences(
   input: InstallInput,
@@ -62,23 +85,21 @@ export async function installClientReferences(
   if (ids.length === 0) return { close: () => undefined };
 
   const proxied = new Map<string, Proxied>();
-  const importers = new Map<string, string[]>();
-  const faults: string[] = [];
+  const reading: Reading = { faults: [], shapes: new Map() };
   for (const id of ids) {
     const name = input.clientComponents[id] as string;
     const url = pathToFileURL(id).href;
-    const shape = readShape(id, faults, new Set());
+    const shape = readShape(id, reading, new Set());
+    const exports =
+      shape?.kind === "module" ? shape.exports : await evaluatedExports(url);
     proxied.set(url, {
       id,
       name,
       mode: modeFor(input.registry, name),
-      exports: shape.exports,
+      exports,
     });
-    for (const imported of shape.imports) {
-      importers.set(imported, [...(importers.get(imported) ?? []), url]);
-    }
   }
-  if (faults.length > 0) throw exportFaults(faults);
+  if (reading.faults.length > 0) throw exportFaults(reading.faults);
 
   // Saved and restored, not deleted: a nested installation must leave the outer
   // one its factory.
@@ -106,7 +127,7 @@ export async function installClientReferences(
   });
 
   try {
-    await verifyProxied(proxied, generated, importers);
+    await verifyProxied(proxied, generated, pathToFileURL(input.config).href);
   } catch (refusal) {
     hooks.deregister();
     restoreFactory();
@@ -124,11 +145,47 @@ function modeFor(registry: ComponentRegistry, name: string): HydrationMode {
   return getComponent(registry, name)?.hydrate ?? "visible";
 }
 
+// Evaluated before the hooks are registered, as every module was before #174:
+// CommonJS names are known only once it runs.
+async function evaluatedExports(url: string): Promise<ExportedName[]> {
+  const namespace = (await import(
+    /* @vite-ignore */ `${url}?${ORIGINAL_QUERY}`
+  )) as Record<string, unknown>;
+  return Object.keys(namespace).map((key) => ({
+    key,
+    wrap: typeof namespace[key] === "function",
+    origin: `${url}#${key}`,
+  }));
+}
+
+function isCommonJs(path: string, hasModuleSyntax: boolean): boolean {
+  const extension = extname(path);
+  if (extension === ".cjs" || extension === ".cts") return true;
+  if (extension !== ".js" && extension !== ".ts") return false;
+  if (hasModuleSyntax) return false;
+  const manifest = findPackageJSON(pathToFileURL(path));
+  if (manifest === undefined) return true;
+  const { type } = JSON.parse(readFileSync(manifest, "utf8")) as {
+    type?: unknown;
+  };
+  return type !== "module";
+}
+
+/**
+ * Read from the source, never by loading it, so the hooks are in place before
+ * any registered module runs (#174). Undefined for a module already being read
+ * further up an `export *` chain.
+ */
 function readShape(
   path: string,
-  faults: string[],
-  reading: ReadonlySet<string>,
-): ModuleShape {
+  reading: Reading,
+  chain: ReadonlySet<string>,
+): ModuleShape | undefined {
+  const cached = reading.shapes.get(path);
+  if (cached !== undefined) return cached;
+  if (chain.has(path)) return undefined;
+  const within = new Set([...chain, path]);
+
   const source = readFileSync(path, "utf8");
   const lang = LANG[extname(path)];
   const parsed = parseSync(
@@ -136,50 +193,73 @@ function readShape(
     source,
     lang === undefined ? { sourceType: "module" } : { lang, sourceType: "module" },
   );
-  const lineOf = (offset: number): number =>
-    source.slice(0, offset).split("\n").length;
-  const [error] = parsed.errors;
-  if (error !== undefined) {
-    const at = error.labels[0]?.start;
-    faults.push(
-      `module "${path}"${at === undefined ? "" : ` line ${String(lineOf(at))}`}: does not parse (${error.message}), so its exports cannot be read — fix the syntax at the line named`,
-    );
-    return { exports: [], imports: [] };
+  if (parsed.errors.length > 0) {
+    reading.faults.push({
+      module: path,
+      text: `module "${path}": does not parse, so its exports cannot be read — fix each syntax error the parser names:\n${parsed.errors
+        .map((error) => indentFrame((error.codeframe ?? error.message).trim()))
+        .join("\n")}`,
+    });
+    return remember(reading, path, { kind: "module", exports: [] });
+  }
+  if (isCommonJs(path, parsed.module.hasModuleSyntax)) {
+    return remember(reading, path, { kind: "commonjs" });
   }
 
+  const lineOf = (offset: number): number =>
+    source.slice(0, offset).split("\n").length;
+  const url = pathToFileURL(path).href;
   const body = parsed.program.body;
   const kinds = bindingKinds(body);
-  const url = pathToFileURL(path);
-  const own = new Map<string, boolean>();
-  const starred: ExportedName[] = [];
-  const imports: string[] = [];
-  const reach = (specifier: string): string | undefined => {
+  const imported = importedBindings(body);
+
+  const relativeFile = (specifier: string): string | undefined => {
     if (!/^\.\.?\//.test(specifier)) return undefined;
-    const target = new URL(specifier, url).href;
-    imports.push(target);
-    return target;
+    const file = fileURLToPath(new URL(specifier, url));
+    return existsSync(file) ? file : undefined;
+  };
+  const originOf = (specifier: string, name: string): string => {
+    const file = relativeFile(specifier);
+    if (file === undefined) return `${specifier}#${name}`;
+    const inner = readShape(file, reading, within);
+    const found =
+      inner?.kind === "module"
+        ? inner.exports.find(({ key }) => key === name)
+        : undefined;
+    return found?.origin ?? `${pathToFileURL(file).href}#${name}`;
+  };
+
+  const own = new Map<string, ExportedName>();
+  const starred: ExportedName[] = [];
+  const set = (key: string, wrap: boolean, origin: string): void => {
+    own.set(key, { key, wrap, origin });
   };
 
   for (const statement of body) {
     switch (statement.type) {
-      case "ImportDeclaration":
-        if (statement.importKind !== "type") reach(statement.source.value);
-        break;
       case "ExportNamedDeclaration": {
         if (statement.exportKind === "type") break;
-        if (statement.source !== null) reach(statement.source.value);
         if (statement.declaration !== null) {
           for (const [name, kind] of declared(statement.declaration, kinds)) {
-            own.set(name, kind !== "value");
+            set(name, kind !== "value", `${url}#${name}`);
           }
         }
         for (const specifier of statement.specifiers) {
           if (specifier.exportKind === "type") continue;
-          const kind =
-            statement.source === null
-              ? (kinds.get(nameOf(specifier.local)) ?? "unknown")
-              : "unknown";
-          own.set(nameOf(specifier.exported), kind !== "value");
+          const key = nameOf(specifier.exported);
+          const local = nameOf(specifier.local);
+          if (statement.source !== null) {
+            set(key, true, originOf(statement.source.value, local));
+            continue;
+          }
+          const binding = imported.get(local);
+          set(
+            key,
+            (kinds.get(local) ?? "unknown") !== "value",
+            binding === undefined
+              ? `${url}#${key}`
+              : originOf(binding.specifier, binding.name),
+          );
         }
         break;
       }
@@ -191,26 +271,31 @@ function readShape(
           declaration.type === "ClassDeclaration"
             ? "function"
             : expressionKind(declaration, kinds);
-        own.set("default", kind !== "value");
+        set("default", kind !== "value", `${url}#default`);
         break;
       }
       case "ExportAllDeclaration": {
         if (statement.exportKind === "type") break;
         const specifier = statement.source.value;
-        const target = reach(specifier);
         if (statement.exported !== null) {
-          own.set(nameOf(statement.exported), false);
+          set(nameOf(statement.exported), false, originOf(specifier, "*"));
           break;
         }
-        const file = target === undefined ? undefined : fileURLToPath(target);
-        if (file === undefined || !existsSync(file)) {
-          faults.push(
-            `module "${path}" line ${String(lineOf(statement.start))}: export * from "${specifier}" reaches no file by a relative path, and the build reads the exports of a "use client" module without running it — re-export each name instead, as export { Name } from "${specifier}"`,
-          );
+        const file = relativeFile(specifier);
+        const inner =
+          file === undefined ? undefined : readShape(file, reading, within);
+        if (file !== undefined && inner === undefined) break;
+        if (inner?.kind !== "module") {
+          reading.faults.push({
+            module: path,
+            text: `module "${path}" line ${String(lineOf(statement.start))}: export * from "${specifier}" ${
+              inner === undefined
+                ? "reaches no file by a relative path"
+                : "reaches a CommonJS module"
+            }, and the build reads the names a "use client" module re-exports without running them — re-export each name instead, as export { Name } from "${specifier}"`,
+          });
           break;
         }
-        if (reading.has(file)) break;
-        const inner = readShape(file, faults, new Set([...reading, path]));
         starred.push(...inner.exports.filter(({ key }) => key !== "default"));
         break;
       }
@@ -219,17 +304,54 @@ function readShape(
     }
   }
 
-  for (const { key, wrap } of starred) {
-    if (!own.has(key)) own.set(key, wrap);
+  const fromStars = new Map<string, ExportedName>();
+  const ambiguous = new Set<string>();
+  for (const entry of starred) {
+    if (own.has(entry.key)) continue;
+    const seen = fromStars.get(entry.key);
+    if (seen === undefined) fromStars.set(entry.key, entry);
+    else if (seen.origin !== entry.origin) ambiguous.add(entry.key);
   }
-  return {
-    exports: [...own].map(([key, wrap]) => ({ key, wrap })),
-    imports,
-  };
+  for (const [key, entry] of fromStars) {
+    if (!ambiguous.has(key)) own.set(key, entry);
+  }
+  return remember(reading, path, { kind: "module", exports: [...own.values()] });
+}
+
+function remember(
+  reading: Reading,
+  path: string,
+  shape: ModuleShape,
+): ModuleShape {
+  reading.shapes.set(path, shape);
+  return shape;
 }
 
 function nameOf(node: ESTree.ModuleExportName): string {
   return node.type === "Identifier" ? node.name : String(node.value);
+}
+
+function importedBindings(
+  body: readonly ESTree.Statement[],
+): Map<string, { specifier: string; name: string }> {
+  const bindings = new Map<string, { specifier: string; name: string }>();
+  for (const statement of body) {
+    if (statement.type !== "ImportDeclaration") continue;
+    if (statement.importKind === "type") continue;
+    for (const specifier of statement.specifiers) {
+      const name =
+        specifier.type === "ImportDefaultSpecifier"
+          ? "default"
+          : specifier.type === "ImportNamespaceSpecifier"
+            ? "*"
+            : nameOf(specifier.imported);
+      bindings.set(specifier.local.name, {
+        specifier: statement.source.value,
+        name,
+      });
+    }
+  }
+  return bindings;
 }
 
 function bindingKinds(body: readonly ESTree.Statement[]): Map<string, Kind> {
@@ -264,12 +386,33 @@ function declared(
       return node.declarations.flatMap(({ id, init }): [string, Kind][] =>
         id.type === "Identifier"
           ? [[id.name, init === null ? "value" : expressionKind(init, kinds)]]
-          : [],
+          : boundNames(id).map((name) => [name, "unknown"]),
       );
     case "TSEnumDeclaration":
       return [[node.id.name, "value"]];
     case "TSModuleDeclaration":
       return node.id.type === "Identifier" ? [[node.id.name, "value"]] : [];
+    default:
+      return [];
+  }
+}
+
+function boundNames(pattern: ESTree.BindingPattern | ESTree.BindingRestElement): string[] {
+  switch (pattern.type) {
+    case "Identifier":
+      return [pattern.name];
+    case "ObjectPattern":
+      return pattern.properties.flatMap((property) =>
+        boundNames(property.type === "RestElement" ? property : property.value),
+      );
+    case "ArrayPattern":
+      return pattern.elements.flatMap((element) =>
+        element === null ? [] : boundNames(element),
+      );
+    case "AssignmentPattern":
+      return boundNames(pattern.left);
+    case "RestElement":
+      return boundNames(pattern.argument);
     default:
       return [];
   }
@@ -302,12 +445,17 @@ function expressionKind(
   }
 }
 
-function exportFaults(faults: readonly string[]): ConfigError {
+function exportFaults(faults: readonly Fault[]): ConfigError {
   if (faults.length === 1) {
-    return new ConfigError(`Island loader: ${faults[0] as string}`);
+    return new ConfigError(`Island loader: ${(faults[0] as Fault).text}`);
   }
+  const modules = new Set(faults.map(({ module }) => module)).size;
   return new ConfigError(
-    `Island loader: the exports of ${String(faults.length)} "use client" modules cannot be read without running them — fix each one below:\n${faults.map((fault) => `  ${fault}`).join("\n")}`,
+    `Island loader: ${String(faults.length)} faults in ${String(modules)} ${
+      modules === 1 ? "module" : "modules"
+    } keep the build from reading the exports of the "use client" modules it stands in for — fix each one below:\n${faults
+      .map(({ text }) => `  ${text}`)
+      .join("\n")}`,
   );
 }
 
@@ -343,49 +491,58 @@ function exportName(key: string): string {
 async function verifyProxied(
   proxied: ReadonlyMap<string, Proxied>,
   generated: ReadonlySet<string>,
-  importers: ReadonlyMap<string, readonly string[]>,
+  config: string,
 ): Promise<void> {
-  const missed = new Set<string>();
+  const missed = new Map<string, Proxied>();
   for (const [url, module] of proxied) {
     const namespace = (await import(/* @vite-ignore */ url)) as Record<
       string,
       unknown
     >;
     if (generated.has(url) || isProxied(module, namespace)) continue;
-    missed.add(url);
+    missed.set(url, module);
   }
   if (missed.size === 0) return;
 
-  const roots: string[] = [];
-  const imported: string[] = [];
-  for (const url of missed) {
-    const module = proxied.get(url) as Proxied;
+  const byConfig: string[] = [];
+  const byOther: string[] = [];
+  for (const [url, module] of missed) {
     const line = `  "${module.name}" — "${module.id}"`;
-    const by = (importers.get(url) ?? [])
-      .filter((importer) => missed.has(importer))
-      .map((importer) => `"${(proxied.get(importer) as Proxied).name}"`)
-      .sort();
-    if (by.length === 0) roots.push(line);
-    else imported.push(`${line}, imported by ${by.join(" and ")}`);
+    const importer = importers.get(url)?.split("?")[0];
+    if (importer === config) {
+      byConfig.push(line);
+      continue;
+    }
+    const registered =
+      importer === undefined ? undefined : proxied.get(importer);
+    byOther.push(
+      `${line}, ${
+        importer === undefined
+          ? "imported by a module this process did not see load"
+          : registered !== undefined
+            ? `imported by "${registered.name}"`
+            : `imported by "${importer.startsWith("file:") ? fileURLToPath(importer) : importer}"`
+      }`,
+    );
   }
 
   const paragraphs: string[] = [];
-  if (roots.length > 0) {
+  if (byConfig.length > 0) {
     paragraphs.push(
-      `Island loader: ${String(roots.length)} ${
-        roots.length === 1
+      `Island loader: ${String(byConfig.length)} ${
+        byConfig.length === 1
           ? 'module carrying "use client" was already loaded before the build could stand in for it, so nothing another component renders it from would island'
           : 'modules carrying "use client" were already loaded before the build could stand in for them, so nothing another component renders them from would island'
-      } — import each through its registry thunk only, and drop the top-level import of it from pagedeck.config.ts:\n${roots.sort().join("\n")}`,
+      } — import each through its registry thunk only, and drop the top-level import of it from pagedeck.config.ts:\n${byConfig.sort().join("\n")}`,
     );
   }
-  if (imported.length > 0) {
+  if (byOther.length > 0) {
     paragraphs.push(
-      `Island loader: ${String(imported.length)} ${
-        imported.length === 1
-          ? 'module carrying "use client" was already loaded because another such module imports it, so nothing another component renders it from would island'
-          : 'modules carrying "use client" were already loaded because another such module imports each, so nothing another component renders them from would island'
-      } — fix the module named beside each, and it islands too:\n${imported.sort().join("\n")}`,
+      `Island loader: ${String(byOther.length)} ${
+        byOther.length === 1
+          ? 'module carrying "use client" was already loaded, through the importer named beside it, before the build could stand in for it, so nothing another component renders it from would island'
+          : 'modules carrying "use client" were already loaded, through the importer named beside each, before the build could stand in for them, so nothing another component renders them from would island'
+      } — load that importer only through a registry thunk, or drop its import:\n${byOther.sort().join("\n")}`,
     );
   }
   throw new ConfigError(paragraphs.join("\n\n"));

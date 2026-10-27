@@ -135,6 +135,7 @@ export async function startDevServer(
     const references = await installClientReferences({
       clientComponents,
       registry: section.components,
+      config: config.configPath,
     });
     undo.push(() => references.close());
 

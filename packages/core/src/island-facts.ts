@@ -10,7 +10,7 @@ import type {
   ResourceImporter,
   UnparsedModule,
 } from "./directive-scan.js";
-import { UNPARSABLE_REFUSAL } from "./directive-source.js";
+import { indentFrame, UNPARSABLE_REFUSAL } from "./directive-source.js";
 import {
   chainTo,
   chainsFromEntries,
@@ -364,11 +364,7 @@ function unparsedReport(unparsed: readonly UnparsedModule[]): string {
   const lines = unparsed.map(({ id, error }) => {
     const cause = error.cause;
     const parsed = cause instanceof Error ? cause.message : error.message;
-    const frame = parsed
-      .split("\n")
-      .map((line) => `    ${line}`)
-      .join("\n");
-    return `  "${id}" —\n${frame}`;
+    return `  "${id}" —\n${indentFrame(parsed)}`;
   });
   const subject =
     unparsed.length === 1 ? "component module" : "component modules";

@@ -813,18 +813,16 @@ test("a client module another client module imports islands where the server ren
   const { status, body } = await get("/nested");
   expect(status).toBe(200);
 
-  const islands = [
-    ...body.matchAll(
-      /<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>([\s\S]*?)<\/fw-island>/g,
-    ),
-  ].map((match) => ({ component: match[1], inner: match[2] as string }));
-  expect(islands.map((island) => island.component)).toEqual([
-    "nest_panel",
-    "nest_badge",
-  ]);
-  expect(islands[0]?.inner).toContain("nest-panel-6b0d");
-  expect(islands[0]?.inner).toContain(">nest-inside-2e85</output>");
-  expect(islands[1]?.inner).toContain(">nest-direct-c39a</output>");
+  expect(body.match(/<fw-island\b/g)).toHaveLength(2);
+  const tags = [
+    ...body.matchAll(/<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>/g),
+  ].map((match) => ({ component: match[1], at: match.index }));
+  expect(tags.map((tag) => tag.component)).toEqual(["nest_panel", "nest_badge"]);
+  const [panel, badge] = tags as [(typeof tags)[0], (typeof tags)[0]];
+  const panelMarkup = body.slice(panel.at, body.indexOf("</fw-island>", panel.at));
+  expect(panelMarkup).toContain("nest-panel-6b0d");
+  expect(panelMarkup).toContain(">nest-inside-2e85</output>");
+  expect(body.slice(badge.at)).toContain(">nest-direct-c39a</output>");
 }, 30_000);
 
 test("a dev run wrote no site tree", () => {
