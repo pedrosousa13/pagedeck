@@ -11,9 +11,9 @@ they are named rather than omitted.** When #59 wrote this report, the reason was
 one fact, the same every time: there was no production, no live twin and no
 third-party measurement service in reach. `docs/dogfood-parity.md` is bounded by
 it, `docs/deploy-recipe.md` is bounded by it, and this file was the third. The
-landing page is now live at `https://pagedeck-landing.pedrodsousa.workers.dev`
-(#52, #53), and the maintainer's 2026-10-08 ruling on #2 measures criteria 4
-and 5 there. The dogfood site and its twin are still not in production. A
+landing page was then live at `https://pagedeck-landing.pedrodsousa.workers.dev`
+(#52, #53), and the maintainer's 2026-10-08 ruling on #2 measured criteria 4
+and 5 there. #124 has since moved it to `https://page.deck.cool`, in deck-cool. The dogfood site and its twin are still not in production. A
 criterion this repository cannot settle is reported unsettled, with what would
 settle it.
 
@@ -331,8 +331,7 @@ about field performance, and **nothing asserts on them** — see below.
 **Measured on #2, on the landing page, not the dogfood site.** The
 maintainer's 2026-10-08 ruling on #2 moved the measurement to the one site that
 is live: `packages/landing`, served as Workers Static Assets at
-`https://pagedeck-landing.pedrodsousa.workers.dev` (`docs/deploy-recipe.md`,
-"The landing page on Cloudflare"). The dogfood site is still not deployed and
+`https://pagedeck-landing.pedrodsousa.workers.dev`. The dogfood site is still not deployed and
 has no figure of its own.
 
 **The method.** `pnpm bench:landing-publish --apply` runs
