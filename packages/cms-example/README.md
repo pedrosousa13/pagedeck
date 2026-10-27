@@ -29,6 +29,8 @@ script, as in `node dist/serve.js 4400`, and set the variable to match.
 | `src/server.ts` | The CMS: a `node:http` server with no dependencies. |
 | `src/serve.ts` | Starts the CMS and prints its address. |
 | `src/loader.ts` | The loader. This is the file to copy for your own CMS. |
+| `src/webhook.ts` | The webhook receiver, and the signing the CMS does. |
+| `src/publish.ts` | One run of the publishing job, and the one-at-a-time rule CI applies to it. |
 | `src/components/*.tsx` | One React component per block type. |
 | `pagedeck.config.ts` | The site: the collection, its schema, the pages and the block-to-component mapping. |
 
@@ -70,6 +72,10 @@ since, and the ids of the pages removed since. It is not paged.
 }
 ```
 
+A page may also carry `publishAt` and `unpublishAt`, UTC instants with
+milliseconds such as `"2026-11-01T09:00:00.000Z"`. The site names them as the
+collection's publication window. A page without them carries neither field.
+
 A block is an object with a `type` and the fields of that type, side by side:
 
 ```json
@@ -80,6 +86,20 @@ The five types are `hero` (`heading`, `text`), `rich_text` (`paragraphs`, a
 list of strings), `feature_grid` (`features`, a list of `title` and `text`),
 `faq` (`questions`, a list of `question` and `answer`) and `signup_form`
 (`label`, `button`, `confirmation`).
+
+Started with `webhook: { url, secret }`, the CMS POSTs a delivery to `url`
+after every edit and every removal:
+
+```json
+{ "type": "page.updated", "id": "faq", "revision": 4 }
+```
+
+`type` is `page.updated` or `page.removed`. The delivery carries a
+`webhook-id`, a `webhook-timestamp` in seconds, and a `webhook-signature`,
+`v1,` and the base64 HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>`
+under `secret`. A delivery that fails is dropped, not retried; the next
+scheduled run syncs the edit all the same. `delivered()` settles once every
+delivery sent so far has an answer.
 
 The server keeps the pages in memory. It reads `data/pages` once at start, and
 `startCms` returns `put` and `remove` so the tests can edit a page the way an
@@ -203,6 +223,15 @@ measured on #105, each file compressed on its own.
 - `src/server.test.ts` and `src/loader.test.ts` run the CMS and the loader in
   the test process.
 - `src/serve.test.ts` runs `dist/serve.js`.
+- `src/webhook.test.ts` and `src/publish.test.ts` run the receiver and the
+  one-at-a-time rule in the test process.
+- `src/publish.build.test.ts` publishes a copy of the site from the CMS's
+  webhooks to a directory origin with `deploy.bin.js` from `packages/site`,
+  and checks the workflow "Publish from a CMS" describes: a fresh run and
+  incremental runs; a created, an edited and a removed page at the origin; a
+  burst of eight edits; a scheduled page published and retracted; a CMS
+  outage, a refused page, a failed budget and a lost state, each recovered
+  without `--force`.
 - `src/site.build.test.ts` starts the CMS on a port the system picks, then runs
   `pagedeck sync` and `pagedeck build` in this directory. It checks the budget
   report for each page. It then edits the `faq` page in the CMS, runs an
