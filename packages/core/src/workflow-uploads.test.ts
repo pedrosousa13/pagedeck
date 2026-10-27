@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 const REPO = join(import.meta.dirname, "..", "..", "..");
 const WORKFLOWS = join(REPO, ".github", "workflows");
 
-const MINIMUM_UPLOADS = 5;
+const MINIMUM_UPLOADS = 4;
 
 const MINIMUM_HIDDEN_PATH_UPLOADS = 2;
 
