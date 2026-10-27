@@ -497,8 +497,16 @@ pages say about Pagedeck's own starter, examples, CLI and repository live here:
     it is in `published` or `excluded` in `REPOSITORY_DOCS`
     (`pages.test-support.ts`), and holds `nav.json` to the pages: sections in
     `SECTIONS` order, pages by route, each page in its frontmatter `section`
-    or its directory's row in `SECTION_OF_DIRECTORY`. Add, move or
-    re-section a page, and change `nav.json` with it.
+    or its directory's row in `SECTION_OF_DIRECTORY`. A `section` that
+    `SECTIONS` lacks fails. Add, move or re-section a page, and change
+    `nav.json` with it.
+  - `pages.test.ts` holds every packed page (the guides, and the ADRs,
+    `deploy-recipe.md` and `error-messages.md`) to a `description` that is
+    one line of 150 characters or fewer (#565), to fence languages in
+    `LANGUAGES` (`render.test-support.ts`), and to in-page links that
+    resolve. `LANGUAGES` is the list deck-cool's
+    `sites/pagedeck/pagedeck.config.ts` passes `defineDocs`: change both
+    together.
   - `tutorial.test.ts` holds the tutorial's fences to the starter template
     (see "The pack harness").
   - `connect-a-cms.test.ts` requires each fence's lead in
@@ -527,10 +535,19 @@ pages say about Pagedeck's own starter, examples, CLI and repository live here:
     fences to what `compileIslands` prints.
   - `reserved-names.test.ts` renders every page and fails on a byte core's
     reserved-name strip would remove.
-  - `samples.test.ts` holds the fonts page's sample to `packages/site`.
+  - `samples.test.ts` holds the fonts page's second sample to
+    `packages/site`. The fonts page's first sample and every sample on the
+    site-search page are unchecked: they quoted the landing and docs sites,
+    which #124 moved to deck-cool, and now read as what a site might write.
   - `readme-links.test.ts` holds every README's docs link, and those
     `create-pagedeck` prints, to a page `nav.json` lists at `DOCS_ORIGIN`,
-    and a fragment to a heading on it.
+    and a fragment to a heading on it. It assumes deck-cool's addressing:
+    `routeOf` follows `docsHref` in deck-cool's `packages/docs/src/loader.ts`
+    (the base `/docs`, the file without `.md`, a last `index` dropped, a
+    trailing slash), and heading ids are the slugs
+    `@pagedeck/markdown-loader`'s renderer writes, which that loader renders
+    with. Checked against `https://page.deck.cool` on 2026-10-27. If deck-cool
+    changes either, change `routeOf` or the renderer here.
 - **`packages/create-pagedeck/src/add-an-island.build.test.ts`** follows
   `how-to/add-an-island.md` from a copy of the starter template (#696): it
   writes each file the page names, splices each `build` key it shows into the
@@ -588,7 +605,7 @@ entry passed as props.
 
 | Site | Largest island props (#653) | Island and page |
 | --- | --- | --- |
-| the landing page, now deck-cool's `sites/pagedeck` (#124) | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
+| the landing site, measured on #653 before #124 moved it to deck-cool | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
 | `packages/site` | 163 B | `pricing_page` on `/en/pricing` |
 
 If an island starts to fail the default, measure again and give a reason

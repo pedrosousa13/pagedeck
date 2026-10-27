@@ -334,22 +334,23 @@ is live: `packages/landing`, served as Workers Static Assets at
 `https://pagedeck-landing.pedrodsousa.workers.dev`. The dogfood site is still not deployed and
 has no figure of its own.
 
-**The method.** `pnpm bench:landing-publish --apply` runs
-`packages/landing/src/publish-to-live.harness.ts`. Each of its three runs:
+**The method.** `pnpm bench:landing-publish --apply` ran
+`packages/landing/src/publish-to-live.harness.ts`, a harness #124 removed with
+the landing package. Each of its three runs:
 
-1. adds a dated probe sentence after one sentence of
-   `packages/landing/content/index.md`, in place, and puts the file back in a
+1. added a dated probe sentence after one sentence of
+   `packages/landing/content/index.md`, in place, and put the file back in a
    `finally`;
-2. runs `pagedeck sync` and `pagedeck build`, and checks that
-   `site/index.html` holds the sentence;
-3. starts the clock and runs `pnpm exec wrangler deploy` with
+2. ran `pagedeck sync` and `pagedeck build`, and checked that
+   `site/index.html` held the sentence;
+3. started the clock and ran `pnpm exec wrangler deploy` with
    `WRANGLER_SEND_METRICS=false`;
-4. from the same instant, requests `/` no more than once a second, with no
-   cache-busting query, until a response holds the sentence.
+4. from the same instant, requested `/` no more than once a second, with no
+   cache-busting query, until a response held the sentence.
 
-"Deploy" is the clock when wrangler exits. "First served" is the clock when
-the first response holding the sentence arrives. After the three runs, the
-harness builds the unedited content, deploys it, and polls until `/` is that
+"Deploy" was the clock when wrangler exited. "First served" was the clock when
+the first response holding the sentence arrived. After the three runs, the
+harness built the unedited content, deployed it, and polled until `/` was that
 local build byte for byte.
 
 **The figures**, 2026-10-08, the content of commit `ee75c45` (`main`), from
@@ -431,8 +432,9 @@ maintainer supplies `PAGEDECK_SNAPSHOT_URL` and passes `apply: true`.
 has no loadout.** Measured on #2, against the live landing page, on the
 maintainer's 2026-10-08 ruling.
 
-**The method.** `pnpm bench:landing-lighthouse` runs
-`packages/landing/src/lighthouse-live.harness.ts`: Lighthouse 13.4.1 in the
+**The method.** `pnpm bench:landing-lighthouse` ran
+`packages/landing/src/lighthouse-live.harness.ts`, a harness #124 removed with
+the landing package: Lighthouse 13.4.1 in the
 Chromium that `playwright@1.62.1` pins, launched as
 `packages/site/src/lighthouse.harness.ts` launches it, over `/`, `/features/`,
 `/interactive/` and `/server-data/` at
