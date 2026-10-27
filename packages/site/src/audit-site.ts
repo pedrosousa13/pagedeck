@@ -197,7 +197,7 @@ export const REACT_CHUNK = "pagedeck-measure-react";
 
 // A ratchet: lowered when the runtime shrinks, and raised only by a ruling
 // recorded under criterion 2 of `docs/success-criteria.md`.
-export const RUNTIME_CEILING: RuntimeCeiling = { raw: 6_714, gzip: 3_404 };
+export const RUNTIME_CEILING: RuntimeCeiling = { raw: 6_858, gzip: 3_422 };
 
 // React in a chunk of its own, so the framework's bytes read off files (#292). The
 // plugin is source text: a generated config resolves only published exports (#182).

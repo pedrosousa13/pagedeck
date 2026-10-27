@@ -145,10 +145,10 @@ again and give the reason. Do not raise it to make the failure go away.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `/` | `0b` | 0 B (#141) | no chunks |
-| `/signup/` | `63kb` (64512 B) | 55555 B (#159) | `pagedeck-core` 54469 B, `pagedeck-startup` 881 B, entry 205 B |
+| `/signup/` | `63kb` (64512 B) | 55519 B (#89) | `pagedeck-core` 54416 B, `pagedeck-startup` 888 B, entry 215 B |
 | `/signup/thanks/`, `/signup/invalid/`, `/signup/failed/` | `0b` | 0 B (#159) | no chunks |
 
 The island and Hono's client are in `pagedeck-core`, since the site has one island.
-The whole build's JavaScript is held to 64 kB Brotli (65536 B), against 56479 B
-measured, counting the 924 B `slot` chunk. #159's pending, failure and retry
+The whole build's JavaScript is held to 64 kB Brotli (65536 B), against 56451 B
+measured (#89), counting the 932 B `slot` chunk. #159's pending, failure and retry
 states added 318 B to `/signup/` (55237 B on #141), and no limit changed.
