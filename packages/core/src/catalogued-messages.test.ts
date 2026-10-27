@@ -272,6 +272,18 @@ const UNCHECKED: readonly Unchecked[] = [
     because: "assembled",
   },
   {
+    names: 'Edge target "cloudflare-pages": 1 prefix in build.routing',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 pattern in',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 negative pattern',
+    because: "assembled",
+  },
+  {
     names: '"build.budget" declares 1 limit',
     because: "assembled",
   },

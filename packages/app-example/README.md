@@ -5,7 +5,8 @@ static files. Requests under `/api/` and `/account/` go to a
 [Hono](https://hono.dev) app that runs as the Worker on Cloudflare Workers
 Static Assets. Pagedeck never imports
 or runs the app: `build.routing.upstreams` declares the prefix, which the build
-checks against every path it writes, `wrangler.jsonc` routes it, and the island on
+checks against every path it writes, `wrangler.jsonc` routes it, which the build
+checks against the prefix (#145), and the island on
 `/signup/` calls the app through Hono's typed client, importing only its type.
 
 [Run an app beside the site](../docs/how-to/run-an-app-beside-the-site.md)

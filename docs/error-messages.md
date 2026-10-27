@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 125 below, 112 of them
+`x` at/from `path`, outside fenced blocks — there are 126 below, 113 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 297 messages fenced
-below, 230 are checked that way and 67 are not**, and that test lists the 67
-one by one with the reason each is out: 65 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 300 messages fenced
+below, 230 are checked that way and 70 are not**, and that test lists the 70
+one by one with the reason each is out: 68 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -845,6 +845,24 @@ Edge target "cloudflare-worker": 1 binding in cloudflareWorker({ upstreams }) is
 
 Edge target "cloudflare-worker": 1 prefix names both a url and a service binding — remove url from each in build.routing.upstreams, or remove it from cloudflareWorker({ upstreams }):
   the default tree's prefix "/api/" — url "https://app.example", binding "APP"
+```
+
+On Workers Static Assets the site's own `wrangler.jsonc` sends each prefix to
+the app, so `checkWrangler`
+(`packages/adapter-cloudflare-pages/src/wrangler.ts`) holds its
+`assets.run_worker_first` to the prefixes the document declares (#145). A
+prefix it leaves out, a pattern no prefix declares and a negative pattern
+under a prefix are three different edits to that file:
+
+```
+Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:
+  the default tree's prefix "/hooks/" — "/site/wrangler.jsonc" lists no "/hooks/*"
+
+Edge target "cloudflare-pages": 1 pattern in assets.run_worker_first names no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:
+  "/admin/*" in "/site/wrangler.jsonc" — build.routing.upstreams declares "/api/", "/hooks/"
+
+Edge target "cloudflare-pages": 1 negative pattern in assets.run_worker_first keeps part of an upstream prefix from the app — remove each; a request it matches is answered from the site's files, which hold nothing under an upstream prefix:
+  "!/api/docs/*" in "/site/wrangler.jsonc" — under "/api/"
 ```
 
 An unknown target and an unreadable routing version are thrown on the spot

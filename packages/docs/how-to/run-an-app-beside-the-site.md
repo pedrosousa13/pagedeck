@@ -148,9 +148,29 @@ the app.
 Cloudflare documents the option at
 <https://developers.cloudflare.com/workers/static-assets/binding/>.
 
-`wrangler.jsonc` is yours, and the build does not read it. So when you add,
-move or remove a prefix, change `run_worker_first` with it, one pattern per
-prefix, written as the prefix followed by `*`.
+`wrangler.jsonc` is yours, and the build reads it. With `cloudflarePages()`
+as the adapter, `pagedeck build` reads `wrangler.json` or `wrangler.jsonc`
+beside `pagedeck.config.ts`, comments and all, and fails when
+`run_worker_first`:
+
+- leaves out a prefix. Each prefix needs one pattern, the prefix followed by
+  `*`. Cloudflare's docs do not say whether `/api/*` matches `/api`
+  (<https://developers.cloudflare.com/workers/static-assets/binding/#run_worker_first>).
+  The build writes nothing at `/api`, so with `not_found_handling` set to
+  `none` a request for it reaches the app as a miss, as the last paragraph of
+  this section describes. With any other `not_found_handling`, list `/api`
+  too.
+- is `true`. The app then runs before every request, and each built page
+  costs a Worker invocation.
+- lists a pattern that no prefix in `build.routing.upstreams` declares, or a
+  negative pattern such as `!/api/docs/*` under one. The build checks only a
+  declared prefix against the paths it writes.
+
+So when you add, move or remove a prefix, change `run_worker_first` with it,
+and the build tells you when they disagree. It cannot read `wrangler.toml`,
+and fails on one when the config declares upstreams: write it as
+`wrangler.jsonc` instead. A file with `pages_build_output_dir` is a Cloudflare
+Pages project, which reads `_routes.json` instead, and is not checked.
 
 `cloudflarePages()` also writes `site/_routes.json`, which sends the same
 prefixes to Pages Functions on Cloudflare Pages
