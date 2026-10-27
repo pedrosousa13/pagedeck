@@ -69,17 +69,19 @@ const app = new Hono()
     c.header("Cache-Control", "no-store");
   })
   .onError((error, c) =>
-    c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500),
+    wantsJson(c)
+      ? c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500)
+      : c.redirect("/signup/failed/", 303),
   )
   .basePath("/api")
   .use(csrf())
   .post(
     "/signup",
-    validator("form", (value: { email?: string }, c) => {
+    validator("form", (value: { email?: string | File | (string | File)[] }, c) => {
       const { email } = value;
-      if (typeof email !== "string" || !/^[^@\s]+@[^@\s]+$/.test(email)) {
+      if (typeof email !== "string" || !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) {
         return wantsJson(c)
-          ? c.json({ error: "Enter an email address." }, 400)
+          ? c.json({ error: "Enter an email address." }, 422)
           : c.redirect("/signup/invalid/", 303);
       }
       return { email };
@@ -93,15 +95,17 @@ const app = new Hono()
 export type AppType = typeof app;
 ```
 
-The app is the only place the address is checked. The island's
-`type="email"` stops some mistakes before a request, but anyone can send the
-app any body, so the app's check is the one that counts.
+The app's check is the one that counts. The island's `type="email"` stops
+some mistakes before a request, but anyone can send the app any body, and the
+two checks differ: a browser takes `reader@localhost`, and the app, which
+wants a dot in the domain, refuses it with a `422`.
 
-The two middlewares and the error handler are registered before `basePath`,
-so they run for every request the app answers, and not only for the ones
-under `/api`. The next section says why that matters. The error handler
-answers every error with the same text, so a stack trace, a message from a
-library or a credential in an error never reaches the visitor.
+The two middlewares are registered before `basePath`, so they run for every
+request the app answers, and not only for the ones under `/api`. The next
+section says why that matters. The error handler answers every error with the
+same text, so a stack trace, a message from a library or a credential in an
+error never reaches the visitor. A path with no file is not an error: Hono
+answers it with its own `404`.
 
 The app reads the form's own encoding, the body a browser sends for a
 `<form method="post">`, and answers in two ways. A request that asks for JSON
@@ -190,7 +194,7 @@ async function send(email: string): Promise<Status> {
       { headers: { Accept: "application/json" } },
     );
     if (response.status === 201) return { phase: "sent", text: (await response.json()).message };
-    if (response.status === 400) return { phase: "refused", text: (await response.json()).error };
+    if (response.status === 422) return { phase: "refused", text: (await response.json()).error };
   } catch {
     // A request that never arrived, or a body that is not the JSON its status promised.
   }
@@ -200,9 +204,10 @@ async function send(email: string): Promise<Status> {
 
 The types describe what the app sends, not what reaches the browser. A proxy,
 the host or a dropped connection can answer instead, with an HTML error page
-or nothing at all. So `send` reads a body only for the two statuses the app
-writes, and turns everything else into one failure: a `5xx`, a `403`, a body
-that is not JSON and a `fetch` that rejects. It never shows text it did not
+or nothing at all. So `send` reads a body only for the app's `201` and its
+`422` refusal, and turns everything else into one failure: a `5xx`, a `403`,
+a `400` for a body the app could not read, a body that is not JSON and a
+`fetch` that rejects. Only the `422` marks the field as wrong. It never shows text it did not
 expect, so nothing from an error page reaches the visitor, and no rejection
 goes unhandled.
 
@@ -234,9 +239,11 @@ address is still in the form. A refusal also sets `aria-invalid` on the field
 and points its `aria-describedby` at the message. The field keeps what the
 visitor typed after every answer, so a retry is one more press of the button.
 
-While the request is out, the button is marked `aria-disabled` and the form
-`aria-busy`. The button is not `disabled`, because disabling the focused
-button moves focus to the page body.
+While the request is out, the button is marked `aria-disabled`. It is not
+`disabled`, because disabling the focused button moves focus to the page
+body. The form is not marked `aria-busy`, because a screen reader may hold
+back the announcements of a busy region until it is no longer busy, and the
+status paragraph is inside the form.
 
 ## One submit at a time, and what that does not cover
 
@@ -260,19 +267,25 @@ The island renders a real form, in `src/components/signup.tsx`:
 <form
   method="post"
   action="/api/signup"
-  aria-busy={pending}
+  onSubmit={async (event) => {
 ```
 
 Before the island hydrates, or with JavaScript off, a press of the button
 posts the form to the app like any HTML form. The address goes in the request
-body. A form with no `method` would send a `GET` to the page itself, with the
-address in its URL, where it reaches the history, the server's logs and the
-`Referer` of the next request.
+body. Without `method="post"`, a form sends a `GET` to its `action`, so the
+address would land in the URL of `/api/signup?email=…`, where it reaches the
+history, the server's logs and the `Referer` of the next request.
 
-The app answers that post with a `303` to a built page,
-`/signup/thanks/` or `/signup/invalid/`. Neither URL holds the address, and a
-reload of the page does not post the form again. The pages are static files
-in `content/signup/`, with a `0b` budget each.
+The app answers that post with a `303` to a built page: `/signup/thanks/` on
+success, `/signup/invalid/` on a refusal, and `/signup/failed/` on any other
+error, such as a post from another site or a body it could not read. No URL
+holds the address, and a reload of the page does not post the form again. The
+pages are static files in `content/signup/`, with a `0b` budget each.
+
+One limit remains. The pages are the same for every visitor, so they cannot
+say which address was signed up or quote the app's message. After a refusal
+or a failure, the visitor goes back to the form, which most browsers restore
+with what was typed.
 
 ## Request protection
 
