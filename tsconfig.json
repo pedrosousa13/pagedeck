@@ -47,6 +47,7 @@
     "packages/site/vitest.lighthouse.config.ts",
     "packages/site/vitest.origin.config.ts",
     "packages/app-example/vitest.app-form-harness.config.ts",
+    "packages/create-pagedeck/vitest.island-browsers-harness.config.ts",
     "packages/app-example/pagedeck.config.ts",
     "packages/cms-example/pagedeck.config.ts",
     "packages/site/pagedeck.config.ts"

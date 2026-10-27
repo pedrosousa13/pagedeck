@@ -11,7 +11,8 @@ pnpm test        # pnpm build, then vitest run
 
 - `npx vitest run <file>` runs one file. A test that spawns `pagedeck` runs
   `packages/core/dist/bin.js`, so `pnpm build` first.
-- Node 24, as in CI.
+- Node 24, as in CI. CI also runs the pack harness on Node 22.18.0, the
+  supported floor (#161).
 - The root `package.json` holds every runnable; a package has only `prepack`.
 - The root `tsconfig.json` typechecks each `src` tree plus the files it names
   one by one, each Vitest config and site config. Add a new one there.
@@ -197,6 +198,12 @@ which holds no code. The scaffolder
 `create-pagedeck` itself needs less, but it takes core's range because the site
 it writes needs core's. Raise a floor when new code needs a newer API, and say
 which.
+
+`packages/docs/reference/support.md` is the support policy (#161): Node.js 22
+from 22.18 and 24, React `^19.2.0`, and the browser floor.
+`packages/docs/src/support.test.ts` holds it to every public `engines.node`,
+every public `react` and `react-dom` range, and `ci.yml`'s `node` matrix, so a
+change to any of them changes the page too.
 
 ### Releasing
 
@@ -548,6 +555,13 @@ pages say about Pagedeck's own starter, examples, CLI and repository live here:
     `@pagedeck/markdown-loader`'s renderer writes, which that loader renders
     with. Checked against `https://page.deck.cool` on 2026-10-27. If deck-cool
     changes either, change `routeOf` or the renderer here.
+  - `support.test.ts` holds `reference/support.md` to what it describes
+    (#161): each public package's `engines.node`, `react` and `react-dom`
+    ranges, `create-pagedeck`'s `SITE_DEPENDENCIES` (the React range a new
+    site gets), `ci.yml`'s Node matrix, and the short Node.js sentence in the root
+    README, core's and `create-pagedeck`'s READMEs and the tutorial. Change
+    a range, the matrix or the policy, and change the page and each copy
+    with it.
 - **`packages/create-pagedeck/src/add-an-island.build.test.ts`** follows
   `how-to/add-an-island.md` from a copy of the starter template (#696): it
   writes each file the page names, splices each `build` key it shows into the
@@ -642,10 +656,11 @@ pnpm test:pack-harness
 installs the tarballs in a temporary directory outside the repository, imports
 every subpath from there, and follows
 `packages/docs/tutorials/your-first-site.md` from `create-pagedeck`'s
-tarball to a built site. `ci.yml` runs it on every push, and `release.yml`
-before publishing. It fails on a tarball file outside
-`package.json`, `README*`, `LICENSE`, `dist`, for `create-pagedeck` alone
-the `template/` and `template-app/` files its `files` names one by one, and for `@pagedeck/docs`
+tarball to a built site. `ci.yml` runs it on every push, on Node 22.18.0 and
+24 in the `consumer` job's matrix (#161), and `release.yml` before
+publishing. It fails on a tarball file outside `package.json`, `README*`,
+`LICENSE`, `dist`, for `create-pagedeck` alone the `template/` and
+`template-app/` files its `files` names one by one, and for `@pagedeck/docs`
 alone its markdown, `nav.json` and `assets/`, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
 and on a packed manifest that still says
@@ -726,12 +741,15 @@ from them.
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-fw-consent` without a reload, and a denied press loads nothing (#460) |
 | `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
+| `pnpm build && pnpm test:island-browsers-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/create-pagedeck/src/island-browsers.harness.ts` | the starter's counter island hydrates and counts clicks in Chromium, Firefox and WebKit (#161) |
 | `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/app-form.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
 
 The singleton, lazy runtime and hydration task harnesses run emitted chunks
 from `packages/islands/dist`, because jsdom ignores `<script type="module">`,
 so build first; none can detect a stale `dist`. The consent facade and view
-transitions harnesses drive `runCli` in process and need no build. The app
+transitions harnesses drive `runCli` in process and need no build. The island
+browsers harness spawns `pagedeck` over a copy of the starter template, so
+build first; `ci.yml`'s `browsers` job runs it on every push. The app
 form harness spawns `pagedeck` and `wrangler dev` in `packages/app-example`,
 so build first, and do not run it beside that package's `site.build.test.ts`:
 both build in the package directory. Under a

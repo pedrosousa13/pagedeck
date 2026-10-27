@@ -1,7 +1,8 @@
 # Contributing
 
 This is a pnpm workspace. Every package is under `packages/`, and the root
-`package.json` holds every script. CI runs on Node 24.
+`package.json` holds every script. CI runs the suite on Node 24, and the pack
+harness on Node 22.18.0 and 24.
 
 ```sh
 pnpm install

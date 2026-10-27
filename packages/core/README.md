@@ -46,8 +46,9 @@ npx pagedeck build
 ```
 
 The `pagedeck` command loads `pagedeck.config.ts` and your `.tsx` and `.jsx`
-components with no build step of their own. It needs Node 22.18 or later. On
-Node 23, it needs 23.7 or later.
+components with no build step of their own. It supports Node.js 22 from 22.18,
+and Node.js 24. Node.js 23 is not supported. See
+[Support and compatibility](https://page.deck.cool/docs/reference/support/).
 
 ## Read more
 

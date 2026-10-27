@@ -32,6 +32,7 @@
     "@pagedeck/core": "workspace:*",
     "@pagedeck/markdown-loader": "workspace:*",
     "@pagedeck/preview": "workspace:*",
+    "create-pagedeck": "workspace:*",
     "marked": "^18.0.11",
     "smol-toml": "^1.9.0"
   }

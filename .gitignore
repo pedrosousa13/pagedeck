@@ -364,6 +364,10 @@ packages/create-pagedeck/.pagedeck-app-build-test-*/
 # the island how-to in (#696). The test removes it after each run.
 packages/create-pagedeck/.pagedeck-how-to-island-test-*/
 
+# The starter copy `packages/create-pagedeck/src/island-browsers.harness.ts` builds and
+# drives in three browsers (#161). The harness removes it after each run.
+packages/create-pagedeck/.pagedeck-island-browsers-harness-*/
+
 # The site `packages/markdown-loader/src/title.build.test.ts` builds (#101). The
 # test removes it after each run.
 packages/markdown-loader/.pagedeck-title-build-test-*/

@@ -28,7 +28,7 @@ const PAGEDECK_PACKAGES = [
   "@pagedeck/markdown-loader",
 ] as const;
 
-const SITE_DEPENDENCIES = { react: "^19.2.0", "react-dom": "^19.2.0" } as const;
+export const SITE_DEPENDENCIES = { react: "^19.2.0", "react-dom": "^19.2.0" } as const;
 
 const SITE_DEV_DEPENDENCIES = { "@types/react": "^19.2.0" } as const;
 
