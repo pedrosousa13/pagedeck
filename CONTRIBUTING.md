@@ -75,6 +75,6 @@ too.
 
 ## Where the rules are
 
-`AGENTS.md` holds the rules for working in this repository. `CONTEXT.md` holds
+`AGENTS.md` holds the rules for working in this repository. `GLOSSARY.md` holds
 the project's vocabulary and the decisions that bind later work. `docs/adr/`
 holds the architectural decisions.

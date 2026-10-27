@@ -11,7 +11,7 @@ particular is fetched on the first page and reused on every page after it. An
 inlined sheet is sent again inside every page's HTML. Inlining by default would
 spend that site-wide cache entry on every repeat visit, for every site, without
 the site choosing it. The standing decision "A flagged page inlines its whole
-reachable CSS, core tier included" (CONTEXT.md) keeps the feature opt-in per
+reachable CSS, core tier included" (GLOSSARY.md) keeps the feature opt-in per
 page for this reason, and asks the next inlining feature whose cache it spends.
 
 A default would also spread the island-CSS refetch in

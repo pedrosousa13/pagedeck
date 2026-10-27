@@ -224,7 +224,7 @@ test("a component rendering <main> fails the build, naming the page", async () =
 
   expect(code).toBe(EXIT_CODES.syncFailed);
   expect(err).toContain(
-    'Entry /en/: 2 <main> landmarks in one document — the build writes one around the page\'s whole rendered tree, so a component that renders its own nests inside it and axe reports landmark-main-is-top-level; render <section>, <div> or a fragment in the component instead (CONTEXT.md, "The <main> landmark is the framework\'s, written once per document")',
+    'Entry /en/: 2 <main> landmarks in one document — the build writes one around the page\'s whole rendered tree, so a component that renders its own nests inside it and axe reports landmark-main-is-top-level; render <section>, <div> or a fragment in the component instead (GLOSSARY.md, "The <main> landmark is the framework\'s, written once per document")',
   );
 }, 120_000);
 
@@ -272,6 +272,6 @@ test("an incremental build refuses a carried document holding two landmarks", as
   expect(code).toBe(EXIT_CODES.configError);
   expect(err).toContain("cannot be carried from the previous build");
   expect(err).toContain(
-    '"/index.html" — en /\'s document, and it holds 2 <main> landmarks — the bytes are the ones the previous build recorded, so that build wrote them before this one refused a second landmark; render <section>, <div> or a fragment where the component renders <main> (CONTEXT.md, "The <main> landmark is the framework\'s, written once per document")',
+    '"/index.html" — en /\'s document, and it holds 2 <main> landmarks — the bytes are the ones the previous build recorded, so that build wrote them before this one refused a second landmark; render <section>, <div> or a fragment where the component renders <main> (GLOSSARY.md, "The <main> landmark is the framework\'s, written once per document")',
   );
 }, 240_000);

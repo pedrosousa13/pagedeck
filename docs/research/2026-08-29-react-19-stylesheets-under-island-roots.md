@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-29
 **Status:** Decided. #22 took the stylesheet verdict below as written: a
-`data-precedence` sheet is refused, and `CONTEXT.md`'s `<head>` decision records
+`data-precedence` sheet is refused, and `GLOSSARY.md`'s `<head>` decision records
 why. **#239 ruled against §6's `<title>` and `<meta>` rows**: a component's
 document metadata is *absorbed* into the framework's own `<head>` rather than
 refused, because what the refusal protects is the tier order and metadata has

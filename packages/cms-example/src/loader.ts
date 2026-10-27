@@ -37,7 +37,7 @@ interface ChangesBody {
   readonly revision: number;
 }
 
-// The bound sits on the loop, not on the CMS agreeing to stop (CONTEXT.md, "A paged read
+// The bound sits on the loop, not on the CMS agreeing to stop (GLOSSARY.md, "A paged read
 // has a maximum page count").
 const MAXIMUM_PAGES = 1000;
 

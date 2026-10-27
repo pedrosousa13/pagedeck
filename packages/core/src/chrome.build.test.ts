@@ -284,7 +284,7 @@ test("a chrome rendering <main> fails the build, naming the page and the chrome"
 
   expect(code).toBe(EXIT_CODES.syncFailed);
   expect(err).toContain(
-    'Entry /en/: build.chrome rendered a <main> landmark — the build writes the one <main> around the page tree and places the chrome before and after it, so a landmark in the chrome is a second one and is not taken in place of the build\'s; render <header>, <nav>, <footer> or a <div> in the chrome instead (CONTEXT.md, "The <main> landmark is the framework\'s, written once per document")',
+    'Entry /en/: build.chrome rendered a <main> landmark — the build writes the one <main> around the page tree and places the chrome before and after it, so a landmark in the chrome is a second one and is not taken in place of the build\'s; render <header>, <nav>, <footer> or a <div> in the chrome instead (GLOSSARY.md, "The <main> landmark is the framework\'s, written once per document")',
   );
 }, 120_000);
 
