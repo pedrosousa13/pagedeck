@@ -617,3 +617,23 @@ test("an http: endpoint on 127.0.0.1, ::1 or localhost, and an https: endpoint o
     expect(result.changed, endpoint).toHaveLength(3);
   }
 });
+
+test("a page's publication instants reach the entry unread, from a full sync and an incremental one", async () => {
+  const server = await cms();
+  const instants = { publishAt: "2026-11-01T09:00:00Z", unpublishAt: "2026-12-01T09:00:00Z" };
+  server.put("launch", { title: "Launch", blocks: [], ...instants });
+  const loader = defineExampleCmsLoader({ endpoint: server.url, locale: "en" });
+  const full = recordingWriter();
+  const since = recordingWriter();
+
+  await loader.syncAll(full);
+  await loader.syncSince(since, 3);
+
+  for (const writer of [full, since]) {
+    expect(writer.upserts.find(({ path }) => path === "launch")?.data).toEqual({
+      title: "Launch",
+      blocks: [],
+      ...instants,
+    });
+  }
+});

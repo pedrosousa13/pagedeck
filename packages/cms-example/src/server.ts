@@ -1,12 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { basename, join } from "node:path";
+import { signDelivery } from "./webhook.js";
 
 export interface PageContent {
   readonly title: string;
   readonly blocks: readonly unknown[];
+  /** UTC, as `2026-11-01T09:00:00Z`. */
+  readonly publishAt?: string;
+  readonly unpublishAt?: string;
 }
 
 export interface StoredPage extends PageContent {
@@ -19,6 +24,8 @@ export interface Cms {
   readonly url: string;
   put(id: string, page: PageContent): void;
   remove(id: string): void;
+  /** Settles once every webhook delivery sent so far has been answered or has failed. */
+  delivered(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -27,6 +34,8 @@ export interface CmsOptions {
   readonly data?: string;
   /** `0` asks the system for a free port. */
   readonly port?: number;
+  /** Where every edit and removal is POSTed, signed with `secret`. */
+  readonly webhook?: { readonly url: string; readonly secret: string };
 }
 
 const HOST = "127.0.0.1";
@@ -74,11 +83,42 @@ export async function startCms(options: CmsOptions = {}): Promise<Cms> {
   let revision = 0;
   const pages = new Map<string, StoredPage>();
   const deleted = new Map<string, number>();
+  const deliveries = new Set<Promise<void>>();
+
+  // A real CMS retries a failed delivery; this one drops it, and the next scheduled
+  // run picks the edit up all the same.
+  const deliver = (type: "page.updated" | "page.removed", id: string): void => {
+    const webhook = options.webhook;
+    if (webhook === undefined) return;
+    const body = JSON.stringify({ type, id, revision });
+    const sending = signDelivery(webhook.secret, {
+      id: randomUUID(),
+      timestamp: Math.floor(Date.now() / 1000),
+      body,
+    })
+      .then((headers) => fetch(webhook.url, { method: "POST", headers, body, redirect: "manual" }))
+      .then((response) => response.body?.cancel())
+      .catch(() => undefined)
+      .finally(() => deliveries.delete(sending));
+    deliveries.add(sending);
+  };
+
+  const store = (id: string, page: PageContent): void => {
+    revision += 1;
+    pages.set(id, {
+      id,
+      revision,
+      title: page.title,
+      blocks: page.blocks,
+      ...(page.publishAt === undefined ? {} : { publishAt: page.publishAt }),
+      ...(page.unpublishAt === undefined ? {} : { unpublishAt: page.unpublishAt }),
+    });
+    deleted.delete(id);
+  };
 
   const put = (id: string, page: PageContent): void => {
-    revision += 1;
-    pages.set(id, { id, revision, title: page.title, blocks: page.blocks });
-    deleted.delete(id);
+    store(id, page);
+    deliver("page.updated", id);
   };
 
   const directory = options.data ?? DATA;
@@ -86,7 +126,7 @@ export async function startCms(options: CmsOptions = {}): Promise<Cms> {
   for (const file of readdirSync(directory).filter((name) => name.endsWith(".json")).sort()) {
     const text = readFileSync(join(directory, file), "utf8");
     try {
-      put(basename(file, ".json"), JSON.parse(text) as PageContent);
+      store(basename(file, ".json"), JSON.parse(text) as PageContent);
     } catch (cause) {
       faults.push({ file, cause });
     }
@@ -149,6 +189,10 @@ export async function startCms(options: CmsOptions = {}): Promise<Cms> {
       if (!pages.delete(id)) return;
       revision += 1;
       deleted.set(id, revision);
+      deliver("page.removed", id);
+    },
+    delivered: async () => {
+      await Promise.all(deliveries);
     },
     close: () =>
       new Promise<void>((resolve, reject) => {

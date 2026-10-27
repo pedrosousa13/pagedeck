@@ -1,9 +1,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { startCms } from "./server.js";
 import type { Cms } from "./server.js";
+import { createWebhookReceiver } from "./webhook.js";
 
 let cms: Cms | undefined;
 
@@ -137,4 +140,80 @@ test("every page file that is not JSON is named in one report", async () => {
   } finally {
     rmSync(data, { recursive: true, force: true });
   }
+});
+
+test("a page's publication instants are served with it, and a page without them carries neither", async () => {
+  cms = await startCms({ port: 0 });
+
+  cms.put("launch", {
+    title: "Launch",
+    blocks: [],
+    publishAt: "2026-11-01T09:00:00Z",
+    unpublishAt: "2026-12-01T09:00:00Z",
+  });
+
+  const { pages } = (await get("changes?since=3")).body as { pages: Record<string, unknown>[] };
+  expect(pages).toEqual([
+    {
+      id: "launch",
+      revision: 4,
+      title: "Launch",
+      blocks: [],
+      publishAt: "2026-11-01T09:00:00Z",
+      unpublishAt: "2026-12-01T09:00:00Z",
+    },
+  ]);
+});
+
+test("with a webhook, every edit and removal is delivered signed, and the delivery names the page and nothing of its content", async () => {
+  const secret = "a-shared-secret-of-at-least-32-bytes-0123456789";
+  const bodies: unknown[] = [];
+  const statuses: number[] = [];
+  const receive = createWebhookReceiver({ secret, dispatch: () => undefined });
+  const receiver = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      const body = Buffer.concat(chunks).toString();
+      bodies.push(JSON.parse(body));
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(request.headers)) {
+        if (typeof value === "string") headers.set(name, value);
+      }
+      void receive(new Request("http://127.0.0.1/", { method: "POST", headers, body })).then((answer) => {
+        statuses.push(answer.status);
+        response.writeHead(answer.status).end();
+      });
+    });
+  });
+  await new Promise<void>((resolve) => receiver.listen(0, "127.0.0.1", resolve));
+  const { port } = receiver.address() as AddressInfo;
+  try {
+    cms = await startCms({ port: 0, webhook: { url: `http://127.0.0.1:${String(port)}/`, secret } });
+
+    cms.put("faq", { title: "Questions", blocks: [] });
+    cms.remove("home");
+    cms.remove("nothing-here");
+    await cms.delivered();
+
+    expect(bodies).toEqual([
+      { type: "page.updated", id: "faq", revision: 4 },
+      { type: "page.removed", id: "home", revision: 5 },
+    ]);
+    expect(statuses).toEqual([202, 202]);
+  } finally {
+    receiver.close();
+  }
+});
+
+test("a webhook that cannot be reached loses the delivery and leaves the edit in place", async () => {
+  cms = await startCms({
+    port: 0,
+    webhook: { url: "http://127.0.0.1:9/", secret: "a-shared-secret-of-at-least-32-bytes-0123456789" },
+  });
+
+  cms.put("faq", { title: "Questions", blocks: [] });
+  await cms.delivered();
+
+  expect((await get("changes?since=3")).body).toMatchObject({ pages: [{ id: "faq" }] });
 });

@@ -32,7 +32,14 @@ const pages = defineCollection({
     endpoint: process.env["PAGEDECK_CMS_EXAMPLE_URL"] ?? "http://127.0.0.1:4310/",
     locale: "en",
   }),
-  schema: z.object({ title: z.string(), blocks: z.array(block) }),
+  schema: z.object({
+    title: z.string(),
+    blocks: z.array(block),
+    publishAt: z.iso.datetime().optional(),
+    unpublishAt: z.iso.datetime().optional(),
+  }),
+  publishField: "publishAt",
+  unpublishField: "unpublishAt",
 });
 
 function pageOf(page: Page, store: ContentStoreReader) {

@@ -4,6 +4,8 @@ import type { EntryId, Loader, SyncResult } from "@pagedeck/content";
 export interface PageEntry {
   readonly title: unknown;
   readonly blocks: unknown;
+  readonly publishAt?: unknown;
+  readonly unpublishAt?: unknown;
 }
 
 export interface ExampleCmsLoaderOptions {
@@ -248,8 +250,8 @@ export function defineExampleCmsLoader(options: ExampleCmsLoaderOptions): Loader
             `${quote(url)}: the CMS moved from revision ${String(cursor)} to ${String(body.revision)} while the list was read, so a page could have shifted past the loader and been pruned as deleted — run the sync again`,
           );
         }
-        for (const { id, title, blocks } of body.pages) {
-          writer.upsert({ ...idOf(id), data: { title, blocks } });
+        for (const { id, title, blocks, publishAt, unpublishAt } of body.pages) {
+          writer.upsert({ ...idOf(id), data: { title, blocks, publishAt, unpublishAt } });
           changed.push(idOf(id));
         }
         next = body.nextPage;
@@ -271,8 +273,8 @@ export function defineExampleCmsLoader(options: ExampleCmsLoaderOptions): Loader
           `${quote(url)}: the CMS is at revision ${String(body.revision)}, behind the cursor ${String(cursor)} the last sync stored, so it would report no edit until it passed ${String(cursor)} and the edits before then would never be synced — run pagedeck sync without --incremental to read every page again`,
         );
       }
-      for (const { id, title, blocks } of body.pages) {
-        writer.upsert({ ...idOf(id), data: { title, blocks } });
+      for (const { id, title, blocks, publishAt, unpublishAt } of body.pages) {
+        writer.upsert({ ...idOf(id), data: { title, blocks, publishAt, unpublishAt } });
       }
       return {
         changed: body.pages.map(({ id }) => idOf(id)),

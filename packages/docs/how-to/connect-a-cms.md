@@ -41,7 +41,14 @@ const pages = defineCollection({
     endpoint: process.env["PAGEDECK_CMS_EXAMPLE_URL"] ?? "http://127.0.0.1:4310/",
     locale: "en",
   }),
-  schema: z.object({ title: z.string(), blocks: z.array(block) }),
+  schema: z.object({
+    title: z.string(),
+    blocks: z.array(block),
+    publishAt: z.iso.datetime().optional(),
+    unpublishAt: z.iso.datetime().optional(),
+  }),
+  publishField: "publishAt",
+  unpublishField: "unpublishAt",
 });
 ```
 
@@ -85,8 +92,8 @@ gives its contract. In `src/loader.ts`:
             `${quote(url)}: the CMS moved from revision ${String(cursor)} to ${String(body.revision)} while the list was read, so a page could have shifted past the loader and been pruned as deleted — run the sync again`,
           );
         }
-        for (const { id, title, blocks } of body.pages) {
-          writer.upsert({ ...idOf(id), data: { title, blocks } });
+        for (const { id, title, blocks, publishAt, unpublishAt } of body.pages) {
+          writer.upsert({ ...idOf(id), data: { title, blocks, publishAt, unpublishAt } });
           changed.push(idOf(id));
         }
         next = body.nextPage;
@@ -139,8 +146,8 @@ contract. In `src/loader.ts`:
           `${quote(url)}: the CMS is at revision ${String(body.revision)}, behind the cursor ${String(cursor)} the last sync stored, so it would report no edit until it passed ${String(cursor)} and the edits before then would never be synced — run pagedeck sync without --incremental to read every page again`,
         );
       }
-      for (const { id, title, blocks } of body.pages) {
-        writer.upsert({ ...idOf(id), data: { title, blocks } });
+      for (const { id, title, blocks, publishAt, unpublishAt } of body.pages) {
+        writer.upsert({ ...idOf(id), data: { title, blocks, publishAt, unpublishAt } });
       }
       return {
         changed: body.pages.map(({ id }) => idOf(id)),
@@ -287,16 +294,23 @@ to set a limit per page.
 ## Declare a schema, or `false`
 
 The loader reads only the fields it needs: the list, `nextPage`, `revision`,
-each page's `id`, and `deleted`. It hands `title` and `blocks` over unread,
-typed as `unknown`. The collection's `schema` checks them, in
-`pagedeck.config.ts`:
+each page's `id`, and `deleted`. It hands `title`, `blocks`, `publishAt` and
+`unpublishAt` over unread, typed as `unknown`. The collection's `schema` checks
+them, in `pagedeck.config.ts`:
 
 ```ts
-  schema: z.object({ title: z.string(), blocks: z.array(block) }),
+  schema: z.object({
+    title: z.string(),
+    blocks: z.array(block),
+    publishAt: z.iso.datetime().optional(),
+    unpublishAt: z.iso.datetime().optional(),
+  }),
 ```
 
 `block` is a union with one object per block type, keyed on `type`. A page with
 a bad block fails the sync, and the failure names the page and the field.
+`publishAt` and `unpublishAt` are UTC instants, and the collection names them as
+its [publication window](../reference/publication-window.md).
 
 `schema` is required. Give it any Standard Schema, as here, or the literal
 `false` to store what the loader hands over unchecked. For content an editor
