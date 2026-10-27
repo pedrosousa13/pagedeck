@@ -181,7 +181,7 @@ says so, rather than leaving you to work out which component appeared:
 ```
 JavaScript budget: 1 page transfers more JavaScript for first render than its budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
   en /pricing/ — "/pricing/" allows 15360 B, the page transfers 70813 B over 3 chunks:
-    /assets/fw-core-DO-Blg1p.js — 52397 B
+    /assets/pagedeck-core-DO-Blg1p.js — 52397 B
     /assets/PlanPicker-9f31.js — 18004 B
     /assets/en_pricing-1a2b.js — 412 B
     fold strategy promoted "PlanPicker" at tree position 0 from "visible" to "load" — position 0 is above the fold threshold of 4

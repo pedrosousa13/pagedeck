@@ -113,7 +113,7 @@ sequence is so you do not have to search a minified file for it:
 
 ```
 Critical CSS: 1 stylesheet cannot be inlined because it holds "</style", which ends the element early and puts the rest of the sheet into the page as markup — remove the "</style" sequence from the stylesheet, or drop the page from build.criticalCss so the sheet is linked instead:
-  "/assets/fw-core-DO-Blg1p.css" — inlined into en /landing, "</style" at line 1, column 4188
+  "/assets/pagedeck-core-DO-Blg1p.css" — inlined into en /landing, "</style" at line 1, column 4188
 ```
 
 The bytes are otherwise inlined exactly as the bundler emitted them. The build

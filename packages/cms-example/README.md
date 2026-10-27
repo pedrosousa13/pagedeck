@@ -212,8 +212,8 @@ again and give the reason. Do not raise it to make the failure go away.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `/` | `0b` | 0 B (#694) | no chunks |
-| `/faq/` | `60kb` (61440 B) | 53581 B (#105) | `fw-core` 52065 B, `fw-startup` 881 B, `faq` 410 B, entry 225 B |
-| `/signup/` | `60kb` (61440 B) | 53719 B (#105) | `fw-core` 52065 B, `fw-startup` 881 B, `signup_form` 548 B, entry 225 B |
+| `/faq/` | `60kb` (61440 B) | 53581 B (#105) | `pagedeck-core` 52065 B, `pagedeck-startup` 881 B, `faq` 410 B, entry 225 B |
+| `/signup/` | `60kb` (61440 B) | 53719 B (#105) | `pagedeck-core` 52065 B, `pagedeck-startup` 881 B, `signup_form` 548 B, entry 225 B |
 
 The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 55276 B
 measured on #105, each file compressed on its own.

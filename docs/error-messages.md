@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 230 checked messages pin 35032 of the 94703 fenced characters, and
+below**: the 230 checked messages pin 35032 of the 94715 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2394,14 +2394,14 @@ Routing manifest: 1 experiment declares one variant name more than once, and a n
 Routing manifest: 1 variant weight is not a share of visitors — write a positive number, such as 50; the shares are relative, so they need not total anything in particular:
   experiments[1].variants[0] — 0
 
-Routing manifest: 2 experiments declare cookie keys no browser will carry — write the key as a cookie name, such as "fw_pricing":
+Routing manifest: 2 experiments declare cookie keys no browser will carry — write the key as a cookie name, such as "pagedeck_pricing":
   experiments[0] — the cookie key is empty
   experiments[1] — the cookie key holds " ", which ends a cookie name
 ```
 
 The variant name and the cookie key each name the **offending character**
 rather than describing the value, `localeFaultReport`'s argument over the other
-two values this repo turns into path segments: a reader looking at `fw pricing`
+two values this repo turns into path segments: a reader looking at `pagedeck pricing`
 cannot see which of its characters the message is about. The weight is quoted
 with `JSON.stringify` for `driftThreshold`'s reason and it is load-bearing in
 the same way — a `.js` config is never typechecked, so `"50"` reaches the edge
@@ -2413,7 +2413,7 @@ rule 6 applied rather than an inconsistency in one pass.** The rule redacts what
 *could* be a credential, so the question is what each value is. A cookie key is
 a name a browser carries — it goes out in a `Set-Cookie` and comes back on every
 request, so it is the kind of value a site spells out of a token, and
-`fw_${sessionId}` is a plausible line of config. A variant name is an authored
+`pagedeck_${sessionId}` is a plausible line of config. A variant name is an authored
 label written into a public URL as a path segment (`/_v/<name>/`), served and
 crawled: a name holding a secret would have leaked it to every visitor long
 before any build printed this report, so quoting it discloses nothing the site
@@ -2650,7 +2650,7 @@ same edit as many times as the site has sections:
 ```
 JavaScript budget: 1 page transfers more JavaScript for first render than its budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
   en /pricing — "/pricing" allows 15360 B, the page transfers 70813 B over 3 chunks:
-    /assets/fw-core-DO-Blg1p.js — 52397 B
+    /assets/pagedeck-core-DO-Blg1p.js — 52397 B
     /assets/Chart-9f31.js — 18004 B
     /assets/en_pricing-1a2b.js — 412 B
     fold strategy promoted "Chart" at tree position 0 from "visible" to "load" — position 0 is above the fold threshold of 4
@@ -2713,7 +2713,7 @@ Island props budget: 1 island carries more props in its marker than the limit al
 
 The island is named twice, and each name does a different job. The registry name
 says which component to open. The prefix says which instance, because a page
-can render one island twice with different props, and `data-fw-prefix` finds it
+can render one island twice with different props, and `data-pagedeck-prefix` finds it
 in the HTML. The props are cut at three on the chunks' argument: a prop is
 evidence about the breach, the largest is almost always the one to drop, and
 `budget-report.json` holds every one. Every island over the limit on every page

@@ -52,30 +52,30 @@ the page's rendered body, and these are left out:
 - `<script>`, `<style>` and `<template>` contents.
 - An element marked `hidden`, or `aria-hidden="true"`, and everything inside
   it. The attribute also hides it from a reader or from assistive technology.
-- An element marked `data-fw-search="ignore"`, and everything inside it
+- An element marked `data-pagedeck-search="ignore"`, and everything inside it
   (issue #566). The page does not change: a reader and assistive technology
   get the element as before.
 
-Use `data-fw-search="ignore"` on the parts of a template that are not the
+Use `data-pagedeck-search="ignore"` on the parts of a template that are not the
 page's own words: a navigation that lists every page's title, a
 previous/next pager, a label that is the same on every page. Without it, a
 search for one page's name finds every page that links to it.
 
 ```tsx
-<nav aria-label="Documentation" data-fw-search="ignore">…</nav>
+<nav aria-label="Documentation" data-pagedeck-search="ignore">…</nav>
 ```
 
-Only the value `ignore` has this effect. `data-fw-search=""` and other values
+Only the value `ignore` has this effect. `data-pagedeck-search=""` and other values
 are indexed as usual.
 
 ### Content cannot use it
 
 The attribute is for a site's own templates. `unescapedHtml` from
 `@pagedeck/core/tree`, the sanctioned way to put rich text into a page, removes
-`data-fw-search` from content, with any value. A rich-text field therefore
+`data-pagedeck-search` from content, with any value. A rich-text field therefore
 cannot hide its own text, or a page's content, from the search. This also
 applies when the name is written in prose: rich text rendered through
-`unescapedHtml` cannot show the text `data-fw-search`.
+`unescapedHtml` cannot show the text `data-pagedeck-search`.
 
 Content that reaches a page through some other door is not stripped. There
 are two: a site's own `dangerouslySetInnerHTML`, and a site rendering

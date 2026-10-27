@@ -169,7 +169,7 @@ island, `/en/pricing`, whose island is a billing toggle. It is the only page
 here on which the framework ships JavaScript at all.
 
 **The method.** Production output puts React, `react-dom`'s client renderer and
-the islands runtime in one chunk, `fw-core`, so the framework's share cannot be
+the islands runtime in one chunk, `pagedeck-core`, so the framework's share cannot be
 read off a file. The test runs the same `pagedeck build` of the same site with one
 Vite plugin added. The plugin puts one more group ahead of the tier groups in
 Rolldown's `codeSplitting`, and that group moves every module under
@@ -190,7 +190,7 @@ place. Sourcemaps are not used (ADR-0002). The test calls no bundler itself:
 
 **The split costs a little, and the framework carries it.** The measurement
 build's two halves total 196,257 B raw. The production build of the same site
-ships 195,823 B in its entry and `fw-core` chunks. The 434 B between them is
+ships 195,823 B in its entry and `pagedeck-core` chunks. The 434 B between them is
 the cost of two chunks where production has one: an import of React's exports,
 a longer preload list in the entry, and the interop helpers in a chunk of
 their own. Some of it is counted as the framework's, so 6,376 B is a little
@@ -219,7 +219,7 @@ why the criterion was restated.
 | Brotli | 53,095 B | not recorded | — |
 
 The framework's figure is the entry chunk (330 B raw / 227 B gzip / 207 B
-Brotli) plus the shared `fw-core` chunk it statically imports (195,495 B /
+Brotli) plus the shared `pagedeck-core` chunk it statically imports (195,495 B /
 61,302 B / 52,888 B), as a Lighthouse harness run recorded them before #264
 renamed entry chunks by their content. The lazily-loaded `assets/slot-<hash>.js`
 is charged to no page and is excluded, which is `packages/core/src/budgets.ts`'
@@ -258,7 +258,7 @@ rounding rule produced.
 
 **Why the reduction stopped at 56.7 %, and why the criterion moved rather than
 the runtime.** 99.8 % of the 195,825 B this page shipped was the shared
-`fw-core` chunk, and the table at the top of this section shows what that chunk
+`pagedeck-core` chunk, and the table at the top of this section shows what that chunk
 is: 189,881 B of React against 6,376 B of framework. The twin's baseline is
 452 kB for the same reason in a different arrangement: React, `react-dom`, the
 app-router client entry and the Turbopack runtime. Two frameworks that both ship

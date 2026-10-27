@@ -359,14 +359,14 @@ inside `<main>`.
 ### A gated facade says which consent state it is in
 
 Every facade's markup is wrapped in an element of the framework's, and where the
-script declares a `category` that element also carries `data-fw-consent`, which
+script declares a `category` that element also carries `data-pagedeck-consent`, which
 reads `granted` or `denied`. The build writes this page's market default into
 it, and the loader rewrites it whenever consent changes — so it is current
 before your first stylesheet rule runs, and it stays current when a visitor
 answers your banner without leaving the page.
 
 ```html
-<div data-fw-consent="denied">
+<div data-pagedeck-consent="denied">
   <button class="chat-launcher">Chat with us</button>
   <span class="chat-consent-note">Chat needs marketing consent.</span>
 </div>
@@ -383,11 +383,11 @@ of it in CSS, with no JavaScript of your own:
   display: none;
 }
 
-[data-fw-consent="denied"] .chat-launcher {
+[data-pagedeck-consent="denied"] .chat-launcher {
   opacity: 0.6;
 }
 
-[data-fw-consent="denied"] .chat-consent-note {
+[data-pagedeck-consent="denied"] .chat-consent-note {
   display: block;
 }
 ```
@@ -695,8 +695,8 @@ const source: ConsentSource = {
   granted: (category) => myCmp.hasConsentFor(category),
 };
 
-window[CONSENT_GLOBAL] = source; // "fwConsent"
-window.dispatchEvent(new Event(CONSENT_EVENT)); // "fw:consent"
+window[CONSENT_GLOBAL] = source; // "pagedeckConsent"
+window.dispatchEvent(new Event(CONSENT_EVENT)); // "pagedeck:consent"
 ```
 
 One method and one event. The method is read at the moment a script would load,
@@ -718,7 +718,7 @@ is the claim this section makes. Neither is a dependency of this framework and
 no code in it names either — these are recipes you copy into your own site, and
 this page is the only place in the repository the two products appear.
 
-Both are written as plain JavaScript with `"fwConsent"` and `"fw:consent"`
+Both are written as plain JavaScript with `"pagedeckConsent"` and `"pagedeck:consent"`
 spelled out, because that is what they are: lines pasted into a callback a
 third-party script calls, which no bundler ever transforms. Import
 `CONSENT_GLOBAL` and `CONSENT_EVENT` instead wherever your wiring *is* bundled —
@@ -759,8 +759,8 @@ function active(group) {
 }
 
 function publishConsent() {
-  window.fwConsent = { granted: (category) => active(GROUPS[category]) };
-  window.dispatchEvent(new Event("fw:consent"));
+  window.pagedeckConsent = { granted: (category) => active(GROUPS[category]) };
+  window.dispatchEvent(new Event("pagedeck:consent"));
 }
 
 // OneTrust calls this itself. Defining it is the whole of the wiring.
@@ -799,10 +799,10 @@ const CATEGORIES = {
 };
 
 function publishConsent() {
-  window.fwConsent = {
+  window.pagedeckConsent = {
     granted: (category) => window.Cookiebot?.consent[CATEGORIES[category]] === true,
   };
-  window.dispatchEvent(new Event("fw:consent"));
+  window.dispatchEvent(new Event("pagedeck:consent"));
 }
 
 // `CookiebotOnConsentReady` is the first answer, `OnAccept` and `OnDecline`
@@ -841,11 +841,11 @@ against. Two things in particular are **yours to confirm** before you ship:
   documented to run after the banner initialises, and is widely used as the
   change hook as well. If your build exposes `OneTrust.OnConsentChanged`,
   prefer it for the change and keep `OptanonWrapper` for the first answer —
-  that pair is unambiguous, and dispatching `fw:consent` more often than
+  that pair is unambiguous, and dispatching `pagedeck:consent` more often than
   necessary costs nothing, because the gate simply re-asks `granted`.
 
 Dispatching too often is always safe. The framework holds no consent state of
-its own, so an extra `fw:consent` makes it ask a question it already knows how
+its own, so an extra `pagedeck:consent` makes it ask a question it already knows how
 to answer.
 
 ### The reference banner
@@ -922,7 +922,7 @@ unconditionally:
 - **It installs nothing when there is no record**, so a first-time visitor is
   still governed by your `consentDefaults` exactly as before.
 - **It only ever reports the answer the visitor gave.** The island hydrates over
-  the same decision later and dispatches `fw:consent`; the gate re-asks and gets
+  the same decision later and dispatches `pagedeck:consent`; the gate re-asks and gets
   the same answer, so nothing changes twice.
 
 Wiring a real CMP instead? The same slot is available to you and the same
@@ -987,7 +987,7 @@ that stays true; a facade asks whether this visitor wants this embed right now,
 and that does not keep. A chat widget appearing by itself some minutes after a
 banner was answered is the behaviour the strategy exists to avoid.
 
-What the press is not is *silent*: the placeholder carries `data-fw-consent`,
+What the press is not is *silent*: the placeholder carries `data-pagedeck-consent`,
 so the refusal and the grant that follows it are both things your CSS can see —
 "A gated facade says which consent state it is in", above.
 

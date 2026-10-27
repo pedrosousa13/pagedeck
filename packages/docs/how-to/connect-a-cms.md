@@ -267,8 +267,8 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
     "path": "/faq/",
     "actual": 53612,
     "chunks": [
-      { "path": "/assets/fw-core-B79YWVHM.js", "bytes": 52092 },
-      { "path": "/assets/fw-startup-KVlNJYe3.js", "bytes": 882 },
+      { "path": "/assets/pagedeck-core-B79YWVHM.js", "bytes": 52092 },
+      { "path": "/assets/pagedeck-startup-KVlNJYe3.js", "bytes": 882 },
       { "path": "/assets/faq-CbDEtw-I.js", "bytes": 412 },
       { "path": "/assets/entry-e6828f0c5dee6c77-CxNTsRXv.js", "bytes": 226 }
     ]
@@ -277,8 +277,8 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
     "path": "/signup/",
     "actual": 53756,
     "chunks": [
-      { "path": "/assets/fw-core-B79YWVHM.js", "bytes": 52092 },
-      { "path": "/assets/fw-startup-KVlNJYe3.js", "bytes": 882 },
+      { "path": "/assets/pagedeck-core-B79YWVHM.js", "bytes": 52092 },
+      { "path": "/assets/pagedeck-startup-KVlNJYe3.js", "bytes": 882 },
       { "path": "/assets/signup_form-MO8HIG2D.js", "bytes": 556 },
       { "path": "/assets/entry-ef03ce2801a978ad-CRTZ6pq1.js", "bytes": 226 }
     ]
@@ -287,8 +287,8 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
 ```
 
 `/` holds no island and ships nothing. `/faq/` ships the `faq` chunk and not
-`signup_form`'s, and `/signup/` ships the reverse. Both pay for `fw-core`, which
-holds React and the island runtime, and for `fw-startup`, which waits for each
+`signup_form`'s, and `/signup/` ships the reverse. Both pay for `pagedeck-core`, which
+holds React and the island runtime, and for `pagedeck-startup`, which waits for each
 island's trigger. Change a page's blocks in the CMS, and the next build changes
 that page's chunks to match.
 [JavaScript budgets](../reference/javascript-budgets.md) covers the report and how
