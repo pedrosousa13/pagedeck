@@ -126,3 +126,9 @@ test.each([
 ])("pattern %s matches under %s: %s", (pattern, prefix, expected) => {
   expect(matchesUnder(pattern, prefix)).toBe(expected);
 });
+
+test("the config sent carries the 2020-05-31 namespace even when the one read did not", () => {
+  const bare = RECORDED.replace(' xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/"', "");
+  const plan = planDistribution(bare, fragments(["/api/"]), "E2EXAMPLE");
+  expect(plan.config).toContain('<DistributionConfig xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">');
+});

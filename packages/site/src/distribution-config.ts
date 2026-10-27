@@ -19,6 +19,8 @@ export interface DistributionPlan {
 // when it targets one.
 const OURS = "pagedeck-upstream";
 
+const NAMESPACE = "http://cloudfront.amazonaws.com/doc/2020-05-31/";
+
 const LISTS = {
   origin: { list: "Origins", member: "Origin", key: "Id" },
   behavior: { list: "CacheBehaviors", member: "CacheBehavior", key: "PathPattern" },
@@ -182,6 +184,9 @@ export function planDistribution(
       `Distribution ${distributionId}: the config's root element is <${root.name}>, not <DistributionConfig> — check the distribution id, and that the endpoint is CloudFront's API`,
     );
   }
+  // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html : the
+  // request's root carries this namespace, and the response syntax shows none.
+  if (!root.attributes.some(([key]) => key === "xmlns")) root.attributes.push(["xmlns", NAMESPACE]);
   const before = writeXml(root);
   const ours = readFragments(fragments);
   const fragmentErrors = new Set(ours.error.map((one) => keyOf("error", one)));
