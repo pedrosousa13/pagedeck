@@ -42,7 +42,8 @@ delivery it checks:
 - **The signature.** The CMS signs `<webhook-id>.<webhook-timestamp>.<body>`
   with HMAC-SHA256 and a secret only the CMS and the receiver hold, and sends
   it in `webhook-signature`. The receiver compares it in constant time, with
-  `crypto.subtle.verify`. A wrong secret or a changed body gets a 401.
+  `crypto.subtle.verify`, against at most the first four `v1,` values in the
+  header. A wrong secret or a changed body gets a 401.
 - **The time.** A `webhook-timestamp` more than 300 seconds from the
   receiver's clock gets a 401. A delivery captured and sent again later is
   refused this way.
@@ -54,8 +55,9 @@ delivery it checks:
 - **Size.** It stops reading a body past 64 KiB and answers 413. A delivery
   names what changed; it does not carry the content.
 
-No answer quotes the secret or a signature, and a secret under 32 bytes is
-refused when the receiver is made, without quoting it. The tests are
+No answer quotes the secret, a signature, or a `webhook-id` the signature has
+not yet vouched for. A secret under 32 bytes, and a limit that is not a whole
+number above zero, are refused when the receiver is made. The tests are
 `src/webhook.test.ts`.
 
 ## Dispatch the CI job
@@ -71,7 +73,7 @@ The trust boundary has three parts, and each credential stays in one of them:
 | --- | --- | --- |
 | The CMS | the webhook secret | the dispatch token, any deploy credential |
 | The receiver | the webhook secret, the dispatch token | any deploy credential |
-| The CI job | the CMS read token, the deploy credential | the webhook secret |
+| The CI job | a CMS read token if the loader needs one, the deploy credential | the webhook secret |
 
 Nothing in this workflow runs in a browser, and no credential is in a webhook
 body or a dispatch payload. Give the deploy credential only to the steps that
@@ -118,7 +120,6 @@ jobs:
           restore-keys: publish-state-
       - name: Sync
         env:
-          CMS_TOKEN: ${{ secrets.CMS_READ_TOKEN }}
           RESTORED: ${{ steps.state.outputs.cache-matched-key }}
         run: |
           if [ -n "$RESTORED" ]; then npx pagedeck sync --incremental; else npx pagedeck sync; fi
@@ -128,8 +129,6 @@ jobs:
         run: |
           if [ -n "$RESTORED" ]; then npx pagedeck build --incremental; else npx pagedeck build; fi
       - name: Deploy
-        env:
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: ./deploy.sh --apply --prune
       - uses: actions/cache/save@<commit sha>
         with:
@@ -141,7 +140,10 @@ jobs:
 ```
 
 Pin each action to a commit, and replace `./deploy.sh` with your host's
-deploy. The example deploys with the repository's `deploy.bin.js`, which
+deploy. The example's CMS and its directory origin take no credential, so the
+workflow shows none. If your loader reads a CMS token, or your host's deploy
+takes a credential, set each in the `env:` of the one step that uses it, from a
+secret, and nowhere else. The example deploys with the repository's `deploy.bin.js`, which
 reads the live build off the origin and refuses a raced deploy. The save step
 runs only when every step before it passed, which is what keeps a failed run's
 state out of the next run.
@@ -163,7 +165,9 @@ the newest content.
 
 The example's `coalesce` applies the same rule, and the test measures it. Eight
 edits to one page produced two runs, the second started after the first ended,
-and the origin served the eighth edit. Every build deployed in the test names
+and the origin served the eighth edit. In a second case, an edit lands after
+the first run's sync has read the CMS: the first run deploys the edit before
+it, and the run waiting behind it deploys the late one. Every build deployed in the test names
 the build deployed before it as its parent, so no deploy raced another. That is
 a measurement of the example's rule, not of GitHub's runner: GitHub's
 behaviour is what its documentation states.
@@ -207,20 +211,24 @@ one second late.
 
 ## When a run fails
 
-A run that fails leaves the deployed site as it was. The job stops at the
-failed step, the deploy never runs, and the save step does not run, so the next
-run starts from the last successful state.
+A run that fails before its deploy leaves the deployed site as it was. The job
+stops at the failed step, and the save step does not run, so the next run
+starts from the last successful state.
 
 | Failure | Where the run stops | What to do |
 | --- | --- | --- |
 | The CMS is down or times out | `pagedeck sync` | Nothing. The next webhook or scheduled run syncs every change since the saved cursor. Or re-run the job. |
 | The CMS sends a page the schema refuses | `pagedeck sync`, naming the page and the field | Fix the page in the CMS. Its edit sends a webhook and starts the run. |
 | The build fails, such as a budget breach | `pagedeck build` | Fix the content or the site, and run the job again. |
-| The deploy fails | the deploy | Re-run the job. The origin's `manifest.json` is written last, so the live build is still the old one. |
+| The deploy fails | the deploy, exit 1 | Re-run the job once the origin takes writes again. The origin's `manifest.json` is written last, so the live build is still the old one. |
 
-The test makes each of the first three fail and checks that the origin's files
-and the saved state are byte for byte unchanged, and that the next run deploys
-the fix.
+The test makes each of the four fail, the deploy by making the page it uploads
+read-only at the origin. Each time it checks that the origin's files and the
+saved state are byte for byte unchanged, and that the next run deploys the fix
+without `--force`. The test's failed deploy had one page to upload, so nothing
+landed. A deploy that fails partway can already have replaced some pages,
+after the assets they load, and the live manifest still names the old build;
+the re-run uploads the rest.
 
 **Do not pass `--force` in this job.** A run built from the saved state records
 the live build as its parent, so its deploy is not a raced deploy and needs no

@@ -230,8 +230,10 @@ measured on #105, each file compressed on its own.
   and checks the workflow "Publish from a CMS" describes: a fresh run and
   incremental runs; a created, an edited and a removed page at the origin; a
   burst of eight edits; a scheduled page published and retracted; a CMS
-  outage, a refused page, a failed budget and a lost state, each recovered
-  without `--force`.
+  outage, a refused page, a failed budget, a deploy the origin refuses and a
+  lost state, each recovered without `--force`; and an edit made after a run's
+  sync, deployed by the run waiting behind it. The job reads the store path and
+  `outDir` from the site's config.
 - `src/site.build.test.ts` starts the CMS on a port the system picks, then runs
   `pagedeck sync` and `pagedeck build` in this directory. It checks the budget
   report for each page. It then edits the `faq` page in the CMS, runs an
