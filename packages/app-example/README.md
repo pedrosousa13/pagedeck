@@ -29,6 +29,18 @@ To develop, keep `wrangler dev` running and start `node ../core/dist/bin.js dev`
 beside it. The config's upstream entry forwards `/api/` from the dev server to
 `wrangler dev` on `http://127.0.0.1:8787`.
 
+## Releases
+
+`node src/release.ts prepare`, after a build, writes `releases/<build id>/`:
+the built `site/`, `wrangler.jsonc`, the app bundled with its build id, and
+`release.json`. `wrangler deploy worker/app.js --no-bundle` in that directory
+deploys it, and deploys it again to restore it. `GET /api/release` answers the
+id the app was bundled with, or `null` under `wrangler dev`.
+`node src/release.ts check <build id> --live <origin>` refuses a release that
+was not built on the one live. The deploy recipe's "A site and its app:
+releases and recovery" is the runbook, and `src/release.build.test.ts` runs it
+against `wrangler dev`.
+
 ## The form
 
 The form on `/signup/` is a reference for a form an island submits:

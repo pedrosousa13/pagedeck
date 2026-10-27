@@ -58,8 +58,8 @@ Each field changes what Pagedeck does:
 
 ## The app answers one path prefix
 
-The app is a Hono app whose routes all start with `/api`. It answers one
-request, a sign-up, and checks the address itself, in `src/app.ts`:
+The app is a Hono app whose routes all start with `/api`. It answers a
+sign-up, and checks the address itself, in `src/app.ts`:
 
 ```ts
 const app = new Hono()
