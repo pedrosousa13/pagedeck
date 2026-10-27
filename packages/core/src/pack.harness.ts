@@ -550,6 +550,7 @@ const APP_EXAMPLE_FILES = [
   "content",
   "public",
   "src/app.ts",
+  "src/account.ts",
   "src/csp.ts",
   "src/components",
   "src/release.ts",

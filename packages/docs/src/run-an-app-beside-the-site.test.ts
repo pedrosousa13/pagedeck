@@ -20,3 +20,17 @@ test("every code sample names the example file it quotes, and is a run of that f
     );
   }
 });
+
+test("the live checklist names each check a local run cannot make", () => {
+  const page = readFileSync(HOW_TO, "utf8");
+  const start = page.indexOf("### The live checklist");
+  expect(start, "a section headed The live checklist").toBeGreaterThan(-1);
+  const checklist = page.slice(start, page.indexOf("\n## ", start));
+  const checks = [...checklist.matchAll(/^\d+\. \*\*(.+?)\*\*/gm)].map((match) => match[1]);
+  expect(checks).toEqual([
+    "Access on the preview host.",
+    "`workers.dev` off.",
+    "Preview URLs off.",
+    "Direct origin refused.",
+  ]);
+});

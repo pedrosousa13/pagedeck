@@ -45,6 +45,11 @@ path at your CDN or reverse proxy, an allowlist, a separate bucket that is not
 public. If your published site is public and your drafts must not be, the app's
 path needs something the rest of the site does not have.
 
+On Cloudflare Workers Static Assets,
+[Run an app beside the site](../how-to/run-an-app-beside-the-site.md#a-preview-only-editors-can-load)
+gives one arrangement: the preview build as a separate deployment behind
+Cloudflare Access, and a checklist to run against the live hosts.
+
 The document carries `<meta name="robots" content="noindex">`, which asks
 crawlers that honour it not to list the address. That is not access control and
 it is not offered as any.

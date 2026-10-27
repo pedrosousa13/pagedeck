@@ -454,7 +454,7 @@ Workers Static Assets (#141, ADR-0010). Its config declares the app in
 `build.routing.upstreams`, which the build checks against every path it
 writes, `pagedeck dev` forwards to `wrangler dev`, and the client build uses to
 refuse an island's value import of `src/app.ts`. `wrangler.jsonc` sends
-`/api/*` to the app and every other request to `site/`; keep its
+`/api/*` and `/account/*` to the app and every other request to `site/`; keep its
 `run_worker_first` in step with the config's prefixes, since the build cannot
 read it. The island on `/signup/` imports the app's type only.
 Every adapter routes upstreams under a policy `defineAdapter` enforces: it

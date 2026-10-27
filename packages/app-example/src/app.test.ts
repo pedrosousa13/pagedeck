@@ -97,7 +97,7 @@ test("an error inside the app is answered with fixed text, never its own message
   });
   expect(response.status).toBe(400);
   expect(await response.text()).toBe(JSON.stringify({ error: "Something went wrong. Try again." }));
-  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 });
 
 // The host's `_headers` rules never reach a response the Worker writes, so the app sets its own.
@@ -108,7 +108,7 @@ test("every response carries the app's own headers, a refusal included", async (
     await signup("reader@example.com", {}),
     await app.request("/api/nope"),
   ]) {
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   }
 });
@@ -123,5 +123,5 @@ test("an unstamped app names no release", async () => {
   const response = await app.request(`${ORIGIN}/api/release`);
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ release: null });
-  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 });

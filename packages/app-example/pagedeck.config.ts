@@ -29,7 +29,10 @@ export default defineConfig({
           set: [...SECURITY_HEADERS, { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY }],
         },
       ],
-      upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" }],
+      upstreams: [
+        { prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" },
+        { prefix: "/account/", dev: "http://127.0.0.1:8787", source: "src/app.ts" },
+      ],
     },
     // Measured, not chosen: re-measure rather than raise a limit (README.md, "Budgets").
     budget: {
