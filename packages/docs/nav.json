@@ -25,6 +25,7 @@
       "how-to/deploy-to-vercel.md",
       "how-to/publish-from-a-cms.md",
       "how-to/run-an-app-beside-the-site.md",
+      "how-to/upgrade-pagedeck.md",
       "how-to/write-a-loader.md"
     ]
   },
@@ -59,6 +60,7 @@
       "reference/site-search.md",
       "reference/sitemaps.md",
       "reference/speculation-rules.md",
+      "reference/support.md",
       "reference/third-party-scripts.md",
       "reference/view-transitions.md",
       "reference/web-vitals-beacon.md"

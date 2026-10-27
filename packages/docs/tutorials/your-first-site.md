@@ -11,7 +11,8 @@ the site with `npm create pagedeck`, change a page while the dev server runs,
 add a page of your own, and build the result. At the end, three of the four
 pages ship no JavaScript, and one ships a single island.
 
-Pagedeck needs Node 22.18 or later. On Node 23, it needs 23.7 or later.
+Pagedeck supports Node.js 22 from 22.18, and Node.js 24. Node.js 23 is not
+supported. See [Support and compatibility](../reference/support.md).
 
 ## 1. Create the site
 

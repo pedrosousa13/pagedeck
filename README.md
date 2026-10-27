@@ -29,7 +29,8 @@ repository's own test site, `packages/site`:
 
 ## Quick start
 
-Pagedeck needs Node 22.18 or later. On Node 23, it needs 23.7 or later.
+Pagedeck supports Node.js 22 from 22.18, and Node.js 24. Node.js 23 is not
+supported. See [Support and compatibility](https://page.deck.cool/docs/reference/support/).
 
 ```sh
 npm create pagedeck@latest my-site
@@ -91,11 +92,18 @@ from markdown in this repository:
   builds a site from a headless CMS through a loader.
 - [Deploy a site](https://page.deck.cool/docs/how-to/deploy-a-site/)
   uploads a build, then only what changed, and rolls back.
+- [Upgrade Pagedeck](https://page.deck.cool/docs/how-to/upgrade-pagedeck/)
+  moves a site to a new release, with every `@pagedeck/*` package at one
+  version.
+- [Support and compatibility](https://page.deck.cool/docs/reference/support/)
+  lists the supported Node.js, React and browser versions, and what a
+  release may change.
 - [Reference](https://page.deck.cool/docs/reference/cli/) has a
   page for the `pagedeck` command and one per build feature, such as routing,
   fonts and site search.
 
 To work on Pagedeck itself, read [CONTRIBUTING.md](CONTRIBUTING.md).
+To report a vulnerability, read [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -69,7 +69,8 @@ redirect, CI — nothing is prompted: a missing directory is still an error, and
 a missing host defaults to `none`, exactly as before this flag existed.
 `--yes` skips every prompt and takes both defaults, even on a terminal.
 
-Pagedeck needs Node 22.18 or later. On Node 23, it needs 23.7 or later.
+Pagedeck supports Node.js 22 from 22.18, and Node.js 24. Node.js 23 is not
+supported. See [Support and compatibility](https://page.deck.cool/docs/reference/support/).
 
 ## Read more
 
