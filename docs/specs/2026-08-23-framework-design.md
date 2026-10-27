@@ -227,7 +227,7 @@ Four properties make it a class:
 
 **Each gets its own `build` field rather than a shared registry**: `sitemap`'s
 own arrangement, one field per build-time document. That is the configured
-shape rather than the class, and it is decided and argued in `CONTEXT.md`'s
+shape rather than the class, and it is decided and argued in `GLOSSARY.md`'s
 **A build-time document is configured by a field of its own**.
 
 ## 8. Component registry and islands
@@ -680,7 +680,7 @@ A separate build target for CMS visual editors:
   `packages/preview/`. `preview.build.test.ts` asks what a real `dist/` can
   answer — nothing the build wrote outside the declared path carries the preview
   app's mark — because emitted bytes and a manifest record no chunk's modules.
-  `CONTEXT.md`'s **Preview is declared or
+  `GLOSSARY.md`'s **Preview is declared or
   absent, and every byte of it lives under one path** carries the deployment
   posture and the reasoning, which is not repeated here.
 

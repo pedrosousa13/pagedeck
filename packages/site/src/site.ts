@@ -1,5 +1,5 @@
 import { join } from "node:path";
-// A site may name a CSS toolkit: CONTEXT.md's "the framework names no CSS solution"
+// A site may name a CSS toolkit: GLOSSARY.md's "the framework names no CSS solution"
 // binds the framework's own source (#358).
 import tailwindcss from "@tailwindcss/vite";
 import { defineCollection, getEntry } from "@pagedeck/content";

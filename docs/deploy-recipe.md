@@ -76,7 +76,7 @@ is not:
   nor Cloudflare R2 has been sent a request.
 - **It is not a CI service container, and cannot be one.** A service container
   is reached on `localhost`, which is the case the snapshot host refusal blocks
-  with no override (`CONTEXT.md`), so the deploy half would pass and
+  with no override (`GLOSSARY.md`), so the deploy half would pass and
   `pagedeck store push` would be refused. The harness creates, fills and starts a
   SeaweedFS container itself (`docker create`, `docker cp`, `docker start`) on a
   user-defined network with a private address instead, which the refusal does
@@ -157,7 +157,7 @@ every step of the job, which would have handed a write credential for the
 content store to `actions/checkout`, `pnpm/action-setup`, `actions/setup-node`,
 `actions/upload-artifact` and `pnpm install --frozen-lockfile` — that is, to
 every dependency lifecycle script in the workspace. That exposure is what
-`CONTEXT.md`'s **Third-party actions are pinned to commit SHAs** guards, and
+`GLOSSARY.md`'s **Third-party actions are pinned to commit SHAs** guards, and
 pinning an action does not help against a package.
 
 ## The pipeline, verb by verb
@@ -1405,7 +1405,7 @@ creates its own record. Merge and run with `apply=true`. Then:
 
 1. Check `/` over HTTPS on the domain, as in step 3 above.
 2. Declare HSTS. It is left out until then because it is a promise about a
-   domain (`CONTEXT.md`, "The framework emits no header a site did not
+   domain (`GLOSSARY.md`, "The framework emits no header a site did not
    write"). Add `{ name: "Strict-Transport-Security", value:
    "max-age=31536000" }` to the `/` rule in `packages/landing/src/site.ts`,
    where a comment says why it is absent, and to `SERVED_HEADERS` in

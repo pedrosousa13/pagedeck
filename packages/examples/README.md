@@ -6,7 +6,7 @@ example with it.
 
 ## Contracts without an example
 
-Which contracts get an example is `CONTEXT.md`'s standing decision **An example
+Which contracts get an example is `GLOSSARY.md`'s standing decision **An example
 runs in process, and a contract it cannot show is listed**. A new public
 contract gets an example or joins this list:
 

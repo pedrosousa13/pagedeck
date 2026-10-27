@@ -266,7 +266,7 @@ against the `data-precedence` attribute React stamps rather than against
 **Where the framework does the thing instead of refusing it, the message is
 about the one case it still cannot do.** A `<title>` or a `<meta>` a component
 renders is absorbed into the `<head>` and nothing is reported (#239,
-`CONTEXT.md`). What has no answer is two of them claiming one head singleton
+`GLOSSARY.md`). What has no answer is two of them claiming one head singleton
 with two values, and `absorbedHeadConflicts` (`packages/core/src/head.ts`) says
 what the build did with the rest before it says what it could not do with these:
 
@@ -303,7 +303,7 @@ refusal does** (#455). `documentHtml` wraps every page's tree in
 `landmark-main-is-top-level`:
 
 ```
-Entry /en/: 2 <main> landmarks in one document — the build writes one around the page's whole rendered tree, so a component that renders its own nests inside it and axe reports landmark-main-is-top-level; render <section>, <div> or a fragment in the component instead (CONTEXT.md, "The <main> landmark is the framework's, written once per document")
+Entry /en/: 2 <main> landmarks in one document — the build writes one around the page's whole rendered tree, so a component that renders its own nests inside it and axe reports landmark-main-is-top-level; render <section>, <div> or a fragment in the component instead (GLOSSARY.md, "The <main> landmark is the framework's, written once per document")
 ```
 
 The entry is named and the component is not, for the reason the page-level
@@ -311,7 +311,7 @@ stylesheet message above names an entry: a document records nowhere which
 component wrote a tag, and a page composed from CMS blocks has several
 candidates. The page is the one name that sends a reader to the right file every
 time. The fix offers three elements because the component wanted a wrapper and
-only the name it chose is refused, and it cites `CONTEXT.md` instead of
+only the name it chose is refused, and it cites `GLOSSARY.md` instead of
 restating the ownership rule, which is where a site author can read why the
 landmark is not theirs to write.
 
@@ -321,7 +321,7 @@ beside core's landmark rather than inside it, and `chromeLandmarkReport` in
 `packages/core/src/build.ts` refuses a `<main>` in either region:
 
 ```
-Entry /en/: build.chrome rendered a <main> landmark — the build writes the one <main> around the page tree and places the chrome before and after it, so a landmark in the chrome is a second one and is not taken in place of the build's; render <header>, <nav>, <footer> or a <div> in the chrome instead (CONTEXT.md, "The <main> landmark is the framework's, written once per document")
+Entry /en/: build.chrome rendered a <main> landmark — the build writes the one <main> around the page tree and places the chrome before and after it, so a landmark in the chrome is a second one and is not taken in place of the build's; render <header>, <nav>, <footer> or a <div> in the chrome instead (GLOSSARY.md, "The <main> landmark is the framework's, written once per document")
 ```
 
 The count above would refuse the same document as two landmarks and send the
@@ -342,7 +342,7 @@ of every build rather than of the pages a run happened to re-render:
 
 ```
 Output "/site/dist": 1 reused page cannot be carried from the previous build — an incremental build reads a page it does not render back off this tree rather than composing it again, so a document the previous manifest does not name, or that this tree does not hold as that build wrote it, has no bytes to carry, and one this build would refuse to compose is not carried past that refusal — run pagedeck build to write the whole site again:
-  "/index.html" — en /'s document, and it holds 2 <main> landmarks — the bytes are the ones the previous build recorded, so that build wrote them before this one refused a second landmark; render <section>, <div> or a fragment where the component renders <main> (CONTEXT.md, "The <main> landmark is the framework's, written once per document")
+  "/index.html" — en /'s document, and it holds 2 <main> landmarks — the bytes are the ones the previous build recorded, so that build wrote them before this one refused a second landmark; render <section>, <div> or a fragment where the component renders <main> (GLOSSARY.md, "The <main> landmark is the framework's, written once per document")
 ```
 
 Rule 5 collects it under the headline the two faults about an intact tree
@@ -4005,7 +4005,7 @@ on it.
 The eighth and ninth are `compileSupplements`' (`packages/core/src/supplement.ts`),
 and they are the other half of the same protocol — spec §9's step 1, the
 supplement inlined into each drifted page. The framework compiles nothing: no
-source of it names a CSS toolkit (`CONTEXT.md`), so `build.driftSupplement` is
+source of it names a CSS toolkit (`GLOSSARY.md`), so `build.driftSupplement` is
 the site's compiler, handed one page's missing classes and returning a
 stylesheet covering them. Each warning is one way that seam can produce no
 supplement, and each is loud because the page it is about is the one thing this
@@ -4194,7 +4194,7 @@ every `http(s)` run inside it is cut the same way before the line is written
 (`describe`, `packages/core/src/links.ts`).
 
 **One refusal sits under this field and it is the site's own function**, on the
-bargain CONTEXT.md records for `build.driftSupplement`. A probe answering with
+bargain GLOSSARY.md records for `build.driftSupplement`. A probe answering with
 something that is not an HTTP status is a declared function returning the wrong
 kind on every run until somebody edits it, so it is a `ConfigError` and exit 2 —
 while a probe that *throws* is the warning above rather than a stopped pass,
@@ -4540,7 +4540,7 @@ The twenty-second is `unlinkedStylesheetWarning`
 outside every island's import closure import. It takes the island scan's route,
 `IslandFacts.warnings` to `SiteBuild.warnings` to `runBuildVerb`, and
 `pagedeck dev` prints it too, since the dev server writes the scan's warnings.
-An island is `CONTEXT.md`'s **Island**, whether its module carries
+An island is `GLOSSARY.md`'s **Island**, whether its module carries
 `"use client"` or its registry entry declares a `hydrate` mode other than
 `"none"`. Render replaces each `.css` import with an empty module, and the
 client build starts from `build.css` and the island modules, so that
@@ -4566,7 +4566,7 @@ feature, and this warning goes when it lands.
 The twenty-third is `unregisteredClientWarning`
 (`packages/core/src/island-facts.ts`, #72): a `"use client"` module that a
 module outside every island imports, and that `build.components` does not
-register. An island is `CONTEXT.md`'s **Island**, as in the twenty-second. The
+register. An island is `GLOSSARY.md`'s **Island**, as in the twenty-second. The
 scan finds every reachable `"use client"` module, but only a registered one
 becomes an island, so an unregistered one renders as static HTML with no
 JavaScript: it looks interactive and does nothing. Before #72 the build said
@@ -4625,7 +4625,7 @@ is a background color: a sync that failed on an image host's uptime would fail
 on a Sunday for a reason no reader can act on, and what a reader loses by it
 finishing is decoration. Not silence either — the sources named here are the
 ones that will be asked about again on every sync until somebody looks, which is
-the visible cost of the ruling `CONTEXT.md` records against caching the failure.
+the visible cost of the ruling `GLOSSARY.md` records against caching the failure.
 
 Rule 5 lists every source and rule 6 redacts each one, which the second line
 above shows: an image source is as often a signed CDN URL as a path, its
@@ -4750,7 +4750,7 @@ primitive on it is read into too, and there the two instances part: a counter
 that moved while the build rendered the page will report a divergence the site
 does not have. That is a real cost and not an argued-away one; the 2026-09-06
 ruling on #255 took it because the alternative is that no object prop is
-compared at all (`CONTEXT.md`, "A provider prop is digested one level down, and
+compared at all (`GLOSSARY.md`, "A provider prop is digested one level down, and
 no prop opts out").
 
 A getter that throws when read, and a revoked proxy, keep the bare word rather

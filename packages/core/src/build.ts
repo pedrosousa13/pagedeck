@@ -387,7 +387,7 @@ async function carryDocuments(input: {
     const landmarks = mainLandmarks(contents);
     if (landmarks > 1) {
       faults.push(
-        `${subject} it holds ${String(landmarks)} <main> landmarks — the bytes are the ones the previous build recorded, so that build wrote them before this one refused a second landmark; render <section>, <div> or a fragment where the component renders <main> (CONTEXT.md, "The <main> landmark is the framework's, written once per document")`,
+        `${subject} it holds ${String(landmarks)} <main> landmarks — the bytes are the ones the previous build recorded, so that build wrote them before this one refused a second landmark; render <section>, <div> or a fragment where the component renders <main> (GLOSSARY.md, "The <main> landmark is the framework's, written once per document")`,
       );
       continue;
     }
@@ -2626,11 +2626,11 @@ function mainLandmarks(document: string): number {
 }
 
 function landmarkReport(entry: string, landmarks: number): string {
-  return `Entry ${entry}: ${String(landmarks)} <main> landmarks in one document — the build writes one around the page's whole rendered tree, so a component that renders its own nests inside it and axe reports landmark-main-is-top-level; render <section>, <div> or a fragment in the component instead (CONTEXT.md, "The <main> landmark is the framework's, written once per document")`;
+  return `Entry ${entry}: ${String(landmarks)} <main> landmarks in one document — the build writes one around the page's whole rendered tree, so a component that renders its own nests inside it and axe reports landmark-main-is-top-level; render <section>, <div> or a fragment in the component instead (GLOSSARY.md, "The <main> landmark is the framework's, written once per document")`;
 }
 
 function chromeLandmarkReport(entry: string): string {
-  return `Entry ${entry}: build.chrome rendered a <main> landmark — the build writes the one <main> around the page tree and places the chrome before and after it, so a landmark in the chrome is a second one and is not taken in place of the build's; render <header>, <nav>, <footer> or a <div> in the chrome instead (CONTEXT.md, "The <main> landmark is the framework's, written once per document")`;
+  return `Entry ${entry}: build.chrome rendered a <main> landmark — the build writes the one <main> around the page tree and places the chrome before and after it, so a landmark in the chrome is a second one and is not taken in place of the build's; render <header>, <nav>, <footer> or a <div> in the chrome instead (GLOSSARY.md, "The <main> landmark is the framework's, written once per document")`;
 }
 
 function placeClientFiles(input: {

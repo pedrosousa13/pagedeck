@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 
 const REPO = join(import.meta.dirname, "..", "..", "..");
 
-const NUMBERING = "CONTEXT.md";
+const NUMBERING = "GLOSSARY.md";
 
 const LIST_LEAD = "The blocks, in the order `headElements` writes them:";
 

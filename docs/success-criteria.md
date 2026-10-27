@@ -159,7 +159,7 @@ pnpm build && npx vitest run packages/site/src/runtime.build.test.ts
 That test builds this site into a scratch directory, prints the three rows
 above, and fails when either figure is over its ceiling. It needs no browser.
 It is a byte count off a build, so it answers the same on a loaded runner as on
-an idle one. That is the reasoning of `CONTEXT.md`'s "A site audit asserts only
+an idle one. That is the reasoning of `GLOSSARY.md`'s "A site audit asserts only
 what is deterministic", applied by analogy: this is not a site audit and needs
 no browser, so it runs in `pnpm test`. Two runs agreed to the byte.
 
@@ -487,7 +487,7 @@ So a mobile performance score of 99 or 100 is what the page scores with no
 third-party script at all. That is the criterion's starting condition, the
 same thing the section below says of #212's placeholder sources. It does not
 show that the score survives the loadout §15 names. That needs a page that
-loads a real third-party set, and no site here names a vendor (`CONTEXT.md`).
+loads a real third-party set, and no site here names a vendor (`GLOSSARY.md`).
 
 ### Before #2: the dogfood site on a loopback origin (#59)
 
@@ -510,7 +510,7 @@ analytics, tag manager, pixels, CMP banner — on default script-layer settings"
 #212 has landed a script layer on `packages/site`, and the measurement below was
 taken with it, but it does not close this: what it declares is **two placeholder
 sources under RFC 2606's reserved `.example`**, on the one interactive page,
-because a dogfood site names no vendor (`CONTEXT.md`). Neither host resolves, so
+because a dogfood site names no vendor (`GLOSSARY.md`). Neither host resolves, so
 no third-party bytes are executed — and it is two scripts rather than the four
 §15 lists, on overrides rather than on default script-layer settings. A ≥ 90
 measured against sources that resolve nowhere is not evidence about a criterion
@@ -530,7 +530,7 @@ the last of the four runs whose timings are below, re-measured on #628:
 
 † `best-practices` fails `errors-in-console` on `/en/pricing`, the one page
 that requests a placeholder host: `consent.example` for the consent manager. It
-resolves nowhere by standing decision (`CONTEXT.md`, "An example site's
+resolves nowhere by standing decision (`GLOSSARY.md`, "An example site's
 third-party script sources are placeholders"), so `ERR_NAME_NOT_RESOLVED` is
 that decision working rather than a defect, and the category cannot reach 100
 on that page while it stands. The two front pages used to fail the same audit
@@ -698,7 +698,7 @@ earlier, by #288.
 The placeholder host that holds `best-practices` at 96 on `/en/pricing` is
 deliberately **not** on that list, and this paragraph is where that is said
 rather than a bullet that would put an unfiled item under a heading promising an
-issue for each. `CONTEXT.md` rules that an example site's third-party script
+issue for each. `GLOSSARY.md` rules that an example site's third-party script
 sources are placeholders, so the console error is the decision working and there
 is nothing to file. The hero's `images.example`, which held the two front pages
 there too, is gone since #628: the image is the site's own file. What was a gap

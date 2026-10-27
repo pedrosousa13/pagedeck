@@ -43,7 +43,7 @@ any code that throws.
 ### Comments
 
 A comment says only what the code cannot. The rule and its keep-list are
-`CONTEXT.md`'s standing decision **Comments say only what the code cannot**
+`GLOSSARY.md`'s standing decision **Comments say only what the code cannot**
 (#631). A reason a doc needs goes in the doc, or in the issue or ADR it names,
 never in a source comment the doc points at.
 
@@ -318,7 +318,7 @@ declares `"lib": ["ES2022"]`, and `pnpm build` fails on `RequestInit` (#289).
 
 Write only from publicly documented behaviour: no vendor source, SDK, private
 documentation or production credentials (#53). This repo's own writing names
-no employer, design system or CMS vendor (`CONTEXT.md`, **A recorded corpus
+no employer, design system or CMS vendor (`GLOSSARY.md`, **A recorded corpus
 keeps the names it recorded**). `docs/dogfood-parity.md` says what the clean
 room rules out for the dogfood site: there is no production origin to record.
 
@@ -479,7 +479,7 @@ out of every emitted file. It declares `build.origin` as its workers.dev address
 (#99), so its pages carry canonical links and an absolute `og:image`.
 
 - **Every file the showcase fetches is this build's own.** Its embed script and
-  image candidates are same-origin stand-ins from `public/`, so `CONTEXT.md`'s
+  image candidates are same-origin stand-ins from `public/`, so `GLOSSARY.md`'s
   placeholder decisions for script sources and image hosts do not apply. Links
   to other sites go to placeholder origins (#288).
 - **`LANGUAGES` in `packages/landing/src/site.ts` is one entry, `tsx`**
@@ -562,7 +562,7 @@ node dist/deploy.bin.js --origin ../../.origin --apply            # writes it
 node dist/deploy.bin.js --origin ../../.origin --apply --prune    # and deletes
 ```
 
-A dry run is the default and `--apply` is the only way out (`CONTEXT.md`).
+A dry run is the default and `--apply` is the only way out (`GLOSSARY.md`).
 `docs/deploy-recipe.md` covers presigned origins (`PAGEDECK_DEPLOY_URLS`), the
 refusals, `--edge` and `.github/workflows/deploy.yml`. `dist/presign.bin.js`
 is the R2 signing step the origin harness proves (#665); no workflow runs it.
@@ -806,7 +806,7 @@ pnpm build && pnpm test:lighthouse-harness
 `packages/site/src/a11y.harness.ts` and `packages/site/src/lighthouse.harness.ts`
 build the dogfood site and audit it in Chromium (#59); Lighthouse costs an
 order of magnitude more, hence two commands. A failure is a real defect. **It
-never fails on timing** (`CONTEXT.md`, #59): the performance metrics go to
+never fails on timing** (`GLOSSARY.md`, #59): the performance metrics go to
 `packages/site/.pagedeck-site-audit/lighthouse-report.json`, asserted against
 nothing.
 
@@ -842,7 +842,7 @@ runs `pnpm build` first, because the deploys spawn `deploy.bin.js`.
 **It needs a Docker daemon, `openssl` on `PATH`, and Node 24.5 or later**,
 and skips with the reason in the suite's title without one. The origin runs on
 an `--internal` bridge network at a fixed private address, never `localhost`,
-because the snapshot host refusal takes no override (`CONTEXT.md`); Linux
+because the snapshot host refusal takes no override (`GLOSSARY.md`); Linux
 routes to the bridge, Docker Desktop does not. `ORIGIN_SUBNET` and
 `ORIGIN_IMAGE` (pinned by digest) are in
 `packages/site/src/s3-origin.test-support.ts`. A subnet that overlaps an
@@ -946,4 +946,4 @@ holds the figures and what #385 concluded.
 
 ## Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. `CONTEXT.md` holds the project's vocabulary and the standing decisions that bind work beyond the issue that produced them; `docs/adr/` holds the architectural decisions with their alternatives and consequences. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. `GLOSSARY.md` holds the project's vocabulary and the standing decisions that bind work beyond the issue that produced them; `docs/adr/` holds the architectural decisions with their alternatives and consequences. See `docs/agents/domain.md`.
