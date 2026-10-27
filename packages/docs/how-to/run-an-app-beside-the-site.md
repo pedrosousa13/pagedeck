@@ -39,7 +39,10 @@ routing: {
       set: [...SECURITY_HEADERS, { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY }],
     },
   ],
-  upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" }],
+  upstreams: [
+    { prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" },
+    { prefix: "/account/", dev: "http://127.0.0.1:8787", source: "src/app.ts" },
+  ],
 },
 ```
 
@@ -61,23 +64,24 @@ Each field changes what Pagedeck does:
   it out, because the app runs on the same host as the pages, and
   `cloudflarePages()` refuses it for the same reason.
 
-## The app answers one path prefix
+## The app answers its prefixes
 
-The app is a Hono app whose routes all start with `/api`. It answers a
-sign-up, and checks the address itself, in `src/app.ts`:
+The app is a Hono app whose routes start with `/api` or `/account`. Under
+`/api` it answers a sign-up, and checks the address itself, in `src/app.ts`:
 
 ```ts
 const app = new Hono()
   .use(secureHeaders())
   .use(async (c, next) => {
     await next();
-    c.header("Cache-Control", "no-store");
+    c.header("Cache-Control", "private, no-store");
   })
   .onError((error, c) =>
     wantsJson(c)
       ? c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500)
       : c.redirect("/signup/failed/", 303),
   )
+  .route("/account", account)
   .basePath("/api")
   .use(csrf())
   .post(
@@ -131,14 +135,16 @@ The site's pages and the app deploy as one Worker. `wrangler.jsonc`:
     "directory": "./site",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none",
-    "run_worker_first": ["/api/*"]
-  }
+    "run_worker_first": ["/api/*", "/account/*"]
+  },
+  "kv_namespaces": [{ "binding": "SESSIONS" }]
 }
 ```
 
 `assets.directory` is the build's output. `run_worker_first` sends every
-request under `/api/` to the app before Cloudflare looks for a file. Every
-other request is answered from `site/`, so a built page never runs the app.
+request under `/api/` and `/account/` to the app before Cloudflare looks for a
+file. Every other request is answered from `site/`, so a built page never runs
+the app.
 Cloudflare documents the option at
 <https://developers.cloudflare.com/workers/static-assets/binding/>.
 
@@ -170,8 +176,8 @@ applies it to every file it serves from `site/`. It never applies it to a
 response the Worker writes
 (<https://developers.cloudflare.com/workers/static-assets/headers/>). So the
 app sets its own: `secureHeaders()` adds Hono's security headers, and the
-second middleware marks every answer `no-store`, so no cache keeps a reply
-written for one visitor.
+second middleware marks every answer `private, no-store`, so no cache, shared
+or the browser's own, keeps a reply written for one visitor.
 
 ## The island calls the app by its type
 
@@ -294,7 +300,7 @@ with what was typed.
 
 ## Request protection
 
-Four different things protect an endpoint, and the example applies only the
+Four different things protect an endpoint, and the sign-up applies only the
 first two:
 
 - **Same-origin `fetch`.** The island calls the app on the site's own origin,
@@ -305,13 +311,186 @@ first two:
   `hono/csrf` refuses a form post unless `Sec-Fetch-Site` is `same-origin` or
   `Origin` is the app's own. Behind `pagedeck dev`, the app's URL is not the
   page's origin, and `Sec-Fetch-Site` is the header that passes.
-- **Authentication** says who is asking. The sign-up is open to anyone, so the
-  example has none. An endpoint that acts for a signed-in visitor checks a
-  session, and a session cookie is the reason CSRF protection matters.
+- **Authentication** says who is asking. The sign-up is open to anyone, so it
+  has none. The account, below, checks a session on every request, and a
+  session cookie is the reason CSRF protection matters.
 - **Abuse controls** limit how much anyone can ask: rate limits, a challenge
   for bots, a limit on body size. They belong to the host or a layer in front
   of the app, such as a rate-limiting rule on Cloudflare, and the example
   shows none.
+
+## An account the app owns
+
+The example has a small account area under `/account/`. The app answers every
+request under it, and the build writes no page there, so ADR-0010's rule holds:
+a prefix never covers a built page, and `pagedeck build` refuses one that does.
+A page that shows account data is a static page with an island that fetches
+from the account, never a page the app gates.
+
+Signing in checks a credential, stores a session and sets a cookie, in
+`src/account.ts`:
+
+```ts
+async (c) => {
+  const { email, password } = c.req.valid("form");
+  const signedIn = await checkCredential(c.env, email, password);
+  if (signedIn === undefined) return c.json({ error: "The email or password is wrong." }, 401);
+  const seconds = lifetime(c.env);
+  const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const session: Session = { email: signedIn, expiresAt: Date.now() + seconds * 1000 };
+  await c.env.SESSIONS.put(await keyOf(token), JSON.stringify(session), {
+    expirationTtl: Math.max(seconds, KV_MINIMUM_TTL),
+  });
+  setCookie(c, COOKIE, token, { ...COOKIE_OPTIONS, httpOnly: true, sameSite: "Lax", maxAge: seconds });
+  return c.json({ email: signedIn }, 200);
+},
+```
+
+The session lives on the server, in a Workers KV namespace bound as
+`SESSIONS`. The cookie holds only a random token, and the store is keyed by the
+token's SHA-256 digest, so a copy of the store signs nobody in. Each cookie
+attribute does one job:
+
+- the `__Host-` prefix, which `prefix: "host"` adds, makes the browser refuse
+  the cookie unless it is `Secure`, has `Path=/` and names no `Domain`, so
+  another host under the same domain cannot set or replace it;
+- `HttpOnly` keeps it from scripts, an island's included;
+- `Secure` sends it over HTTPS only;
+- `SameSite=Lax` leaves it off a `POST` from another site.
+
+Every request under `/account/` checks the session again, on the server, in
+`src/account.ts`:
+
+```ts
+async function sessionOf(c: Context<{ Bindings: AccountEnv }>): Promise<Session | undefined> {
+  const token = getCookie(c, COOKIE, "host");
+  if (token === undefined) return undefined;
+  const key = await keyOf(token);
+  const stored = await c.env.SESSIONS.get(key);
+  if (stored === null) return undefined;
+  const session = JSON.parse(stored) as Session;
+  if (Date.now() < session.expiresAt) return session;
+  await c.env.SESSIONS.delete(key);
+  return undefined;
+}
+```
+
+`GET /account/me` answers `401` and clears the cookie when there is no
+session. That covers an anonymous request, a cookie the app never issued, a
+session past its lifetime and one signed out. Signing out deletes the session
+from KV, so a copy of the cookie kept after sign-out is refused too: the
+session is revocable, which a cookie that carries its own signed claims is
+not. The app checks the expiry time itself, because KV keeps an entry for 60
+seconds at least, and a session can be shorter. `SESSION_SECONDS` sets the
+lifetime, an hour by default.
+
+The account takes the same request protection as the form: `csrf()` from
+`hono/csrf` refuses a sign-in or sign-out from another site, and
+`SameSite=Lax` keeps the cookie off one anyway. Every answer, a refusal
+included, is `private, no-store`, so neither a shared cache nor the browser
+keeps one visitor's account for the next.
+
+The credential is a Worker secret, set with `wrangler secret put`, and
+`wrangler dev` reads it from `.dev.vars` beside `wrangler.jsonc`. It is never
+in the source, so it is never in the app's bundle, in `site/` or in an island's
+props, and `wrangler dev` prints a secret's name but never its value. The
+example's test writes a fresh credential at run time and searches `site/`, the
+bundle and wrangler's output for it and for every session it was issued.
+
+### Where an identity provider plugs in
+
+The stub signs in one account, whose email and password are the secrets
+`ACCOUNT_EMAIL` and `ACCOUNT_PASSWORD`, in `src/account.ts`:
+
+```ts
+async function checkCredential(env: AccountEnv, email: string, password: string): Promise<string | undefined> {
+  if (!env.ACCOUNT_EMAIL || !env.ACCOUNT_PASSWORD) return undefined;
+```
+
+A real site replaces `checkCredential`, and keeps the rest. With an OpenID
+Connect provider, sign-in becomes a redirect to the provider, and a callback
+route under `/account/` checks the provider's answer and then creates the
+session the same way. The session, the cookie, the expiry and sign-out do not
+change. Pagedeck integrates no provider, and adds no auth to core.
+
+## A preview only editors can load
+
+Two different things protect a site, and they belong to different layers:
+
+- **Page protection** decides who may load a page at all. A built page is a
+  static file the host serves without running the app, so only the host can
+  protect it. The preview build, with drafts the public must not see, is
+  protected this way.
+- **API authorization** decides what a request to the app may do. The app
+  checks it on every request, as the account above does.
+
+Nothing in a page protects it. `noindex` asks crawlers not to list a page, a
+link left out of the navigation hides it from people who click, and a client
+redirect runs only if the browser runs it. A request for the file still gets
+the file. [The preview app](../reference/preview.md) authenticates nothing for
+the same reason.
+
+So the preview is a second Workers Static Assets deployment with no code,
+served on one custom domain behind Cloudflare Access, `wrangler.preview.jsonc`:
+
+```json
+{
+  "name": "pagedeck-app-example-preview",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "preview.app-example.example", "custom_domain": true }],
+  "assets": {
+    "directory": "./site",
+    "html_handling": "auto-trailing-slash"
+  }
+}
+```
+
+Access protects a hostname, so every other way to reach the Worker must be
+off. `workers_dev: false` removes the `workers.dev` route, and
+`preview_urls: false` removes the version and preview URLs, which are public
+when on (<https://developers.cloudflare.com/workers/configuration/previews/>).
+Set both: when a field is left out, wrangler keeps whatever the Worker had
+before. Deploy it with
+`wrangler deploy --config wrangler.preview.jsonc`, then add a self-hosted
+Access application for `preview.app-example.example` with a policy that
+admits your editors. The example points `assets.directory` at its own `site/`
+so a dry run has a tree to check. Point yours at the preview build's own
+directory, and never deploy that build to the public Worker.
+
+Everything on the preview host is behind Access, the build's assets included,
+so the preview build holds no public renderer asset. The public site serves
+its own copy of each file it needs.
+
+### The live checklist
+
+A local run cannot show that Access is on, so run this against the live hosts
+after you set the deployment up and after each change to it, from the
+example's `README.md`:
+
+```sh
+curl -sI https://preview.app-example.example/ | head -n 1
+curl -sI https://preview.app-example.example/favicon.ico | head -n 1
+curl -sI "https://pagedeck-app-example-preview.$SUBDOMAIN.workers.dev/" | head -n 1
+```
+
+1. **Access on the preview host.** The first two requests answer a redirect
+   to your Access team domain, for a page and for a file alike, and never
+   `200`.
+2. **`workers.dev` off.** The third answers no preview page.
+3. **Preview URLs off.** The Worker's Settings, Domains & Routes, in the
+   dashboard, show Preview URLs disabled.
+4. **Direct origin refused.** The same page lists the preview domain and no
+   other route or domain, so no host serves the preview without Access.
+
+The example's test checks what can run locally: the preview config's fields
+and a dry run of its deploy, and for the account an anonymous request, sign-in,
+sign-out, an expired session, a sign-in from another site and each answer's
+headers, against `wrangler dev`.
 
 ## Develop with both running
 

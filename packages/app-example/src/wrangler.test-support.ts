@@ -12,9 +12,11 @@ export const SITE = join(import.meta.dirname, "..");
 export const OUT = join(SITE, "site");
 export const BIN = join(SITE, "..", "core", "dist", "bin.js");
 export const WRANGLER = join(SITE, "node_modules", ".bin", "wrangler");
+export const DEV_VARS = join(SITE, ".dev.vars");
 
 export function clean(): void {
-  for (const path of [OUT, join(SITE, "content.db"), join(SITE, RETENTION_DIR), join(SITE, ".wrangler")]) {
+  const paths = [OUT, join(SITE, "content.db"), join(SITE, RETENTION_DIR), join(SITE, ".wrangler"), DEV_VARS];
+  for (const path of paths) {
     rmSync(path, { recursive: true, force: true });
   }
 }
@@ -47,6 +49,7 @@ function freePort(): Promise<number> {
 export interface Served {
   readonly origin: string;
   readonly child: ChildProcess;
+  readonly log: () => string;
 }
 
 /**
@@ -68,7 +71,7 @@ export async function serve(cwd = SITE, args: readonly string[] = []): Promise<S
     if (child.exitCode !== null) throw new Error(`wrangler dev exited:\n${log}`);
     try {
       await fetch(origin);
-      return { origin, child };
+      return { origin, child, log: () => log };
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }

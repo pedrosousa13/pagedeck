@@ -1,8 +1,9 @@
 # App example
 
 A Pagedeck site with an app beside it (#141, ADR-0010). The site's pages are
-static files. Requests under `/api/` go to a [Hono](https://hono.dev) app that
-runs as the Worker on Cloudflare Workers Static Assets. Pagedeck never imports
+static files. Requests under `/api/` and `/account/` go to a
+[Hono](https://hono.dev) app that runs as the Worker on Cloudflare Workers
+Static Assets. Pagedeck never imports
 or runs the app: `build.routing.upstreams` declares the prefix, which the build
 checks against every path it writes, `wrangler.jsonc` routes it, and the island on
 `/signup/` calls the app through Hono's typed client, importing only its type.
@@ -19,6 +20,14 @@ Build the workspace once with `pnpm build` from the repository root. Then, in
 node ../core/dist/bin.js sync
 node ../core/dist/bin.js build      # writes site/
 pnpm exec wrangler dev              # serves site/ and the app on one origin
+```
+
+The account signs in one stub account, whose credential `wrangler dev` reads
+from `.dev.vars` beside `wrangler.jsonc`. Write it there, and never in a file
+the build or git can reach (`.dev.vars` is gitignored):
+
+```sh
+printf 'ACCOUNT_EMAIL=editor@example.com\nACCOUNT_PASSWORD=%s\n' "$(openssl rand -hex 16)" > .dev.vars
 ```
 
 `src/site.build.test.ts` does the same and sends requests to both halves.
@@ -61,6 +70,55 @@ The form on `/signup/` is a reference for a form an island submits:
 explains each choice, and the difference between same-origin `fetch`, CSRF
 protection, authentication and abuse controls.
 
+## The account
+
+The app owns `/account/`, and no built page is under it (ADR-0010):
+
+- `POST /account/sign-in` checks a stub credential, the Worker secrets
+  `ACCOUNT_EMAIL` and `ACCOUNT_PASSWORD`, and answers `401` for any other. On a
+  match it stores a session in the `SESSIONS` KV namespace and sets a
+  `__Host-session` cookie: `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`.
+- `GET /account/me` reads the session on every request and answers `401`
+  without one, for a revoked or expired one, or for a cookie it never issued.
+- `POST /account/sign-out` deletes the session from KV, so the same cookie is
+  refused after it, and clears the cookie.
+- A session lasts `SESSION_SECONDS`, an hour unless that variable is set. The
+  app checks the time itself, since KV keeps an entry for 60 seconds at least.
+- `hono/csrf` refuses a sign-in or sign-out posted from another site, as it
+  does for the form.
+- Every answer is `Cache-Control: private, no-store`, with the app's security
+  headers.
+
+To deploy it, set the secrets with `wrangler secret put ACCOUNT_EMAIL` and
+`wrangler secret put ACCOUNT_PASSWORD`. The binding names no KV namespace id,
+so wrangler creates one on the first deploy and writes its id into
+`wrangler.jsonc`. A real site replaces the stub with its identity provider, as
+[Run an app beside the site](../docs/how-to/run-an-app-beside-the-site.md)
+describes.
+
+## The protected preview
+
+`wrangler.preview.jsonc` is a second Worker with no code for the preview
+build: one custom domain, no `workers.dev` route and no preview URLs. Cloudflare
+Access in front of that domain is what protects it. The file points at
+`./site` so that `wrangler deploy --dry-run --config wrangler.preview.jsonc`
+has a tree to check; a real preview build is its own build, in its own
+directory. `src/site.build.test.ts` runs that dry run and holds the file to
+the fields below.
+
+Nothing local can show that Access is on, so after each change to the preview
+deployment, run these against the live hosts:
+
+```sh
+curl -sI https://preview.app-example.example/ | head -n 1
+curl -sI https://preview.app-example.example/favicon.ico | head -n 1
+curl -sI "https://pagedeck-app-example-preview.$SUBDOMAIN.workers.dev/" | head -n 1
+```
+
+[Run an app beside the site](../docs/how-to/run-an-app-beside-the-site.md),
+"The live checklist", says what each must answer and what to check in the
+dashboard.
+
 ## What answers what
 
 | Request | Answered by | Headers from |
@@ -68,6 +126,7 @@ protection, authentication and abuse controls.
 | a built page, such as `/` or `/signup/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
 | `/signup/thanks/`, `/signup/invalid/`, `/signup/failed/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
 | `/api/*` | the app, because `run_worker_first` names it | the app's own middleware |
+| `/account/*` | the app, because `run_worker_first` names it | the app's own middleware |
 | a path with no file | the app, because `not_found_handling` is `none` | the app's own middleware |
 
 `_headers` never applies to a response the Worker writes

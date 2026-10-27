@@ -43,7 +43,7 @@ let releaseC = "";
 let onlyInB: string[] = [];
 
 function copySource(): void {
-  for (const path of ["app.ts", "csp.ts", "components"]) {
+  for (const path of ["app.ts", "account.ts", "csp.ts", "components"]) {
     cpSync(join(EXAMPLE, "src", path), join(SITE, "src", path), { recursive: true });
   }
 }
@@ -216,7 +216,7 @@ test("the first release restores from its directory alone, across a manifest ver
   const answer = await signup(origin);
   expect(((await answer.json()) as { message: string }).message).toContain(THANKS_A);
   expect(answer.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
-  expect(answer.headers.get("Cache-Control")).toBe("no-store");
+  expect(answer.headers.get("Cache-Control")).toBe("private, no-store");
 }, 300_000);
 
 test("with the first release restored, the second's assets are gone and nothing private is served", async () => {
@@ -224,7 +224,7 @@ test("with the first release restored, the second's assets are gone and nothing 
   for (const file of onlyInB) {
     const response = await fetch(`${origin}/assets/${file}`);
     expect(response.status, file).toBe(404);
-    expect(response.headers.get("Cache-Control"), file).toBe("no-store");
+    expect(response.headers.get("Cache-Control"), file).toBe("private, no-store");
   }
   // On disk in the release, and kept from the host by `.assetsignore`, which `wrangler dev` applies.
   for (const file of ["manifest.json", "_routes.json", "404.html"]) {

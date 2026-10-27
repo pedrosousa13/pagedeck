@@ -1,0 +1,11 @@
+{
+  "name": "pagedeck-app-example-preview",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "preview.app-example.example", "custom_domain": true }],
+  "assets": {
+    "directory": "./site",
+    "html_handling": "auto-trailing-slash"
+  }
+}

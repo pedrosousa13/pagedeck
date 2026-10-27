@@ -346,6 +346,9 @@ packages/app-example/content.db
 packages/app-example/.pagedeck/
 packages/app-example/.wrangler/
 
+# The account's credential, which `wrangler dev` reads and `site.build.test.ts` writes (#156).
+packages/app-example/.dev.vars
+
 # The copy of the app example `packages/app-example/src/release.build.test.ts` releases
 # twice and restores (#160), and the releases `node src/release.ts prepare` writes by
 # default. The test removes its copy after each run.

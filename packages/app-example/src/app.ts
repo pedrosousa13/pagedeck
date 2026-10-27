@@ -4,6 +4,7 @@ import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import { validator } from "hono/validator";
+import account from "./account.js";
 
 // `src/release.ts` defines it when it bundles the app for a release.
 declare const PAGEDECK_RELEASE: string | undefined;
@@ -17,13 +18,14 @@ const app = new Hono()
   .use(secureHeaders())
   .use(async (c, next) => {
     await next();
-    c.header("Cache-Control", "no-store");
+    c.header("Cache-Control", "private, no-store");
   })
   .onError((error, c) =>
     wantsJson(c)
       ? c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500)
       : c.redirect("/signup/failed/", 303),
   )
+  .route("/account", account)
   .basePath("/api")
   .use(csrf())
   .post(
