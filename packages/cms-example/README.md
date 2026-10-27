@@ -166,8 +166,8 @@ platform `fetch`.
   migration or a reset. Guard against it the same way.
 - **What the loader checks.** The loader checks only the fields it uses: the
   list, `nextPage`, `revision`, each page's `id` and the `deleted` list. It
-  passes `title` and `blocks` through unread, and the collection's schema in
-  `pagedeck.config.ts` validates them. A bad block is then reported by page and
+  passes `title`, `blocks`, `publishAt` and `unpublishAt` through unread, and
+  the collection's schema in `pagedeck.config.ts` validates them. A bad block is then reported by page and
   field, as for any other schema failure.
 - **Errors.** Each error about a request names it, as
   `CMS request "GET <url>"`, and says what to check. A refusal when the config
