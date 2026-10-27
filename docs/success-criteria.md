@@ -11,9 +11,9 @@ they are named rather than omitted.** When #59 wrote this report, the reason was
 one fact, the same every time: there was no production, no live twin and no
 third-party measurement service in reach. `docs/dogfood-parity.md` is bounded by
 it, `docs/deploy-recipe.md` is bounded by it, and this file was the third. The
-landing page is now live at `https://pagedeck-landing.pedrodsousa.workers.dev`
-(#52, #53), and the maintainer's 2026-10-08 ruling on #2 measures criteria 4
-and 5 there. The dogfood site and its twin are still not in production. A
+landing page was then live at `https://pagedeck-landing.pedrodsousa.workers.dev`
+(#52, #53), and the maintainer's 2026-10-08 ruling on #2 measured criteria 4
+and 5 there. #124 has since moved it to `https://page.deck.cool`, in deck-cool. The dogfood site and its twin are still not in production. A
 criterion this repository cannot settle is reported unsettled, with what would
 settle it.
 
@@ -37,13 +37,13 @@ same Lighthouse run is what qualifies it.
 pnpm build && pnpm test:lighthouse-harness    # the Lighthouse pass and the byte counts
 pnpm build && pnpm test:a11y-harness          # the axe pass
 pnpm build && npx vitest run packages/site/src/runtime.build.test.ts   # criterion 2
-pnpm bench:landing-publish --apply   # criterion 4: deploys the live landing page four times
-pnpm bench:landing-lighthouse        # criterion 5: Lighthouse over the live landing page
 ```
 
-The last two reach the live landing page, so they are run by hand and never by
-CI or `pnpm test`; criteria 4 and 5 say how each is taken. Everything else in
-this section is about the first three.
+Criteria 4 and 5 were measured on the live landing page by two harnesses run
+by hand, never by CI or `pnpm test`; criteria 4 and 5 say how each was taken.
+#124 retired the landing package and both harnesses when the landing page moved
+to deck-cool, so the figures below stand as #2 measured them. Everything
+else in this section is about the first three.
 
 The third needs no browser and is in `pnpm test`; criterion 2 below says what
 it measures. The first two build this site into a scratch directory with the
@@ -331,26 +331,26 @@ about field performance, and **nothing asserts on them** — see below.
 **Measured on #2, on the landing page, not the dogfood site.** The
 maintainer's 2026-10-08 ruling on #2 moved the measurement to the one site that
 is live: `packages/landing`, served as Workers Static Assets at
-`https://pagedeck-landing.pedrodsousa.workers.dev` (`docs/deploy-recipe.md`,
-"The landing page on Cloudflare"). The dogfood site is still not deployed and
+`https://pagedeck-landing.pedrodsousa.workers.dev`. The dogfood site is still not deployed and
 has no figure of its own.
 
-**The method.** `pnpm bench:landing-publish --apply` runs
-`packages/landing/src/publish-to-live.harness.ts`. Each of its three runs:
+**The method.** `pnpm bench:landing-publish --apply` ran
+`packages/landing/src/publish-to-live.harness.ts`, a harness #124 removed with
+the landing package. Each of its three runs:
 
-1. adds a dated probe sentence after one sentence of
-   `packages/landing/content/index.md`, in place, and puts the file back in a
+1. added a dated probe sentence after one sentence of
+   `packages/landing/content/index.md`, in place, and put the file back in a
    `finally`;
-2. runs `pagedeck sync` and `pagedeck build`, and checks that
-   `site/index.html` holds the sentence;
-3. starts the clock and runs `pnpm exec wrangler deploy` with
+2. ran `pagedeck sync` and `pagedeck build`, and checked that
+   `site/index.html` held the sentence;
+3. started the clock and ran `pnpm exec wrangler deploy` with
    `WRANGLER_SEND_METRICS=false`;
-4. from the same instant, requests `/` no more than once a second, with no
-   cache-busting query, until a response holds the sentence.
+4. from the same instant, requested `/` no more than once a second, with no
+   cache-busting query, until a response held the sentence.
 
-"Deploy" is the clock when wrangler exits. "First served" is the clock when
-the first response holding the sentence arrives. After the three runs, the
-harness builds the unedited content, deploys it, and polls until `/` is that
+"Deploy" was the clock when wrangler exited. "First served" was the clock when
+the first response holding the sentence arrived. After the three runs, the
+harness built the unedited content, deployed it, and polled until `/` was that
 local build byte for byte.
 
 **The figures**, 2026-10-08, the content of commit `ee75c45` (`main`), from
@@ -432,8 +432,9 @@ maintainer supplies `PAGEDECK_SNAPSHOT_URL` and passes `apply: true`.
 has no loadout.** Measured on #2, against the live landing page, on the
 maintainer's 2026-10-08 ruling.
 
-**The method.** `pnpm bench:landing-lighthouse` runs
-`packages/landing/src/lighthouse-live.harness.ts`: Lighthouse 13.4.1 in the
+**The method.** `pnpm bench:landing-lighthouse` ran
+`packages/landing/src/lighthouse-live.harness.ts`, a harness #124 removed with
+the landing package: Lighthouse 13.4.1 in the
 Chromium that `playwright@1.62.1` pins, launched as
 `packages/site/src/lighthouse.harness.ts` launches it, over `/`, `/features/`,
 `/interactive/` and `/server-data/` at

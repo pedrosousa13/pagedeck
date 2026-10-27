@@ -41,7 +41,7 @@ placeholder does not replace `label`: `label` stays the input's accessible
 name. The island ships no styles, so the site must style the input's
 `::placeholder` to meet text contrast.
 
-[Site search](https://pagedeck-docs.pedrodsousa.workers.dev/reference/site-search/) covers what the island
+[Site search](https://page.deck.cool/docs/reference/site-search/) covers what the island
 does with each prop, and what the index holds.
 
 ## What a page contributes

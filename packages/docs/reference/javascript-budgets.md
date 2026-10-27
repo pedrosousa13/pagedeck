@@ -229,8 +229,8 @@ for the page, and it is not set per page. A size is written as for `budget`.
 
 **The default is `3kb`**, and it applies to every site that does not declare
 `islandPropsBudget`, with or without a `budget`. It is the largest island props
-on the sites in this repository, 2296 B for the landing site's variant picker
-on `/server-data`, plus about 16%, rounded to a whole kilobyte.
+measured on Pagedeck's own sites when the default was set, 2296 B for the
+landing page's variant picker, plus about 16%, rounded to a whole kilobyte.
 
 What counts is the JSON the marker carries, **before HTML escaping**, in
 **UTF-8 bytes**. It is not compressed, unlike a JavaScript budget, so the figure

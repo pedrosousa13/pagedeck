@@ -37,8 +37,8 @@ test("the dark theme redeclares every colour the light theme states outright", (
   expect(literal.filter((name) => !themes.dark.declared.has(name))).toEqual([]);
 });
 
-test("each of the three sites imports this one token source", () => {
-  for (const site of ["landing", "docs-site", "site"]) {
+test("the dogfood site and the design system import this one token source", () => {
+  for (const site of ["site", "design-system"]) {
     const sheet = join(PACKAGES, site, "styles", "global.css");
     const imports = [
       ...readFileSync(sheet, "utf8").matchAll(/@import\s+"([^"]+)"/g),

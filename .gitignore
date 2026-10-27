@@ -156,60 +156,6 @@ packages/design-system/.pagedeck-build-twice-check/
 # measurement; this entry is what stops any of it from being committed.
 packages/design-system/.pagedeck-island-scan/
 
-# The docs site's own build output and store: `packages/docs-site` is a site as
-# well as a package, and `pagedeck build` writes into it. `outDir` is `./site` rather
-# than `./dist` precisely so the two trees stay distinguishable — `dist` above
-# is what `pnpm build` emits from `src`.
-packages/docs-site/site/
-packages/docs-site/content.db
-
-# The retention store the same builds write (#32, `packages/core/src/retention.ts`):
-# every `pagedeck build` keeps its manifest under `<site root>/.pagedeck/manifests/` so that
-# a later run can roll back to it. Deliberately outside `outDir` — a store
-# inside it would be uploaded to the CDN with the site — which is what puts it
-# beside the two entries above rather than under either. `packages/docs-site`,
-# `packages/landing` and `packages/site` are the sites in this repo that are not
-# themselves ignored already; every other one a test builds is written under
-# `node_modules` or under a `.pagedeck-*` directory this file already names.
-packages/docs-site/.pagedeck/
-
-# The starter copy `add-an-island.build.test.ts` follows the island how-to in
-# (#696). The test removes it after each run.
-packages/docs-site/.pagedeck-how-to-island-test-*/
-
-# The landing site's own build output, store and retention store: `packages/landing`
-# is a site as well as a package (#189), and `pagedeck build` writes all three into it.
-# Three entries rather than a share of the docs site's, because they are two
-# different sites — same reasoning as the three above, applied a second time:
-# `outDir` is `./site` so the emitted pages stay distinguishable from the `dist`
-# that `pnpm build` writes from `src`, and the retention store sits outside
-# `outDir` so it is never uploaded with the site.
-#
-# The `.pagedeck/` entry covers a second file since #336: this site declares
-# `build.budget`, and the budget report is now written to `.pagedeck/budget-report.json`
-# rather than into `outDir`, for the retention store's reason one clause up — it
-# is a CI artifact, and a directory-sync host publishes everything in the output
-# tree. No entry of its own, which is the whole argument for the dot-directory:
-# one ignored `.pagedeck/` absorbs the next thing a build wants to keep beside a site.
-#
-# `packages/landing/src/site.build.test.ts` removes all four before and after
-# its run — the output tree, the store, the retention store, and the report,
-# which became a fourth thing to clean up when #336 moved it out of `outDir`:
-# removing the output tree no longer removes it. Four artifacts under three
-# entries, because two of them share `.pagedeck/`. The docs site's test removes three
-# and not four, since that site declares no budget and so writes no report.
-# These entries are so that a run interrupted before its cleanup cannot be
-# committed.
-packages/landing/site/
-packages/landing/content.db
-packages/landing/.pagedeck/
-
-# wrangler's own scratch directory beside `packages/landing/wrangler.jsonc` (#52).
-packages/landing/.wrangler/
-
-# The same directory beside `packages/docs-site/wrangler.jsonc` (#6).
-packages/docs-site/.wrangler/
-
 # Everything `pnpm bench:scaling` writes
 # (`packages/bench/src/scaling.harness.ts`, #60): one generated site per rung of
 # the ladder, each with its own store and output tree, plus the report the run
@@ -259,22 +205,18 @@ packages/adapter-netlify/.pagedeck-removal-build-test/
 
 # The site port's own build output, store and retention store: `packages/site`
 # is a site as well as a package (#56), and `pagedeck build` writes all three into it.
-# Three entries rather than a share of the two sites above, because they are
-# three different sites — same reasoning applied a third time: `outDir` is
-# `./site` so the emitted pages stay distinguishable from the `dist` that `pnpm
-# build` writes from `src`, and the retention store sits outside `outDir` so it
-# is never uploaded with the site.
+# `outDir` is `./site` so the emitted pages stay distinguishable from the `dist`
+# that `pnpm build` writes from `src`, and the retention store (#32,
+# `packages/core/src/retention.ts`) sits outside `outDir` so it is never
+# uploaded with the site.
 #
-# The `.pagedeck/` entry covers a second file since #336, exactly as the landing site's
-# does: this site declares `build.budget`, and the budget report is written to
+# The `.pagedeck/` entry covers a second file since #336: this site declares
+# `build.budget`, and the budget report is written to
 # `.pagedeck/budget-report.json` rather than into `outDir`.
 #
 # `packages/site/src/site.build.test.ts` removes all four before and after its
-# run — the output tree, the store, the retention store, and the report, a
-# fourth artifact since #336 for the reason the landing site's entry gives —
-# which is four artifacts under three entries, two of them sharing `.pagedeck/`. The
-# docs test removes three, having no budget and so no report. These entries are
-# so that a run interrupted before its cleanup cannot be committed.
+# run. These entries are so that a run interrupted before its cleanup cannot be
+# committed.
 packages/site/site/
 packages/site/content.db
 packages/site/.pagedeck/
@@ -388,7 +330,7 @@ packages/cms-example/site/
 packages/cms-example/content.db
 packages/cms-example/.pagedeck/
 
-# The copy of the CMS example `packages/docs-site/src/connect-a-cms.build.test.ts` builds
+# The copy of the CMS example `packages/cms-example/src/connect-a-cms.build.test.ts` builds
 # (#697). The test removes it after each run.
 packages/cms-example/.pagedeck-how-to-cms-test-*/
 
@@ -414,6 +356,10 @@ packages/app-example/releases/
 # (#77). The test removes it after each run.
 packages/create-pagedeck/.pagedeck-template-build-test-*/
 packages/create-pagedeck/.pagedeck-app-build-test-*/
+
+# The starter copy `packages/create-pagedeck/src/add-an-island.build.test.ts` follows
+# the island how-to in (#696). The test removes it after each run.
+packages/create-pagedeck/.pagedeck-how-to-island-test-*/
 
 # The site `packages/markdown-loader/src/title.build.test.ts` builds (#101). The
 # test removes it after each run.

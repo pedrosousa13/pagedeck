@@ -243,7 +243,7 @@ test("--app with --host none writes the same site as --app alone", async () => {
 for (const host of ["vercel", "cloudflare-pages", "netlify"]) {
   test(`refuses --app with --host ${host}, naming the guide, and writes nothing`, async () => {
     expect(await refusal(["my-site", "--app", "--host", host], notTTY())).toBe(
-      `Arguments: --app sets up no host, and was given --host "${host}" — each host deploys the app its own way, which create-pagedeck does not write; leave --host out, then follow https://pagedeck-docs.pedrodsousa.workers.dev/how-to/run-an-app-beside-the-site/ to deploy the app with your host's adapter`,
+      `Arguments: --app sets up no host, and was given --host "${host}" — each host deploys the app its own way, which create-pagedeck does not write; leave --host out, then follow https://page.deck.cool/docs/how-to/run-an-app-beside-the-site/ to deploy the app with your host's adapter`,
     );
     expect(readdirSync(cwd)).toEqual([]);
   });

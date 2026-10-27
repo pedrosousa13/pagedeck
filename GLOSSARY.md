@@ -670,8 +670,9 @@ _Avoid_: widget, interactive component
 **Shell**:
 The frame every page of one site renders inside: the markup, and the class
 strings that carry it. It belongs to a site and never to the framework — the
-docs site's `src/components/shell.ts` holds two, the landing site's holds one,
-and each is imported by that site's own templates (#358).
+docs and landing sites each held their own in a `src/components/shell.ts`,
+imported by that site's own templates (#358), until #124 moved both to
+deck-cool.
 
 It earns an entry because **Root provider stack** above puts *app shell* under
 _Avoid_, and a word half-refused is a word two readers will use differently.
@@ -840,8 +841,8 @@ It is **not** a page's **dependencies**, and the distinction is the reason the
 field exists rather than a shade of one. `dependsOn` is defined as what a page's
 render *reads*, which an incremental build uses to decide what to rebuild; a
 page may read an entry it never links, and link a page its render never reads.
-`packages/docs-site` declares `sharedDependsOn: everyDocument` for rebuild
-correctness alone, so reading one as the other gave all 45 of its pages a rules
+The docs site, before #124 retired it, declared `sharedDependsOn: everyDocument`
+for rebuild correctness alone, so reading one as the other gave all 45 of its pages a rules
 block naming the first documents in collection order — wrong output rather than
 absent output. `dedupeRefs` flattens both callbacks with no provenance, so the
 two are separated where they are declared and nowhere later.
@@ -1254,8 +1255,8 @@ what one could ship belongs in the tarball)
 **Example site**:
 A site whose config is in this repository to be copied — it is here to
 demonstrate the framework, so a reader arrives at it looking for how to write
-their own. The docs site, the landing site and the site port are the three so
-far, and `AGENTS.md` describes each. A site published under its own name is not
+their own. The site port and the CMS and app examples are the ones so far, and
+`AGENTS.md` describes each. A site published under its own name is not
 one, however much of the framework it exercises and wherever its config lives:
 what a reader finds there is one deployment's answers, chosen for that
 deployment, and nobody starts a site from them.
@@ -1421,8 +1422,7 @@ key, heading path
 A document's headings in order, each with its **heading slug** and the text it
 reads as (`RenderedMarkdown.toc`, `TocEntry`, #327). The loader reports one and
 emits no markup for it; where it goes on a page, what it is called and which
-levels it shows are a template's (`packages/docs-site/src/components/doc_page.tsx`
-renders this site's).
+levels it shows are a template's.
 
 *Outline* rather than *table of contents* because the two are not the same
 thing: a table of contents is markup on a page, and a document has an outline
@@ -1554,9 +1554,8 @@ It binds a package added tomorrow, which is what puts it here rather than in
 the section below: `packages/core/src/publishable-packages.test.ts` walks
 `packages/` off disk and packs whatever it finds, so a new package is held to
 all of it the day it lands, with no list to add itself to. `AGENTS.md` under
-"The published tarball" carries the three fields and the argument for each,
-including where `packages/docs-site` makes uniformity a choice; do not restate them
-here. Ruled on #185.
+"The published tarball" carries the three fields and the argument for each; do
+not restate them here. Ruled on #185.
 
 Each package's `tsconfig.build.json` holds to the same rule. Only `references`
 differs between packages; `extends`, `compilerOptions`, `include` and `exclude`
@@ -2500,7 +2499,7 @@ the day a real deployment lands.
 **Same-origin candidates are not an image host, so this entry does not apply to
 them.** A file an example site publishes itself, from its `public/` through
 `build.passthrough`, is that site's own and names no service, which is the
-doctrine `AGENTS.md` states for `packages/landing`'s showcase (#551).
+doctrine #551 set for the landing site's showcase.
 `packages/site`'s hero is the second such image (#628): its template named
 `images.example`, which resolves nowhere, so the hero never loaded, and it now
 points at checked-in candidates under that package's `public/`.
@@ -2586,8 +2585,7 @@ current page, and its nodes go through the page's own render: the registry, the
 root providers, the island passes, the page's entry and its class manifest.
 Until #409 there was no such field. "The whole rendered tree" admitted no exception,
 so a top-level `<nav>`, banner or `contentinfo` was a descendant of `<main>`
-rather than a sibling, and `packages/docs-site`' own navigation still is until it
-moves onto the chrome. The ruling on #409 chose the field over the two answers that
+rather than a sibling. The ruling on #409 chose the field over the two answers that
 make the landmark depend on what a site rendered: a marker a component carries
 to opt out, which a site can forget, and skipping the wrap when the tree already
 holds a `<main>`, which would let rich-text content remove the page's landmark.

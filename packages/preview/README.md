@@ -32,6 +32,6 @@ drafts need.
 
 ## Read more
 
-[Preview app](https://pagedeck-docs.pedrodsousa.workers.dev/reference/preview/) covers security, how to
+[Preview app](https://page.deck.cool/docs/reference/preview/) covers security, how to
 write a bridge, the path rules, sites with a domain per locale, and what the
 app does not do.

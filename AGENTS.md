@@ -144,15 +144,16 @@ own suite. Add a new template file to `files`. The template's
 `.gitignore` is stored as `_gitignore`, because npm and pnpm leave every file
 named `.gitignore` out of a tarball, and is renamed when the site is written.
 **`@pagedeck/docs` is the other** (#108). It is the documentation as
-markdown, which a docs site reads at build time, and it emits no code: it has
+markdown, which deck-cool's `sites/pagedeck` reads at build time and serves at
+`https://page.deck.cool/docs`, and it emits no code: it has
 no `tsconfig.build.json`, `dist`, `main`, `types` or `exports`, and is not in
 the root `tsconfig.build.json`. Its `files` is
 `["**/*.md", "nav.json", "assets"]`, and its `prepack` is
 `node src/assemble.ts`, which copies in each page of the repository's `docs/`
 that `nav.json` lists (the ADRs, `deploy-recipe.md` and `error-messages.md`),
-writing only what differs and removing a copy `nav.json` no longer lists. The
-docs site's `src/nav-json.test.ts` holds those pages to
-`REPOSITORY_DOCS.published`, the list the site reads. `.gitignore` keeps those copies out of git, so
+writing only what differs and removing a copy `nav.json` no longer lists.
+`src/nav-json.test.ts` holds those pages to `REPOSITORY_DOCS.published` in
+`src/pages.test-support.ts` (see "The documentation"). `.gitignore` keeps those copies out of git, so
 `docs/` stays the one copy, where the agent skills expect it. `DOCS_PACKAGE`,
 `DOCS_PREPACK` and `packedAsDocs` in `public-packages.test-support.ts` are the
 exception in `workspace-packages.test.ts`, `publishable-packages.test.ts` and
@@ -164,9 +165,7 @@ pedrosousa13/deck-cool): markdown, `nav.json`, `assets/`, `package.json` and
 `LICENSE` only; a `title` and a `description` on every page; every page in
 `nav.json` once; relative `.md` links that resolve; images under `assets/`;
 and no HTML but a demo marker, `<!-- demo:<name> -->`, on a line of its own.
-**`packages/docs-site` takes the uniform `files` by choice**: its config stays
-out of a tarball nothing consumes; if it ever ships, argue its own
-`files` here rather than widen the rule. **`packages/brand`'s `brand.css` and
+**`packages/brand`'s `brand.css` and
 `favicon.ico` are not packed** (#547, #549); packing them needs a copy step or
 an amendment to the "packs only `dist`" standing decision, a maintainer call.
 **`satori`, `@resvg/resvg-js` and `subset-font` are pinned to exact
@@ -341,7 +340,7 @@ of a spawning case.
 
 ### Budgets
 
-Each checked-in site except the docs site declares `build.budget`, so a
+Each checked-in site declares `build.budget`, so a
 regression fails `pagedeck build`.
 
 - **A limit that starts failing is re-measured and re-justified, never
@@ -349,7 +348,7 @@ regression fails `pagedeck build`.
 - **Every figure is measured**: `pagedeck sync && pagedeck build` in the site,
   then `.pagedeck/budget-report.json`.
 - **Headroom is room for drift, never for a regression.** `0b` has none.
-  Landing and the site port size it for a `react-dom` patch release walking
+  The site port sizes it for a `react-dom` patch release walking
   the shared `fw-core` chunk.
 - **Each site's `site.build.test.ts` spells the limits again** instead of
   importing them, so a raised limit fails the suite, and holds the whole
@@ -358,7 +357,7 @@ regression fails `pagedeck build`.
 
 ## Sites
 
-Four packages are also sites, each with a `pagedeck.config.ts` at the package
+Three packages are also sites, each with a `pagedeck.config.ts` at the package
 root, built in place:
 
 ```sh
@@ -367,9 +366,10 @@ node ../core/dist/bin.js sync
 node ../core/dist/bin.js build
 ```
 
-Each writes `site/`, `content.db` and `.pagedeck/`, all gitignored. Do not run
-the docs or landing axe harness beside that site's `site.build.test.ts`: both
-build in the package directory.
+Each writes `site/`, `content.db` and `.pagedeck/`, all gitignored. The
+landing page and the docs are not among them: they are one site in
+pedrosousa13/deck-cool, `sites/pagedeck`, served at `https://page.deck.cool`
+(#124).
 
 Each site sets a `Content-Security-Policy` on its `/` header rule (#557, #577),
 in its `src/csp.ts`. The CMS example is the exception: it is never deployed and
@@ -381,149 +381,6 @@ page carries.
 
 **A new search engine test belongs in `packages/search`**, not in a site: a
 test riding on a site's content is retired by the next change to that content.
-
-### The docs site
-
-`packages/docs-site` writes to `site`, because `dist` is its emitted JavaScript. Its
-content is the pages of `@pagedeck/docs` (`packages/docs`, #108) and the
-published part of the repo's `docs/` (#576), read where git holds them: the
-guides collection skips the copies `@pagedeck/docs` packs. A page links
-another by its relative `.md` path, as the docs contract requires, and core
-never rewrites a link, so `routedLinks` (`packages/docs-site/src/site.ts`)
-rewrites each such `href` to the page's route as the site syncs.
-`src/nav-json.test.ts` holds `packages/docs/nav.json` to the site's own
-navigation: sections in `SECTIONS` order, pages by route. Add, move or
-re-section a page, and change `nav.json` with it. `pagedeck sync` fails, with
-the fix in the message, on:
-
-- **a file or directory added directly under `docs/`** until it is in
-  `published` or `excluded` in `REPOSITORY_DOCS` (`packages/docs-site/src/site.ts`);
-- **a published directory with no row** in `SECTION_OF_DIRECTORY`
-  (`packages/docs-site/src/sections.ts`), unless the file's frontmatter has a
-  `section`;
-- **a new code-fence language** until it is in `LANGUAGES`
-  (`packages/docs-site/src/site.ts`);
-- **a `description` missing, blank, a list or over `DESCRIPTION_LIMIT`**
-  (#565). It is the page's meta description: one sentence for that page.
-
-`src/add-an-island.build.test.ts` follows `packages/docs/how-to/add-an-island.md`
-from a copy of the starter template (#696): it writes each file the page
-names, splices each `build` key it shows into the config, runs each
-`npx pagedeck` line, and requires the quoted budget failure and report row to
-be what the build printed and wrote, with chunk hashes and byte figures
-normalised. Every word, page, pattern, limit and chunk name stays exact. Each
-island page must stay under its `60kb`, and `/greet`'s real `actual` within 5%
-of the figure the page quotes: past that, build the page's site again and copy
-the new figures in.
-
-`packages/docs/how-to/connect-a-cms.md` quotes `packages/cms-example` (#697).
-`src/connect-a-cms.test.ts` requires each fence's lead to name an example file
-and the fence to be a run of that file's lines, every line moved by one indent,
-and compiles the one file the page has the reader write, `src/token.ts`, whose
-`fetch` must pass `redirect: "manual"` (#729). A fence naming no file fails.
-`src/connect-a-cms.build.test.ts` builds a copy of the example and holds the
-quoted budget report rows to its report, with chunk hashes and byte figures
-normalised and each `actual` within 5%. Edit the example, and copy the changed
-lines and figures into the page.
-
-`packages/docs/how-to/run-an-app-beside-the-site.md` quotes
-`packages/app-example` (#141). `src/run-an-app-beside-the-site.test.ts`
-requires each fence's lead to name an example file and the fence to be a run
-of that file's lines, as `connect-a-cms.test.ts` does. Edit the example, and
-copy the changed lines into the page.
-
-`packages/docs/how-to/deploy-a-site.md` shows `pagedeck` commands (#698).
-`src/deploy-a-site.test.ts` runs each `pagedeck` line in its fences through
-`runCli` in an empty directory, so each verb's own parser takes or refuses the
-flags and the run stops at loading the config. Each inline `pagedeck` mention
-runs the same way, failing only on an unknown option or command, since it may
-leave out the arguments. Every verb and flag the page names must also be in
-the usage text `pagedeck` prints for `--help`. It compiles the page's one `ts` fence inside `packages/docs-site`. A
-new verb or flag needs no edit there; a renamed one fails it.
-
-`packages/docs/reference/preview.md` holds the preview app's security guidance, and
-`pagedeck build`'s `preview:` notice cites it by page title and heading (#713).
-`src/preview.test.ts` requires the notice the page quotes to name the page's
-`title` and one of its `##` headings, and compiles the `src/preview-bridge.ts`
-fence against the real `PreviewBridge` from `@pagedeck/preview`, with the DOM
-lib a site's own tsconfig has. Rename the page or the heading, and change the
-notice in `packages/core/src/cli.ts` with it.
-
-It deploys as the Worker `pagedeck-docs` the way the landing page does (#6):
-`cloudflarePages()`, `public/.assetsignore`, `wrangler.jsonc`,
-`.github/workflows/deploy-docs.yml`, and the runbook "The docs site on
-Cloudflare" in `docs/deploy-recipe.md`. The READMEs link its pages at
-`https://pagedeck-docs.pedrodsousa.workers.dev` until #54, and
-`site.build.test.ts` holds each linked route and heading to the build, from
-`DOCS_ORIGIN`.
-
-`/search` is the only page that ships JavaScript (#62). `site.build.test.ts`
-excludes it from the zero-JavaScript assertions **by name**, never by dropping
-it from the page set. The axe harness audits eight pages and a search,
-and requires zero CSP violations under the headers the build wrote to
-`_headers`:
-
-```
-pnpm build && pnpm test:docs-a11y-harness
-```
-
-### The landing site
-
-`packages/landing` proves a claim (#189) in one build: `/` ships 0 B of
-JavaScript; `/interactive` nests one island, in the same build because "an
-island taxes only itself" is a claim about the other pages; `/features` is the
-showcase (#551), each addition in `src/features.ts` scoped so `/` keeps `0b`;
-`/server-data` (#625) hands a `"use client"` picker only the fields it needs
-from a 67 kB entry, and `site.build.test.ts` keeps the entry's sentinel field
-out of every emitted file. It declares `build.origin` as its workers.dev address
-(#99), so its pages carry canonical links and an absolute `og:image`.
-
-- **Every file the showcase fetches is this build's own.** Its embed script and
-  image candidates are same-origin stand-ins from `public/`, so `GLOSSARY.md`'s
-  placeholder decisions for script sources and image hosts do not apply. Links
-  to other sites go to placeholder origins (#288).
-- **`LANGUAGES` in `packages/landing/src/site.ts` is one entry, `tsx`**
-  (#627). `src/front_page.test.ts` holds each fence in `content/index.md` to
-  the file its `###` heading names.
-- **The front page's figures are tested** (#548, #627): `site.build.test.ts`
-  holds the ruler to the budget report, each comparison cell to its sentence in
-  `docs/research`, and each byte figure to `src/bytes.ts`' format.
-- **It deploys as Workers Static Assets with wrangler** (#52), not through
-  `deploy.bin.js`. `build.adapter` is `cloudflarePages()`, so the build writes
-  `_headers` and `_redirects` into `site/`, and `public/.assetsignore` keeps
-  `manifest.json`, `.pagedeck` and the adapter's fallback `404.html` out of the
-  upload. `wrangler.jsonc` declares the Worker; wrangler is pinned in this
-  package's `devDependencies`, so run it as `pnpm exec wrangler`.
-  `.github/workflows/deploy-landing.yml` dry-runs it, or publishes it with
-  `apply`, through `deploy-worker.yml`, which `deploy-docs.yml` calls too.
-  `docs/deploy-recipe.md`, "The landing page on Cloudflare", is the runbook.
-
-**Budgets.** A limit is the measurement plus about 16%, rounded to a whole
-kilobyte.
-
-| Page | Limit | Basis | Latest | Made of (latest) |
-| --- | --- | --- | --- | --- |
-| `/` | `0b` | 0 B | 0 B | no chunks |
-| `/interactive` | `60kb` (61440 B) | 52918 B (#189) | 53675 B (#105) | `fw-core` 52175 B, `fw-startup` 992 B, `counter` 270 B, entry 238 B |
-| `/features` | `62kb` (63488 B) | 54326 B (#551) | 54451 B (#105) | `fw-core` 52175 B, `fw-startup` 992 B, `hydration_probe` 420 B, entry 366 B, `island_load` 132 B, the facade loader inlined 366 B |
-| `/server-data` | `60kb` (61440 B) | 52762 B (#625) | 53492 B (#105) | `fw-core` 52175 B, `fw-startup` 992 B, entry 325 B |
-
-The counter is charged because fold tuning (#24) promotes it to `load`. Since
-#694, React's JSX and compiler runtimes are in `fw-core`. Since #95, every
-page with an island also loads `fw-startup`, which holds the hydrate triggers
-and Vite's preload helper. `/server-data` has no `load` island, so it fetches
-`fw-core` on its picker's trigger, and its budget charges `fw-core` all the
-same. The whole-build ceiling is 66 kB Brotli (67584 B) against 59584 B
-measured on #105, counting the `slot` chunk and the lazy islands, each file
-compressed on its own.
-
-```
-pnpm build && pnpm test:landing-a11y-harness
-```
-
-The axe harness runs both colour schemes at 390 px (`isMobile`, #604) and
-1280 px, drives the demos, and requires zero requests to another origin and
-zero CSP violations under the compiled CloudFront headers.
 
 ### The site port
 
@@ -566,7 +423,6 @@ A dry run is the default and `--apply` is the only way out (`GLOSSARY.md`).
 `docs/deploy-recipe.md` covers presigned origins (`PAGEDECK_DEPLOY_URLS`), the
 refusals, `--edge` and `.github/workflows/deploy.yml`. `dist/presign.bin.js`
 is the R2 signing step the origin harness proves (#665); no workflow runs it.
-The landing page does not deploy through this CLI (see "The landing site").
 
 **Parity** (#58):
 
@@ -611,8 +467,8 @@ table.
 
 ### The shared brand
 
-`packages/brand` holds the look of the landing, docs and dogfood sites (#547).
-**Changing a token in `brand.css` changes all three sites.** A site takes it
+`packages/brand` holds the look of the dogfood site and the design system
+(#547). **Changing a token in `brand.css` changes both.** A site takes it
 with `"@pagedeck/brand": "workspace:*"` in its `dependencies` and one line
 after the `@layer` statement in its `styles/global.css`, relative because a
 `node_modules` path exists only after an install:
@@ -625,6 +481,88 @@ after the `@layer` statement in its `styles/global.css`, relative because a
 both themes, picking pairs by token name, so a new `--fw-fg-*` or `--fw-bg-*`
 is checked the day it lands. A site checks its own sheet with `colourFaults`
 and `pairFaults`.
+
+## The documentation
+
+The pages are `packages/docs` (`@pagedeck/docs`, #108) and the published part
+of the repository's `docs/`. deck-cool's `sites/pagedeck` builds them and
+serves them at `https://page.deck.cool/docs` (#124); its build test checks
+the figures the pages quote about that site. A page links another by its
+relative `.md` path, as the docs contract requires. The tests of what the
+pages say about Pagedeck's own starter, examples, CLI and repository live here:
+
+- **In `packages/docs/src`**, with the workspace packages a sample imports as
+  `devDependencies`, which `.pnpmfile.mjs` drops from the tarball:
+  - `nav-json.test.ts` fails on an entry added directly under `docs/` until
+    it is in `published` or `excluded` in `REPOSITORY_DOCS`
+    (`pages.test-support.ts`), and holds `nav.json` to the pages: sections in
+    `SECTIONS` order, pages by route, each page in its frontmatter `section`
+    or its directory's row in `SECTION_OF_DIRECTORY`. A `section` that
+    `SECTIONS` lacks fails. Add, move or re-section a page, and change
+    `nav.json` with it.
+  - `pages.test.ts` holds every packed page (the guides, and the ADRs,
+    `deploy-recipe.md` and `error-messages.md`) to a `description` that is
+    one line of 150 characters or fewer (#565), to fence languages in
+    `LANGUAGES` (`render.test-support.ts`), and to in-page links that
+    resolve. `LANGUAGES` is the list deck-cool's
+    `sites/pagedeck/pagedeck.config.ts` passes `defineDocs`: change both
+    together.
+  - `tutorial.test.ts` holds the tutorial's fences to the starter template
+    (see "The pack harness").
+  - `connect-a-cms.test.ts` requires each fence's lead in
+    `how-to/connect-a-cms.md` to name a file of `packages/cms-example` and the
+    fence to be a run of that file's lines, every line moved by one indent,
+    and compiles the one file the page has the reader write, `src/token.ts`,
+    whose `fetch` must pass `redirect: "manual"` (#697, #729). A fence naming
+    no file fails. `run-an-app-beside-the-site.test.ts` does the same for
+    `how-to/run-an-app-beside-the-site.md` and `packages/app-example` (#141).
+    Edit an example, and copy the changed lines into its page.
+  - `deploy-a-site.test.ts` runs each `pagedeck` line in the deploy pages'
+    fences through `runCli` in an empty directory, so each verb's own parser
+    takes or refuses the flags and the run stops at loading the config (#698).
+    Each inline `pagedeck` mention runs the same way, failing only on an
+    unknown option or command. Every verb and flag the pages name must be in
+    the usage text `pagedeck` prints for `--help`. It compiles each `ts` fence
+    inside `packages/docs`. A new verb or flag needs no edit there; a renamed
+    one fails it.
+  - `preview.test.ts` requires the `preview:` notice `reference/preview.md`
+    quotes to name the page's `title` and one of its `##` headings, and
+    compiles the `src/preview-bridge.ts` fence against the real
+    `PreviewBridge` (#713). Rename the page or the heading, and change the
+    notice in `packages/core/src/cli.ts` with it. `favicon.test.ts` and
+    `page-head.test.ts` hold the warnings those pages quote to the catalogue.
+  - `react-compiler.test.ts` holds `reference/react-compiler.md`'s output
+    fences to what `compileIslands` prints.
+  - `reserved-names.test.ts` renders every page and fails on a byte core's
+    reserved-name strip would remove.
+  - `samples.test.ts` holds the fonts page's second sample to
+    `packages/site`. The fonts page's first sample and every sample on the
+    site-search page are unchecked: they quoted the landing and docs sites,
+    which #124 moved to deck-cool, and now read as what a site might write.
+  - `readme-links.test.ts` holds every README's docs link, and those
+    `create-pagedeck` prints, to a page `nav.json` lists at `DOCS_ORIGIN`,
+    and a fragment to a heading on it. It assumes deck-cool's addressing:
+    `routeOf` follows `docsHref` in deck-cool's `packages/docs/src/loader.ts`
+    (the base `/docs`, the file without `.md`, a last `index` dropped, a
+    trailing slash), and heading ids are the slugs
+    `@pagedeck/markdown-loader`'s renderer writes, which that loader renders
+    with. Checked against `https://page.deck.cool` on 2026-10-27. If deck-cool
+    changes either, change `routeOf` or the renderer here.
+- **`packages/create-pagedeck/src/add-an-island.build.test.ts`** follows
+  `how-to/add-an-island.md` from a copy of the starter template (#696): it
+  writes each file the page names, splices each `build` key it shows into the
+  config, runs each `npx pagedeck` line, and requires the quoted budget
+  failure and report row to be what the build printed and wrote, with chunk
+  hashes and byte figures normalised. Every word, page, pattern, limit and
+  chunk name stays exact. Each island page must stay under its `60kb`, and
+  `/greet`'s real `actual` within 5% of the figure the page quotes: past that,
+  build the page's site again and copy the new figures in. It lives beside
+  the starter's dependencies; under `packages/docs`, its copy's markdown
+  would be packed.
+- **`packages/cms-example/src/connect-a-cms.build.test.ts`** builds a copy of
+  the CMS example and holds the budget report rows `connect-a-cms.md` quotes
+  to its report, with chunk hashes and byte figures normalised and each
+  `actual` within 5%.
 
 ## Runnable examples
 
@@ -667,9 +605,8 @@ entry passed as props.
 
 | Site | Largest island props (#653) | Island and page |
 | --- | --- | --- |
-| `packages/landing` | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
+| the landing site, measured on #653 before #124 moved it to deck-cool | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
 | `packages/site` | 163 B | `pricing_page` on `/en/pricing` |
-| `packages/docs-site` | 94 B | `search` on `/search` |
 
 If an island starts to fail the default, measure again and give a reason
 before changing it; never raise it to make the failure go away.
@@ -735,7 +672,7 @@ ending `` `path`: ``, and a fence that names none fails the run. A file the
 site already holds must match the fence, and any other is written. While
 `pagedeck dev` runs, each written `content/*.md` must be served at its route.
 Every page under `content/` must be built.
-`packages/docs-site/src/tutorial.test.ts` checks the same fences in the suite, with
+`packages/docs/src/tutorial.test.ts` checks the same fences in the suite, with
 no install: each starter file the page quotes matches
 `packages/create-pagedeck/template` byte for byte, and every other file is a
 new markdown page.
@@ -872,20 +809,18 @@ per proxied client-component instance it renders
 because an incremental build skips renders:
 
 ```sh
-cd packages/docs-site
+cd packages/site
 rm -rf site .pagedeck
 node ../core/dist/bin.js sync
 PAGEDECK_PROXY_CENSUS="$PWD/census.jsonl" node ../core/dist/bin.js build
 ```
 
-`packages/landing` and `packages/site` take the same three commands.
-`census.jsonl` is not gitignored: write it somewhere that is, or remove it
+Another site takes the same three commands. `census.jsonl` is not gitignored: write it somewhere that is, or remove it
 after reading.
 
 **Take it again when a page renders a `"use client"` component from another
 component's code**, and reopen #173 (`.out-of-scope/proxied-slots.md`) on a row
-with `refusedChildren: true`. Landing's one `refusedChildren: false` row is a
-demo and does not count (#625).
+with `refusedChildren: true`.
 
 ### The build-twice check
 
@@ -918,28 +853,6 @@ store size and page count. Spec §16's figures are targets, not gates (decision
 red run of `.github/workflows/scaling.yml` means it did not finish (#380). The
 default ladder stops at 32,000 pages. `docs/scaling-verification.md` holds the
 measurements; do not compare figures across machines.
-
-### The live landing measurements
-
-```sh
-pnpm bench:landing-publish               # prints the plan; edits and deploys nothing
-pnpm bench:landing-publish --apply       # deploys; needs `wrangler login` in packages/landing
-pnpm bench:landing-lighthouse
-```
-
-Both reach the live landing page on its `workers.dev` address, so they run by
-hand only, never in CI (#2). `packages/landing/src/publish-to-live.harness.ts`
-is a dry run unless given `--apply`. With it, it edits `content/index.md` in
-place, deploys three times, times each deploy and the first response holding
-the edit, then deploys the unedited build again and waits for `/` to serve it
-byte for byte. That restore runs once, after an error or on `SIGINT` or
-`SIGTERM`, and an interrupted run exits non-zero. A deploy is killed after
-300 s. Run `--apply` only with the maintainer's approval of the deploys.
-`publish-to-live.harness.test.ts` covers the dry run, the deploy timeout and
-the redaction of wrangler's account email and ID from a failure message. `packages/landing/src/lighthouse-live.harness.ts`
-runs Lighthouse twice per page, mobile and desktop, over the four pages, and
-lists any request to another origin. `docs/success-criteria.md`, criteria 4
-and 5, holds the figures.
 
 ### The island-scan measurement
 

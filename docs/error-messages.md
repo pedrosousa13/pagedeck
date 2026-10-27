@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 126 below, 113 of them
+`x` at/from `path`, outside fenced blocks — there are 125 below, 112 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 298 messages fenced
-below, 231 are checked that way and 67 are not**, and that test lists the 67
+literal interpolates left as holes it cannot read. **Of the 297 messages fenced
+below, 230 are checked that way and 67 are not**, and that test lists the 67
 one by one with the reason each is out: 65 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 231 checked messages pin 35247 of the 94982 fenced characters, and
+below**: the 230 checked messages pin 35032 of the 94703 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -54,8 +54,7 @@ binding, is skipped rather than checked.
 
 **The catalogue is scoped, and the scope is a boundary rather than a backlog.**
 Quoted below are `@pagedeck/core`, `@pagedeck/content`, `@pagedeck/islands`, `@pagedeck/edge`
-and its adapters (#19), `@pagedeck/search`, the docs site's refusal of an unlisted
-`docs/` entry from `@pagedeck/docs-site` (#576), the deploy's refusal of an origin that lost
+and its adapters (#19), `@pagedeck/search`, the deploy's refusal of an origin that lost
 its manifest from `@pagedeck/site` (#561), its refusal of an `--edge` target no adapter
 names (#19), its refusals of a file of presigned URLs (#652) and the
 signing step's refusals (#665), and the `@pagedeck/fixtures` and `@pagedeck/examples` scaffolding the
@@ -653,18 +652,6 @@ the first to surface as a Node import error mid-render:
 Config "/site/pagedeck.config.ts": 2 components declare a module that does not resolve — point each path at a file, relative to this config file, or install the package each specifier names:
   "ghost" — "./components/Ghost.js" resolves to "/site/components/Ghost.js", and no file is there
   "phantom" — "@acme/phantom/widget" resolves to no module from "/site/pagedeck.config.ts"
-```
-
-The docs site collects the same way over the repository's `docs/` tree (#576).
-`refuseUnclassified` in `packages/docs-site/src/site.ts` names every entry directly
-under that tree which `REPOSITORY_DOCS` neither puts on the site nor excludes,
-so a new directory and a new file beside it cost one run and not two. `pagedeck sync`
-reports it as the cause of `Collection "repository": loader syncAll failed`:
-
-```
-Docs site: 2 entries directly under "/repo/docs" are on neither of the docs site's lists, so the site cannot tell whether to show them — add each entry to REPOSITORY_DOCS.published to put it on the site, or to REPOSITORY_DOCS.excluded to keep it off the site:
-  drafts
-  notes.md
 ```
 
 The boundary is the *kind* of failure. Content that fails its schema is one of
@@ -4962,18 +4949,14 @@ question matches `pagedeck: `, with the space `markDiagnostic` always writes.
 §14b also asks that errors link to the relevant doc. None do, and that still
 holds after #61.
 
-The docs site now exists — `packages/docs-site` builds this file, the ADRs and the
-deploy recipe into pages (#576) — but it is not deployed anywhere, so there
-is no URL to put in a message. A path is not enough: a build failure is read in
-a CI log, where `/error-messages` resolves to nothing.
-
-When the site has an origin, the messages above are where the links belong: the
-schema failure to the schema guide, the snapshot scheme failure to the snapshot
-how-to. Until then, do not add a link to a page nobody can open; a dead URL in
-a build failure is worse than no URL.
+The docs are now served at `https://page.deck.cool/docs`, from deck-cool's
+`sites/pagedeck`, which builds `@pagedeck/docs` (#124). No message links there
+yet. The messages above are where the links belong: the schema failure to the
+schema guide, the snapshot scheme failure to the snapshot how-to. A dead URL in
+a build failure is worse than no URL, so link only a page that is served.
 
 Three lines name a page instead, by the title, and heading where one helps, that
-the docs site shows. The twenty-first warning above names the Favicon page
+the docs show. The twenty-first warning above names the Favicon page
 (#76), and the twenty-fourth names the Page head page's "Cards the build draws"
 heading (#99). `pagedeck build` prints the third after its summary when the site
 declares `build.preview` (#713):
@@ -4984,5 +4967,5 @@ preview: /_preview — this app authenticates nothing and renders any draft post
 
 The preview line used to name a README path in this repository, which an
 installed site does not have and which belongs to a private package. A page
-title survives the move to an origin. When the site has one, the URL goes beside
-the title.
+title survives a change of origin. When messages link, the URL goes beside the
+title.

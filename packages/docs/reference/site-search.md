@@ -80,8 +80,8 @@ that links to it.
 `SEARCH_ATTRIBUTE`, exported from `@pagedeck/core/tree`, is the name of the attribute
 that keeps such an element out of the index. Give it the value `"ignore"`. The
 element and everything inside it are left out of the index, and nothing else
-changes: readers and assistive technology get the element as before. This site
-spreads it onto its navigation, its pager and its source line:
+changes: readers and assistive technology get the element as before. A site
+might spread it onto its navigation and its pager:
 
 ```tsx
 import { SEARCH_ATTRIBUTE } from "@pagedeck/core/tree";
@@ -155,8 +155,7 @@ before the reader reaches it without costing a request:
 search: { path: "@pagedeck/search/island", hydrate: "idle" },
 ```
 
-Then place it as a node of the page's entry tree, as the sites in this
-repository do:
+Then place it as a node of the page's entry tree. A site might write:
 
 ```ts
 // SEARCH is the island's registry name, "search".

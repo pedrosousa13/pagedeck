@@ -60,7 +60,7 @@ through `hc<AppType>` with only `import type`. The written `package.json` adds
 `hono`, `@hono/node-server` and a `dev:app` script, and `README.md` says how to
 run both. `--app` takes no `--host` but `none`: each host deploys the app its
 own way, and
-[Run an app beside the site](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/run-an-app-beside-the-site/)
+[Run an app beside the site](https://page.deck.cool/docs/how-to/run-an-app-beside-the-site/)
 gives the steps. On a terminal, `--app` prompts for no host.
 
 On a terminal (both stdin and stdout are TTYs), a missing directory or host is
@@ -73,5 +73,5 @@ Pagedeck needs Node 22.18 or later. On Node 23, it needs 23.7 or later.
 
 ## Read more
 
-[Your first site](https://pagedeck-docs.pedrodsousa.workers.dev/tutorials/your-first-site/) starts from
+[Your first site](https://page.deck.cool/docs/tutorials/your-first-site/) starts from
 this site: it edits a page under `pagedeck dev`, adds one and builds the result.
