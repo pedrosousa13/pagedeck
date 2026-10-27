@@ -37,13 +37,13 @@ same Lighthouse run is what qualifies it.
 pnpm build && pnpm test:lighthouse-harness    # the Lighthouse pass and the byte counts
 pnpm build && pnpm test:a11y-harness          # the axe pass
 pnpm build && npx vitest run packages/site/src/runtime.build.test.ts   # criterion 2
-pnpm bench:landing-publish --apply   # criterion 4: deploys the live landing page four times
-pnpm bench:landing-lighthouse        # criterion 5: Lighthouse over the live landing page
 ```
 
-The last two reach the live landing page, so they are run by hand and never by
-CI or `pnpm test`; criteria 4 and 5 say how each is taken. Everything else in
-this section is about the first three.
+Criteria 4 and 5 were measured on the live landing page by two harnesses run
+by hand, never by CI or `pnpm test`; criteria 4 and 5 say how each was taken.
+#124 retired the landing package and both harnesses when the landing page moved
+to deck-cool, so the figures below stand as #2 measured them. Everything
+else in this section is about the first three.
 
 The third needs no browser and is in `pnpm test`; criterion 2 below says what
 it measures. The first two build this site into a scratch directory with the
