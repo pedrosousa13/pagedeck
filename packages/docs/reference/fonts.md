@@ -26,7 +26,8 @@ declares them, and text uses the face only where your CSS says so.
 
 `build.fonts` has two fields: `adapter`, the object that subsets each font,
 and `faces`, the list of faces. `@pagedeck/font-subset` is the adapter this
-repository ships. The landing site declares one face for its features page:
+repository ships. A site that sets one page's specimen in a web font might
+declare its face like this:
 
 ```ts
 import { defineFontSubset } from "@pagedeck/font-subset";
@@ -141,8 +142,8 @@ preloads, whether the face is scoped or not.
 ## Scoping a face to pages
 
 By default a face is linked on every page. `pages` limits a face to the pages
-that match one of its patterns. The landing site scopes its one face to its
-features page, `/features/`, which is the only page that sets text in it.
+that match one of its patterns. The example above scopes its one face to the
+features page, `/features/`, the only page that sets text in it.
 
 The patterns are the page patterns that
 [critical CSS](./critical-css.md) uses: a path glob that starts with
@@ -167,7 +168,7 @@ A page links:
   face of each scope in `faces`.
 
 So a site whose every face is scoped links no font stylesheet on a page that
-no scope matches. The landing site's front page is one of these.
+no scope matches. In the example above, the front page is one of these.
 
 A site that scopes no face writes the same files it wrote before `pages`
 existed, with the same names and bytes.
@@ -234,8 +235,8 @@ no such text does not fetch the file. A face whose list is empty gets no
 
 The ranges are declared rather than read from the rendered pages. A character
 outside them is not in the subset, and the browser draws it in the next family
-of the stack. The landing site's specimen keeps to printable ASCII for this
-reason.
+of the stack. The example's face declares printable ASCII only, so its specimen
+must keep to it.
 
 ## Fallbacks and metric adjustment
 
@@ -257,8 +258,8 @@ reader's system to the web font's proportions:
 The rule reuses the fallback's family name. Every use of that name in the
 document resolves through the adjusted face, including text that is not set
 in the web font. If your site sets other text in Arial, a face that names
-Arial as a fallback resizes that text too. The landing site chose Helvetica
-and Arial for its specimen because its own font stacks name neither.
+Arial as a fallback resizes that text too. Name fallbacks that your own font
+stacks do not use, as the example does with Helvetica and Arial.
 
 `local()` finds a font only if the reader's system has one under that name.
 Where it does not, the adjustment does not apply. On Linux, a `Courier New`
@@ -381,5 +382,5 @@ const FONTS: FontsSetting = {
 };
 ```
 
-The landing site's face is marked `aboveFold` and scoped to its features page,
-so that page preloads it and no other page does.
+The face in the first example is marked `aboveFold` and scoped to its features
+page, so that page preloads it and no other page does.

@@ -76,7 +76,7 @@ npx wrangler pages deploy site
 
 ## On Workers Static Assets
 
-Pagedeck's own landing page and docs site are served this way. A
+Pagedeck's own site, `https://page.deck.cool`, is served this way. A
 `wrangler.jsonc` beside `pagedeck.config.ts` declares the Worker, and
 `npx wrangler deploy` uploads `site/` after a build:
 
