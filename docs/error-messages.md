@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 231 checked messages pin 35245 of the 94979 fenced characters, and
+below**: the 231 checked messages pin 35247 of the 94982 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
