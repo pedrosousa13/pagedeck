@@ -14,6 +14,11 @@ export const BIN = join(SITE, "..", "core", "dist", "bin.js");
 export const WRANGLER = join(SITE, "node_modules", ".bin", "wrangler");
 export const DEV_VARS = join(SITE, ".dev.vars");
 
+/** The environment every `wrangler` process the tests start runs in: no metrics, no prompts. */
+export function wranglerEnv(): NodeJS.ProcessEnv {
+  return { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" };
+}
+
 export function clean(): void {
   const paths = [OUT, join(SITE, "content.db"), join(SITE, RETENTION_DIR), join(SITE, ".wrangler"), DEV_VARS];
   for (const path of paths) {
@@ -60,7 +65,7 @@ export async function serve(cwd = SITE, args: readonly string[] = []): Promise<S
   const port = await freePort();
   const child = spawn(WRANGLER, ["dev", ...args, "--ip", "127.0.0.1", "--port", String(port)], {
     cwd,
-    env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" },
+    env: wranglerEnv(),
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";

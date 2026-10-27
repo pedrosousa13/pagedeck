@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import app from "./app.js";
 import type { AccountEnv, SessionStore } from "./account.js";
+import { cookieOf as cookieIn, tokenOf } from "./cookie.test-support.js";
 
 const ORIGIN = "https://site.test";
 const EMAIL = "editor@example.com";
@@ -34,8 +35,7 @@ async function signIn(env: AccountEnv, password = PASSWORD, headers: Record<stri
 }
 
 function cookieOf(response: Response): string {
-  const header = response.headers.get("Set-Cookie") ?? "";
-  return header.split(";")[0] as string;
+  return cookieIn(response.headers.get("Set-Cookie") ?? "");
 }
 
 function me(env: AccountEnv, cookie?: string) {
@@ -77,12 +77,12 @@ test("a wrong or missing credential signs nobody in", async () => {
 
 test("a signed-in request sees the account, and the store never holds the cookie's value", async () => {
   const env = envOf();
-  const cookie = cookieOf(await signIn(env));
-  const response = await me(env, cookie);
+  const signedIn = await signIn(env);
+  const response = await me(env, cookieOf(signedIn));
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ email: EMAIL });
 
-  const token = cookie.split("=")[1] as string;
+  const token = tokenOf(signedIn.headers.get("Set-Cookie") ?? "");
   const stored = [...(env.SESSIONS as MemoryStore).entries].flatMap(([key, { value }]) => [key, value]).join("\n");
   expect(stored).not.toContain(token);
   expect(stored).not.toContain(PASSWORD);
@@ -96,6 +96,16 @@ test("sign-out revokes the session on the server, so the same cookie is refused"
   expect(response.headers.get("Set-Cookie")).toMatch(/^__Host-session=;.*Max-Age=0/);
   expect((env.SESSIONS as MemoryStore).entries.size).toBe(0);
   expect((await me(env, cookie)).status).toBe(401);
+});
+
+test("a new sign-in revokes the session its cookie already held", async () => {
+  const env = envOf();
+  const first = cookieOf(await signIn(env));
+  const second = cookieOf(await signIn(env, PASSWORD, { Origin: ORIGIN, Cookie: first }));
+  expect(second).not.toBe(first);
+  expect((env.SESSIONS as MemoryStore).entries.size).toBe(1);
+  expect((await me(env, first)).status).toBe(401);
+  expect((await me(env, second)).status).toBe(200);
 });
 
 test("a session past its lifetime is refused and removed, whatever the store still holds", async () => {

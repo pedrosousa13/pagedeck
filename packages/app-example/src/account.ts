@@ -5,7 +5,6 @@ import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
 
-// The part of a Workers KV binding the account uses.
 export interface SessionStore {
   get(key: string): Promise<string | null>;
   put(key: string, value: string, options: { expirationTtl: number }): Promise<void>;
@@ -34,7 +33,7 @@ function lifetime(env: AccountEnv): number {
   const value = env.SESSION_SECONDS ?? "3600";
   if (!/^[1-9]\d*$/.test(value)) {
     throw new Error(
-      `App example: SESSION_SECONDS is "${value}", not a whole number of seconds above 0 — set it to one, such as 3600, or remove it for an hour`,
+      `App example: SESSION_SECONDS is "${value}", not a whole number of seconds above 0. Set it to one, such as 3600, or remove it for an hour.`,
     );
   }
   return Number(value);
@@ -49,7 +48,6 @@ async function keyOf(token: string): Promise<string> {
   return `session:${Array.from(await sha256(token), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
-// The stub an identity provider replaces: one account, its credential a secret of the Worker.
 async function checkCredential(env: AccountEnv, email: string, password: string): Promise<string | undefined> {
   if (!env.ACCOUNT_EMAIL || !env.ACCOUNT_PASSWORD) return undefined;
   const [given, expected] = await Promise.all([
@@ -61,10 +59,14 @@ async function checkCredential(env: AccountEnv, email: string, password: string)
   return difference === 0 ? env.ACCOUNT_EMAIL : undefined;
 }
 
-async function sessionOf(c: Context<{ Bindings: AccountEnv }>): Promise<Session | undefined> {
+async function cookieKeyOf(c: Context<{ Bindings: AccountEnv }>): Promise<string | undefined> {
   const token = getCookie(c, COOKIE, "host");
-  if (token === undefined) return undefined;
-  const key = await keyOf(token);
+  return token === undefined ? undefined : keyOf(token);
+}
+
+async function sessionOf(c: Context<{ Bindings: AccountEnv }>): Promise<Session | undefined> {
+  const key = await cookieKeyOf(c);
+  if (key === undefined) return undefined;
   const stored = await c.env.SESSIONS.get(key);
   if (stored === null) return undefined;
   const session = JSON.parse(stored) as Session;
@@ -89,6 +91,8 @@ const account = new Hono<{ Bindings: AccountEnv }>()
       const signedIn = await checkCredential(c.env, email, password);
       if (signedIn === undefined) return c.json({ error: "The email or password is wrong." }, 401);
       const seconds = lifetime(c.env);
+      const previous = await cookieKeyOf(c);
+      if (previous !== undefined) await c.env.SESSIONS.delete(previous);
       const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
@@ -110,8 +114,8 @@ const account = new Hono<{ Bindings: AccountEnv }>()
     return c.json({ email: session.email }, 200);
   })
   .post("/sign-out", async (c) => {
-    const token = getCookie(c, COOKIE, "host");
-    if (token !== undefined) await c.env.SESSIONS.delete(await keyOf(token));
+    const key = await cookieKeyOf(c);
+    if (key !== undefined) await c.env.SESSIONS.delete(key);
     deleteCookie(c, COOKIE, COOKIE_OPTIONS);
     return c.body(null, 204);
   });

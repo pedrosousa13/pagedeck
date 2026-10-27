@@ -8,7 +8,8 @@ import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { budgetReportPath } from "@pagedeck/core";
 import { CONTENT_SECURITY_POLICY } from "./csp.js";
-import { build, clean, DEV_VARS, OUT, serve, SITE, stop, WRANGLER } from "./wrangler.test-support.js";
+import { cookieOf as cookieIn, tokenOf } from "./cookie.test-support.js";
+import { build, clean, DEV_VARS, OUT, serve, SITE, stop, WRANGLER, wranglerEnv } from "./wrangler.test-support.js";
 import type { Served } from "./wrangler.test-support.js";
 
 // Spelled again rather than imported, so a limit raised in the config fails here.
@@ -183,11 +184,15 @@ async function signIn(at: string, password = ACCOUNT.password, from = at): Promi
 }
 
 function cookieOf(response: Response): string {
-  return (response.headers.getSetCookie()[0] ?? "").split(";")[0] as string;
+  return cookieIn(response.headers.getSetCookie()[0] ?? "");
 }
 
 function me(at: string, cookie?: string): Promise<Response> {
   return fetch(`${at}/account/me`, cookie === undefined ? {} : { headers: { Cookie: cookie } });
+}
+
+function signOut(at: string, cookie: string, from = at): Promise<Response> {
+  return fetch(`${at}/account/sign-out`, { method: "POST", headers: { Origin: from, Cookie: cookie } });
 }
 
 test("an anonymous request for the account is refused, and nothing may cache the answer", async () => {
@@ -214,10 +219,7 @@ test("sign-in opens the account, and sign-out revokes the same cookie on the ser
   expect(await authorized.json()).toEqual({ email: ACCOUNT.email });
   expect(authorized.headers.get("Cache-Control")).toBe("private, no-store");
 
-  const signedOut = await fetch(`${origin}/account/sign-out`, {
-    method: "POST",
-    headers: { Origin: origin, Cookie: cookie },
-  });
+  const signedOut = await signOut(origin, cookie);
   expect(signedOut.status).toBe(204);
   expect(signedOut.headers.get("Cache-Control")).toBe("private, no-store");
   expect((await me(origin, cookie)).status).toBe(401);
@@ -230,14 +232,36 @@ test("a sign-in posted from another site is refused, and sets no cookie", async 
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 }, 30_000);
 
+test("a sign-out posted from another site is refused, and the session still holds", async () => {
+  const cookie = cookieOf(await signIn(origin));
+  const response = await signOut(origin, cookie, "https://elsewhere.example");
+  expect(response.status).toBe(403);
+  expect(response.headers.get("Set-Cookie")).toBeNull();
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  expect((await me(origin, cookie)).status).toBe(200);
+}, 30_000);
+
+test("an anonymous request for another path under the account gets no account", async () => {
+  for (const path of ["/account", "/account/", "/account/me/"]) {
+    const response = await fetch(`${origin}${path}`, { redirect: "manual" });
+    expect(response.status, path).toBe(404);
+    expect(await response.text(), path).not.toContain(ACCOUNT.email);
+    expect(response.headers.get("Cache-Control"), path).toBe("private, no-store");
+    expect(response.headers.get("Set-Cookie"), path).toBeNull();
+  }
+}, 30_000);
+
 test("a session past its lifetime is refused", async () => {
+  const SESSION_SECONDS = 3;
   const state = mkdtempSync(join(tmpdir(), "pagedeck-app-example-sessions-"));
-  const short = await serve(SITE, ["--var", "SESSION_SECONDS:1", "--persist-to", state]);
+  const short = await serve(SITE, ["--var", `SESSION_SECONDS:${String(SESSION_SECONDS)}`, "--persist-to", state]);
   try {
+    const signedAt = Date.now();
     const signedIn = await signIn(short.origin);
     expect(signedIn.status).toBe(200);
     const cookie = cookieOf(signedIn);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect((await me(short.origin, cookie)).status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, signedAt + SESSION_SECONDS * 1000 + 500 - Date.now()));
     const expired = await me(short.origin, cookie);
     expect(expired.status).toBe(401);
     expect(expired.headers.get("Cache-Control")).toBe("private, no-store");
@@ -248,7 +272,7 @@ test("a session past its lifetime is refused", async () => {
 }, 120_000);
 
 test("neither site/, the app's bundle nor wrangler's log holds the credential or a session", async () => {
-  const tokens = issued.map((cookie) => (cookie.split(";")[0] as string).split("=")[1] as string).filter(Boolean);
+  const tokens = issued.map(tokenOf).filter(Boolean);
   expect(tokens.length).toBeGreaterThan(0);
   const secrets = [ACCOUNT.password, ...tokens];
 
@@ -256,7 +280,7 @@ test("neither site/, the app's bundle nor wrangler's log holds the credential or
   try {
     await run(WRANGLER, ["deploy", "--dry-run", "--outdir", bundle], {
       cwd: SITE,
-      env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" },
+      env: wranglerEnv(),
     });
     const files = [OUT, bundle].flatMap((root) =>
       readdirSync(root, { recursive: true, withFileTypes: true })
@@ -287,7 +311,7 @@ test("the preview deployment is a Worker with no code, served on one host and no
     const { stdout, stderr } = await run(
       WRANGLER,
       ["deploy", "--dry-run", "--config", "wrangler.preview.jsonc", "--outdir", outdir],
-      { cwd: SITE, env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" } },
+      { cwd: SITE, env: wranglerEnv() },
     );
     expect(`${stdout}${stderr}`).toContain("--dry-run: exiting now.");
     expect(`${stdout}${stderr}`).not.toMatch(/Unexpected fields|WARNING/);

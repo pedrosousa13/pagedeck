@@ -336,6 +336,8 @@ async (c) => {
   const signedIn = await checkCredential(c.env, email, password);
   if (signedIn === undefined) return c.json({ error: "The email or password is wrong." }, 401);
   const seconds = lifetime(c.env);
+  const previous = await cookieKeyOf(c);
+  if (previous !== undefined) await c.env.SESSIONS.delete(previous);
   const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -366,9 +368,8 @@ Every request under `/account/` checks the session again, on the server, in
 
 ```ts
 async function sessionOf(c: Context<{ Bindings: AccountEnv }>): Promise<Session | undefined> {
-  const token = getCookie(c, COOKIE, "host");
-  if (token === undefined) return undefined;
-  const key = await keyOf(token);
+  const key = await cookieKeyOf(c);
+  if (key === undefined) return undefined;
   const stored = await c.env.SESSIONS.get(key);
   if (stored === null) return undefined;
   const session = JSON.parse(stored) as Session;
@@ -383,7 +384,8 @@ session. That covers an anonymous request, a cookie the app never issued, a
 session past its lifetime and one signed out. Signing out deletes the session
 from KV, so a copy of the cookie kept after sign-out is refused too: the
 session is revocable, which a cookie that carries its own signed claims is
-not. The app checks the expiry time itself, because KV keeps an entry for 60
+not. A new sign-in deletes the session the visitor's cookie already held, so
+signing in again revokes the previous session. The app checks the expiry time itself, because KV keeps an entry for 60
 seconds at least, and a session can be shorter. `SESSION_SECONDS` sets the
 lifetime, an hour by default.
 
@@ -488,8 +490,9 @@ curl -sI "https://pagedeck-app-example-preview.$SUBDOMAIN.workers.dev/" | head -
    other route or domain, so no host serves the preview without Access.
 
 The example's test checks what can run locally: the preview config's fields
-and a dry run of its deploy, and for the account an anonymous request, sign-in,
-sign-out, an expired session, a sign-in from another site and each answer's
+and a dry run of its deploy, and for the account an anonymous request, an
+anonymous request to another path under `/account/`, sign-in, sign-out, an
+expired session, a sign-in or sign-out from another site and each answer's
 headers, against `wrangler dev`.
 
 ## Develop with both running
