@@ -1,6 +1,6 @@
 // `Symbol.for`, not a module-level binding, which a second copy of the module
 // would have its own of.
-export const SHARED_STORE_STAMP = Symbol.for("fw.shared-store");
+export const SHARED_STORE_STAMP = Symbol.for("pagedeck.shared-store");
 
 export interface SharedStoreStamp {
   store: object;

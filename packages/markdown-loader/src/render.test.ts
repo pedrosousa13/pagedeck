@@ -204,11 +204,11 @@ test("a heading cannot break out of the id attribute it lands in", async () => {
   expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
 });
 
-const RESERVED = /^(?:data-)?fw(?:-|$)/;
+const RESERVED = /^data-pagedeck(?:-|$)/;
 
 test("a heading cannot slug onto the framework's reserved names", async () => {
   const rendered = await renderer.render(
-    "## fw-island\n\n## FW Store Push\n\n## fw-fw-nested\n\n## data-fw-slot\n\n## Data FW Props\n\n## database-fw-notes\n\n## fwiw\n",
+    "## data-pagedeck-island\n\n## Data Pagedeck Store Push\n\n## data-pagedeck-data-pagedeck-nested\n\n## data-pagedeck-slot\n\n## Data Pagedeck Props\n\n## database-pagedeck-notes\n\n## pagedeck-snapshot-url\n",
     "d.md",
   );
   expect(rendered.toc.map((entry) => entry.slug)).toEqual([
@@ -217,8 +217,8 @@ test("a heading cannot slug onto the framework's reserved names", async () => {
     "nested",
     "slot",
     "props",
-    "database-fw-notes",
-    "fwiw",
+    "database-pagedeck-notes",
+    "pagedeck-snapshot-url",
   ]);
   for (const id of ids(rendered.html)) {
     expect(id).not.toMatch(RESERVED);
@@ -226,7 +226,7 @@ test("a heading cannot slug onto the framework's reserved names", async () => {
 });
 
 test("numbering a repeat cannot walk back into the namespace it was kept out of", async () => {
-  const rendered = await renderer.render("## fw\n\n## fw\n\n## fw\n", "d.md");
+  const rendered = await renderer.render("## data-pagedeck\n\n## data-pagedeck\n\n## data-pagedeck\n", "d.md");
   for (const id of ids(rendered.html)) {
     expect(id).not.toMatch(RESERVED);
   }
@@ -249,15 +249,15 @@ test("an apostrophe is dropped from a slug rather than turned into a hyphen", as
 
 test("dropping an apostrophe cannot join a heading onto the reserved names", async () => {
   const rendered = await renderer.render(
-    "## fw'-island\n\n## ’fw\n\n## data-fw’-slot\n\n## fw's notes\n\n## It’s fw\n",
+    "## data-pagedeck'-island\n\n## ’data-pagedeck\n\n## data-pagedeck’-slot\n\n## data-pagedeck's notes\n\n## It’s data-pagedeck\n",
     "d.md",
   );
   expect(rendered.toc.map((entry) => entry.slug)).toEqual([
     "island",
     "section",
     "slot",
-    "fws-notes",
-    "its-fw",
+    "data-pagedecks-notes",
+    "its-data-pagedeck",
   ]);
   for (const id of ids(rendered.html)) {
     expect(id).not.toMatch(RESERVED);

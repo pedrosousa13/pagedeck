@@ -118,7 +118,7 @@ test("the framework store module is in exactly one chunk, reached from two tiers
     tiers: planTiers({ entries: plan.entries, ranking: [], policy: { minSize: 0 } }),
   });
 
-  const core = build.files.find((file) => file.name === "fw-core");
+  const core = build.files.find((file) => file.name === "pagedeck-core");
   const corePath = core?.path ?? "";
   expect(build.modules.get(corePath) ?? []).toContain(`${SRC}Hero.js`);
   expect(build.modules.get(corePath) ?? []).not.toContain(`${SRC}Chart.js`);

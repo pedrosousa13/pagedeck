@@ -280,7 +280,7 @@ test("the interactive page carries exactly one island, server-rendered before an
   ]);
 
   const html = document(pricing.output);
-  expect(html).toContain('data-fw-component="pricing_page"');
+  expect(html).toContain('data-pagedeck-component="pricing_page"');
   expect(html).toContain("Billed monthly");
   expect(html).toContain("<td>Starter</td>");
 
@@ -324,6 +324,20 @@ test("the island's cost is confined to the page that asked for it", () => {
   );
 });
 
+// The names before #89. Brand tokens and class names: #125.
+const OLD_PREFIX =
+  /<\/?fw-|\bfw-(?:island|slot|region|core|mid|startup|preview)\b|\bdata-fw-|\bfw:|\bfwConsent\b|\bfw\.shared-store\b/g;
+
+test("no page or script the build writes carries the old fw prefix", () => {
+  const found = manifest.files
+    .filter((file) => file.kind === "html" || file.kind === "js")
+    .flatMap((file) => {
+      const text = `${file.path}\n${readFileSync(join(OUT, deployKey(file.path)), "utf8")}`;
+      return [...text.matchAll(OLD_PREFIX)].map((match) => `${file.path}: ${match[0]}`);
+    });
+  expect([...new Set(found)]).toEqual([]);
+});
+
 const CMP_SRC = "https://consent.example/cmp.js";
 const ANALYTICS_SRC = "https://analytics.example/analytics.js";
 
@@ -348,8 +362,8 @@ test("the pricing page carries the script layer, and the gated script waits for 
   expect(text).toContain("gate(gt[m],one)");
   expect(text).toContain('["pointerdown","keydown","wheel"]');
 
-  expect(text).toContain('window["fwConsent"]');
-  expect(text).toContain('"fw:consent"');
+  expect(text).toContain('window["pagedeckConsent"]');
+  expect(text).toContain('"pagedeck:consent"');
 
   // A second occurrence would be a path to the source that the gate is not on.
   expect(html.split(ANALYTICS_SRC)).toHaveLength(2);

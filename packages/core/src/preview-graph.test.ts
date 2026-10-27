@@ -10,7 +10,7 @@ const HERO = {
 test("a graph reaching no builtin passes", () => {
   expect(() =>
     checkPreviewGraph([
-      { fileName: "assets/preview-A830.js", moduleIds: ["\0fw:preview/app"] },
+      { fileName: "assets/preview-A830.js", moduleIds: ["\0pagedeck:preview/app"] },
       HERO,
     ]),
   ).not.toThrow();

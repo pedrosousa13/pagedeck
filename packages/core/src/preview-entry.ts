@@ -29,7 +29,7 @@ export interface PlanPreviewOptions {
   bridge?: string;
 }
 
-const PREVIEW_PREFIX = "\0fw:preview/";
+const PREVIEW_PREFIX = "\0pagedeck:preview/";
 
 const PREVIEW_NAME = "preview";
 

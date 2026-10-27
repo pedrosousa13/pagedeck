@@ -537,21 +537,21 @@ console.log(JSON.stringify([typeof guarded.default[${target}], typeof loose.Loos
 test("a .js boundary module whose only module syntax is top-level await or import.meta is read without running it", async () => {
   const dir = directory({
     "package.json": "{}\n",
-    "A.js": `"use client";\nglobalThis.fwOrder.push("A");\nexport default function A() { return null; }\n`,
-    "Meta.js": `"use client";\nglobalThis.fwOrder.push(import.meta.url.includes("/Meta.js") ? "meta" : "?");\n`,
-    "Wait.js": `"use client";\nawait Promise.resolve();\nglobalThis.fwOrder.push("wait");\n`,
+    "A.js": `"use client";\nglobalThis.pagedeckOrder.push("A");\nexport default function A() { return null; }\n`,
+    "Meta.js": `"use client";\nglobalThis.pagedeckOrder.push(import.meta.url.includes("/Meta.js") ? "meta" : "?");\n`,
+    "Wait.js": `"use client";\nawait Promise.resolve();\nglobalThis.pagedeckOrder.push("wait");\n`,
   });
   const files = ["A.js", "Meta.js", "Wait.js"].map((name) => join(dir, name));
 
   const order = await inNode(`
-globalThis.fwOrder = [];
+globalThis.pagedeckOrder = [];
 const installed = await installClientReferences({
   clientComponents: ${JSON.stringify(Object.fromEntries(files.map((file, at) => [file, `Module${String(at)}`])))},
   registry: ${JSON.stringify(Object.fromEntries(files.map((_, at) => [`Module${String(at)}`, {}])))},
   config: ${JSON.stringify(CONFIG)},
 });
 installed.close();
-console.log(JSON.stringify(globalThis.fwOrder));
+console.log(JSON.stringify(globalThis.pagedeckOrder));
 `);
 
   expect(order).toEqual(["A", "meta", "wait"]);

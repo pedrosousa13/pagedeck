@@ -34,7 +34,7 @@ test("a heading spelling a framework-reserved name still anchors after the strip
   // `@pagedeck/core`.
   const renderer = await createMarkdownRenderer({ languages: [] });
   const rendered = await renderer.render(
-    "## data-fw-slot\n\n## Data FW Props\n\n## fw\n\n## fw\n",
+    "## data-pagedeck-slot\n\n## Data Pagedeck Props\n\n## data-pagedeck\n\n## data-pagedeck\n",
     "d.md",
   );
   const stripped = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
@@ -52,7 +52,7 @@ test("a heading spelling a reserved name after a non-ASCII letter still anchors"
   // name boundary cuts at, putting a reserved name mid-slug.
   const renderer = await createMarkdownRenderer({ languages: [] });
   const rendered = await renderer.render(
-    "## エdata-fw-slot\n\n## 属性data-fw-props\n\n## édata-fw-mode\n\n## ページdata-fw-template\n\n## エdata-fw-slotédata-fw-props\n",
+    "## エdata-pagedeck-slot\n\n## 属性data-pagedeck-props\n\n## édata-pagedeck-mode\n\n## ページdata-pagedeck-template\n\n## エdata-pagedeck-slotédata-pagedeck-props\n",
     "d.md",
   );
   const stripped = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;

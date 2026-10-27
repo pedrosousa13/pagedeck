@@ -39,9 +39,9 @@ export interface IslandFacts {
   warnings: readonly string[];
 }
 
-const ENTRY_ID = "\0fw:island-facts";
+const ENTRY_ID = "\0pagedeck:island-facts";
 
-const RESOLVE_ID = "\0fw:component-modules";
+const RESOLVE_ID = "\0pagedeck:component-modules";
 
 export interface ResolvedModules {
   ids: Readonly<Record<string, string>>;

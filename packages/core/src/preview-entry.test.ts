@@ -19,7 +19,7 @@ const MODULES = {
 
 test("the whole registry is one entry, sorted by name", () => {
   const entry = planPreview(REGISTRY, { modules: MODULES });
-  expect(entry.id).toBe("\0fw:preview/app");
+  expect(entry.id).toBe("\0pagedeck:preview/app");
   expect(entry.name).toBe("preview");
   expect(entry.components).toStrictEqual([
     { name: "Body", module: "./components/Body.js", hydrate: "none" },
@@ -30,7 +30,7 @@ test("the whole registry is one entry, sorted by name", () => {
 
 test("its id is disjoint from a page entry's", () => {
   expect(planPreview(REGISTRY, { modules: MODULES }).id).not.toContain(
-    "\0fw:entry/",
+    "\0pagedeck:entry/",
   );
 });
 

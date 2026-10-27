@@ -78,7 +78,7 @@ no opinion about what receives it, stores it or draws it.
 
 The beacon is analytics, so it reports only for a visitor who has consented to
 that category. It reads the same [consent source](./third-party-scripts.md)
-your third-party scripts do — your own object at `window.fwConsent` — and it
+your third-party scripts do — your own object at `window.pagedeckConsent` — and it
 reads it at the moment it would report, not earlier. A visitor who accepts halfway through a visit is reported;
 one who withdraws consent is not.
 
@@ -113,7 +113,7 @@ anywhere, by declaring it in [`build.prePaint`](./page-head.md):
 build: {
   outDir: "./site",
   prePaint: [
-    `window.fwConsent = { granted: function (c) { return c !== "marketing" } }`,
+    `window.pagedeckConsent = { granted: function (c) { return c !== "marketing" } }`,
   ],
   beacon: { endpoint: "/rum" },
   // ...

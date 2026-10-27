@@ -12,13 +12,13 @@ import { PREVIEW_REGIONS } from "./region.js";
  * `packages/core/src/preview-build.test.ts` searches production chunks for this. It marks
  * the mount container, which keeps it load-bearing.
  */
-export const PREVIEW_MARK = "fw-preview-build-target";
+export const PREVIEW_MARK = "pagedeck-preview-build-target";
 
 /** Where the mark is written, and the element `mountPreview` looks for. */
-export const PREVIEW_ATTRIBUTE = "data-fw-preview";
+export const PREVIEW_ATTRIBUTE = "data-pagedeck-preview";
 
 /** The element a preview app mounts into when the caller names none. */
-export const PREVIEW_CONTAINER_ID = "fw-preview";
+export const PREVIEW_CONTAINER_ID = "pagedeck-preview";
 
 // Declared here, not via the `DOM` lib: a workspace-wide `document` would typecheck
 // in node-only packages.
@@ -45,7 +45,7 @@ export interface MountPreviewOptions {
   providers?: readonly RootProvider[];
   /** The CMS adapter, when the deployment has one wired (#54). */
   bridge?: PreviewBridge;
-  /** Where to mount. Defaults to the element with id `fw-preview`. */
+  /** Where to mount. Defaults to the element with id `pagedeck-preview`. */
   container?: PreviewContainer;
   /** Defaults to rethrowing in a fresh microtask, so a refusal is never swallowed. */
   onError?: (error: unknown, payload: unknown) => void;
@@ -110,7 +110,7 @@ export function mountPreview(options: MountPreviewOptions): PreviewHandle {
     const tree = await buildPageTree({
       page: draft.page,
       content: draft.content,
-      // Merged last, so a site cannot redefine the reserved `fw-` region name (#54).
+      // Merged last, so a site cannot redefine the reserved `pagedeck-` region name (#54).
       registry: { ...options.registry, ...PREVIEW_REGIONS },
       ...(draft.locale === undefined ? {} : { locale: draft.locale }),
       ...(draft.data === undefined ? {} : { data: draft.data }),

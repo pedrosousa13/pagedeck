@@ -18,7 +18,7 @@ test("every extension a site emits maps to a type, with a charset on text", () =
   const cases: [string, FileKind, string][] = [
     ["/about/index.html", "html", "text/html; charset=utf-8"],
     ["/assets/app-C52oINTW.js", "js", "text/javascript; charset=utf-8"],
-    ["/assets/fw-core-Cu0imwtP.css", "css", "text/css; charset=utf-8"],
+    ["/assets/pagedeck-core-Cu0imwtP.css", "css", "text/css; charset=utf-8"],
     ["/search/en/index.json", "asset", "application/json; charset=utf-8"],
     ["/rss.xml", "asset", "application/xml; charset=utf-8"],
     ["/robots.txt", "asset", "text/plain; charset=utf-8"],
@@ -59,7 +59,7 @@ test("a page is text/html and revalidated, whatever its name holds", () => {
 test("a row the build recorded as hashed is immutable, whatever its kind", () => {
   for (const [path, kind] of [
     ["/assets/entry-81ab8ea221ac5c49-C52oINTW.js", "js"],
-    ["/assets/fw-core-Cu0imwtP.css", "css"],
+    ["/assets/pagedeck-core-Cu0imwtP.css", "css"],
     ["/assets/logo-BJKXE2ia.png", "asset"],
     ["/fonts/red-hat-mono-400-normal.4ac224af.woff2", "asset"],
   ] as const) {
@@ -72,7 +72,7 @@ test("a row without the column is revalidated, however hashed its name looks", (
   for (const [path, kind] of [
     ["/assets/lunr-language.js", "js"],
     ["/assets/entry-81ab8ea221ac5c49-C52oINTW.js", "js"],
-    ["/assets/fw-core-Cu0imwtP.css", "css"],
+    ["/assets/pagedeck-core-Cu0imwtP.css", "css"],
     ["/fonts/mono.4ac224af.woff2", "asset"],
   ] as const) {
     expect(fileMetadata(row(path, kind)).cacheControl, path).toBe(REVALIDATE);

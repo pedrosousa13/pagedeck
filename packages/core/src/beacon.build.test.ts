@@ -193,7 +193,7 @@ test("the beacon reports through sendBeacon, on idle, behind the consent global"
   expect(line).toContain("navigator.sendBeacon");
   expect(line).toContain("keepalive:true");
   expect(line).toContain("requestIdleCallback");
-  expect(line).toContain('window["fwConsent"]');
+  expect(line).toContain('window["pagedeckConsent"]');
   expect(line).toContain('granted("analytics")');
   expect(line).not.toContain("unload");
 }, 120_000);

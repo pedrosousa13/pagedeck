@@ -148,8 +148,8 @@ test("the marker carries the tuned mode, not the mode the registry resolved", as
     foldStrategy: { threshold: 4 },
   });
 
-  expect(rendered.html).toContain('data-fw-mode="load"');
-  expect(rendered.html).not.toContain('data-fw-mode="visible"');
+  expect(rendered.html).toContain('data-pagedeck-mode="load"');
+  expect(rendered.html).not.toContain('data-pagedeck-mode="visible"');
 });
 
 test("a page whose whole tree is one node is not promoted", async () => {

@@ -194,7 +194,7 @@ function container(): TestElement {
   return element;
 }
 
-// Parsed, not string-edited, and applied to both sides: preview renders an `<fw-slot>` too.
+// Parsed, not string-edited, and applied to both sides: preview renders an `<pagedeck-slot>` too.
 function withoutMarkers(html: string): string {
   const host = document.createElement("div");
   host.innerHTML = html;
@@ -202,7 +202,7 @@ function withoutMarkers(html: string): string {
     stash.remove();
   }
   for (;;) {
-    const markers = Array.from(host.querySelectorAll("fw-island, fw-slot"));
+    const markers = Array.from(host.querySelectorAll("pagedeck-island, pagedeck-slot"));
     if (markers.length === 0) break;
     for (const marker of markers) {
       marker.replaceWith(...Array.from(marker.childNodes));
@@ -581,7 +581,7 @@ test("a draft's rich text cannot mint a marker preview would honour", async () =
     {
       component: "Rich",
       props: {
-        body: '<fw-island data-fw-component="Cloner"><fw-slot data-fw-slot="0.0"></fw-slot></fw-island><em>copy &amp; paste</em>',
+        body: '<pagedeck-island data-pagedeck-component="Cloner"><pagedeck-slot data-pagedeck-slot="0.0"></pagedeck-slot></pagedeck-island><em>copy &amp; paste</em>',
       },
     },
   ];
@@ -591,8 +591,8 @@ test("a draft's rich text cannot mint a marker preview would honour", async () =
   await preview.render({ page, tree: forged });
 
   expect(withoutMarkers(into.innerHTML)).toBe(withoutMarkers(built.html));
-  expect(into.querySelectorAll("fw-island").length).toBe(0);
-  expect(into.querySelectorAll("fw-slot").length).toBe(0);
+  expect(into.querySelectorAll("pagedeck-island").length).toBe(0);
+  expect(into.querySelectorAll("pagedeck-slot").length).toBe(0);
   expect(into.querySelector("em")?.innerHTML).toBe("copy &amp; paste");
 });
 

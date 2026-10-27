@@ -239,14 +239,14 @@ describe("reductionPercent", () => {
 describe("hashInsensitiveGzip", () => {
   const entry = (css: string, core: string) =>
     Buffer.from(
-      `const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/fw-core-${core}.js","assets/rolldown-runtime-BpQH8Ho1.js","assets/fw-measure-react-DxHXGJIq.js","assets/fw-core-${css}.css"])))=>i.map(i=>d[i]);import{n as e,r as t}from"./fw-core-${core}.js";e(t,()=>import("./slot-y2iDUnVn.js"),__vite__mapDeps([0,1,2,3]));`,
+      `const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/pagedeck-core-${core}.js","assets/rolldown-runtime-BpQH8Ho1.js","assets/pagedeck-measure-react-DxHXGJIq.js","assets/pagedeck-core-${css}.css"])))=>i.map(i=>d[i]);import{n as e,r as t}from"./pagedeck-core-${core}.js";e(t,()=>import("./slot-y2iDUnVn.js"),__vite__mapDeps([0,1,2,3]));`,
     );
   const emitted = (css: string, core: string) =>
     emittedHashes([
-      `fw-core-${core}.js`,
+      `pagedeck-core-${core}.js`,
       "rolldown-runtime-BpQH8Ho1.js",
-      "fw-measure-react-DxHXGJIq.js",
-      `fw-core-${css}.css`,
+      "pagedeck-measure-react-DxHXGJIq.js",
+      `pagedeck-core-${css}.css`,
       "slot-y2iDUnVn.js",
     ]);
 
@@ -272,15 +272,15 @@ describe("hashInsensitiveGzip", () => {
     // `-promises.js` is a dash, eight characters of the hash alphabet and an
     // extension: the shape alone cannot tell it from `-BpQH8Ho1.js`.
     const hashes = emitted("BbHxMLsE", "BNZ1wc_V");
-    const text = 'import"./polyfill-promises.js";import"./fw-core-BNZ1wc_V.js";';
+    const text = 'import"./polyfill-promises.js";import"./pagedeck-core-BNZ1wc_V.js";';
     expect(normaliseAssetHashes(text, hashes)).toBe(
-      'import"./polyfill-promises.js";import"./fw-core-00000000.js";',
+      'import"./polyfill-promises.js";import"./pagedeck-core-00000000.js";',
     );
   });
 
   test("an emitted file's hash is the eight characters before its extension, dashes included", () => {
     expect(
-      emittedHashes(["fw-core-I8L5-rxT.js", "fw-core-G2979gDk.css", "favicon.ico"]),
+      emittedHashes(["pagedeck-core-I8L5-rxT.js", "pagedeck-core-G2979gDk.css", "favicon.ico"]),
     ).toEqual(["I8L5-rxT", "G2979gDk"]);
   });
 });
@@ -297,10 +297,10 @@ describe("runtimeSplit", () => {
     expect(
       runtimeSplit({
         url: "/en/pricing",
-        react: "fw-measure-react",
+        react: "pagedeck-measure-react",
         chunks: [
-          chunk("/assets/fw-measure-react-DxHXGJIq.js", 189_881, 59_000, 50_789),
-          chunk("/assets/fw-core-CZK97gOy.js", 5_719, 2_600, 2_345),
+          chunk("/assets/pagedeck-measure-react-DxHXGJIq.js", 189_881, 59_000, 50_789),
+          chunk("/assets/pagedeck-core-CZK97gOy.js", 5_719, 2_600, 2_345),
           chunk("/assets/entry-7b7f141ef145a3d4-DHGyDJFu.js", 397, 280, 252),
           chunk("/assets/rolldown-runtime-BpQH8Ho1.js", 227, 170, 152),
         ],
@@ -316,33 +316,33 @@ describe("runtimeSplit", () => {
     expect(() =>
       runtimeSplit({
         url: "/en/pricing",
-        react: "fw-measure-react",
-        chunks: [chunk("/assets/fw-core-nhIt6jgf.js", 195_495, 61_302, 52_888)],
+        react: "pagedeck-measure-react",
+        chunks: [chunk("/assets/pagedeck-core-nhIt6jgf.js", 195_495, 61_302, 52_888)],
       }),
-    ).toThrow(/^Runtime bytes "\/en\/pricing": .*no chunk named "fw-measure-react"/s);
+    ).toThrow(/^Runtime bytes "\/en\/pricing": .*no chunk named "pagedeck-measure-react"/s);
   });
 
   test("a chunk is matched by its whole name, so a component that merely starts with it is the framework's", () => {
     expect(() =>
       runtimeSplit({
         url: "/en/pricing",
-        react: "fw-measure-react",
-        chunks: [chunk("/assets/fw-measure-reactions-AAAAAAAA.js", 10, 10, 10)],
+        react: "pagedeck-measure-react",
+        chunks: [chunk("/assets/pagedeck-measure-reactions-AAAAAAAA.js", 10, 10, 10)],
       }),
-    ).toThrow(/no chunk named "fw-measure-react"/);
+    ).toThrow(/no chunk named "pagedeck-measure-react"/);
   });
 
   test("two React chunks are refused rather than summed, since the group is meant to be one chunk", () => {
     expect(() =>
       runtimeSplit({
         url: "/en/pricing",
-        react: "fw-measure-react",
+        react: "pagedeck-measure-react",
         chunks: [
-          chunk("/assets/fw-measure-react-AAAAAAAA.js", 10, 10, 10),
-          chunk("/assets/fw-measure-react-BBBBBBBB.js", 10, 10, 10),
+          chunk("/assets/pagedeck-measure-react-AAAAAAAA.js", 10, 10, 10),
+          chunk("/assets/pagedeck-measure-react-BBBBBBBB.js", 10, 10, 10),
         ],
       }),
-    ).toThrow(/2 chunks named "fw-measure-react"/);
+    ).toThrow(/2 chunks named "pagedeck-measure-react"/);
   });
 });
 

@@ -44,7 +44,7 @@ async function open(options: { javaScriptEnabled?: boolean; hydrate?: boolean } 
   page.on("request", (request) => {
     if (request.method() === "POST") posts.push(`${request.url()} ${request.postData() ?? ""}`);
   });
-  if (options.hydrate === false) await page.route("**/assets/fw-core-*.js", (route) => route.abort());
+  if (options.hydrate === false) await page.route("**/assets/pagedeck-core-*.js", (route) => route.abort());
   await page.goto(`${served.origin}/signup/`);
   if (options.hydrate !== false && options.javaScriptEnabled !== false) {
     // React marks the element it hydrated; until then a submit is a plain form post. Polled with

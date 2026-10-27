@@ -11,7 +11,7 @@ import { cloudfront } from "./index.js";
 
 const PRIMARY = "/en/pricing";
 const MOVED = "/en/legacy-pricing";
-const COOKIE = "fw_pricing";
+const COOKIE = "pagedeck_pricing";
 
 // Weights 1 and 3, so a boundary is off the middle and a divisor off-by-one shows.
 const TREE: RoutingTree = {
@@ -94,8 +94,8 @@ interface Visit {
 const REQUEST_ID = "req-0";
 
 // Constants, so a change to the emitted hash fails an assertion instead of shifting a scan.
-const ID_A = "req-5";
-const ID_B = "req-0";
+const ID_A = "req-0";
+const ID_B = "req-2";
 
 // The viewer-response half gets the viewer's own path, as CloudFront hands it; only
 // `context.requestId` is shared.
@@ -388,7 +388,7 @@ describe("the request function handed a rewritten URI", () => {
 
 describe("two splits declared on one tree", () => {
   const SECOND = "/en/plans";
-  const SECOND_COOKIE = "fw_plans";
+  const SECOND_COOKIE = "pagedeck_plans";
   const ARMS = [
     { name: "a", weight: 1 },
     { name: "b", weight: 3 },
@@ -550,7 +550,7 @@ function reservedKey(uri) {
     resolved.indexOf(DEPLOY_DIRECTORY + "/") === 0;
 }
 
-var SPLIT_0 = Object.freeze({ cookie: "fw_pricing", total: 4, arms: [{ name: "a", weight: 1, to: "/_v/a/en/pricing" }, { name: "b", weight: 3, to: "/_v/b/en/pricing" }] });
+var SPLIT_0 = Object.freeze({ cookie: "pagedeck_pricing", total: 4, arms: [{ name: "a", weight: 1, to: "/_v/a/en/pricing" }, { name: "b", weight: 3, to: "/_v/b/en/pricing" }] });
 
 var SPLITS = Object.freeze({
   "/en/pricing": SPLIT_0,
@@ -610,7 +610,7 @@ function handler(event) {
         source.indexOf("function armFor("),
         source.indexOf("function handler("),
       );
-    const entry = `var SPLIT_0 = Object.freeze({ cookie: "fw_pricing", total: 4, arms: [{ name: "a", weight: 1, to: "/_v/a/en/pricing" }, { name: "b", weight: 3, to: "/_v/b/en/pricing" }] });`;
+    const entry = `var SPLIT_0 = Object.freeze({ cookie: "pagedeck_pricing", total: 4, arms: [{ name: "a", weight: 1, to: "/_v/a/en/pricing" }, { name: "b", weight: 3, to: "/_v/b/en/pricing" }] });`;
     expect(armFor(response)).toBe(armFor(request));
     expect(request).toContain(entry);
     expect(response).toContain(entry);

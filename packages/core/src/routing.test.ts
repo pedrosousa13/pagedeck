@@ -1138,7 +1138,7 @@ test("a declared split is recorded whole, per tree, in one order", () => {
         {
           locale: "en",
           path: "/pricing",
-          cookie: "fw_pricing",
+          cookie: "pagedeck_pricing",
           variants: [
             { name: "c", weight: 25 },
             { name: "b", weight: 75 },
@@ -1147,14 +1147,14 @@ test("a declared split is recorded whole, per tree, in one order", () => {
         {
           locale: "en",
           path: "/about",
-          cookie: "fw_about",
+          cookie: "pagedeck_about",
           variants: [{ name: "b", weight: 50 }],
         },
         {
           domain: "shop.example",
           locale: "de-ch",
           path: "/about",
-          cookie: "fw_de_about",
+          cookie: "pagedeck_de_about",
           variants: [{ name: "b", weight: 10 }],
         },
       ],
@@ -1163,12 +1163,12 @@ test("a declared split is recorded whole, per tree, in one order", () => {
   expect(manifest.trees[0]?.experiments).toEqual([
     {
       path: "/about",
-      cookie: "fw_about",
+      cookie: "pagedeck_about",
       variants: [{ name: "b", weight: 50 }],
     },
     {
       path: "/pricing",
-      cookie: "fw_pricing",
+      cookie: "pagedeck_pricing",
       variants: [
         { name: "b", weight: 75 },
         { name: "c", weight: 25 },
@@ -1178,7 +1178,7 @@ test("a declared split is recorded whole, per tree, in one order", () => {
   expect(manifest.trees[1]?.experiments).toEqual([
     {
       path: "/de/about",
-      cookie: "fw_de_about",
+      cookie: "pagedeck_de_about",
       variants: [{ name: "b", weight: 10 }],
     },
   ]);
@@ -1221,7 +1221,7 @@ test("an experiment's shape faults are collected, each with its own fix", () => 
           {
             locale: "en",
             path: "/about",
-            cookie: "fw about",
+            cookie: "pagedeck about",
             variants: [
               { name: "b", weight: 0 },
               { name: "b", weight: 10 },
@@ -1249,7 +1249,7 @@ test("an experiment's shape faults are collected, each with its own fix", () => 
       "Routing manifest: 1 variant weight is not a share of visitors — write a positive number, such as 50; the shares are relative, so they need not total anything in particular:",
       "  experiments[1].variants[0] — 0",
       "",
-      'Routing manifest: 2 experiments declare cookie keys no browser will carry — write the key as a cookie name, such as "fw_pricing":',
+      'Routing manifest: 2 experiments declare cookie keys no browser will carry — write the key as a cookie name, such as "pagedeck_pricing":',
       "  experiments[0] — the cookie key is empty",
       '  experiments[1] — the cookie key holds " ", which ends a cookie name',
     ].join("\n"),
@@ -1264,13 +1264,13 @@ test("an experiment naming a page this build does not route is refused", () => {
           {
             locale: "en",
             path: "/plans",
-            cookie: "fw_a",
+            cookie: "pagedeck_a",
             variants: [{ name: "b", weight: 1 }],
           },
           {
             locale: "de-ch",
             path: "/about",
-            cookie: "fw_b",
+            cookie: "pagedeck_b",
             variants: [{ name: "b", weight: 1 }],
           },
         ],
@@ -1295,13 +1295,13 @@ test("one page carries one experiment", () => {
           {
             locale: "en",
             path: "/pricing",
-            cookie: "fw_a",
+            cookie: "pagedeck_a",
             variants: [{ name: "b", weight: 1 }],
           },
           {
             locale: "en",
             path: "/pricing",
-            cookie: "fw_b",
+            cookie: "pagedeck_b",
             variants: [{ name: "c", weight: 1 }],
           },
         ],
@@ -1326,7 +1326,7 @@ test("a page under the reserved segment collides with the variant tree", () => {
           {
             locale: "en",
             path: "/pricing",
-            cookie: "fw_pricing",
+            cookie: "pagedeck_pricing",
             variants: [{ name: "b", weight: 1 }],
           },
         ],

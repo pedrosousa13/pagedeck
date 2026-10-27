@@ -48,7 +48,7 @@ const ProxiedAccordion = clientReference(Accordion, {
 });
 
 function prefixes(html: string): string[] {
-  return [...html.matchAll(/data-fw-prefix="([^"]+)"/g)].map(
+  return [...html.matchAll(/data-pagedeck-prefix="([^"]+)"/g)].map(
     (match) => match[1] as string,
   );
 }
@@ -214,9 +214,9 @@ test("a proxy inside a container's slotted child lands in that slot's HTML", asy
   expect(names).toContain("Tabs");
   const counter = islands.find((island) => island.component === "Counter");
   expect(counter?.path).toBeUndefined();
-  expect(html).toContain(`data-fw-prefix="${counter?.prefix ?? ""}"`);
+  expect(html).toContain(`data-pagedeck-prefix="${counter?.prefix ?? ""}"`);
   const tabs = islands.find((island) => island.component === "Tabs");
-  expect(tabs?.html).toContain(`data-fw-prefix="${counter?.prefix ?? ""}"`);
+  expect(tabs?.html).toContain(`data-pagedeck-prefix="${counter?.prefix ?? ""}"`);
 });
 
 test("a function prop on a proxied instance names the component, its parent and the entry", async () => {
@@ -290,7 +290,7 @@ test("a proxied instance with JSON props builds", async () => {
     registry: { Template: component(Template) },
   });
   expect(islands).toHaveLength(1);
-  expect(html).toContain('data-fw-props="{&quot;label&quot;:&quot;fine&quot;}"');
+  expect(html).toContain('data-pagedeck-props="{&quot;label&quot;:&quot;fine&quot;}"');
 });
 
 test("a proxied instance given JSX children is refused, naming both components", async () => {
@@ -392,7 +392,7 @@ test("an entry node with entry children still slots rather than being refused", 
   });
 
   expect(islands).toHaveLength(1);
-  expect(islands[0]?.html).toContain('data-fw-slot="0.0"');
+  expect(islands[0]?.html).toContain('data-pagedeck-slot="0.0"');
 });
 
 const ProxiedStatic = clientReference(Counter, {

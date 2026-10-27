@@ -130,7 +130,7 @@ export function previewDocument(script: string): string {
     "<body>",
     // Not imported from `@pagedeck/preview`: `@pagedeck/core` must not depend on it (spec
     // §14).
-    '<div id="fw-preview"></div>',
+    '<div id="pagedeck-preview"></div>',
     `<script type="module" src="${script}"></script>`,
     "</body>",
     "</html>",

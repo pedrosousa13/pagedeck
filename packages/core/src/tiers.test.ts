@@ -20,7 +20,7 @@ function entry(
   return {
     locale: "en",
     path,
-    id: `\0fw:entry/${name}`,
+    id: `\0pagedeck:entry/${name}`,
     name,
     components: components.map((component) => ({
       name: component,
@@ -88,18 +88,18 @@ test("share decides core, page count decides mid, and one page is tail", () => {
   expect(plan.pageCount).toBe(5);
   expect(tierOf(plan.assignments, "Hero")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
     pageCount: 5,
     pageShare: 1,
   });
   expect(tierOf(plan.assignments, "Nav")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
     pageCount: 3,
   });
   expect(tierOf(plan.assignments, "Signup")).toMatchObject({
     tier: "mid",
-    group: "fw-mid",
+    group: "pagedeck-mid",
     pageCount: 2,
   });
   expect(tierOf(plan.assignments, "Chart")).toMatchObject({
@@ -160,19 +160,19 @@ test("the ranking pulls a mid component into core, and only the ranking does", (
 
   expect(tierOf(hot.assignments, "Signup")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
     pageCount: 2,
   });
   expect(tierOf(cold.assignments, "Signup")).toMatchObject({
     tier: "mid",
-    group: "fw-mid",
+    group: "pagedeck-mid",
     pageCount: 2,
   });
   expect(hot.assignments).not.toEqual(cold.assignments);
   expect(
-    hot.groups.find((group) => group.name === "fw-core")?.modules,
+    hot.groups.find((group) => group.name === "pagedeck-core")?.modules,
   ).toContain("@ds/Signup");
-  expect(hot.groups.map((group) => group.name)).toEqual(["fw-core"]);
+  expect(hot.groups.map((group) => group.name)).toEqual(["pagedeck-core"]);
 });
 
 test("the usage boundary is the caller's to move", () => {
@@ -247,11 +247,11 @@ test("one page hydrating it on load tiers a component as before", () => {
 
   expect(tierOf(plan.assignments, "Search")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
     pageCount: 5,
   });
   expect(
-    plan.groups.find((group) => group.name === "fw-core")?.modules,
+    plan.groups.find((group) => group.name === "pagedeck-core")?.modules,
   ).toContain("@ds/Search");
 });
 
@@ -274,11 +274,11 @@ test("an eager name tiers every name sharing its module", () => {
 
   expect(tierOf(plan.assignments, "Card")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
   });
   expect(tierOf(plan.assignments, "CardFooter")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
   });
 });
 
@@ -312,7 +312,7 @@ test("the runtime and the provider stack are pinned into core", () => {
     ranking: [ranked("Hero", 2, 2, 0)],
   });
 
-  const core = plan.groups.find((group) => group.name === "fw-core");
+  const core = plan.groups.find((group) => group.name === "pagedeck-core");
   expect(core?.modules).toEqual([
     "@ds/Hero",
     "@pagedeck/islands/runtime",
@@ -328,7 +328,7 @@ test("a caller narrowing alwaysCore cannot unpin the islands runtime", () => {
     alwaysCore: ["@site/extra"],
   });
 
-  const core = plan.groups.find((group) => group.name === "fw-core");
+  const core = plan.groups.find((group) => group.name === "pagedeck-core");
   expect(core?.modules).toContain("@pagedeck/islands/runtime");
   expect(core?.modules).toContain("@site/extra");
 });
@@ -348,15 +348,15 @@ test("two registry names on one specifier record the tier that ships", () => {
 
   expect(tierOf(plan.assignments, "Card")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
     pageCount: 5,
   });
   expect(tierOf(plan.assignments, "CardFooter")).toMatchObject({
     tier: "core",
-    group: "fw-core",
+    group: "pagedeck-core",
     pageCount: 5,
   });
-  expect(plan.groups.map((group) => group.name)).toEqual(["fw-core"]);
+  expect(plan.groups.map((group) => group.name)).toEqual(["pagedeck-core"]);
 });
 
 test("a specifier's demand is every page reaching it, not each name's own", () => {
@@ -387,7 +387,7 @@ test("a specifier's demand is every page reaching it, not each name's own", () =
 test("the two groups carry the settings the prototype validated", () => {
   const plan = planTiers({ entries: ENTRIES, ranking: RANKING });
 
-  expect(plan.groups.map((group) => group.name)).toEqual(["fw-core", "fw-mid"]);
+  expect(plan.groups.map((group) => group.name)).toEqual(["pagedeck-core", "pagedeck-mid"]);
   expect(plan.groups[0]).toMatchObject({
     priority: 30,
     entriesAware: false,
@@ -407,7 +407,7 @@ test("a plan with no mid component emits no mid group", () => {
     ranking: [],
   });
 
-  expect(plan.groups.map((group) => group.name)).toEqual(["fw-core"]);
+  expect(plan.groups.map((group) => group.name)).toEqual(["pagedeck-core"]);
 });
 
 test("the resolved policy travels with the plan", () => {
@@ -481,7 +481,7 @@ test("a page that spells a group name is refused", () => {
     planTiers({
       entries: [
         entry("/", ["Hero"]),
-        entry("/fw-core", ["Hero"]),
+        entry("/pagedeck-core", ["Hero"]),
         entry("/pricing", ["Hero", "Signup"]),
         entry("/about", ["Signup"]),
       ],
@@ -491,7 +491,7 @@ test("a page that spells a group name is refused", () => {
     new ConfigError(
       [
         "Chunk tiers: 1 chunk group name is also an entry name — report it upstream with the names below: the framework mints both entry names and tier group names, so no site setting can separate them:",
-        '  "fw-core" — en /fw-core',
+        '  "pagedeck-core" — en /pagedeck-core',
       ].join("\n"),
     ),
   );
@@ -501,8 +501,8 @@ test("every page claiming a group name is named", () => {
   expect(() =>
     planTiers({
       entries: [
-        entry("/fw-core", ["Hero", "Signup"]),
-        entry("/fw-mid", ["Hero", "Signup"]),
+        entry("/pagedeck-core", ["Hero", "Signup"]),
+        entry("/pagedeck-mid", ["Hero", "Signup"]),
         entry("/a", ["Hero"]),
         entry("/b", ["Hero"]),
         entry("/c", ["Hero"]),
@@ -513,8 +513,8 @@ test("every page claiming a group name is named", () => {
     new ConfigError(
       [
         "Chunk tiers: 2 chunk group names are also entry names — report it upstream with the names below: the framework mints both entry names and tier group names, so no site setting can separate them:",
-        '  "fw-core" — en /fw-core',
-        '  "fw-mid" — en /fw-mid',
+        '  "pagedeck-core" — en /pagedeck-core',
+        '  "pagedeck-mid" — en /pagedeck-mid',
       ].join("\n"),
     ),
   );
@@ -551,7 +551,7 @@ test("the tier plan serializes to the golden shape", () => {
       `  "shippedUsages": 13,`,
       `  "groups": [`,
       `    {`,
-      `      "name": "fw-core",`,
+      `      "name": "pagedeck-core",`,
       `      "priority": 30,`,
       `      "entriesAware": false,`,
       `      "minSize": 20000,`,
@@ -563,7 +563,7 @@ test("the tier plan serializes to the golden shape", () => {
       `      ]`,
       `    },`,
       `    {`,
-      `      "name": "fw-mid",`,
+      `      "name": "pagedeck-mid",`,
       `      "priority": 20,`,
       `      "entriesAware": true,`,
       `      "entriesAwareMergeThreshold": 20000,`,
@@ -589,7 +589,7 @@ test("the tier plan serializes to the golden shape", () => {
       `      "component": "Hero",`,
       `      "module": "@ds/Hero",`,
       `      "tier": "core",`,
-      `      "group": "fw-core",`,
+      `      "group": "pagedeck-core",`,
       `      "pageCount": 5,`,
       `      "pageShare": 1,`,
       `      "totalUsages": 9,`,
@@ -600,7 +600,7 @@ test("the tier plan serializes to the golden shape", () => {
       `      "component": "Signup",`,
       `      "module": "@ds/Signup",`,
       `      "tier": "mid",`,
-      `      "group": "fw-mid",`,
+      `      "group": "pagedeck-mid",`,
       `      "pageCount": 2,`,
       `      "pageShare": 0.4,`,
       `      "totalUsages": 3,`,
@@ -624,8 +624,8 @@ test("each group's test captures exactly the ids its modules resolve to", () => 
     "@pagedeck/islands/runtime": "/pagedeck/runtime.js",
   });
 
-  const core = config.groups.find((group) => group.name === "fw-core");
-  const mid = config.groups.find((group) => group.name === "fw-mid");
+  const core = config.groups.find((group) => group.name === "pagedeck-core");
+  const mid = config.groups.find((group) => group.name === "pagedeck-mid");
   expect(core?.test("/site/ds/Hero.js")).toBe(true);
   expect(core?.test("/pagedeck/runtime.js")).toBe(true);
   expect(core?.test("/site/ds/Signup.js")).toBe(false);
@@ -640,7 +640,7 @@ test("the ids may arrive after the config was built", () => {
   const plan = planTiers({ entries: ENTRIES, ranking: RANKING });
   let ids: Record<string, string> = {};
   const config = codeSplitting(plan, () => ids);
-  const core = config.groups.find((group) => group.name === "fw-core");
+  const core = config.groups.find((group) => group.name === "pagedeck-core");
 
   ids = { "@ds/Hero": "/site/ds/Hero.js" };
   expect(core?.test("/site/ds/Hero.js")).toBe(true);
@@ -656,10 +656,10 @@ test("a grouped module with no bundler id is refused", () => {
     new ConfigError(
       [
         "Chunk tiers: 4 grouped modules have no bundler id — map each specifier to the id the bundler resolves it to, or drop the component from the pages that use it:",
-        '  "@ds/Analytics" — grouped into "fw-core"',
-        '  "@ds/Nav" — grouped into "fw-core"',
-        '  "@pagedeck/islands/runtime" — grouped into "fw-core"',
-        '  "@ds/Signup" — grouped into "fw-mid"',
+        '  "@ds/Analytics" — grouped into "pagedeck-core"',
+        '  "@ds/Nav" — grouped into "pagedeck-core"',
+        '  "@pagedeck/islands/runtime" — grouped into "pagedeck-core"',
+        '  "@ds/Signup" — grouped into "pagedeck-mid"',
       ].join("\n"),
     ),
   );
@@ -670,10 +670,10 @@ test("a grouped module with no bundler id is refused", () => {
     new ConfigError(
       [
         "Chunk tiers: 4 grouped modules have no bundler id — map each specifier to the id the bundler resolves it to, or drop the component from the pages that use it:",
-        '  "@ds/Analytics" — grouped into "fw-core"',
-        '  "@ds/Nav" — grouped into "fw-core"',
-        '  "@pagedeck/islands/runtime" — grouped into "fw-core"',
-        '  "@ds/Signup" — grouped into "fw-mid"',
+        '  "@ds/Analytics" — grouped into "pagedeck-core"',
+        '  "@ds/Nav" — grouped into "pagedeck-core"',
+        '  "@pagedeck/islands/runtime" — grouped into "pagedeck-core"',
+        '  "@ds/Signup" — grouped into "pagedeck-mid"',
       ].join("\n"),
     ),
   );

@@ -132,7 +132,7 @@ test("the site's entries become the route table their entry ids describe", () =>
 
 test("every page renders its own entry through the real components", () => {
   // Asserted as rendered markup, never as a bare value: an island's props also
-  // appear in its `data-fw-props`, where `<` is escaped.
+  // appear in its `data-pagedeck-props`, where `<` is escaped.
   expect(document("en")).toContain("<h1>Ship the site</h1>");
   expect(document("en")).toContain(">See pricing</a>");
   expect(document("en")).toContain("<h2>Fast</h2>");
@@ -147,8 +147,8 @@ test("every page renders its own entry through the real components", () => {
 
 test("an islanded page ships the entry chunk the manifest names for it", () => {
   const html = document("en");
-  expect(html).toContain('data-fw-component="hero"');
-  expect(html).toContain('data-fw-mode="visible"');
+  expect(html).toContain('data-pagedeck-component="hero"');
+  expect(html).toContain('data-pagedeck-mode="visible"');
 
   const row = page(manifest, "en", "/");
   expect(row.components.map((component) => component.name)).toEqual(["hero"]);
@@ -170,8 +170,8 @@ test("an islanded page ships the entry chunk the manifest names for it", () => {
 
 test("a real `use client` component of the catalog islands through the executable", () => {
   const html = document("en/pricing");
-  expect(html).toContain('data-fw-component="pricing_page"');
-  expect(html).toContain('data-fw-mode="visible"');
+  expect(html).toContain('data-pagedeck-component="pricing_page"');
+  expect(html).toContain('data-pagedeck-mode="visible"');
 
   const row = page(manifest, "en", "/pricing");
   expect(row.components.map((component) => component.name)).toEqual([
@@ -192,7 +192,7 @@ test("a real `use client` component of the catalog islands through the executabl
 test("a page the build islands nothing on ships no JavaScript at all", () => {
   for (const [path, locale, route] of STATIC) {
     const html = document(path);
-    expect(html).not.toContain("<fw-island");
+    expect(html).not.toContain("<pagedeck-island");
     expect(html).not.toContain("<script");
     expect(nonStyleAssetUrls(html)).toEqual([]);
     expect(page(manifest, locale, route).entryChunk).toBeUndefined();
@@ -212,7 +212,7 @@ test("no JavaScript a production build emits holds the dev server's hot-update c
     expect(code).not.toContain("hotIslands");
     // Spelled rather than imported, so a rename cannot move the assertion with the
     // code.
-    expect(code).not.toContain("fw:islands");
+    expect(code).not.toContain("pagedeck:islands");
   }
 });
 

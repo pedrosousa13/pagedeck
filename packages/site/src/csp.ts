@@ -1,6 +1,6 @@
 // The loader's hash is pinned from the build's `inlineScriptHashes`: core keeps its
-// composition internal. `'unsafe-inline'` styles are core's `<fw-island style>` (#577).
-const SCRIPT_LOADER_HASH = "'sha256-r9DDHqPqSqUAXFpJSKWbF41Q2nBQWYyOFKnCRX+Divw='";
+// composition internal. `'unsafe-inline'` styles are core's `<pagedeck-island style>` (#577).
+const SCRIPT_LOADER_HASH = "'sha256-g4oY1TPDYfr8MTWvLO7SQ/0ajmFgkN+YZtHwspL4QLQ='";
 
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",

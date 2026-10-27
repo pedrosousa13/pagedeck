@@ -92,8 +92,8 @@ export default function SearchIsland({
   const showing = open && hits !== undefined && hits.length > 0;
 
   return (
-    <div className="fw-search">
-      <label className="fw-search__label" htmlFor={inputId}>
+    <div className="pagedeck-search">
+      <label className="pagedeck-search__label" htmlFor={inputId}>
         {label}
       </label>
       <input
@@ -104,7 +104,7 @@ export default function SearchIsland({
         {...(showing ? { "aria-controls": listId } : {})}
         aria-expanded={showing}
         autoComplete="off"
-        className="fw-search__input"
+        className="pagedeck-search__input"
         id={inputId}
         onChange={(event) => {
           const { value } = event.target as unknown as Typed;
@@ -145,14 +145,14 @@ export default function SearchIsland({
         // required owner. Focus stays in the input; arrows move `aria-activedescendant`.
         <div
           aria-label={label}
-          className="fw-search__results"
+          className="pagedeck-search__results"
           id={listId}
           role="listbox"
         >
           {hits.map((hit, position) => (
             <a
               aria-selected={position === active}
-              className="fw-search__result"
+              className="pagedeck-search__result"
               // `output`, not `path`: on a prefixed locale only `output` is served.
               href={hit.output}
               id={optionId(position)}
@@ -175,7 +175,7 @@ export default function SearchIsland({
       ) : null}
       {open && hits !== undefined && hits.length === 0 ? (
         // `role="status"`, so a reader who cannot see the list is told nothing matched.
-        <p className="fw-search__empty" role="status">
+        <p className="pagedeck-search__empty" role="status">
           {emptyLabel}
         </p>
       ) : null}

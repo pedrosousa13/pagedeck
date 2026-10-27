@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 import { runBundle } from "./bundler.js";
 import { ConfigError } from "./exit.js";
 
-const ENTRY = "\0fw:bundler-test/entry";
+const ENTRY = "\0pagedeck:bundler-test/entry";
 
 function serveEntry(): Plugin {
   return {
@@ -273,7 +273,7 @@ test("a build nothing faulted in returns what the bundler emitted", async () => 
   expect(chunks.map((chunk) => chunk.name)).toEqual(["entry"]);
 }, 120_000);
 
-const ISLAND = "\0fw:bundler-test/island";
+const ISLAND = "\0pagedeck:bundler-test/island";
 
 function serveDirective(directive: string): Plugin {
   return {

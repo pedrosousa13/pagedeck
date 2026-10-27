@@ -120,7 +120,7 @@ test("the emitted document loads the entry chunk by a root-relative URL", () => 
   expect(text(files[0])).toContain(
     '<script type="module" src="/_preview/assets/preview-9f1c2ab3.js"></script>',
   );
-  expect(text(files[0])).toContain('<div id="fw-preview"></div>');
+  expect(text(files[0])).toContain('<div id="pagedeck-preview"></div>');
   expect(text(files[0])).toContain('<meta name="robots" content="noindex">');
 });
 

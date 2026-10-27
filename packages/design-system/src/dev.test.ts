@@ -144,10 +144,10 @@ test("a zero-island page serves no client runtime beyond Vite's HMR client", asy
   // `/@vite/client` is the HMR plumbing criterion 4 allows a page with no island.
   const terms = await get("/en/legal/terms");
   expect(scriptUrls(terms.body)).toEqual(["/@vite/client"]);
-  expect(terms.body).not.toContain("<fw-island");
+  expect(terms.body).not.toContain("<pagedeck-island");
 
   const pricing = await get("/en/pricing");
-  expect(pricing.body).toContain('data-fw-component="pricing_page"');
+  expect(pricing.body).toContain('data-pagedeck-component="pricing_page"');
   const scripts = scriptUrls(pricing.body);
   expect(scripts).toContain("/@vite/client");
   expect(scripts.length).toBe(2);

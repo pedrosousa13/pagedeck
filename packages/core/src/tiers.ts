@@ -4,8 +4,8 @@ import type { ComponentRanking } from "@pagedeck/content";
 
 export type Tier = "core" | "mid" | "tail";
 
-export const CORE_GROUP = "fw-core";
-export const MID_GROUP = "fw-mid";
+export const CORE_GROUP = "pagedeck-core";
+export const MID_GROUP = "pagedeck-mid";
 
 const CORE_PRIORITY = 30;
 const MID_PRIORITY = 20;

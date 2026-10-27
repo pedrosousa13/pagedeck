@@ -22,7 +22,7 @@ export interface InstallInput {
   config: string;
 }
 
-const ORIGINAL_QUERY = "fw-client-original";
+const ORIGINAL_QUERY = "pagedeck-client-original";
 
 /**
  * A registered symbol on `globalThis`, not an import: the generated module is
@@ -478,8 +478,8 @@ function proxyModule(url: string, module: Proxied): string {
   const original = `${url}?${ORIGINAL_QUERY}`;
   const options = JSON.stringify({ name: module.name, mode: module.mode });
   const lines = [
-    `import * as fwOriginal from ${JSON.stringify(original)};`,
-    `const fwFactory = globalThis[Symbol.for(${JSON.stringify(FACTORY.description as string)})];`,
+    `import * as pagedeckOriginal from ${JSON.stringify(original)};`,
+    `const pagedeckFactory = globalThis[Symbol.for(${JSON.stringify(FACTORY.description as string)})];`,
   ];
   for (const [at, entry] of module.exports.entries()) {
     if (!entry.wrap) {
@@ -489,10 +489,10 @@ function proxyModule(url: string, module: Proxied): string {
       );
       continue;
     }
-    const local = `fw${String(at)}`;
-    const value = `fwOriginal[${JSON.stringify(entry.key)}]`;
+    const local = `pagedeck${String(at)}`;
+    const value = `pagedeckOriginal[${JSON.stringify(entry.key)}]`;
     lines.push(
-      `const ${local} = typeof ${value} === "function" ? fwFactory(${value}, ${options}) : ${value};`,
+      `const ${local} = typeof ${value} === "function" ? pagedeckFactory(${value}, ${options}) : ${value};`,
       `export { ${local} as ${exportName(entry.key)} };`,
     );
   }

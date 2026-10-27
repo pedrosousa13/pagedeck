@@ -126,7 +126,7 @@ test("a module two tiers share is in exactly one chunk", async () => {
   const build = await built();
   const store = storeId(build);
 
-  const core = build.files.find((file) => file.name === "fw-core");
+  const core = build.files.find((file) => file.name === "pagedeck-core");
   expect(core).toBeDefined();
   const coreIds = build.modules.get(core?.path ?? "") ?? [];
   expect(coreIds).toContain(`${SRC}Hero.js`);
@@ -243,8 +243,8 @@ test("an incremental island edit re-emits one entry against the pinned core chun
   expect(second.entryScripts.get(blogEntry)).toBeDefined();
   expect(second.entryScripts.get(blogEntry)).not.toBe(was);
 
-  const core = second.files.find((file) => file.name === "fw-core");
-  expect(core?.path).toBe(first.files.find((f) => f.name === "fw-core")?.path);
+  const core = second.files.find((file) => file.name === "pagedeck-core");
+  expect(core?.path).toBe(first.files.find((f) => f.name === "pagedeck-core")?.path);
 
   const store = storeId(second);
   expect(chunksHolding(second, store)).toEqual([core?.path]);

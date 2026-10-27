@@ -132,14 +132,14 @@ test("a store under a provider that is not the framework's is left alone", () =>
 
 test("a realm with no store module has nothing to check", () => {
   const stamped = readSharedStoreStamp();
-  delete (globalThis as Record<symbol, unknown>)[Symbol.for("fw.shared-store")];
+  delete (globalThis as Record<symbol, unknown>)[Symbol.for("pagedeck.shared-store")];
   try {
     expect(() => {
       checkSharedStore(stackWith(createStore()), false);
     }).not.toThrow();
     expect(reported).toEqual([]);
   } finally {
-    (globalThis as Record<symbol, unknown>)[Symbol.for("fw.shared-store")] =
+    (globalThis as Record<symbol, unknown>)[Symbol.for("pagedeck.shared-store")] =
       stamped;
   }
 });

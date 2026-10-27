@@ -303,9 +303,9 @@ async function richText(body: string): Promise<string> {
 
 test("a hydration marker typed into rich text does not reach the page", async () => {
   const html = await richText(
-    '<p>Before</p><fw-island data-fw-prefix="ideadbeef0000"' +
-      ' data-fw-component="Counter" data-fw-mode="load"' +
-      ' data-fw-props="{&quot;evil&quot;:true}"><span>hi</span></fw-island>' +
+    '<p>Before</p><pagedeck-island data-pagedeck-prefix="ideadbeef0000"' +
+      ' data-pagedeck-component="Counter" data-pagedeck-mode="load"' +
+      ' data-pagedeck-props="{&quot;evil&quot;:true}"><span>hi</span></pagedeck-island>' +
       "<p>After</p>",
   );
 
@@ -316,9 +316,9 @@ test("a hydration marker typed into rich text does not reach the page", async ()
 
 test("a slot wrapper typed into rich text does not reach the page either", async () => {
   const html = await richText(
-    '<fw-slot data-fw-slot="0.0" role="presentation"><p>decoy</p></fw-slot>' +
-      '<span data-fw-slot="0.0">decoy</span>' +
-      '<template data-fw-template="0.0"><p>decoy</p></template>',
+    '<pagedeck-slot data-pagedeck-slot="0.0" role="presentation"><p>decoy</p></pagedeck-slot>' +
+      '<span data-pagedeck-slot="0.0">decoy</span>' +
+      '<template data-pagedeck-template="0.0"><p>decoy</p></template>',
   );
 
   expect(html).toBe(
@@ -330,10 +330,10 @@ test("a slot wrapper typed into rich text does not reach the page either", async
 
 test("a facade placeholder typed into rich text does not reach the page", async () => {
   const html = await richText(
-    '<span data-fw-facade="ab12cd34-1">x</span>' +
-      "<span data-fw-facade='ab12cd34-1'>x</span>" +
-      "<span data-fw-facade=ab12cd34-1>x</span>" +
-      "<span data-fw-facade>x</span>",
+    '<span data-pagedeck-facade="ab12cd34-1">x</span>' +
+      "<span data-pagedeck-facade='ab12cd34-1'>x</span>" +
+      "<span data-pagedeck-facade=ab12cd34-1>x</span>" +
+      "<span data-pagedeck-facade>x</span>",
   );
 
   expect(html).toBe(
@@ -343,10 +343,10 @@ test("a facade placeholder typed into rich text does not reach the page", async 
 
 test("a search-exclusion attribute typed into rich text does not reach the page", async () => {
   const html = await richText(
-    '<div data-fw-search="ignore">x</div>' +
-      "<div data-fw-search='ignore'>x</div>" +
-      "<div data-fw-search=ignore>x</div>" +
-      "<div DATA-FW-SEARCH>x</div>",
+    '<div data-pagedeck-search="ignore">x</div>' +
+      "<div data-pagedeck-search='ignore'>x</div>" +
+      "<div data-pagedeck-search=ignore>x</div>" +
+      "<div DATA-PAGEDECK-SEARCH>x</div>",
   );
 
   expect(html).toBe(
@@ -354,53 +354,53 @@ test("a search-exclusion attribute typed into rich text does not reach the page"
   );
 });
 
-test("a data-fw-* name the strip does not enumerate is left alone", async () => {
-  const html = await richText('<span data-fw-consent="denied">x</span>');
+test("a data-pagedeck-* name the strip does not enumerate is left alone", async () => {
+  const html = await richText('<span data-pagedeck-consent="denied">x</span>');
 
-  expect(html).toBe('<div class="rich"><span data-fw-consent="denied">x</span></div>');
+  expect(html).toBe('<div class="rich"><span data-pagedeck-consent="denied">x</span></div>');
 });
 
 test("rich text that names the marker element in prose still says so", async () => {
   const html = await richText(
-    "<p>The build writes <code>&lt;fw-island&gt;</code> for you.</p>",
+    "<p>The build writes <code>&lt;pagedeck-island&gt;</code> for you.</p>",
   );
 
   expect(html).toBe(
-    '<div class="rich"><p>The build writes <code>&lt;fw-island&gt;</code>' +
+    '<div class="rich"><p>The build writes <code>&lt;pagedeck-island&gt;</code>' +
       " for you.</p></div>",
   );
 });
 
 test("an attribute name in prose goes, because the strip reads bytes not tags", async () => {
-  const html = await richText('<p>Set data-fw-slot="0.0" to address it.</p>');
+  const html = await richText('<p>Set data-pagedeck-slot="0.0" to address it.</p>');
 
   expect(html).toBe('<div class="rich"><p>Set to address it.</p></div>');
 });
 
 test("a reserved name that removing another one would spell is removed too", async () => {
   const html = await richText(
-    '<fw-isl<fw-island data-fw-mode="load">and role="x">' +
-      '<span>data-fw-sl<fw-island>ot="0.0"</span>',
+    '<pagedeck-isl<pagedeck-island data-pagedeck-mode="load">and role="x">' +
+      '<span>data-pagedeck-sl<pagedeck-island>ot="0.0"</span>',
   );
 
-  expect(html).not.toContain("fw-island");
-  expect(html).not.toContain("data-fw-slot");
+  expect(html).not.toContain("pagedeck-island");
+  expect(html).not.toContain("data-pagedeck-slot");
 });
 
 test("a longer name a site owns is not the framework's and is left alone", async () => {
-  const html = await richText('<div data-fw-slotted="x">hi</div>');
+  const html = await richText('<div data-pagedeck-slotted="x">hi</div>');
 
-  expect(html).toBe('<div class="rich"><div data-fw-slotted="x">hi</div></div>');
+  expect(html).toBe('<div class="rich"><div data-pagedeck-slotted="x">hi</div></div>');
 });
 
 test("a reserved name that another word ends with is that word's, not ours", async () => {
-  const html = await richText("<p>my-data-fw-mode</p>");
+  const html = await richText("<p>my-data-pagedeck-mode</p>");
 
-  expect(html).toBe('<div class="rich"><p>my-data-fw-mode</p></div>');
+  expect(html).toBe('<div class="rich"><p>my-data-pagedeck-mode</p></div>');
 });
 
 test("a whole reserved name inside a URL goes, and that is the stated limit", async () => {
-  const html = await richText('<a href="/docs/data-fw-slot">doc</a>');
+  const html = await richText('<a href="/docs/data-pagedeck-slot">doc</a>');
 
   expect(html).toBe('<div class="rich"><a href="/docs/">doc</a></div>');
 });
@@ -976,11 +976,11 @@ const COUNTER_IS_CLIENT = { Counter: { useClient: true } };
 // build's own constants would pass any rename of them.
 function marker(island: RenderedIsland, props: string): string {
   return (
-    `<fw-island data-fw-prefix="${island.prefix}"` +
-    ` data-fw-component="${island.component}"` +
-    ` data-fw-mode="${island.mode}"` +
-    ` data-fw-props="${props}"` +
-    ` role="presentation" style="display:contents">${island.html}</fw-island>`
+    `<pagedeck-island data-pagedeck-prefix="${island.prefix}"` +
+    ` data-pagedeck-component="${island.component}"` +
+    ` data-pagedeck-mode="${island.mode}"` +
+    ` data-pagedeck-props="${props}"` +
+    ` role="presentation" style="display:contents">${island.html}</pagedeck-island>`
   );
 }
 
@@ -2411,7 +2411,7 @@ test("a component the directive scan did not flag is not an island", async () =>
   });
 
   expect(islands).toEqual([]);
-  expect(html).not.toContain("fw-island");
+  expect(html).not.toContain("pagedeck-island");
 });
 
 test("a content-only fixture page emits no marker and no script tag", async () => {
@@ -2423,7 +2423,7 @@ test("a content-only fixture page emits no marker and no script tag", async () =
   });
 
   expect(islands).toEqual([]);
-  expect(html).not.toContain("fw-island");
+  expect(html).not.toContain("pagedeck-island");
   expect(html).not.toContain("<script");
 });
 
@@ -2644,7 +2644,7 @@ const SCANNED_SHEET =
 
 test("a stylesheet inside a paired island marker is attributed to its component", () => {
   const { sheets } = faultsInEmittedHtml(
-    `<div><fw-island data-fw-prefix="${SCANNED_ISLAND.prefix}">${SCANNED_SHEET}</fw-island></div>`,
+    `<div><pagedeck-island data-pagedeck-prefix="${SCANNED_ISLAND.prefix}">${SCANNED_SHEET}</pagedeck-island></div>`,
     SCANNED_PREFIX,
   );
 
@@ -2653,7 +2653,7 @@ test("a stylesheet inside a paired island marker is attributed to its component"
 
 test("a self-closing island marker does not attribute the stylesheet after it", () => {
   const { sheets } = faultsInEmittedHtml(
-    `<div><fw-island data-fw-prefix="${SCANNED_ISLAND.prefix}"/>${SCANNED_SHEET}</div>`,
+    `<div><pagedeck-island data-pagedeck-prefix="${SCANNED_ISLAND.prefix}"/>${SCANNED_SHEET}</div>`,
     SCANNED_PREFIX,
   );
 
@@ -3174,7 +3174,7 @@ test("a provider delivering a store the framework did not mint refuses the rende
   const foreign = { get: () => 1, set: () => undefined, sub: () => () => {} };
   const Delivering = ({ children }: { children?: ReactNode }) => children;
   const Own = ({ children }: { children?: ReactNode }) => children;
-  const key = Symbol.for("fw.shared-store");
+  const key = Symbol.for("pagedeck.shared-store");
   const before = (globalThis as Record<symbol, unknown>)[key];
   (globalThis as Record<symbol, unknown>)[key] = {
     store: shared,
@@ -3270,7 +3270,7 @@ test("chrome renders in regions of its own and leaves the page's bytes as they w
   ]);
   expect(framed.islands[0]).toEqual(alone.islands[0]);
   expect(framed.chrome?.before).toContain(
-    `data-fw-prefix="${(framed.islands[1] as RenderedIsland).prefix}"`,
+    `data-pagedeck-prefix="${(framed.islands[1] as RenderedIsland).prefix}"`,
   );
 
   const ids = [

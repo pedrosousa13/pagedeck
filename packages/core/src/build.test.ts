@@ -618,7 +618,7 @@ test('a "use client" module the registry says nothing about islands and ships', 
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
-  expect(about).toContain("<fw-island");
+  expect(about).toContain("<pagedeck-island");
   const urls = assetUrls(about);
   expect(urls.length).toBeGreaterThan(0);
   for (const url of urls) {
@@ -637,14 +637,14 @@ test('a "use client" template component islands and ships in template mode', asy
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
-  expect(about).toContain("<fw-island");
+  expect(about).toContain("<pagedeck-island");
   expect(entryBundle(join(dir, "dist"), about)).toContain("marker-copy-7c02");
 }, 120_000);
 
 function markers(html: string, component: string): string[] {
-  return [...html.matchAll(/<fw-island\b[^>]*>/g)]
+  return [...html.matchAll(/<pagedeck-island\b[^>]*>/g)]
     .map((match) => match[0])
-    .filter((tag) => tag.includes(`data-fw-component="${component}"`));
+    .filter((tag) => tag.includes(`data-pagedeck-component="${component}"`));
 }
 
 test('a "use client" component a template\'s own code renders islands and ships', async () => {
@@ -661,7 +661,7 @@ test('a "use client" component a template\'s own code renders islands and ships'
   expect(found.length).toBe(2);
 
   const prefixes = found.map(
-    (marker) => /data-fw-prefix="([^"]*)"/.exec(marker)?.[1],
+    (marker) => /data-pagedeck-prefix="([^"]*)"/.exec(marker)?.[1],
   );
   expect(prefixes[0]).toBeDefined();
   expect(new Set(prefixes).size).toBe(2);
@@ -730,7 +730,7 @@ test("a component with no directive and no registry hydrate ships no marker and 
   expect((await run(dir, "build")).code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
-  expect(about).not.toContain("<fw-island");
+  expect(about).not.toContain("<pagedeck-island");
   expect(assetUrls(about)).toEqual([]);
 }, 120_000);
 
@@ -770,7 +770,7 @@ test('a registry hydrate: "none" with no directive ships static and says nothing
   expect(result.code).toBe(EXIT_CODES.success);
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
   expect(about).toContain("marker-copy-7c02");
-  expect(about).not.toContain("<fw-island");
+  expect(about).not.toContain("<pagedeck-island");
   expect(assetUrls(about)).toEqual([]);
 }, 120_000);
 
@@ -797,7 +797,7 @@ test('a "use client" module inside a package is seen, not skipped as external', 
   expect(result.code).toBe(EXIT_CODES.success);
 
   const about = readFileSync(join(dir, "dist", "about", "index.html"), "utf8");
-  expect(about).toContain("<fw-island");
+  expect(about).toContain("<pagedeck-island");
   expect(about).toContain("marker-badge-9e55");
   expect(assetUrls(about).length).toBeGreaterThan(0);
   expect(entryBundle(join(dir, "dist"), about)).toContain("marker-badge-9e55");
@@ -1045,7 +1045,7 @@ function eagerJoin(input: {
       {
         locale: "en",
         path: "/pricing",
-        id: "\0fw:entry/en/pricing",
+        id: "\0pagedeck:entry/en/pricing",
         name: "en/pricing",
         components: [
           { name: "Chart", module: "./src/Chart.js", eager: true },

@@ -832,7 +832,7 @@ test("each reference a reused page makes to a file the previous build emitted an
   });
   const signup = document({
     path: "/signup",
-    body: '<link rel="stylesheet" href="/assets/fw-core-OLD.css"><script type="module" src="/assets/entry-b-NEW.js"></script>',
+    body: '<link rel="stylesheet" href="/assets/pagedeck-core-OLD.css"><script type="module" src="/assets/entry-b-NEW.js"></script>',
   });
   const kept = document({
     path: "/about",
@@ -844,11 +844,11 @@ test("each reference a reused page makes to a file the previous build emitted an
       reused: [faq, signup, kept],
       emitted: [faq, signup, kept, { path: "/assets/entry-b-NEW.js", kind: "js", contents: "" }],
       routing: routingOf([page("/faq"), page("/signup"), page("/about")]),
-      previous: new Set(["/assets/entry-a-OLD.js", "/assets/fw-core-OLD.css", "/assets/entry-b-NEW.js"]),
+      previous: new Set(["/assets/entry-a-OLD.js", "/assets/pagedeck-core-OLD.css", "/assets/entry-b-NEW.js"]),
     }),
   ).toEqual([
     { page: "en /faq", href: "/assets/entry-a-OLD.js" },
-    { page: "en /signup", href: "/assets/fw-core-OLD.css" },
+    { page: "en /signup", href: "/assets/pagedeck-core-OLD.css" },
   ]);
 });
 
@@ -860,23 +860,23 @@ test("references a build could not settle are one line each, counted by page, af
     movedReferenceReport(
       [
         { page: "en /faq", href: "/assets/entry-a-OLD.js" },
-        { page: "en /faq", href: "/assets/fw-core-OLD.css" },
+        { page: "en /faq", href: "/assets/pagedeck-core-OLD.css" },
       ],
       3,
     ),
   ).toBe(
-    `Site build: 1 page this build reuses still names chunks or stylesheets this build did not emit after 3 bundles — ${UNSETTLED_FIX}:\n  en /faq — "/assets/entry-a-OLD.js"\n  en /faq — "/assets/fw-core-OLD.css"`,
+    `Site build: 1 page this build reuses still names chunks or stylesheets this build did not emit after 3 bundles — ${UNSETTLED_FIX}:\n  en /faq — "/assets/entry-a-OLD.js"\n  en /faq — "/assets/pagedeck-core-OLD.css"`,
   );
   expect(
     movedReferenceReport(
       [
-        { page: "en /signup", href: "/assets/fw-core-OLD.css" },
+        { page: "en /signup", href: "/assets/pagedeck-core-OLD.css" },
         { page: "en /faq", href: "/assets/entry-a-OLD.js" },
       ],
       3,
     ),
   ).toBe(
-    `Site build: 2 pages this build reuses still name chunks or stylesheets this build did not emit after 3 bundles — ${UNSETTLED_FIX}:\n  en /faq — "/assets/entry-a-OLD.js"\n  en /signup — "/assets/fw-core-OLD.css"`,
+    `Site build: 2 pages this build reuses still name chunks or stylesheets this build did not emit after 3 bundles — ${UNSETTLED_FIX}:\n  en /faq — "/assets/entry-a-OLD.js"\n  en /signup — "/assets/pagedeck-core-OLD.css"`,
   );
   expect(movedReferenceReport([{ page: "en /faq", href: "/assets/entry-a-OLD.js" }], 1)).toBe(
     `Site build: 1 page this build reuses still names a chunk or stylesheet this build did not emit after 1 bundle — ${UNSETTLED_FIX}:\n  en /faq — "/assets/entry-a-OLD.js"`,

@@ -108,9 +108,11 @@ as `TocEntry.slug` (issue #327).
   characters turned into one hyphen and none at either end.
 - **Apostrophes are dropped**, straight and curly, so `## What's next` is
   `#whats-next`. This is GitHub's and Astro's convention.
-- **The framework's names are taken out.** `fw` and `data-fw` as whole
-  segments are removed, after the apostrophes are dropped, so no heading can
-  mint an id in the framework's namespace.
+- **The framework's names are taken out.** `data-pagedeck` as a whole
+  segment is removed, after the apostrophes are dropped, so no heading can
+  mint an id in the framework's namespace. Only that segment is reserved, so a
+  heading such as "Pagedeck preview" can slug to `pagedeck-preview`, the id
+  `@pagedeck/preview` gives its preview container (ruled on #89).
 - **Never empty and never repeated.** A heading with nothing left is
   `section`, and a repeat is numbered `-1`, `-2`, skipping any heading slug
   the document already uses.

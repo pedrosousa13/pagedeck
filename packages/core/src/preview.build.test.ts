@@ -195,10 +195,10 @@ test("a declared preview is emitted, and its script names a chunk this build wro
   const preview = await build(PREVIEW_SITE, PREVIEW);
   const document = read(preview.dist, join("_preview", "index.html"));
 
-  expect(document).toContain('<div id="fw-preview"></div>');
+  expect(document).toContain('<div id="pagedeck-preview"></div>');
   const src = scriptSrc(document);
   expect(src).toMatch(/^\/_preview\/assets\/preview-[^/]+\.js$/);
-  expect(read(preview.dist, src.slice(1))).toContain("fw-preview-build-target");
+  expect(read(preview.dist, src.slice(1))).toContain("pagedeck-preview-build-target");
   expect(
     previewFiles(preview.dist).some((path) =>
       readFileSync(join(preview.dist, path), "utf8").includes(
@@ -252,12 +252,12 @@ test("nothing the build wrote outside the preview path carries the app's mark", 
   expect(site.some((path) => path.endsWith(".js"))).toBe(true);
   for (const path of site) {
     expect(readFileSync(join(preview.dist, path), "utf8")).not.toContain(
-      "fw-preview-build-target",
+      "pagedeck-preview-build-target",
     );
   }
   const src = scriptSrc(read(preview.dist, join("_preview", "index.html")));
   expect(read(preview.dist, src.slice(1))).toContain(
-    "fw-preview-build-target",
+    "pagedeck-preview-build-target",
   );
 }, 180_000);
 
@@ -269,7 +269,7 @@ test("every output tree gets the whole app", async () => {
     const document = read(preview.dist, join(tree, "_preview", "index.html"));
     const src = scriptSrc(document);
     expect(read(preview.dist, join(tree, src.slice(1)))).toContain(
-      "fw-preview-build-target",
+      "pagedeck-preview-build-target",
     );
     return walk(join(preview.dist, tree)).filter((path) =>
       path.startsWith("_preview/"),

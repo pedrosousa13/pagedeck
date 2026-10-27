@@ -124,7 +124,7 @@ test("a facade whose markup names another facade's key does not take its placeho
         name: "chat",
         src: CHAT_SRC,
         strategy: "facade",
-        facade: { html: '<button id="chat" data-fw-facade="1">Chat</button>' },
+        facade: { html: '<button id="chat" data-pagedeck-facade="1">Chat</button>' },
       },
       {
         name: "video",

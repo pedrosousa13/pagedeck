@@ -144,7 +144,7 @@ function chunkNamed(chunks: readonly Chunk[], name: string): Chunk | undefined {
 
 test("a group captures a component reached only by a dynamic import", async () => {
   const { chunks } = await tieredBuild(ONE);
-  const core = chunkNamed(chunks, "fw-core");
+  const core = chunkNamed(chunks, "pagedeck-core");
 
   expect(core).toBeDefined();
   expect(core?.code).toContain("marker-hero-4b71");
@@ -155,11 +155,11 @@ test("a group captures a component reached only by a dynamic import", async () =
 test("the mid tier takes the component that clears pages but not share", async () => {
   const { chunks } = await tieredBuild(ONE);
 
-  const mid = chunks.filter((chunk) => chunk.name.startsWith("fw-mid"));
+  const mid = chunks.filter((chunk) => chunk.name.startsWith("pagedeck-mid"));
   expect(mid.map((chunk) => chunk.code).join("\n")).toContain(
     "marker-signup-9ce3",
   );
-  expect(chunkNamed(chunks, "fw-core")?.code).not.toContain(
+  expect(chunkNamed(chunks, "pagedeck-core")?.code).not.toContain(
     "marker-signup-9ce3",
   );
 }, 60_000);
@@ -167,7 +167,7 @@ test("the mid tier takes the component that clears pages but not share", async (
 test("the islands runtime ships in the core chunk", async () => {
   const { built, chunks } = await tieredBuild(ONE);
 
-  const core = chunkNamed(chunks, "fw-core");
+  const core = chunkNamed(chunks, "pagedeck-core");
   expect(built.modules.get(core?.path ?? "")).toContain(
     built.ids["@pagedeck/islands/runtime"],
   );
@@ -175,15 +175,15 @@ test("the islands runtime ships in the core chunk", async () => {
 
 test("a component on one page keeps its bytes out of core", async () => {
   const { chunks } = await tieredBuild(ONE);
-  const core = chunkNamed(chunks, "fw-core");
+  const core = chunkNamed(chunks, "pagedeck-core");
 
   expect(core?.code).not.toContain("marker-chart-2ad8");
   const holders = chunks.filter((chunk) =>
     chunk.code.includes("marker-chart-2ad8"),
   );
   expect(holders).toHaveLength(1);
-  expect(holders[0]?.name).not.toBe("fw-core");
-  expect(holders[0]?.name).not.toBe("fw-mid");
+  expect(holders[0]?.name).not.toBe("pagedeck-core");
+  expect(holders[0]?.name).not.toBe("pagedeck-mid");
 }, 60_000);
 
 test("an aliased specifier ships in the group the plan recorded", async () => {
@@ -193,9 +193,9 @@ test("an aliased specifier ships in the group the plan recorded", async () => {
   });
 
   const banner = tiers.assignments.find((one) => one.component === "Banner");
-  expect(banner?.group).toBe("fw-core");
-  expect(chunkNamed(chunks, "fw-core")?.code).toContain("marker-hero-4b71");
-  expect(chunks.filter((chunk) => chunk.name.startsWith("fw-mid"))).toEqual([]);
+  expect(banner?.group).toBe("pagedeck-core");
+  expect(chunkNamed(chunks, "pagedeck-core")?.code).toContain("marker-hero-4b71");
+  expect(chunks.filter((chunk) => chunk.name.startsWith("pagedeck-mid"))).toEqual([]);
 }, 60_000);
 
 test("the core chunk survives two builds whose pages differ", async () => {
@@ -205,8 +205,8 @@ test("the core chunk survives two builds whose pages differ", async () => {
   expect(one.map((chunk) => chunk.name)).not.toEqual(
     two.map((chunk) => chunk.name),
   );
-  const first = chunkNamed(one, "fw-core");
-  const second = chunkNamed(two, "fw-core");
+  const first = chunkNamed(one, "pagedeck-core");
+  const second = chunkNamed(two, "pagedeck-core");
   expect(second?.path).toBe(first?.path);
   expect(second?.code).toBe(first?.code);
 }, 60_000);
@@ -229,7 +229,7 @@ test("a component no page hydrates on load stays out of core and off a load page
   expect(
     tiers.assignments.find((one) => one.component === "Search"),
   ).toMatchObject({ tier: "tail", pageCount: 4 });
-  const core = chunkNamed(chunks, "fw-core");
+  const core = chunkNamed(chunks, "pagedeck-core");
   expect(core?.code).toContain("marker-hero-4b71");
   expect(core?.code).not.toContain("marker-search-c05e");
 

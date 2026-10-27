@@ -142,13 +142,13 @@ The build fails with exit code 2, and prints:
 ```
 pagedeck: JavaScript budget: 2 pages transfer more JavaScript for first render than their budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
 pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53595 B over 4 chunks, the 3 largest:
-pagedeck:     /assets/fw-core-DDGHZVhO.js — 52145 B
-pagedeck:     /assets/fw-startup-DtWrQx5C.js — 992 B
+pagedeck:     /assets/pagedeck-core-DDGHZVhO.js — 52145 B
+pagedeck:     /assets/pagedeck-startup-DtWrQx5C.js — 992 B
 pagedeck:     /assets/counter-DjZBwrr6.js — 238 B
 pagedeck:     fold strategy promoted "counter" at tree position 1 from "visible" to "load" — position 1 is above the fold threshold of 4
 pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53430 B over 3 chunks:
-pagedeck:     /assets/fw-core-DDGHZVhO.js — 52145 B
-pagedeck:     /assets/fw-startup-DtWrQx5C.js — 992 B
+pagedeck:     /assets/pagedeck-core-DDGHZVhO.js — 52145 B
+pagedeck:     /assets/pagedeck-startup-DtWrQx5C.js — 992 B
 pagedeck:     /assets/entry-8c8b51d5ffe9bbeb-BAEKmaf-.js — 293 B
 ```
 
@@ -158,10 +158,10 @@ it, because they ship 0 B.
 
 Read the two pages against step 3. The counter has no `hydrate`, so fold
 strategy promoted it to `load`, and its chunk counts. The greeting hydrates on
-`idle`, so its own chunk is not on the list. Both pages pay for `fw-core`,
-which holds React and the island runtime, and for `fw-startup`, which waits for
-each island's trigger. `/counter/` loads `fw-core` at once. `/greet/` has no
-`load` island, so it loads `fw-core` only when the greeting's trigger fires,
+`idle`, so its own chunk is not on the list. Both pages pay for `pagedeck-core`,
+which holds React and the island runtime, and for `pagedeck-startup`, which waits for
+each island's trigger. `/counter/` loads `pagedeck-core` at once. `/greet/` has no
+`load` island, so it loads `pagedeck-core` only when the greeting's trigger fires,
 and the budget charges it all the same. Moving an island off `load` saves the
 island's own chunk, not React.
 
@@ -208,8 +208,8 @@ It has one row per budgeted page. This is the row for the greeting's page:
   "html": 280,
   "breach": false,
   "chunks": [
-    { "path": "/assets/fw-core-DDGHZVhO.js", "bytes": 52145 },
-    { "path": "/assets/fw-startup-DtWrQx5C.js", "bytes": 992 },
+    { "path": "/assets/pagedeck-core-DDGHZVhO.js", "bytes": 52145 },
+    { "path": "/assets/pagedeck-startup-DtWrQx5C.js", "bytes": 992 },
     { "path": "/assets/entry-8c8b51d5ffe9bbeb-BAEKmaf-.js", "bytes": 293 }
   ],
   "causes": [],

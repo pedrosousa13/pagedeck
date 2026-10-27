@@ -170,7 +170,7 @@ interface RenderedSlot {
 }
 
 /**
- * Counts `<fw-slot>` start tags the pass emitted, not render calls or byte
+ * Counts `<pagedeck-slot>` start tags the pass emitted, not render calls or byte
  * matches (#111). A search, not a parse: its known misses err safe (#129).
  */
 function slotCopies(html: string, id: string): number {

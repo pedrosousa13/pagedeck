@@ -52,7 +52,7 @@ interface SlotReplicaProps {
 const SlotReplica = memo(
   function SlotReplica({ html, ref }: SlotReplicaProps): ReactElement {
     bodies += 1;
-    return createElement("fw-slot", { ref }, html);
+    return createElement("pagedeck-slot", { ref }, html);
   },
   (prev, next) => {
     comparatorCalls.push({ prev, next });

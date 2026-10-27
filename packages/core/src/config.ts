@@ -918,7 +918,7 @@ function xDefaultFaultReport(
  * counter, since two saves can share a millisecond.
  */
 let reloads = 0;
-export const RELOAD_QUERY = "fw-reload";
+export const RELOAD_QUERY = "pagedeck-reload";
 
 export async function loadConfig(
   cwd: string,

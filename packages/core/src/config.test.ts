@@ -2010,7 +2010,7 @@ test("a build section carries a declared experiment through to the loaded config
     dir,
     "pagedeck.config.ts",
     buildSectionSource(
-      `{ ${MINIMAL_BUILD}, routing: { experiments: [{ locale: "en", path: "/pricing", cookie: "fw_pricing", variants: [{ name: "b", weight: 50 }] }] } }`,
+      `{ ${MINIMAL_BUILD}, routing: { experiments: [{ locale: "en", path: "/pricing", cookie: "pagedeck_pricing", variants: [{ name: "b", weight: 50 }] }] } }`,
     ),
   );
 
@@ -2020,7 +2020,7 @@ test("a build section carries a declared experiment through to the loaded config
     {
       locale: "en",
       path: "/pricing",
-      cookie: "fw_pricing",
+      cookie: "pagedeck_pricing",
       variants: [{ name: "b", weight: 50 }],
     },
   ]);
@@ -2035,7 +2035,7 @@ test("a build section reports every experiment field that is not the type the pa
       `{ ${MINIMAL_BUILD}, routing: {
         experiments: [
           { locale: "en", path: "/pricing", cookie: 7 },
-          { locale: "en", path: "/about", cookie: "fw_about", variants: [{ name: 2, weight: "50" }] },
+          { locale: "en", path: "/about", cookie: "pagedeck_about", variants: [{ name: 2, weight: "50" }] },
         ],
       } }`,
     ),
@@ -2048,7 +2048,7 @@ test("a build section reports every experiment field that is not the type the pa
   expect(error).toBeInstanceOf(ConfigError);
   expect((error as Error).message).toContain(
     `"build.routing" declares 4 rule fields this build cannot route with — declare each as the type its own line names:
-  experiments[0] — "cookie" — 7 — not a string — write the cookie key this experiment is assigned and read by, such as "fw_pricing"
+  experiments[0] — "cookie" — 7 — not a string — write the cookie key this experiment is assigned and read by, such as "pagedeck_pricing"
   experiments[0] — "variants" — undefined — not a list of variants — write the variants of this experiment, as variants: [{ name: "b", weight: 50 }]
   experiments[1].variants[0] — "name" — 2 — not a string — write the variant name as one path segment, such as "b"
   experiments[1].variants[0] — "weight" — "50" — not a number — write this variant's share of visitors, such as weight: 50`,

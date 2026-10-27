@@ -1,5 +1,5 @@
 // Example: render one page's entry to static HTML. Content is escaped, components never fetch,
-// and each `"use client"` island renders in its own pass inside an `<fw-island>` marker.
+// and each `"use client"` island renders in its own pass inside an `<pagedeck-island>` marker.
 import { renderPage } from "@pagedeck/core";
 import type { EntryNode, PlacedLocale } from "@pagedeck/core";
 // The components live in a module of their own, which the preview target bundles for a browser.
@@ -47,7 +47,7 @@ const TREE: readonly EntryNode[] = [
     children: [
       // An island in a slot. It is a root of its own, not part of the
       // container's, so it hydrates on its own schedule.
-      { component: "AddToCart", props: { sku: "fw-tee" } },
+      { component: "AddToCart", props: { sku: "pagedeck-tee" } },
       // The unopened panel, stashed as the escaped text of a `<template>`.
       { component: "Tagline", props: { text: "Ships in two days" } },
     ],

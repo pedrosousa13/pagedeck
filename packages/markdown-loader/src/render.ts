@@ -115,7 +115,7 @@ function curlBlock(token: Token): void {
 
 // `walkTokens` may be async and the renderer may not, so highlighting happens in the walk.
 interface HighlightedCode extends Tokens.Code {
-  fwHighlighted?: string;
+  pagedeckHighlighted?: string;
 }
 
 const ESCAPES: Readonly<Record<string, string>> = {
@@ -177,10 +177,10 @@ const FALLBACK_SLUG = "section";
 
 // `(?<![-\w])` is core's ASCII name boundary (`NAME_CHARACTER`), so a reserved name after a
 // non-ASCII letter is caught, as `stripReservedNames` would strip it.
-const RESERVED = /(?<![-\w])(?:(?:data-)?fw(?:-|$))+/g;
+const RESERVED = /(?<![-\w])(?:data-pagedeck(?:-|$))+/g;
 
-// `stripReservedNames` deletes `data-fw-*` names from content, `id`s included, so a heading
-// spelling one would lose its anchor; `fw-` ids are the framework's. One pass is a fixed point.
+// `stripReservedNames` deletes `data-pagedeck-*` names from content, `id`s included, so a heading
+// spelling one would lose its anchor. One pass is a fixed point.
 function unreserved(slug: string): string {
   return slug.replace(RESERVED, "");
 }
@@ -197,7 +197,7 @@ function uniqueSlug(base: string, taken: Set<string>): string {
 
 // Marked on the token, not matched on text, so of two identical headings the right one goes.
 interface TitleHeading extends Tokens.Heading {
-  fwTitle?: true;
+  pagedeckTitle?: true;
 }
 
 export async function createMarkdownRenderer(
@@ -234,30 +234,30 @@ export async function createMarkdownRenderer(
             if (heading.depth === 1 && !titleSeen) {
               titleSeen = true;
               title = textContent(heading.tokens, smartQuotes) || undefined;
-              heading.fwTitle = true;
+              heading.pagedeckTitle = true;
             }
           }
           if (token.type !== "code") return;
           const code = token as HighlightedCode;
           const language = code.lang?.trim() ?? "";
           if (language === "") {
-            code.fwHighlighted = plainCode(code.text);
+            code.pagedeckHighlighted = plainCode(code.text);
             return;
           }
           if (!loaded.has(language)) {
             unknown.add(language);
             // Left unhighlighted so the render completes; the throw comes after the whole walk.
-            code.fwHighlighted = plainCode(code.text);
+            code.pagedeckHighlighted = plainCode(code.text);
             return;
           }
-          code.fwHighlighted = highlighter.codeToHtml(code.text, {
+          code.pagedeckHighlighted = highlighter.codeToHtml(code.text, {
             lang: language,
             ...colours,
           });
         },
         renderer: {
           heading(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Heading): string {
-            if ((token as TitleHeading).fwTitle === true) return "";
+            if ((token as TitleHeading).pagedeckTitle === true) return "";
             const depth = String(token.depth);
             const slug = uniqueSlug(
               unreserved(slugify(textContent(token.tokens, false))) || FALLBACK_SLUG,
@@ -272,7 +272,7 @@ export async function createMarkdownRenderer(
           },
           code(token: Tokens.Code): string {
             // Always set by the walk; the fallback keeps a parser change from printing "undefined".
-            return (token as HighlightedCode).fwHighlighted ?? plainCode(token.text);
+            return (token as HighlightedCode).pagedeckHighlighted ?? plainCode(token.text);
           },
         },
       });

@@ -78,7 +78,7 @@ test("a site's .jsx module is compiled too", () => {
 
 test("a module asked for under a query is compiled by its path", () => {
   const { nextLoad, calls } = served(ISLAND);
-  const url = "file:///site/components/Counter.tsx?fw-client-original";
+  const url = "file:///site/components/Counter.tsx?pagedeck-client-original";
   const source = String(jsxLoad(url, CONTEXT, nextLoad).source);
 
   expect(source).toContain('from "react/jsx-runtime"');

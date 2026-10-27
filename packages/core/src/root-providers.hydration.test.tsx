@@ -213,7 +213,7 @@ async function hydrate(): Promise<string[]> {
 }
 
 function markers(): TestElement[] {
-  return [...document.body.querySelectorAll("fw-island")];
+  return [...document.body.querySelectorAll("pagedeck-island")];
 }
 
 async function scrollTo(marker: TestElement): Promise<void> {
@@ -232,7 +232,7 @@ function pageIds(): string[] {
 test("two islands on one page hydrate under distinct prefixes, and their useId values do not collide", async () => {
   await buildPage();
 
-  const prefixes = markers().map((one) => one.getAttribute("data-fw-prefix"));
+  const prefixes = markers().map((one) => one.getAttribute("data-pagedeck-prefix"));
   expect(new Set(prefixes).size).toBe(2);
 
   const serverIds = markers().map((one) => {
@@ -271,7 +271,7 @@ test("two islands on one page hydrate under distinct prefixes, and their useId v
 test("two islands under two strategies share one store through their own providers", async () => {
   await buildPage();
 
-  expect(markers().map((one) => one.getAttribute("data-fw-mode"))).toEqual([
+  expect(markers().map((one) => one.getAttribute("data-pagedeck-mode"))).toEqual([
     "load",
     "visible",
   ]);

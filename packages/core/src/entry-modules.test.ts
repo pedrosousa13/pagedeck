@@ -140,7 +140,7 @@ test("two clean builds of one plan are byte-identical", async () => {
 test("the inputs name one id per entry and none per content-only page", () => {
   const plan = planEntries(DEMANDS, { modules: MODULES });
 
-  expect(entryInputs(plan)).toEqual({ [HOME]: `\0fw:entry/${HOME}` });
+  expect(entryInputs(plan)).toEqual({ [HOME]: `\0pagedeck:entry/${HOME}` });
 });
 
 test("a plan built from carried demands asks for the same inputs", () => {
@@ -174,8 +174,8 @@ test("two pages keep two inputs, so neither loses its chunk", () => {
 
   expect(quote).not.toBe(HOME);
   expect(entryInputs(plan)).toEqual({
-    [HOME]: `\0fw:entry/${HOME}`,
-    [quote]: `\0fw:entry/${quote}`,
+    [HOME]: `\0pagedeck:entry/${HOME}`,
+    [quote]: `\0pagedeck:entry/${quote}`,
   });
 });
 
@@ -195,7 +195,7 @@ test("two pages with one entry text are one input, and one chunk", async () => {
   );
 
   expect(plan.entries.map((entry) => entry.name)).toEqual([HOME, HOME]);
-  expect(entryInputs(plan)).toEqual({ [HOME]: `\0fw:entry/${HOME}` });
+  expect(entryInputs(plan)).toEqual({ [HOME]: `\0pagedeck:entry/${HOME}` });
 
   const chunks = await clientBuild(plan);
   expect(chunks.filter((chunk) => chunk.name.startsWith("entry-"))).toHaveLength(

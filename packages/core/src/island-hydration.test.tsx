@@ -221,7 +221,7 @@ async function buildProxyIslands(
     registry: PROXY_REGISTRY,
     providers: PROVIDERS,
   });
-  const markers = [...html.matchAll(/data-fw-prefix="([^"]+)"/g)].map(
+  const markers = [...html.matchAll(/data-pagedeck-prefix="([^"]+)"/g)].map(
     (match) => match[1] as string,
   );
   expect(markers).toEqual(islands.map((island) => island.prefix));
@@ -318,7 +318,7 @@ function NestingTemplate() {
   );
 }
 
-const ISLAND_TAG_OPEN = /<fw-island\b/g;
+const ISLAND_TAG_OPEN = /<pagedeck-island\b/g;
 
 test("a client component another client component imports islands where the server renders it, and hydrates inside the other's island", async () => {
   const { html, islands } = await renderPage({

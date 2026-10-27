@@ -87,10 +87,10 @@ Seven consequences are worth stating outright:
 `pagedeck build` groups island components that many pages share into tier
 chunks, so a visitor downloads them once for the whole site:
 
-- **`fw-core`** holds the island runtime, React, the root providers and every
+- **`pagedeck-core`** holds the island runtime, React, the root providers and every
   component on enough of the site's pages. Every page with an island fetches
   it.
-- **`fw-mid`** holds components that several pages share but not enough to be
+- **`pagedeck-mid`** holds components that several pages share but not enough to be
   core.
 
 Any other component goes in a chunk the bundler splits by its own rules,
@@ -116,11 +116,11 @@ build: {
 The values shown are the defaults, except `exclude`, which is `[]`.
 
 - **`coreMinShare`**: a component on at least this share of the pages that
-  have islands goes in `fw-core`. Greater than 0, at most 1.
-- **`coreMinUsageShare`**: a component that qualifies for `fw-mid` goes in
-  `fw-core` instead when it accounts for at least this share of the content's
+  have islands goes in `pagedeck-core`. Greater than 0, at most 1.
+- **`coreMinUsageShare`**: a component that qualifies for `pagedeck-mid` goes in
+  `pagedeck-core` instead when it accounts for at least this share of the content's
   usages of the components pages ship. Greater than 0, at most 1.
-- **`midMinPages`**: a component on at least this many pages goes in `fw-mid`.
+- **`midMinPages`**: a component on at least this many pages goes in `pagedeck-mid`.
   A whole number, at least 1.
 - **`exclude`**: component registry names that are never grouped. Their code
   goes in the bundler's own split, and their usages do not count towards any
@@ -143,7 +143,7 @@ moved islands. A component that hydrates on `load` on at least one page is
 grouped by the settings above. The decision is made per module, so two
 registry names on one module are grouped together if either hydrates on
 `load`. The reason is
-the bill above: `fw-core` counts against every page that loads it on first
+the bill above: `pagedeck-core` counts against every page that loads it on first
 render, so an `idle` or `visible` component inside it would add its bytes to
 every page with a `load` island, including pages that never render it. Left
 out, it costs a page that uses it one more request when its island's trigger
@@ -378,7 +378,7 @@ island over the limit, gets no report.
       "html": 1902,
       "breach": true,
       "chunks": [
-        { "path": "/assets/fw-core-DO-Blg1p.js", "bytes": 52397 },
+        { "path": "/assets/pagedeck-core-DO-Blg1p.js", "bytes": 52397 },
         { "path": "/assets/Chart-9f31.js", "bytes": 18004 },
         { "path": "/assets/en_pricing-1a2b.js", "bytes": 412 }
       ],
@@ -439,7 +439,7 @@ fails.
 ```
 JavaScript budget: 1 page transfers more JavaScript for first render than its budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
   en /pricing/ — "/pricing/" allows 15360 B, the page transfers 70813 B over 3 chunks:
-    /assets/fw-core-DO-Blg1p.js — 52397 B
+    /assets/pagedeck-core-DO-Blg1p.js — 52397 B
     /assets/Chart-9f31.js — 18004 B
     /assets/en_pricing-1a2b.js — 412 B
     fold strategy promoted "Chart" at tree position 0 from "visible" to "load" — position 0 is above the fold threshold of 4
