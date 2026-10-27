@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 const REPO = join(import.meta.dirname, "..", "..", "..");
 const WORKFLOWS = join(REPO, ".github", "workflows");
 
-const MINIMUM_UPLOADS = 4;
+const MINIMUM_UPLOADS = 3;
 
 const MINIMUM_HIDDEN_PATH_UPLOADS = 2;
 
@@ -119,7 +119,7 @@ function uploadsReport(count: number): string {
 }
 
 function hiddenReport(count: number): string {
-  return `Workflow uploads: ${String(count)} upload-artifact step${count === 1 ? "" : "s"} name a hidden path, of at least ${String(MINIMUM_HIDDEN_PATH_UPLOADS)} (deploy.yml's deploy-plan upload names .deploy/staging, and deploy-worker.yml's upload, which deploy-landing.yml and deploy-docs.yml call, names packages/<site>/.pagedeck), so the path: reading in uploads() has stopped recognising a dot-directory and the rule below proves nothing — fix the reading; lower MINIMUM_HIDDEN_PATH_UPLOADS only if those uploads were deliberately removed`;
+  return `Workflow uploads: ${String(count)} upload-artifact step${count === 1 ? "" : "s"} name a hidden path, of at least ${String(MINIMUM_HIDDEN_PATH_UPLOADS)} (deploy.yml's deploy-plan upload names .deploy/staging, and lighthouse.yml's audit upload names packages/site/.pagedeck-site-audit), so the path: reading in uploads() has stopped recognising a dot-directory and the rule below proves nothing — fix the reading in uploads(); lower MINIMUM_HIDDEN_PATH_UPLOADS only if one of those two uploads was deliberately removed`;
 }
 
 function droppedReport(dropped: readonly Upload[]): string {

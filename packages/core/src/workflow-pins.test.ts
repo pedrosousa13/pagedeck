@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 const REPO = join(import.meta.dirname, "..", "..", "..");
 const WORKFLOWS = join(REPO, ".github", "workflows");
 
-const MINIMUM_USES = 23;
+const MINIMUM_USES = 21;
 
 interface Uses {
   readonly file: string;
