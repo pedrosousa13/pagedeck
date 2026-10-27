@@ -355,6 +355,10 @@ packages/app-example/.dev.vars
 packages/app-example/.pagedeck-release-test-*/
 packages/app-example/releases/
 
+# The copy of the app example `packages/app-example/src/run-worker-first.build.test.ts`
+# builds with `/api/*` removed from its `wrangler.jsonc` (#145). The test removes it.
+packages/app-example/.pagedeck-run-worker-first-test-*/
+
 # The template copy `packages/create-pagedeck/src/template.build.test.ts` builds
 # (#77). The test removes it after each run.
 packages/create-pagedeck/.pagedeck-template-build-test-*/
