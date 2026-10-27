@@ -16,7 +16,7 @@ const BIN = join(SITE, "..", "core", "dist", "bin.js");
 const WRANGLER = join(SITE, "node_modules", ".bin", "wrangler");
 
 // Spelled again rather than imported, so a limit raised in the config fails here.
-const LIMITS = { "/": "0b", "/signup/": "63kb" };
+const LIMITS = { "/": "0b", "/signup/": "63kb", "/signup/thanks/": "0b", "/signup/invalid/": "0b" };
 
 // Every emitted `js` byte, Brotli, each file on its own: no budget row charges a lazy chunk.
 const BUILD_CEILING = 64 * 1024;
@@ -72,11 +72,12 @@ async function serve(): Promise<string> {
   throw new Error(`wrangler dev did not answer on ${url}:\n${log}`);
 }
 
-function signup(body: unknown): Promise<Response> {
+function signup(email: string, accept = "application/json"): Promise<Response> {
   return fetch(`${origin}/api/signup`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: { Origin: origin, Accept: accept },
+    body: new URLSearchParams({ email }),
+    redirect: "manual",
   });
 }
 
@@ -97,7 +98,9 @@ test("each page keeps its measured budget", () => {
     pages: { path: string; limitText: string; actual: number }[];
   };
   expect(Object.fromEntries(pages.map((row) => [row.path, row.limitText]))).toEqual(LIMITS);
-  expect(pages.find((row) => row.path === "/")?.actual).toBe(0);
+  for (const path of ["/", "/signup/thanks/", "/signup/invalid/"]) {
+    expect(pages.find((row) => row.path === path)?.actual, path).toBe(0);
+  }
 });
 
 test("the whole build's JavaScript stays under its ceiling", () => {
@@ -128,7 +131,7 @@ test("the build routes the prefix for Cloudflare Pages, and the upload leaves th
 });
 
 test("a built page is served from site/ with the build's headers", async () => {
-  for (const path of ["/", "/signup/"]) {
+  for (const path of Object.keys(LIMITS)) {
     const response = await fetch(`${origin}${path}`);
     expect(response.status, path).toBe(200);
     expect(response.headers.get("Content-Type"), path).toMatch(/^text\/html/);
@@ -138,16 +141,38 @@ test("a built page is served from site/ with the build's headers", async () => {
 }, 30_000);
 
 test("the prefix is answered by the app, with the app's own headers", async () => {
-  const accepted = await signup({ email: "reader@example.com" });
+  const accepted = await signup("reader@example.com");
   expect(accepted.status).toBe(201);
   expect(await accepted.json()).toEqual({ message: "Thanks. We will write to reader@example.com." });
   expect(accepted.headers.get("Cache-Control")).toBe("no-store");
   // `secureHeaders()`'s value, not the build's `DENY`: `_headers` never reaches the app.
   expect(accepted.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
 
-  const refused = await signup({ email: "" });
+  const refused = await signup("");
   expect(refused.status).toBe(400);
   expect(await refused.json()).toEqual({ error: SERVER_ONLY });
+}, 30_000);
+
+test("a form posted without JavaScript lands on a page that holds no address", async () => {
+  const html = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+  for (const [email, page] of [
+    ["reader@example.com", "/signup/thanks/"],
+    ["", "/signup/invalid/"],
+  ] as const) {
+    const response = await signup(email, html);
+    expect(response.status, email).toBe(303);
+    expect(response.headers.get("Location"), email).toBe(page);
+    expect((await fetch(`${origin}${page}`)).status, page).toBe(200);
+  }
+}, 30_000);
+
+test("a form posted from another site is refused", async () => {
+  const response = await fetch(`${origin}/api/signup`, {
+    method: "POST",
+    headers: { Origin: "https://elsewhere.example" },
+    body: new URLSearchParams({ email: "reader@example.com" }),
+  });
+  expect(response.status).toBe(403);
 }, 30_000);
 
 test("a path with no file falls through to the app's 404", async () => {
