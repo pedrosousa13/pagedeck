@@ -1,7 +1,9 @@
+import { execFile } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, expect, test } from "vitest";
+import { promisify } from "node:util";
+import { afterAll, afterEach, expect, test } from "vitest";
 import {
   installClientReferences,
   recordImporters,
@@ -11,7 +13,28 @@ import { CLIENT_REFERENCE_TARGET } from "./tree.js";
 
 const SITES = join(import.meta.dirname, "..", "node_modules");
 
+const execFileAsync = promisify(execFile);
+
+const LOADER = pathToFileURL(
+  join(import.meta.dirname, "..", "dist", "client-reference-loader.js"),
+).href;
+
+// Loaded before the importers are recorded, as a program that calls core
+// without `bin.ts` loads its config.
+const UNRECORDED = join(SITES, ".pagedeck-loader-test-unrecorded");
+rmSync(UNRECORDED, { recursive: true, force: true });
+mkdirSync(UNRECORDED, { recursive: true });
+writeFileSync(
+  join(UNRECORDED, "Early.js"),
+  `"use client";\nexport default function Early() { return null; }\n`,
+);
+await import(/* @vite-ignore */ pathToFileURL(join(UNRECORDED, "Early.js")).href);
+
 recordImporters();
+
+afterAll(() => {
+  rmSync(UNRECORDED, { recursive: true, force: true });
+});
 
 const CONFIG = join(SITES, "pagedeck.config.ts");
 
@@ -473,4 +496,117 @@ test("faults in two modules are reported together, counting modules, not faults"
   expect(message).toContain(`  module "${barrel}" line 2: `);
   expect(message).toContain(`  module "${barrel}" line 3: `);
   expect(message).toContain(`  module "${broken}": does not parse`);
+});
+
+// Spawned: Vitest runs a `.js` module from a package with no "type" through its own
+// transform rather than Node's loader, and these are about Node's detection.
+async function inNode(script: string): Promise<unknown> {
+  const { stdout } = await execFileAsync(process.execPath, [
+    "--input-type=module",
+    "-e",
+    `import { installClientReferences } from ${JSON.stringify(LOADER)};\n${script}`,
+  ]);
+  return JSON.parse(stdout) as unknown;
+}
+
+test("a .cjs module, and a .js one in a package with no type, with a top-level return are read by running them, as Node runs them", async () => {
+  const dir = directory({
+    "package.json": "{}\n",
+    "Guarded.cjs": `"use client";\nif (typeof module === "undefined") return;\nmodule.exports = function Guarded() { return "g"; };\n`,
+    "Loose.js": `"use client";\nif (typeof module === "undefined") return;\nexports.Loose = function Loose() { return "l"; };\n`,
+  });
+  const guarded = join(dir, "Guarded.cjs");
+  const loose = join(dir, "Loose.js");
+  const target = `Symbol.for(${JSON.stringify(CLIENT_REFERENCE_TARGET.description)})`;
+
+  const proxied = await inNode(`
+const installed = await installClientReferences({
+  clientComponents: { ${JSON.stringify(guarded)}: "Guarded", ${JSON.stringify(loose)}: "Loose" },
+  registry: { Guarded: {}, Loose: {} },
+  config: ${JSON.stringify(CONFIG)},
+});
+const guarded = await import(${JSON.stringify(pathToFileURL(guarded).href)});
+const loose = await import(${JSON.stringify(pathToFileURL(loose).href)});
+installed.close();
+console.log(JSON.stringify([typeof guarded.default[${target}], typeof loose.Loose[${target}]]));
+`);
+
+  expect(proxied).toEqual(["function", "function"]);
+}, 30_000);
+
+test("a .js boundary module whose only module syntax is top-level await or import.meta is read without running it", async () => {
+  const dir = directory({
+    "package.json": "{}\n",
+    "A.js": `"use client";\nglobalThis.fwOrder.push("A");\nexport default function A() { return null; }\n`,
+    "Meta.js": `"use client";\nglobalThis.fwOrder.push(import.meta.url.includes("/Meta.js") ? "meta" : "?");\n`,
+    "Wait.js": `"use client";\nawait Promise.resolve();\nglobalThis.fwOrder.push("wait");\n`,
+  });
+  const files = ["A.js", "Meta.js", "Wait.js"].map((name) => join(dir, name));
+
+  const order = await inNode(`
+globalThis.fwOrder = [];
+const installed = await installClientReferences({
+  clientComponents: ${JSON.stringify(Object.fromEntries(files.map((file, at) => [file, `Module${String(at)}`])))},
+  registry: ${JSON.stringify(Object.fromEntries(files.map((_, at) => [`Module${String(at)}`, {}])))},
+  config: ${JSON.stringify(CONFIG)},
+});
+installed.close();
+console.log(JSON.stringify(globalThis.fwOrder));
+`);
+
+  expect(order).toEqual(["A", "meta", "wait"]);
+}, 30_000);
+
+test("a boundary module loaded before anything recorded its importer is refused with a fix to look for", async () => {
+  const early = join(UNRECORDED, "Early.js");
+
+  const refusal = await refusalOf({
+    clientComponents: { [early]: "Early" },
+    registry: { Early: registry.Copy },
+  });
+
+  const message = (refusal as Error).message;
+  expect(message).toContain(`  "Early" — "${early}"`);
+  expect(message).toContain(
+    "find the module that imports each at top level, most likely pagedeck.config.ts or a module it imports, and load that module only through a registry thunk",
+  );
+});
+
+test("a boundary module a CommonJS boundary module requires is refused, naming the CommonJS importer and its fix", async () => {
+  const dir = directory({
+    "A.cjs": `"use client";\nconst B = require("./B.mjs");\nmodule.exports = function A() { return B; };\n`,
+    "B.mjs": `"use client";\nexport default function B() { return null; }\n`,
+  });
+  const a = join(dir, "A.cjs");
+  const b = join(dir, "B.mjs");
+
+  const refusal = await refusalOf({
+    clientComponents: { [a]: "A", [b]: "B" },
+    registry: { A: registry.Copy, B: registry.Copy },
+  });
+
+  const message = (refusal as Error).message;
+  expect(message).toContain(`  "B" — "${b}", required by "A"`);
+  expect(message).toContain(
+    "make the importer named beside each an ES module, or drop the module it requires from build.components",
+  );
+  expect(message).not.toContain("pagedeck.config.ts");
+});
+
+test("a boundary module whose export * reaches a CommonJS module is refused, naming the module and the line", async () => {
+  const dir = directory({
+    "impl.cjs": `exports.Panel = function Panel() { return null; };\n`,
+    "Barrel.js": `"use client";\nexport * from "./impl.cjs";\n`,
+  });
+  const file = join(dir, "Barrel.js");
+
+  const refusal = await refusalOf({
+    clientComponents: { [file]: "Barrel" },
+    registry: { Barrel: registry.Copy },
+  });
+
+  expect(refusal).toBeInstanceOf(ConfigError);
+  expect((refusal as Error).message).toBe(
+    `Island loader: module "${file}" line 2: export * from "./impl.cjs" reaches a CommonJS module, and the build reads the names a "use client" module re-exports without running them — re-export each name instead, as export { Name } from "./impl.cjs"`,
+  );
 });

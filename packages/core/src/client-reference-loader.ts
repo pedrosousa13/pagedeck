@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { findPackageJSON, registerHooks } from "node:module";
-import { extname } from "node:path";
+import { registerHooks } from "node:module";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseSync } from "rolldown/utils";
 import type { ESTree } from "rolldown/utils";
@@ -32,6 +32,12 @@ const FACTORY = Symbol.for("@pagedeck/core client reference factory");
 
 interface ExportedName {
   key: string;
+  /**
+   * Whether the proxy stands in for the export: it does when the export is a
+   * function once loaded. Never for a variable initialised with a literal,
+   * template, object or array, an enum, a namespace, or `export * as`, which
+   * stay live bindings. A mistaken wrap passes a non-function value through.
+   */
   wrap: boolean;
   /** The module and export name the binding comes from, which tells one `export *` name from two. */
   origin: string;
@@ -42,6 +48,7 @@ interface Proxied {
   name: string;
   mode: HydrationMode;
   exports: readonly ExportedName[];
+  commonJs: boolean;
 }
 
 type ModuleShape =
@@ -97,6 +104,7 @@ export async function installClientReferences(
       name,
       mode: modeFor(input.registry, name),
       exports,
+      commonJs: shape?.kind === "commonjs",
     });
   }
   if (reading.faults.length > 0) throw exportFaults(reading.faults);
@@ -145,8 +153,8 @@ function modeFor(registry: ComponentRegistry, name: string): HydrationMode {
   return getComponent(registry, name)?.hydrate ?? "visible";
 }
 
-// Evaluated before the hooks are registered, as every module was before #174:
-// CommonJS names are known only once it runs.
+// Evaluated before the hooks are registered: CommonJS names are known only
+// once it runs.
 async function evaluatedExports(url: string): Promise<ExportedName[]> {
   const namespace = (await import(
     /* @vite-ignore */ `${url}?${ORIGINAL_QUERY}`
@@ -158,17 +166,23 @@ async function evaluatedExports(url: string): Promise<ExportedName[]> {
   }));
 }
 
-function isCommonJs(path: string, hasModuleSyntax: boolean): boolean {
+function nearestManifest(directory: string): string | undefined {
+  const manifest = join(directory, "package.json");
+  if (existsSync(manifest)) return manifest;
+  const parent = dirname(directory);
+  return parent === directory ? undefined : nearestManifest(parent);
+}
+
+function declaredFormat(path: string): "module" | "commonjs" | "detect" {
   const extension = extname(path);
-  if (extension === ".cjs" || extension === ".cts") return true;
-  if (extension !== ".js" && extension !== ".ts") return false;
-  if (hasModuleSyntax) return false;
-  const manifest = findPackageJSON(pathToFileURL(path));
-  if (manifest === undefined) return true;
+  if (extension === ".cjs" || extension === ".cts") return "commonjs";
+  if (extension !== ".js" && extension !== ".ts") return "module";
+  const manifest = nearestManifest(dirname(path));
+  if (manifest === undefined) return "detect";
   const { type } = JSON.parse(readFileSync(manifest, "utf8")) as {
     type?: unknown;
   };
-  return type !== "module";
+  return type === "module" ? "module" : type === "commonjs" ? "commonjs" : "detect";
 }
 
 /**
@@ -186,13 +200,17 @@ function readShape(
   if (chain.has(path)) return undefined;
   const within = new Set([...chain, path]);
 
+  const format = declaredFormat(path);
+  if (format === "commonjs") return remember(reading, path, { kind: "commonjs" });
   const source = readFileSync(path, "utf8");
   const lang = LANG[extname(path)];
-  const parsed = parseSync(
-    path,
-    source,
-    lang === undefined ? { sourceType: "module" } : { lang, sourceType: "module" },
-  );
+  const parse = (sourceType: "module" | "commonjs") =>
+    parseSync(path, source, lang === undefined ? { sourceType } : { lang, sourceType });
+  // Node's own detection: a file it can compile as CommonJS runs as CommonJS.
+  if (format === "detect" && parse("commonjs").errors.length === 0) {
+    return remember(reading, path, { kind: "commonjs" });
+  }
+  const parsed = parse("module");
   if (parsed.errors.length > 0) {
     reading.faults.push({
       module: path,
@@ -201,9 +219,6 @@ function readShape(
         .join("\n")}`,
     });
     return remember(reading, path, { kind: "module", exports: [] });
-  }
-  if (isCommonJs(path, parsed.module.hasModuleSyntax)) {
-    return remember(reading, path, { kind: "commonjs" });
   }
 
   const lineOf = (offset: number): number =>
@@ -505,44 +520,82 @@ async function verifyProxied(
   if (missed.size === 0) return;
 
   const byConfig: string[] = [];
-  const byOther: string[] = [];
+  const byModule: string[] = [];
+  const byCommonJs: string[] = [];
+  const unrecorded: string[] = [];
   for (const [url, module] of missed) {
     const line = `  "${module.name}" — "${module.id}"`;
     const importer = importers.get(url)?.split("?")[0];
-    if (importer === config) {
-      byConfig.push(line);
-      continue;
-    }
     const registered =
       importer === undefined ? undefined : proxied.get(importer);
-    byOther.push(
-      `${line}, ${
-        importer === undefined
-          ? "imported by a module this process did not see load"
-          : registered !== undefined
-            ? `imported by "${registered.name}"`
-            : `imported by "${importer.startsWith("file:") ? fileURLToPath(importer) : importer}"`
-      }`,
-    );
+    if (importer === undefined) unrecorded.push(line);
+    else if (importer === config) byConfig.push(line);
+    else if (registered?.commonJs === true) {
+      byCommonJs.push(`${line}, required by "${registered.name}"`);
+    } else {
+      byModule.push(
+        `${line}, imported by "${
+          registered !== undefined
+            ? registered.name
+            : importer.startsWith("file:")
+              ? fileURLToPath(importer)
+              : importer
+        }"`,
+      );
+    }
   }
 
+  const paragraph = (
+    lines: string[],
+    how: { one: string; many: string },
+    fix: string,
+  ): string =>
+    `Island loader: ${String(lines.length)} ${
+      lines.length === 1
+        ? `module carrying "use client" was already loaded${how.one} before the build could stand in for it, so nothing another component renders it from would island`
+        : `modules carrying "use client" were already loaded${how.many} before the build could stand in for them, so nothing another component renders them from would island`
+    } — ${fix}:\n${lines.sort().join("\n")}`;
   const paragraphs: string[] = [];
   if (byConfig.length > 0) {
     paragraphs.push(
-      `Island loader: ${String(byConfig.length)} ${
-        byConfig.length === 1
-          ? 'module carrying "use client" was already loaded before the build could stand in for it, so nothing another component renders it from would island'
-          : 'modules carrying "use client" were already loaded before the build could stand in for them, so nothing another component renders them from would island'
-      } — import each through its registry thunk only, and drop the top-level import of it from pagedeck.config.ts:\n${byConfig.sort().join("\n")}`,
+      paragraph(
+        byConfig,
+        { one: "", many: "" },
+        "import each through its registry thunk only, and drop the top-level import of it from pagedeck.config.ts",
+      ),
     );
   }
-  if (byOther.length > 0) {
+  if (byModule.length > 0) {
     paragraphs.push(
-      `Island loader: ${String(byOther.length)} ${
-        byOther.length === 1
-          ? 'module carrying "use client" was already loaded, through the importer named beside it, before the build could stand in for it, so nothing another component renders it from would island'
-          : 'modules carrying "use client" were already loaded, through the importer named beside each, before the build could stand in for them, so nothing another component renders them from would island'
-      } — load that importer only through a registry thunk, or drop its import:\n${byOther.sort().join("\n")}`,
+      paragraph(
+        byModule,
+        {
+          one: ", through the importer named beside it,",
+          many: ", through the importer named beside each,",
+        },
+        "load that importer only through a registry thunk, or drop its import",
+      ),
+    );
+  }
+  if (byCommonJs.length > 0) {
+    paragraphs.push(
+      paragraph(
+        byCommonJs,
+        {
+          one: " by a CommonJS module carrying \"use client\", which the build runs to read its exports,",
+          many: " by CommonJS modules carrying \"use client\", which the build runs to read their exports,",
+        },
+        "make the importer named beside each an ES module, or drop the module it requires from build.components",
+      ),
+    );
+  }
+  if (unrecorded.length > 0) {
+    paragraphs.push(
+      paragraph(
+        unrecorded,
+        { one: "", many: "" },
+        "find the module that imports each at top level, most likely pagedeck.config.ts or a module it imports, and load that module only through a registry thunk",
+      ),
     );
   }
   throw new ConfigError(paragraphs.join("\n\n"));
