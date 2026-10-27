@@ -133,8 +133,10 @@ platform `fetch`.
   over `http:` crosses the network in clear text. Use `https:` for a remote
   CMS.
 - **Incremental sync.** `syncSince` sends the stored cursor as `since`, upserts
-  the edited pages, reports the removed ids as `deleted`, and returns the new
-  `revision` as the cursor.
+  the edited pages, deletes the removed ones through the writer, reports their
+  ids as `deleted`, and returns the new `revision` as the cursor. `deleted` is
+  only a report: an id the writer is not told to delete stays in the store and
+  stays a page.
 - **A cursor ahead of the CMS.** This server counts revisions again from its
   files each time it starts, so after a restart the stored cursor can be ahead
   of the CMS. `changes?since=` would then answer nothing until the CMS passed

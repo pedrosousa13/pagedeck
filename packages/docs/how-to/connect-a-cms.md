@@ -149,6 +149,7 @@ contract. In `src/loader.ts`:
       for (const { id, title, blocks, publishAt, unpublishAt } of body.pages) {
         writer.upsert({ ...idOf(id), data: { title, blocks, publishAt, unpublishAt } });
       }
+      for (const id of body.deleted) writer.delete(idOf(id));
       return {
         changed: body.pages.map(({ id }) => idOf(id)),
         deleted: body.deleted.map(idOf),
@@ -157,8 +158,10 @@ contract. In `src/loader.ts`:
     },
 ```
 
-It upserts the edited pages and reports the removed ids as `deleted`, because a
-delta names only what changed and cannot be authoritative.
+It upserts the edited pages, deletes the removed ones, and reports their ids
+as `deleted`. A delta names only what changed and cannot be authoritative, so
+the framework removes only what the writer's `delete` names: `deleted` is a
+report and deletes nothing.
 
 The `if` before the loop is the guard to copy. A CMS restored from a backup,
 migrated or reset can come back at an earlier revision than the cursor you

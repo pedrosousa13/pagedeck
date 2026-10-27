@@ -276,6 +276,7 @@ export function defineExampleCmsLoader(options: ExampleCmsLoaderOptions): Loader
       for (const { id, title, blocks, publishAt, unpublishAt } of body.pages) {
         writer.upsert({ ...idOf(id), data: { title, blocks, publishAt, unpublishAt } });
       }
+      for (const id of body.deleted) writer.delete(idOf(id));
       return {
         changed: body.pages.map(({ id }) => idOf(id)),
         deleted: body.deleted.map(idOf),

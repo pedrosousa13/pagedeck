@@ -84,7 +84,9 @@ cursor that is slightly ahead costs an entry that is never synced again.
 
 `deleted` names the entries your source says are gone. A source that remembers
 its own removals — a delivery API with a removals endpoint — fills it from
-there.
+there. It is a report: call `writer.delete` for each of those entries as well,
+because the store removes only what the writer is told to delete. An entry
+reported in `deleted` and never passed to `writer.delete` stays a page.
 
 A source that remembers nothing cannot. A directory, a static export or a JSON
 dump leaves no trace of what it no longer holds, so walking all of it is the
