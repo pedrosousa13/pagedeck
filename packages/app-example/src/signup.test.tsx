@@ -14,7 +14,9 @@ declare global {
 // in node-only packages.
 interface El {
   disabled: boolean;
+  value: string;
   click(): void;
+  getAttribute(name: string): string | null;
   dispatchEvent(event: unknown): boolean;
 }
 interface Container {
@@ -32,16 +34,32 @@ declare const window: {
 };
 
 const mounted: { root?: { unmount(): void }; container?: Container } = {};
-const requests: string[] = [];
+const requests: { method: string; url: string; accept: string | null; email: unknown }[] = [];
+
+type Answer = (request: Request) => Promise<Response>;
 
 // The island's `fetch`, answered by the app in process: the same request a browser sends to
-// `/api/signup` on the site's own origin.
+// `/api/signup` on the site's own origin, `Origin` included.
+const byTheApp: Answer = (request) => Promise.resolve(app.fetch(request));
+let answer: Answer = byTheApp;
+
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   requests.length = 0;
-  vi.stubGlobal("fetch", (input: string, init?: RequestInit) => {
-    requests.push(`${init?.method ?? "GET"} ${input}`);
-    return app.fetch(new Request(new URL(input, "http://site.test"), init));
+  answer = byTheApp;
+  vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+    // jsdom's `FormData` is not one Node's `Request` can encode, so its fields go urlencoded.
+    const body = new URLSearchParams(init?.body as unknown as Iterable<[string, string]>).toString();
+    const request = new Request(new URL(input, "http://site.test"), { ...init, body });
+    request.headers.set("Content-Type", "application/x-www-form-urlencoded");
+    request.headers.set("Origin", "http://site.test");
+    requests.push({
+      method: request.method,
+      url: new URL(request.url).pathname,
+      accept: request.headers.get("Accept"),
+      email: await request.clone().formData().then((form) => form.get("email"), () => undefined),
+    });
+    return answer(request);
   });
 });
 
@@ -72,40 +90,127 @@ function type(input: El, value: string): void {
   input.dispatchEvent(new window.Event("input", { bubbles: true }));
 }
 
+function the(container: Container, selector: string): El {
+  const element = container.querySelector(selector);
+  if (element === null) throw new Error(`no ${selector} rendered`);
+  return element;
+}
+
 function status(container: Container): string | null {
-  return (container.querySelector('[role="status"]') as unknown as { textContent: string | null })
-    .textContent;
+  return (the(container, '[role="status"]') as unknown as { textContent: string | null }).textContent;
 }
 
 async function submit(container: Container, email: string): Promise<void> {
-  const input = container.querySelector("input");
-  if (input === null) throw new Error("no input rendered");
-  await act(async () => type(input, email));
-  await act(async () => container.querySelector("button")?.click());
+  await act(async () => type(the(container, "input"), email));
+  await act(async () => the(container, "button").click());
 }
 
-test("the server-rendered button is disabled and hydration enables it", async () => {
+function held(): { answer: Answer; release(response: Response): void } {
+  let release: (response: Response) => void = () => undefined;
+  const response = new Promise<Response>((resolve) => (release = resolve));
+  return { answer: () => response, release: (value) => release(value) };
+}
+
+const FAILED = "Something went wrong, so you are not signed up yet. Your address is still in the form: try again.";
+
+test("before hydration the form is a POST to the app, so a submit never puts the address in a URL", () => {
   const container = document.createElement("div");
   container.innerHTML = renderToString(<Signup />);
-  expect(container.querySelector("button")?.disabled).toBe(true);
-  const live = await hydrated();
-  expect(live.querySelector("button")?.disabled).toBe(false);
+  const form = the(container, "form");
+  expect(form.getAttribute("method")).toBe("post");
+  expect(form.getAttribute("action")).toBe("/api/signup");
+  expect(the(container, "input").getAttribute("name")).toBe("email");
+  expect(the(container, "button").disabled).toBe(false);
 });
 
-test("a submit posts to the app on the same origin and shows its answer", async () => {
+test("a submit posts the form to the app on the same origin and shows its answer", async () => {
   const container = await hydrated();
   await submit(container, "reader@example.com");
   await vi.waitFor(() =>
     expect(status(container)).toBe("Thanks. We will write to reader@example.com."),
   );
-  expect(requests).toEqual(["POST /api/signup"]);
+  expect(requests).toEqual([
+    { method: "POST", url: "/api/signup", accept: "application/json", email: "reader@example.com" },
+  ]);
 });
 
-// A malformed address never leaves the page, since `type="email"` blocks the submit; an empty
-// one does, and the app refuses it.
-test("the app's refusal is shown as it was sent", async () => {
+test("while the request is out the form says so, and a second submit sends nothing", async () => {
   const container = await hydrated();
-  await submit(container, "");
+  const slow = held();
+  answer = slow.answer;
+  await submit(container, "reader@example.com");
+  expect(status(container)).toBe("Signing up…");
+  // `aria-busy` on an ancestor would let assistive technology hold back this announcement.
+  expect(the(container, "form").getAttribute("aria-busy")).toBeNull();
+  expect(the(container, "button").getAttribute("aria-disabled")).toBe("true");
+  await act(async () => the(container, "button").click());
+  await act(async () => the(container, "button").click());
+  expect(requests).toHaveLength(1);
+
+  await act(async () =>
+    slow.release(
+      Response.json({ message: "Thanks. We will write to reader@example.com." }, { status: 201 }),
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(status(container)).toBe("Thanks. We will write to reader@example.com."),
+  );
+  expect(the(container, "button").getAttribute("aria-disabled")).toBe("false");
+});
+
+// `type="email"` accepts `reader@localhost`; the app's own check refuses it.
+test("the app's refusal is shown against the field, and the field keeps what was typed", async () => {
+  const container = await hydrated();
+  await submit(container, "reader@localhost");
   await vi.waitFor(() => expect(status(container)).toBe("Enter an email address."));
-  expect(requests).toEqual(["POST /api/signup"]);
+  const input = the(container, "input");
+  expect(input.value).toBe("reader@localhost");
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(input.getAttribute("aria-describedby")).toBe(the(container, '[role="status"]').getAttribute("id"));
+  expect(requests).toHaveLength(1);
+});
+
+test("a 400 the app did not write as a refusal is a failure, not a fault in the field", async () => {
+  const container = await hydrated();
+  answer = () => Promise.resolve(Response.json({ error: "Something went wrong. Try again." }, { status: 400 }));
+  await submit(container, "reader@example.com");
+  await vi.waitFor(() => expect(status(container)).toBe(FAILED));
+  expect(the(container, "input").getAttribute("aria-invalid")).toBe("false");
+  expect(the(container, "input").value).toBe("reader@example.com");
+});
+
+test("an answer that is not the app's JSON is a failure, and its body never reaches the page", async () => {
+  const container = await hydrated();
+  answer = () =>
+    Promise.resolve(
+      new Response("<h1>502</h1><p>upstream token=s3cr3t at 10.0.0.7</p>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    );
+  await submit(container, "reader@example.com");
+  await vi.waitFor(() => expect(status(container)).toBe(FAILED));
+  expect(container.innerHTML).not.toContain("s3cr3t");
+  expect(the(container, "input").value).toBe("reader@example.com");
+
+  answer = byTheApp;
+  await act(async () => the(container, "button").click());
+  await vi.waitFor(() =>
+    expect(status(container)).toBe("Thanks. We will write to reader@example.com."),
+  );
+  expect(requests).toHaveLength(2);
+});
+
+test("a request that never reaches the app is a failure the reader can retry", async () => {
+  const container = await hydrated();
+  answer = () => Promise.reject(new TypeError("Failed to fetch"));
+  await submit(container, "reader@example.com");
+  await vi.waitFor(() => expect(status(container)).toBe(FAILED));
+  expect(the(container, "input").value).toBe("reader@example.com");
+
+  answer = byTheApp;
+  await act(async () => the(container, "button").click());
+  await vi.waitFor(() =>
+    expect(status(container)).toBe("Thanks. We will write to reader@example.com."),
+  );
 });

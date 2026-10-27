@@ -68,25 +68,50 @@ const app = new Hono()
     await next();
     c.header("Cache-Control", "no-store");
   })
+  .onError((error, c) =>
+    wantsJson(c)
+      ? c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500)
+      : c.redirect("/signup/failed/", 303),
+  )
   .basePath("/api")
+  .use(csrf())
   .post(
     "/signup",
-    validator("json", (value: { email?: unknown }, c) => {
+    validator("form", (value: { email?: string | File | (string | File)[] }, c) => {
       const { email } = value;
-      if (typeof email !== "string" || !/^[^@\s]+@[^@\s]+$/.test(email)) {
-        return c.json({ error: "Enter an email address." }, 400);
+      if (typeof email !== "string" || !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) {
+        return wantsJson(c)
+          ? c.json({ error: "Enter an email address." }, 422)
+          : c.redirect("/signup/invalid/", 303);
       }
       return { email };
     }),
-    (c) => c.json({ message: `Thanks. We will write to ${c.req.valid("json").email}.` }, 201),
+    (c) =>
+      wantsJson(c)
+        ? c.json({ message: `Thanks. We will write to ${c.req.valid("form").email}.` }, 201)
+        : c.redirect("/signup/thanks/", 303),
   );
 
 export type AppType = typeof app;
 ```
 
+The app's check is the one that counts. The island's `type="email"` stops
+some mistakes before a request, but anyone can send the app any body, and the
+two checks differ: a browser takes `reader@localhost`, and the app, which
+wants a dot in the domain, refuses it with a `422`.
+
 The two middlewares are registered before `basePath`, so they run for every
 request the app answers, and not only for the ones under `/api`. The next
-section says why that matters.
+section says why that matters. The error handler answers every error with the
+same text, so a stack trace, a message from a library or a credential in an
+error never reaches the visitor. A path with no file is not an error: Hono
+answers it with its own `404`.
+
+The app reads the form's own encoding, the body a browser sends for a
+`<form method="post">`, and answers in two ways. A request that asks for JSON
+with `Accept: application/json` is the island's, and gets JSON. Any other
+request is a form posted without JavaScript, and gets a `303` redirect to a
+built page, as described below.
 
 ## The host sends the prefix to the app
 
@@ -150,29 +175,138 @@ code, and builds a client from it, in `src/components/signup.tsx`:
 
 ```tsx
 import { hc } from "hono/client";
-import { useEffect, useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { AppType } from "../app.js";
 
 const client = hc<AppType>("/");
 ```
 
 `hc<AppType>` knows each route, its input and its answers, so `tsc` fails on a
-wrong path, a missing field or a misread answer in the call below. The submit
-handler, in
+wrong path, a missing field or a misread answer in the call below. The island
+sends the request and turns every answer into a state, in
 `src/components/signup.tsx`:
 
 ```tsx
-event.preventDefault();
-const response = await client.api.signup.$post({ json: { email } });
-const body = await response.json();
-setReply("message" in body ? body.message : body.error);
+async function send(email: string): Promise<Status> {
+  try {
+    const response = await client.api.signup.$post(
+      { form: { email } },
+      { headers: { Accept: "application/json" } },
+    );
+    if (response.status === 201) return { phase: "sent", text: (await response.json()).message };
+    if (response.status === 422) return { phase: "refused", text: (await response.json()).error };
+  } catch {
+    // A request that never arrived, or a body that is not the JSON its status promised.
+  }
+  return { phase: "failed" };
+}
 ```
+
+The types describe what the app sends, not what reaches the browser. A proxy,
+the host or a dropped connection can answer instead, with an HTML error page
+or nothing at all. So `send` reads a body only for the app's `201` and its
+`422` refusal, and turns everything else into one failure: a `5xx`, a `403`,
+a `400` for a body the app could not read, a body that is not JSON and a
+`fetch` that rejects. Only the `422` marks the field as wrong. It never shows text it did not
+expect, so nothing from an error page reaches the visitor, and no rejection
+goes unhandled.
 
 `import type` matters. TypeScript erases it, so nothing from `src/app.ts`
 reaches the browser. A plain `import` of a value from the app would put server
 code, and anything it holds, into the island's chunk. Because the upstream
 names `src/app.ts` as its `source`, `pagedeck build` refuses that import, and
 names the module that made it and the fix.
+
+## Pending, failure and retry
+
+The submit handler, in `src/components/signup.tsx`:
+
+```tsx
+onSubmit={async (event) => {
+  event.preventDefault();
+  if (sending.current) return;
+  sending.current = true;
+  setStatus({ phase: "pending" });
+  setStatus(await send(email));
+  sending.current = false;
+}}
+```
+
+Each state is announced in one `role="status"` paragraph, which a screen
+reader reads out when its text changes: "Signing up…" while the request is
+out, the app's answer after it, and a fixed failure message that says the
+address is still in the form. A refusal also sets `aria-invalid` on the field
+and points its `aria-describedby` at the message. The field keeps what the
+visitor typed after every answer, so a retry is one more press of the button.
+
+While the request is out, the button is marked `aria-disabled`. It is not
+`disabled`, because disabling the focused button moves focus to the page
+body. The form is not marked `aria-busy`, because a screen reader may hold
+back the announcements of a busy region until it is no longer busy, and the
+status paragraph is inside the form.
+
+## One submit at a time, and what that does not cover
+
+The handler refuses a second submit while one is out. It checks a ref, not
+state, because two presses can arrive before React renders the first one's
+state. That stops a double click from one form sending two requests.
+
+It does not make the request idempotent. The same sign-up can still reach the
+app twice: from two tabs, from a retry after an answer that was lost on the
+way back, or from a form posted twice without JavaScript. The example has no
+side effect, so a repeat costs nothing. An app that sends mail, takes a
+payment or writes a row must make a repeat harmless on the server: with a
+unique key on what it stores, such as the address, or with an idempotency key
+the client sends and the app remembers for a time.
+
+## The form works before the island does
+
+The island renders a real form, in `src/components/signup.tsx`:
+
+```tsx
+<form
+  method="post"
+  action="/api/signup"
+  onSubmit={async (event) => {
+```
+
+Before the island hydrates, or with JavaScript off, a press of the button
+posts the form to the app like any HTML form. The address goes in the request
+body. Without `method="post"`, a form sends a `GET` to its `action`, so the
+address would land in the URL of `/api/signup?email=…`, where it reaches the
+history, the server's logs and the `Referer` of the next request.
+
+The app answers that post with a `303` to a built page: `/signup/thanks/` on
+success, `/signup/invalid/` on a refusal, and `/signup/failed/` on any other
+error, such as a post from another site or a body it could not read. No URL
+holds the address, and a reload of the page does not post the form again. The
+pages are static files in `content/signup/`, with a `0b` budget each.
+
+One limit remains. The pages are the same for every visitor, so they cannot
+say which address was signed up or quote the app's message. After a refusal
+or a failure, the visitor goes back to the form, which most browsers restore
+with what was typed.
+
+## Request protection
+
+Four different things protect an endpoint, and the example applies only the
+first two:
+
+- **Same-origin `fetch`.** The island calls the app on the site's own origin,
+  so it needs no CORS. The app sends no CORS headers, so a script on another
+  site cannot read an answer.
+- **CSRF protection.** Another site can still make a visitor's browser post a
+  form to the app, since a form post needs no CORS. `csrf()` from
+  `hono/csrf` refuses a form post unless `Sec-Fetch-Site` is `same-origin` or
+  `Origin` is the app's own. Behind `pagedeck dev`, the app's URL is not the
+  page's origin, and `Sec-Fetch-Site` is the header that passes.
+- **Authentication** says who is asking. The sign-up is open to anyone, so the
+  example has none. An endpoint that acts for a signed-in visitor checks a
+  session, and a session cookie is the reason CSRF protection matters.
+- **Abuse controls** limit how much anyone can ask: rate limits, a challenge
+  for bots, a limit on body size. They belong to the host or a layer in front
+  of the app, such as a rate-limiting rule on Cloudflare, and the example
+  shows none.
 
 ## Develop with both running
 
