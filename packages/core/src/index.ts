@@ -347,3 +347,8 @@ export type {
   TierPlanInput,
   TierPolicy,
 } from "./tiers.js";
+export type {
+  IslandErrorKind,
+  IslandErrorReport,
+  IslandErrorReporter,
+} from "@pagedeck/islands";

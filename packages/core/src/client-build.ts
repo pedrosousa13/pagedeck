@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
-import { ISLANDS_STARTUP, runtimeImports } from "./entries.js";
+import {
+  ISLAND_ERRORS_MODULE,
+  ISLANDS_STARTUP,
+  runtimeImports,
+} from "./entries.js";
 import type { EntryPlan } from "./entries.js";
 import {
   entryInputs,
@@ -35,6 +39,7 @@ export interface ClientBuildInput {
   plugins?: readonly PluginOption[];
   split?: readonly ManifestChunk[];
   upstreams?: readonly UpstreamRule[];
+  islandErrors?: { module: string; release: string };
 }
 
 export interface ClientBuild {
@@ -511,7 +516,17 @@ export async function buildClient(
           ? []
           : [refuseUpstreamImports(input.root, input.origin, input.plan, sources)]),
         compiler.plugin,
-        serveEntryModules(input.plan, input.origin, input.globalCss),
+        serveEntryModules(
+          input.plan,
+          input.origin,
+          input.globalCss,
+          input.islandErrors === undefined
+            ? undefined
+            : { release: input.islandErrors.release },
+        ),
+        ...(input.islandErrors === undefined
+          ? []
+          : [islandErrorsModule(input.origin, input.islandErrors.module)]),
         resolver.plugin,
       ],
       // Site plugins go last on purpose: ahead of these they could claim the
@@ -620,6 +635,65 @@ export async function buildClient(
     imports,
     ids,
     warnings: compiler.taken(),
+  };
+}
+
+const ISLANDS_RUNTIME = "@pagedeck/islands/runtime";
+const ISLAND_ERRORS_ID = `\0${ISLAND_ERRORS_MODULE}`;
+
+/**
+ * Serves the module the entry imports the reporter through, and hands it to the
+ * runtime as its `react-dom/client`, so `runtime.js` itself is unchanged (#157).
+ */
+function islandErrorsModule(origin: string, reporter: string): Plugin {
+  let runtime: string | undefined;
+  let reporterId: string | undefined;
+  return {
+    name: "pagedeck:island-errors",
+    // Ahead of Vite's own resolver, which would take the runtime's bare import.
+    enforce: "pre",
+
+    async buildStart() {
+      runtime = (await this.resolve(ISLANDS_RUNTIME, origin))?.id;
+      const resolved = await this.resolve(reporter, origin).catch(() => null);
+      if (resolved === null || resolved === undefined) {
+        throw new ConfigError(
+          `Client build: "build.islandErrors" names ${JSON.stringify(reporter)}, which did not resolve against "${origin}" — correct the path, which is read from the config's directory, or install the package it names`,
+        );
+      }
+      reporterId = resolved.id;
+    },
+
+    resolveId(source, importer) {
+      if (source === ISLAND_ERRORS_MODULE) return ISLAND_ERRORS_ID;
+      if (importer === ISLAND_ERRORS_ID) {
+        return this.resolve(
+          source,
+          source === "react-dom/client" ? runtime : origin,
+          { skipSelf: true },
+        );
+      }
+      if (
+        source === "react-dom/client" &&
+        runtime !== undefined &&
+        importer === runtime
+      ) {
+        return ISLAND_ERRORS_ID;
+      }
+      return undefined;
+    },
+
+    load(id) {
+      if (id !== ISLAND_ERRORS_ID || reporterId === undefined) return undefined;
+      return [
+        `import { hydrateRoot as hydrate } from "react-dom/client";`,
+        `import { reportIslandErrors } from "@pagedeck/islands/island-errors";`,
+        `import reporter from ${JSON.stringify(reporterId)};`,
+        "export const islandErrors = reportIslandErrors(hydrate, reporter);",
+        "export const hydrateRoot = islandErrors.hydrateRoot;",
+        "",
+      ].join("\n");
+    },
   };
 }
 

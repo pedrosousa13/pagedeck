@@ -31,6 +31,11 @@ export { wrapInProviders } from "./providers.js";
 export { checkSharedStore, StoreError } from "./store-stamp.js";
 export type { RootProvider } from "./providers.js";
 export type {
+  IslandErrorKind,
+  IslandErrorReport,
+  IslandErrorReporter,
+} from "./island-errors.js";
+export type {
   ComponentDeclaration,
   ComponentDeclarations,
   ComponentDefinition,

@@ -1538,6 +1538,33 @@ test("a build section that declares neither of #42's fields loads with both abse
   expect(config.build?.viewTransitions).toBeUndefined();
 });
 
+test("a build section refuses an island error reporter that names no module", async () => {
+  const message = await buildFault(
+    `{ ${MINIMAL_BUILD}, islandErrors: { module: "./src/report.ts" } }`,
+  );
+  const blank = await buildFault(`{ ${MINIMAL_BUILD}, islandErrors: " " }`);
+
+  expect(message).toContain(
+    `"build.islandErrors" must name the module that default-exports the reporter, as a path from pagedeck.config.ts — islandErrors: "./src/report-island-errors.ts"`,
+  );
+  expect(blank).toContain(
+    `"build.islandErrors" is only whitespace, so it names no module — islandErrors: "./src/report-island-errors.ts"`,
+  );
+});
+
+test("a build section carries its island error reporter through to the loaded config", async () => {
+  const dir = tempSiteDir();
+  writeConfig(
+    dir,
+    "pagedeck.config.ts",
+    buildSectionSource(`{ ${MINIMAL_BUILD}, islandErrors: "./src/report.ts" }`),
+  );
+
+  const config = await loadConfig(dir);
+
+  expect(config.build?.islandErrors).toBe("./src/report.ts");
+});
+
 test("a build section refuses a pre-paint list that is not an array", async () => {
   const message = await buildFault(
     `{ ${MINIMAL_BUILD}, prePaint: "theme()" }`,

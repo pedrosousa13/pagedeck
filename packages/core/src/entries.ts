@@ -191,6 +191,14 @@ const RUNTIME_BINDING: Binding = {
   default: false,
 };
 
+export const ISLAND_ERRORS_MODULE = "pagedeck:island-errors";
+
+const ISLAND_ERRORS_BINDING: Binding = {
+  names: "{ islandErrors }",
+  from: ISLAND_ERRORS_MODULE,
+  default: false,
+};
+
 function providerBindings(entry: EntryText): Binding[] {
   const bindings: Binding[] = [];
   if (entry.providers !== undefined) {
@@ -231,7 +239,11 @@ export function runtimeImports(entry: EntryText): readonly string[] {
  */
 export function renderEntryModule(
   entry: EntryText,
-  options: { hot?: boolean; globalCss?: readonly string[] } = {},
+  options: {
+    hot?: boolean;
+    globalCss?: readonly string[];
+    islandErrors?: { release: string };
+  } = {},
 ): string {
   const hot = options.hot === true;
   const deferred =
@@ -240,11 +252,14 @@ export function renderEntryModule(
     `import ${binding.names} from ${JSON.stringify(binding.from)};`;
 
   const globalCss = options.globalCss ?? [];
+  const errors =
+    options.islandErrors === undefined ? [] : [ISLAND_ERRORS_BINDING];
   const lines = deferred
     ? [`import { hydrateOnTrigger } from "${ISLANDS_STARTUP}";`]
     : [
         ...globalCss.map((path) => `import ${JSON.stringify(path)};`),
         staticImport(RUNTIME_BINDING),
+        ...errors.map(staticImport),
       ];
   if (hot) lines.push(`import { hotIslands } from "@pagedeck/islands/hmr";`);
   if (!deferred) {
@@ -278,11 +293,14 @@ export function renderEntryModule(
     // Last before the hydrate, where "before any root mounts" stops being true.
     hydrate.push("markRootsMounting();");
   }
+  const load = "(name) => modules[name]().then((module) => module.default)";
   hydrate.push(
     "hydrateIslands({",
     hot
       ? "  resolve: hot.resolve,"
-      : "  resolve: (name) => modules[name]().then((module) => module.default),",
+      : options.islandErrors === undefined
+        ? `  resolve: ${load},`
+        : `  resolve: islandErrors.resolve(${JSON.stringify(options.islandErrors.release)}, ${load}),`,
   );
   if (deferred) hydrate.push("  schedule,");
   if (entry.providers !== undefined) hydrate.push("  providers,");
@@ -292,7 +310,7 @@ export function renderEntryModule(
   hydrate.push("});");
 
   if (deferred) {
-    const bindings = [RUNTIME_BINDING, ...providerBindings(entry)];
+    const bindings = [RUNTIME_BINDING, ...errors, ...providerBindings(entry)];
     const names = bindings.map((binding) =>
       binding.default ? `{ default: ${binding.names} }` : binding.names,
     );
