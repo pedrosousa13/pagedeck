@@ -51,8 +51,9 @@ contract gets an example or joins this list:
 - `@pagedeck/search`: `defineSearch`, `QUERY_CAP` (#457), `createSearchClient`
   and the search island (#62).
 - `@pagedeck/font-subset`: `defineFontSubset`.
-- `@pagedeck/edge`: `defineAdapter`, `EdgeAdapter`, `AdapterDefinition` and the
-  artifact types, and each adapter package's factory (#19). `build.adapter`
+- `@pagedeck/edge`: `defineAdapter`, `EdgeAdapter`, `AdapterDefinition`,
+  `AdapterSite` (also exported by `@pagedeck/core`, #145) and the artifact
+  types, and each adapter package's factory (#19). `build.adapter`
   (#20) is where a config first calls one, and runs it on every
   `pagedeck build`; the example also calls an adapter directly, as
   `deploy-a-site.md`'s short note does.
