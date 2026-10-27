@@ -101,7 +101,7 @@ test("a full sync upserts every page of every list page, by id, and reports the 
   });
 });
 
-test("an incremental sync upserts the pages changed since the cursor and reports the pages removed", async () => {
+test("an incremental sync upserts the pages changed since the cursor, and deletes and reports the pages removed", async () => {
   const server = await cms();
   server.put("faq", { title: "Questions", blocks: [] });
   server.remove("home");
@@ -115,6 +115,8 @@ test("an incremental sync upserts the pages changed since the cursor and reports
   expect(writer.upserts).toEqual([
     { locale: "en", path: "faq", data: { title: "Questions", blocks: [] } },
   ]);
+  // `deleted` is a report: only the writer's `delete` removes an entry from the store.
+  expect(writer.deletes).toEqual([{ locale: "en", path: "home" }]);
   expect(result).toEqual({
     changed: [{ locale: "en", path: "faq" }],
     deleted: [{ locale: "en", path: "home" }],
@@ -615,5 +617,25 @@ test("an http: endpoint on 127.0.0.1, ::1 or localhost, and an https: endpoint o
       recordingWriter(),
     );
     expect(result.changed, endpoint).toHaveLength(3);
+  }
+});
+
+test("a page's publication instants reach the entry unread, from a full sync and an incremental one", async () => {
+  const server = await cms();
+  const instants = { publishAt: "2026-11-01T09:00:00Z", unpublishAt: "2026-12-01T09:00:00Z" };
+  server.put("launch", { title: "Launch", blocks: [], ...instants });
+  const loader = defineExampleCmsLoader({ endpoint: server.url, locale: "en" });
+  const full = recordingWriter();
+  const since = recordingWriter();
+
+  await loader.syncAll(full);
+  await loader.syncSince(since, 3);
+
+  for (const writer of [full, since]) {
+    expect(writer.upserts.find(({ path }) => path === "launch")?.data).toEqual({
+      title: "Launch",
+      blocks: [],
+      ...instants,
+    });
   }
 });
