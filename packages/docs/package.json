@@ -23,7 +23,16 @@
     "access": "public"
   },
   "devDependencies": {
+    "@pagedeck/adapter-cloudflare-pages": "workspace:*",
+    "@pagedeck/adapter-cloudflare-worker": "workspace:*",
+    "@pagedeck/adapter-cloudfront": "workspace:*",
+    "@pagedeck/adapter-netlify": "workspace:*",
+    "@pagedeck/adapter-nginx": "workspace:*",
+    "@pagedeck/adapter-vercel": "workspace:*",
+    "@pagedeck/core": "workspace:*",
     "@pagedeck/markdown-loader": "workspace:*",
-    "marked": "^18.0.11"
+    "@pagedeck/preview": "workspace:*",
+    "marked": "^18.0.11",
+    "smol-toml": "^1.9.0"
   }
 }

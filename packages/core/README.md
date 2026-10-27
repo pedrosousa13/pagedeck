@@ -51,12 +51,12 @@ Node 23, it needs 23.7 or later.
 
 ## Read more
 
-- [The pagedeck command](https://pagedeck-docs.pedrodsousa.workers.dev/reference/cli/) lists every verb,
+- [The pagedeck command](https://page.deck.cool/docs/reference/cli/) lists every verb,
   its flags and its exit codes.
-- [Site config](https://pagedeck-docs.pedrodsousa.workers.dev/reference/site-config/) lists the defaults
+- [Site config](https://page.deck.cool/docs/reference/site-config/) lists the defaults
   this config relies on and how to override each one.
-- [Routing](https://pagedeck-docs.pedrodsousa.workers.dev/reference/routing/),
-  [Page head](https://pagedeck-docs.pedrodsousa.workers.dev/reference/page-head/)
+- [Routing](https://page.deck.cool/docs/reference/routing/),
+  [Page head](https://page.deck.cool/docs/reference/page-head/)
   and the rest of the Reference section of the
-  [documentation](https://pagedeck-docs.pedrodsousa.workers.dev/) cover more of
+  [documentation](https://page.deck.cool/docs/) cover more of
   the `build` fields.

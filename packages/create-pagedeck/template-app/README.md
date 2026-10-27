@@ -37,5 +37,5 @@ from `app/`.
 
 The app deploys beside the pages, on the same origin, and each host runs it
 its own way.
-[Run an app beside the site](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/run-an-app-beside-the-site/)
+[Run an app beside the site](https://page.deck.cool/docs/how-to/run-an-app-beside-the-site/)
 covers deploying it with each host's adapter.

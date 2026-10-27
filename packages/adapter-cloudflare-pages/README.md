@@ -25,7 +25,7 @@ export default defineConfig({
 ```
 
 `pagedeck build` then writes `_redirects` and `_headers` into `site/` itself
-([Deploy a site](https://pagedeck-docs.pedrodsousa.workers.dev/how-to/deploy-a-site/)).
+([Deploy a site](https://page.deck.cool/docs/how-to/deploy-a-site/)).
 Called directly, after `npx pagedeck build`:
 
 ```ts

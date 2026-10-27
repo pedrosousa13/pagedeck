@@ -20,7 +20,7 @@ import {
   PUBLIC_PACKAGES,
   PUBLIC_VERSION,
 } from "./public-packages.test-support.js";
-import { fences, TUTORIAL } from "../../docs-site/src/tutorial.test-support.js";
+import { fences, TUTORIAL } from "../../docs/src/tutorial.test-support.js";
 
 const run = promisify(execFile);
 
