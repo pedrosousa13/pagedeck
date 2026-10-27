@@ -251,7 +251,7 @@ test("a page whose components are all core-tier links only the core stylesheet",
 
   const hrefs = hrefsOf(htmlOf.get("/blog") ?? "");
   expect(hrefs).toHaveLength(1);
-  expect(hrefs[0]).toMatch(/^\/assets\/fw-core-[\w-]+\.css$/);
+  expect(hrefs[0]).toMatch(/^\/assets\/pagedeck-core-[\w-]+\.css$/);
   expect(read(dist, hrefs[0] as string)).toContain(".fw-hero");
 }, 120_000);
 
@@ -264,7 +264,7 @@ test("a page links every tier it reaches, widest cached first", async () => {
   expect(read(dist, hrefs[0] as string)).toContain(".fw-hero");
   expect(read(dist, hrefs[1] as string)).toContain(".fw-panel");
   expect(read(dist, hrefs[2] as string)).toContain(".fw-chart");
-  expect(hrefs[0]).toMatch(/^\/assets\/fw-core-[\w-]+\.css$/);
+  expect(hrefs[0]).toMatch(/^\/assets\/pagedeck-core-[\w-]+\.css$/);
 }, 120_000);
 
 test("a component's CSS lands in the tier its JS tier implies", async () => {
@@ -294,7 +294,7 @@ test("a component no page hydrates on load keeps its CSS out of the core sheet",
   );
 
   const core = hrefsOf(htmlOf.get("/") ?? "").find((href) =>
-    /^\/assets\/fw-core-[\w-]+\.css$/.test(href),
+    /^\/assets\/pagedeck-core-[\w-]+\.css$/.test(href),
   );
   expect(core).toBeDefined();
   expect(read(dist, core as string)).toContain(GLOBAL_RULE);
@@ -325,7 +325,7 @@ test("a declared global stylesheet is core-tier and linked on every page", async
   );
 
   const core = hrefsOf(htmlOf.get("/") ?? "").find((href) =>
-    /^\/assets\/fw-core-[\w-]+\.css$/.test(href),
+    /^\/assets\/pagedeck-core-[\w-]+\.css$/.test(href),
   );
   expect(core).toBeDefined();
   expect(read(dist, core as string)).toContain(GLOBAL_RULE);
@@ -348,7 +348,7 @@ test("a Tailwind utility two tiers use is emitted into core and nowhere else", a
   );
 
   const core = hrefsOf(htmlOf.get("/") ?? "").find((href) =>
-    /^\/assets\/fw-core-[\w-]+\.css$/.test(href),
+    /^\/assets\/pagedeck-core-[\w-]+\.css$/.test(href),
   );
   expect(core).toBeDefined();
 

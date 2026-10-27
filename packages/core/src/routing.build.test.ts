@@ -461,7 +461,7 @@ const SPLIT = `
         {
           locale: "en",
           path: "/pricing",
-          cookie: "fw_pricing",
+          cookie: "pagedeck_pricing",
           variants: [
             { name: "c", weight: 25 },
             { name: "b", weight: 75 },

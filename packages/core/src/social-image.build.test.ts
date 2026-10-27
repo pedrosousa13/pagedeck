@@ -368,7 +368,7 @@ test("a site that declares no social images emits the bytes it emitted before ca
     </head>
     <body>
     <main>
-    <fw-island data-fw-prefix="i22ab99d8d33a" data-fw-component="Hero" data-fw-mode="visible" data-fw-props="{}" role="presentation" style="display:contents">marker-hero-3f27</fw-island>
+    <pagedeck-island data-pagedeck-prefix="i22ab99d8d33a" data-pagedeck-component="Hero" data-pagedeck-mode="visible" data-pagedeck-props="{}" role="presentation" style="display:contents">marker-hero-3f27</pagedeck-island>
     </main>
     <script type="module" src="/assets/<chunk>"></script>
     </body>
@@ -382,7 +382,7 @@ test("a site that declares no social images emits the bytes it emitted before ca
     </head>
     <body>
     <main>
-    <fw-island data-fw-prefix="ie1c71a671410" data-fw-component="Hero" data-fw-mode="visible" data-fw-props="{}" role="presentation" style="display:contents">marker-hero-3f27</fw-island>
+    <pagedeck-island data-pagedeck-prefix="ie1c71a671410" data-pagedeck-component="Hero" data-pagedeck-mode="visible" data-pagedeck-props="{}" role="presentation" style="display:contents">marker-hero-3f27</pagedeck-island>
     </main>
     <script type="module" src="/assets/<chunk>"></script>
     </body>

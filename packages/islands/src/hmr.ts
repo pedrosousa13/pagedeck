@@ -29,7 +29,7 @@ interface HotName {
 }
 
 // On `hot.data`, not at module level: Vite re-executes this module too.
-const SWAPS = "fw:islands";
+const SWAPS = "pagedeck:islands";
 
 // The re-imports are not awaited, so one module's fetch never holds up the
 // other islands' swaps.

@@ -456,7 +456,7 @@ class HotClient {
 test("an island component edit updates that page's entry rather than reloading", async () => {
   const page = await get("/hot");
   expect(page.status).toBe(200);
-  expect(page.body).toContain('data-fw-component="counter"');
+  expect(page.body).toContain('data-pagedeck-component="counter"');
   expect(page.body).toContain("counter-before-1f4c");
 
   const entryUrl = scriptUrls(page.body).find(
@@ -734,7 +734,7 @@ test("an edit to a module a component imports from the site is rendered after th
 test("a component declared by path is islanded, and its page's entry imports it", async () => {
   const page = await get("/pathed");
   expect(page.status).toBe(200);
-  expect(page.body).toContain('data-fw-component="pathed"');
+  expect(page.body).toContain('data-pagedeck-component="pathed"');
   expect(page.body).toContain("pathed-6d2b");
 
   const entries = scriptUrls(page.body).filter((url) => url.startsWith("/@id/"));
@@ -1278,7 +1278,7 @@ test("a page rendered into a layout is served, with a frontmatter island in its 
     const counter = await fetch(`${at}/counter`);
     const counterBody = await counter.text();
     expect(counter.status).toBe(200);
-    expect(counterBody).toContain('data-fw-component="counter"');
+    expect(counterBody).toContain('data-pagedeck-component="counter"');
     expect(counterBody).toContain("layout-counter-0b7d");
     const entries = scriptUrls(counterBody).filter((url) => url.startsWith("/@id/"));
     expect(entries).toHaveLength(1);

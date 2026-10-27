@@ -221,7 +221,7 @@ async function buildProxyIslands(
     registry: PROXY_REGISTRY,
     providers: PROVIDERS,
   });
-  const markers = [...html.matchAll(/data-fw-prefix="([^"]+)"/g)].map(
+  const markers = [...html.matchAll(/data-pagedeck-prefix="([^"]+)"/g)].map(
     (match) => match[1] as string,
   );
   expect(markers).toEqual(islands.map((island) => island.prefix));

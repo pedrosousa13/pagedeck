@@ -147,9 +147,9 @@ test("a full build yields a manifest covering every emitted file", async () => {
       .map((page) => `${page.locale} ${page.path}`),
   ).toEqual(["de /", "en /", "en /blog"]);
 
-  const core = built.files.find((file) => file.name === "fw-core");
+  const core = built.files.find((file) => file.name === "pagedeck-core");
   expect(core?.contents).toContain("marker-hero-6d13");
   expect(
     manifest.tiers.assignments.find((one) => one.component === "Hero")?.group,
-  ).toBe("fw-core");
+  ).toBe("pagedeck-core");
 }, 60_000);

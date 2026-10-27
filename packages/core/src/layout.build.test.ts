@@ -176,7 +176,7 @@ test("an island a frontmatter list places ships to its own page and to no other"
   expect(counter).toHaveLength(1);
   expect(
     readFileSync(join(BY_LAYOUT, "site", "counter", "index.html"), "utf8"),
-  ).toMatch(/<fw-island\b[^>]*data-fw-component="Counter"/);
+  ).toMatch(/<pagedeck-island\b[^>]*data-pagedeck-component="Counter"/);
 }, 180_000);
 
 test("a build whose entries name unregistered components or lack html fails as content, with every fault named", async () => {
@@ -221,5 +221,5 @@ test("a content callback beside a layout renders only the pages whose source nam
     readFileSync(join(MIXED, "site", path, "index.html"), "utf8");
   expect(page("list")).toContain("<p>from the callback</p>");
   expect(page("about")).toContain("<h1>About</h1><div><p>about</p></div>");
-  expect(page("counter")).toMatch(/<fw-island\b[^>]*data-fw-component="Counter"/);
+  expect(page("counter")).toMatch(/<pagedeck-island\b[^>]*data-pagedeck-component="Counter"/);
 }, 180_000);

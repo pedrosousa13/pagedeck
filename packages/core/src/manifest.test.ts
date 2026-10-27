@@ -82,12 +82,12 @@ const OUTPUTS: readonly EmittedFile[] = [
     path: "/assets/en-a1b2c3.js",
     kind: "js",
     name: HERO,
-    contents: 'import "./fw-core-d4e5f6.js";',
+    contents: 'import "./pagedeck-core-d4e5f6.js";',
   },
   {
-    path: "/assets/fw-core-d4e5f6.js",
+    path: "/assets/pagedeck-core-d4e5f6.js",
     kind: "js",
-    name: "fw-core",
+    name: "pagedeck-core",
     contents: "export const runtime = 1;",
   },
   {
@@ -200,11 +200,11 @@ test("the manifest serializes to the golden shape", () => {
       `    {`,
       `      "path": "/assets/en-a1b2c3.js",`,
       `      "kind": "js",`,
-      `      "hash": "sha256:d061e1b7aef010da1b64d15e19f50018e7c723ccad63eb8a44c7f0075eb3e7c5",`,
-      `      "size": 29`,
+      `      "hash": "sha256:5d53327c8cc343cb48c708cefebeced23a2edc528bf2a656f692f4ff4e2045a2",`,
+      `      "size": 35`,
       `    },`,
       `    {`,
-      `      "path": "/assets/fw-core-d4e5f6.js",`,
+      `      "path": "/assets/pagedeck-core-d4e5f6.js",`,
       `      "kind": "js",`,
       `      "hash": "sha256:d926316c95295321b148a6f1748a181d400de61b333988d1c5cf9f93eb7a8006",`,
       `      "size": 25`,
@@ -285,7 +285,7 @@ test("the manifest serializes to the golden shape", () => {
       `    "shippedUsages": 0,`,
       `    "groups": [`,
       `      {`,
-      `        "name": "fw-core",`,
+      `        "name": "pagedeck-core",`,
       `        "priority": 30,`,
       `        "entriesAware": false,`,
       `        "minSize": 20000,`,
@@ -301,7 +301,7 @@ test("the manifest serializes to the golden shape", () => {
       `        "component": "Hero",`,
       `        "module": "@ds/Hero",`,
       `        "tier": "core",`,
-      `        "group": "fw-core",`,
+      `        "group": "pagedeck-core",`,
       `        "pageCount": 1,`,
       `        "pageShare": 1,`,
       `        "totalUsages": 0,`,
@@ -484,7 +484,7 @@ function everyColumn(): Record<string, unknown> {
     experiments: [
       {
         path: "/pricing",
-        cookie: "fw-pricing",
+        cookie: "pagedeck-pricing",
         variants: [{ name: "b", weight: 50 }],
       },
     ],
@@ -963,7 +963,7 @@ test("two emitted files claiming one deploy key are named", () => {
             {
               path: "/assets/en-a1b2c3.js",
               kind: "js",
-              name: "fw-core",
+              name: "pagedeck-core",
               contents: "second",
             },
           ],
@@ -973,7 +973,7 @@ test("two emitted files claiming one deploy key are named", () => {
   ).toBe(
     [
       "Build manifest: 2 deploy keys are claimed by more than one emitted file — emit each file once, or write them to distinct paths:",
-      `  "/assets/en-a1b2c3.js" — js named "${HERO}", js named "fw-core"`,
+      `  "/assets/en-a1b2c3.js" — js named "${HERO}", js named "pagedeck-core"`,
       '  "/en/index.html" — html for en /, html for en /about',
     ].join("\n"),
   );
@@ -1062,7 +1062,7 @@ test("two emitted files claiming one page or one entry chunk name are named", ()
       path: "/assets/en-9z8y7x.js",
       kind: "js",
       name: HERO,
-      contents: 'import "./fw-core-d4e5f6.js";',
+      contents: 'import "./pagedeck-core-d4e5f6.js";',
     },
   ];
   const message = failureOf(() =>
@@ -1116,9 +1116,9 @@ test("one chunk name in two output trees is two files, not a contested claim", (
   };
   const entries = plan([demand(HOME, ["Hero"]), demand(DE, ["Hero"])]);
   const core: EmittedFile = {
-    path: "/assets/fw-core-d4e5f6.js",
+    path: "/assets/pagedeck-core-d4e5f6.js",
     kind: "js",
-    name: "fw-core",
+    name: "pagedeck-core",
     contents: "export const runtime = 1;",
   };
   const manifest = buildManifest(
@@ -1143,14 +1143,14 @@ test("one chunk name in two output trees is two files, not a contested claim", (
           path: "/assets/en-a1b2c3.js",
           kind: "js",
           name: HERO,
-          contents: 'import "./fw-core-d4e5f6.js";',
+          contents: 'import "./pagedeck-core-d4e5f6.js";',
         },
         {
           domain: "de.example",
           path: "/assets/de.example/index-x1y2z3.js",
           kind: "js",
           name: HERO,
-          contents: 'import "../fw-core-d4e5f6.js";',
+          contents: 'import "../pagedeck-core-d4e5f6.js";',
         },
         core,
         { ...core, domain: "de.example" },

@@ -243,7 +243,7 @@ function chunksHolding(id: string): string[] {
 }
 
 function tiersAreSeparate(): void {
-  const core = build.files.find((file) => file.name === "fw-core");
+  const core = build.files.find((file) => file.name === "pagedeck-core");
   expect(core).toBeDefined();
   const coreIds = build.modules.get(core?.path ?? "") ?? [];
   expect(coreIds).toContain(`${SRC}Hero.js`);

@@ -79,7 +79,7 @@ test("the islanded pages are the ones the generator counted, and their chunk was
     expect(existsSync(join(OUT, row.entryChunk as string))).toBe(true);
   }
   expect(
-    readdirSync(join(OUT, "assets")).some((name) => /^fw-core-.+\.js$/.test(name)),
+    readdirSync(join(OUT, "assets")).some((name) => /^pagedeck-core-.+\.js$/.test(name)),
   ).toBe(true);
 });
 

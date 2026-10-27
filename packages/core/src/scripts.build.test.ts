@@ -290,7 +290,7 @@ test("a facade's placeholder is markup in the document, and its script is not", 
   const html = loaded.get("/") ?? "";
 
   expect(html).toMatch(
-    /<div data-fw-facade="[0-9a-f]{8}-0"><button>marker-facade-9c2e<\/button><\/div>/,
+    /<div data-pagedeck-facade="[0-9a-f]{8}-0"><button>marker-facade-9c2e<\/button><\/div>/,
   );
   expect(html).not.toContain('src="https://example.com/helpdesk.js"');
   expect(html).toContain('"https://example.com/helpdesk.js"');
@@ -300,7 +300,7 @@ test("a facade's placeholder is inside the landmark the build writes", async () 
   const loaded = await build(LOADED_SITE, LOADED_SCRIPTS);
   const html = loaded.get("/") ?? "";
 
-  const placeholder = html.indexOf('<div data-fw-facade="');
+  const placeholder = html.indexOf('<div data-pagedeck-facade="');
   expect(placeholder).toBeGreaterThan(-1);
   expect(placeholder).toBeLessThan(html.indexOf("</main>"));
   // The page's copy is asserted present first: `indexOf` answers -1, which orders
@@ -348,8 +348,8 @@ test("a consent category survives the config loader and reaches the page as a ga
   const html = loaded.get("/") ?? "";
 
   expect(html).toContain('[["https://example.com/metrics.js","analytics",0]]');
-  expect(html).toContain('window["fwConsent"]');
-  expect(html).toContain('"fw:consent"');
+  expect(html).toContain('window["pagedeckConsent"]');
+  expect(html).toContain('"pagedeck:consent"');
   expect(html).toContain('load(["https://example.com/chat.js"])');
 }, 120_000);
 
@@ -360,8 +360,8 @@ test("a page that keeps a script and loses a gated one carries a consent-free lo
   expect(post).toContain("requestIdleCallback");
   expect(post).toContain("https://example.com/experiment.js");
   expect(post).not.toContain("https://example.com/metrics.js");
-  expect(post).not.toContain("fwConsent");
-  expect(post).not.toContain("fw:consent");
+  expect(post).not.toContain("pagedeckConsent");
+  expect(post).not.toContain("pagedeck:consent");
 }, 120_000);
 
 test("a script no page loads is reported on the build's own stderr", async () => {

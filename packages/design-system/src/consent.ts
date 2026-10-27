@@ -5,7 +5,7 @@ import type { ConsentCategory } from "@pagedeck/core/consent";
 
 // `localStorage`, not a cookie, so the record is never sent to the server the
 // visitor is deciding about.
-export const CONSENT_BANNER_STORAGE_KEY = "fw-consent";
+export const CONSENT_BANNER_STORAGE_KEY = "pagedeck-consent";
 
 export interface ConsentDecision {
   analytics: boolean;

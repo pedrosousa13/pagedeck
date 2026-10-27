@@ -494,7 +494,7 @@ test("pages whose entry text is identical share one name and one id", () => {
   expect(new Set(plan.entries.map((entry) => entry.id)).size).toBe(1);
   const [first] = plan.entries;
   expect(first?.name).toMatch(/^entry-[0-9a-f]{16}$/);
-  expect(first?.id).toBe(`\0fw:entry/${first?.name ?? ""}`);
+  expect(first?.id).toBe(`\0pagedeck:entry/${first?.name ?? ""}`);
 });
 
 test("a shared entry's name and id do not depend on which pages use it", () => {

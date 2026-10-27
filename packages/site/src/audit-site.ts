@@ -193,7 +193,7 @@ export function measurePayload(root: string, out: string): readonly PagePayload[
 
 export const RUNTIME_URL = "/en/pricing/";
 
-export const REACT_CHUNK = "fw-measure-react";
+export const REACT_CHUNK = "pagedeck-measure-react";
 
 // A ratchet: lowered when the runtime shrinks, and raised only by a ruling
 // recorded under criterion 2 of `docs/success-criteria.md`.

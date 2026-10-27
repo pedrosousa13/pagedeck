@@ -53,25 +53,25 @@ test("a heading inside a hidden subtree opens no section", () => {
   expect(sections).toEqual([{ heading: null, text: "Kept." }]);
 });
 
-test('a data-fw-search="ignore" subtree is dropped whole, nesting included', () => {
+test('a data-pagedeck-search="ignore" subtree is dropped whole, nesting included', () => {
   // Written out, not imported: a test built from the reader's constant passes through a rename.
   const { sections } = extractText(
-    '<p>Kept.</p><nav data-fw-search="ignore"><p>Contents</p>' +
+    '<p>Kept.</p><nav data-pagedeck-search="ignore"><p>Contents</p>' +
       "<ul><li><a>Other page</a></li></ul></nav><p>After.</p>",
   );
   expect(sections).toEqual([{ heading: null, text: "Kept. After." }]);
 });
 
-test('a heading inside a data-fw-search="ignore" subtree opens no section', () => {
+test('a heading inside a data-pagedeck-search="ignore" subtree opens no section', () => {
   const { sections } = extractText(
-    '<nav data-fw-search="ignore"><h2>Guides</h2><a>Other page</a></nav>' +
+    '<nav data-pagedeck-search="ignore"><h2>Guides</h2><a>Other page</a></nav>' +
       "<h2>Own</h2><p>Kept.</p>",
   );
   expect(sections).toEqual([{ heading: { text: "Own" }, text: "Kept." }]);
 });
 
-test('only the value "ignore" drops an element carrying data-fw-search', () => {
-  const { sections } = extractText('<div data-fw-search="">Kept.</div>');
+test('only the value "ignore" drops an element carrying data-pagedeck-search', () => {
+  const { sections } = extractText('<div data-pagedeck-search="">Kept.</div>');
   expect(sections).toEqual([{ heading: null, text: "Kept." }]);
 });
 

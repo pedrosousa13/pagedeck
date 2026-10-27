@@ -213,7 +213,7 @@ test("the body holds the chrome before, then <main> with the page tree alone, th
   const order = [
     "<body>\n<header",
     "<nav",
-    'data-fw-component="Toggle"',
+    'data-pagedeck-component="Toggle"',
     "<main>",
     "marker-body-9a14",
     "</main>",

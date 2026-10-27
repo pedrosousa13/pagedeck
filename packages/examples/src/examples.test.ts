@@ -221,10 +221,10 @@ test("the render example escapes content, keeps rich text raw, and refuses build
       '<div class="prose"><p>Read the <em>docs</em>.</p></div>' +
       '<p class="stats">4 pages</p>' +
       // Spelled out, not assembled from the build's constants: it is a wire format.
-      `<fw-island data-fw-prefix="${tabs?.prefix ?? ""}"` +
-      ` data-fw-component="Tabs" data-fw-mode="visible"` +
-      ` data-fw-props="{&quot;open&quot;:0}"` +
-      ` role="presentation" style="display:contents">${tabs?.html ?? ""}</fw-island>` +
+      `<pagedeck-island data-pagedeck-prefix="${tabs?.prefix ?? ""}"` +
+      ` data-pagedeck-component="Tabs" data-pagedeck-mode="visible"` +
+      ` data-pagedeck-props="{&quot;open&quot;:0}"` +
+      ` role="presentation" style="display:contents">${tabs?.html ?? ""}</pagedeck-island>` +
       "</div>",
   );
 
@@ -243,16 +243,16 @@ test("the render example escapes content, keeps rich text raw, and refuses build
   expect(tabs?.mode).toBe("visible");
   expect(tabs?.html).toBe(
     '<div data-theme="dark"><div class="tabs">' +
-      '<fw-slot data-fw-slot="3.0" role="presentation" style="display:contents">' +
+      '<pagedeck-slot data-pagedeck-slot="3.0" role="presentation" style="display:contents">' +
       '<div data-theme="dark">' +
-      `<fw-island data-fw-prefix="${addToCart?.prefix ?? ""}"` +
-      ` data-fw-component="AddToCart" data-fw-mode="visible"` +
-      ` data-fw-props="{&quot;sku&quot;:&quot;fw-tee&quot;}"` +
-      ` role="presentation" style="display:contents">${addToCart?.html ?? ""}</fw-island>` +
+      `<pagedeck-island data-pagedeck-prefix="${addToCart?.prefix ?? ""}"` +
+      ` data-pagedeck-component="AddToCart" data-pagedeck-mode="visible"` +
+      ` data-pagedeck-props="{&quot;sku&quot;:&quot;pagedeck-tee&quot;}"` +
+      ` role="presentation" style="display:contents">${addToCart?.html ?? ""}</pagedeck-island>` +
       "</div>" +
-      "</fw-slot>" +
+      "</pagedeck-slot>" +
       "</div></div>" +
-      '<template data-fw-template="3.1">' +
+      '<template data-pagedeck-template="3.1">' +
       '&lt;div data-theme="dark">&lt;p class="tagline">Ships in two days&lt;/p>&lt;/div>' +
       "</template>",
   );
@@ -261,7 +261,7 @@ test("the render example escapes content, keeps rich text raw, and refuses build
   expect(addToCart?.prefix).not.toBe(tabs?.prefix);
   expect(addToCart?.html).toBe(
     '<div data-theme="dark">' +
-      `<button class="add" id="_${addToCart?.prefix ?? ""}R_0_" type="button" name="fw-tee">` +
+      `<button class="add" id="_${addToCart?.prefix ?? ""}R_0_" type="button" name="pagedeck-tee">` +
       "Add to cart" +
       "</button></div>",
   );
@@ -283,14 +283,14 @@ test("the client-reference example islands a component no entry names", async ()
 
   expect(html).toBe(
     '<div data-theme="dark"><footer class="article"><h2>Ship faster</h2>' +
-      `<fw-island data-fw-prefix="${like?.prefix ?? ""}"` +
-      ` data-fw-component="LikeButton" data-fw-mode="visible"` +
-      ` data-fw-props="{&quot;count&quot;:12}"` +
+      `<pagedeck-island data-pagedeck-prefix="${like?.prefix ?? ""}"` +
+      ` data-pagedeck-component="LikeButton" data-pagedeck-mode="visible"` +
+      ` data-pagedeck-props="{&quot;count&quot;:12}"` +
       ` role="presentation" style="display:contents">` +
       '<div data-theme="dark">' +
       `<button class="like" id="_${like?.prefix ?? ""}R_0_" type="button">12 likes</button>` +
       "</div>" +
-      "</fw-island>" +
+      "</pagedeck-island>" +
       "</footer></div>",
   );
 

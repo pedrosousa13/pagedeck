@@ -182,7 +182,7 @@ export default defineConfig({
   expect(existsSync(join(dir, "dist", "manifest.json"))).toBe(true);
   const html = readFileSync(join(dir, "dist", "index.html"), "utf8");
   expect(html).toContain("marker-hero-bin-6f31");
-  expect(html).toContain("<fw-island");
+  expect(html).toContain("<pagedeck-island");
 }, 60_000);
 
 test("a failing pagedeck build writes a marked, readable diagnostic", async () => {

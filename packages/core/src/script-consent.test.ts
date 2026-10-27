@@ -333,7 +333,7 @@ test("a functional facade is denied until a source grants functional, and then a
 });
 
 function facadeState(): string | null {
-  const found = document.querySelector("[data-fw-facade]");
+  const found = document.querySelector("[data-pagedeck-facade]");
   if (found === null) throw new Error("the page carries no facade placeholder");
   return found.getAttribute(CONSENT_ATTRIBUTE);
 }

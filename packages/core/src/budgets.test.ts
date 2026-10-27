@@ -21,8 +21,8 @@ import { islandMarker, islandProps } from "./tree.js";
 const STAMP = { id: "b1", createdAt: "2026-08-29T10:00:00.000Z" };
 
 const CHUNKS: readonly BudgetChunk[] = [
-  { path: "/assets/en_pricing-1111.js", imports: ["/assets/fw-core-2222.js"], bytes: 400 },
-  { path: "/assets/fw-core-2222.js", imports: ["/assets/vendor-3333.js"], bytes: 1000 },
+  { path: "/assets/en_pricing-1111.js", imports: ["/assets/pagedeck-core-2222.js"], bytes: 400 },
+  { path: "/assets/pagedeck-core-2222.js", imports: ["/assets/vendor-3333.js"], bytes: 1000 },
   { path: "/assets/vendor-3333.js", imports: [], bytes: 100 },
   { path: "/assets/orphan-4444.js", imports: [], bytes: 9000 },
   { path: "/assets/eager-5555.js", imports: ["/assets/vendor-3333.js"], bytes: 2000 },
@@ -32,7 +32,7 @@ const CHUNKS: readonly BudgetChunk[] = [
 const ENTRIES = new Map([["en /pricing", "/assets/en_pricing-1111.js"]]);
 
 const STYLESHEETS: readonly BudgetStylesheet[] = [
-  { path: "/assets/fw-core-2222.css", bytes: 700 },
+  { path: "/assets/pagedeck-core-2222.css", bytes: 700 },
   { path: "/assets/en_pricing-1111.css", bytes: 300 },
   { path: "/assets/unlinked-7777.css", bytes: 40_000 },
 ];
@@ -40,7 +40,7 @@ const STYLESHEETS: readonly BudgetStylesheet[] = [
 const STYLES = new Map([
   [
     "en /pricing",
-    ["/assets/fw-core-2222.css", "/assets/en_pricing-1111.css"],
+    ["/assets/pagedeck-core-2222.css", "/assets/en_pricing-1111.css"],
   ],
 ]);
 
@@ -92,7 +92,7 @@ test("a page's spend is its entry chunk plus its static closure, each chunk once
 
   expect(row?.actual).toBe(1500);
   expect(row?.chunks).toEqual([
-    { path: "/assets/fw-core-2222.js", bytes: 1000 },
+    { path: "/assets/pagedeck-core-2222.js", bytes: 1000 },
     { path: "/assets/en_pricing-1111.js", bytes: 400 },
     { path: "/assets/vendor-3333.js", bytes: 100 },
   ]);
@@ -140,7 +140,7 @@ test("an eagerly hydrated island's chunk and its static closure count", () => {
   expect(row?.actual).toBe(3500);
   expect(row?.chunks).toEqual([
     { path: "/assets/eager-5555.js", bytes: 2000 },
-    { path: "/assets/fw-core-2222.js", bytes: 1000 },
+    { path: "/assets/pagedeck-core-2222.js", bytes: 1000 },
     { path: "/assets/en_pricing-1111.js", bytes: 400 },
     { path: "/assets/vendor-3333.js", bytes: 100 },
   ]);
@@ -191,9 +191,9 @@ test("a page's CSS figure is every stylesheet it links, each once, and its HTML 
       [
         "en /pricing",
         [
-          "/assets/fw-core-2222.css",
+          "/assets/pagedeck-core-2222.css",
           "/assets/en_pricing-1111.css",
-          "/assets/fw-core-2222.css",
+          "/assets/pagedeck-core-2222.css",
         ],
       ],
     ]),
@@ -296,7 +296,7 @@ test("a breach names inlined bytes on a line of their own, apart from the chunks
   }
   expect((thrown as Error).message).toContain(
     `  en /pricing — "/pricing" allows 1024 B, the page transfers 2100 B, 1500 B of it over 3 chunks and 600 B inlined into its document:
-    /assets/fw-core-2222.js — 1000 B
+    /assets/pagedeck-core-2222.js — 1000 B
     /assets/en_pricing-1111.js — 400 B
     /assets/vendor-3333.js — 100 B
     inlined into the document — 600 B`,
@@ -349,7 +349,7 @@ test("a flagged page with no matching budget pattern still gets a row", () => {
     inlinedPages: new Set(["en /pricing"]),
     stylesheetsByPage: new Map(),
     inlinedStylesheetsByPage: new Map([
-      ["en /pricing", ["/assets/fw-core-2222.css"]],
+      ["en /pricing", ["/assets/pagedeck-core-2222.css"]],
     ]),
   }).pages;
 
@@ -364,7 +364,7 @@ test("a flagged page with no matching budget pattern still gets a row", () => {
       html: 250,
       breach: false,
       chunks: [
-        { path: "/assets/fw-core-2222.js", bytes: 1000 },
+        { path: "/assets/pagedeck-core-2222.js", bytes: 1000 },
         { path: "/assets/en_pricing-1111.js", bytes: 400 },
         { path: "/assets/vendor-3333.js", bytes: 100 },
       ],
@@ -630,7 +630,7 @@ test("the report is deterministic JSON, in route-table order, carrying the build
         html: 250,
         breach: false,
         chunks: [
-          { path: "/assets/fw-core-2222.js", bytes: 1000 },
+          { path: "/assets/pagedeck-core-2222.js", bytes: 1000 },
           { path: "/assets/en_pricing-1111.js", bytes: 400 },
           { path: "/assets/vendor-3333.js", bytes: 100 },
         ],
@@ -677,7 +677,7 @@ test("a breach reports every page, its limit, its spend and the largest contribu
   expect((thrown as Error).message).toBe(
     `JavaScript budget: 2 pages transfer more JavaScript for first render than their budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
   en /pricing — "/pricing" allows 1024 B, the page transfers 1500 B over 3 chunks:
-    /assets/fw-core-2222.js — 1000 B
+    /assets/pagedeck-core-2222.js — 1000 B
     /assets/en_pricing-1111.js — 400 B
     /assets/vendor-3333.js — 100 B
   en /checkout — "/checkout" allows 1 B, the page transfers 9000 B over 1 chunk:
@@ -984,7 +984,7 @@ test("an undeclared island props budget is the default, and a declared one repla
 // Written out as `stashMarkup` in render.tsx writes a stash.
 function stashed(id: string, html: string): string {
   const text = html.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-  return `<template data-fw-template="${id}">${text}</template>`;
+  return `<template data-pagedeck-template="${id}">${text}</template>`;
 }
 
 test("an island in a stashed slot is weighed once, at any depth of stash", () => {
@@ -1004,7 +1004,7 @@ test("an island in a stashed slot is weighed once, at any depth of stash", () =>
 });
 
 test("only the island tag itself is a marker, not a tag that starts with its name", () => {
-  const html = `<fw-island-foo data-fw-props="${"x".repeat(100)}"></fw-island-foo>`;
+  const html = `<pagedeck-island-foo data-pagedeck-props="${"x".repeat(100)}"></pagedeck-island-foo>`;
 
   expect(weighIslandProps(html, 0)).toEqual({ largest: 0, breaches: [] });
 });

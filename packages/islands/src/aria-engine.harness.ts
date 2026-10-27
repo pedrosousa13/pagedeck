@@ -24,8 +24,8 @@ const WRAPPED_LIST = {
 // Spelled out rather than imported, so renaming `ISLAND_TAG` cannot change what
 // was measured.
 const WRAPPED_LIST_MARKER = {
-  bare: `<ul><li>one</li><fw-island style="display: contents"><li>two</li></fw-island></ul>`,
-  presentation: `<ul><li>one</li><fw-island role="presentation" style="display: contents"><li>two</li></fw-island></ul>`,
+  bare: `<ul><li>one</li><pagedeck-island style="display: contents"><li>two</li></pagedeck-island></ul>`,
+  presentation: `<ul><li>one</li><pagedeck-island role="presentation" style="display: contents"><li>two</li></pagedeck-island></ul>`,
 };
 
 const ENGINES: [string, BrowserType][] = [

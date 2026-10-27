@@ -186,7 +186,7 @@ async function open(): Promise<{
 
 function state(page: BrowserPage, control: string): Promise<string | null> {
   return page
-    .locator(`[data-fw-facade]:has(#${control})`)
+    .locator(`[data-pagedeck-facade]:has(#${control})`)
     .getAttribute(CONSENT_ATTRIBUTE);
 }
 

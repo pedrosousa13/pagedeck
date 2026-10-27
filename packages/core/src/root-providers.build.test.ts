@@ -16,8 +16,8 @@ const FIXTURES = join(CORE, "..", "..", "fixtures", "src", "index.ts");
 
 // The stack's marker is a prop: an exported constant nothing reads is shaken out
 // even when its module is in the graph.
-const STORE_MARKER = "fw-store-7c31";
-const PROVIDERS_MARKER = "fw-providers-2a55";
+const STORE_MARKER = "pagedeck-store-7c31";
+const PROVIDERS_MARKER = "pagedeck-providers-2a55";
 const HERO_MARKER = "marker-hero-5c14";
 const CHART_MARKER = "marker-chart-9b70";
 
@@ -283,7 +283,7 @@ test("the same stack reaches the client in one chunk, which both islands' chunks
   expect(chart).toHaveLength(1);
   expect(hero[0]).not.toBe(chart[0]);
 
-  expect(store[0]).toContain("fw-core");
+  expect(store[0]).toContain("pagedeck-core");
   expect(store[0]).toBe(hero[0]);
   expect(store[0]).not.toBe(chart[0]);
 

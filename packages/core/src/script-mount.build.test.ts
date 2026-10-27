@@ -142,7 +142,7 @@ test("a declared mount point puts the placeholder inside the element that carrie
   const html = await built();
 
   expect(html).toMatch(
-    /<div id="comments"><div data-fw-facade="[0-9a-f]{8}-0"><button>marker-comments-4d81<\/button><\/div>marker-mount-7b3e<\/div>/,
+    /<div id="comments"><div data-pagedeck-facade="[0-9a-f]{8}-0"><button>marker-comments-4d81<\/button><\/div>marker-mount-7b3e<\/div>/,
   );
 }, 120_000);
 

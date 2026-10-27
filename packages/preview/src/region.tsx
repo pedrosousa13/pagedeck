@@ -5,10 +5,10 @@ import type { ReactElement, ReactNode } from "react";
 import type { ComponentRegistry } from "@pagedeck/islands";
 import { PreviewDraftError } from "./draft.js";
 
-// In the `fw-` namespace, so a site's registry cannot redefine it.
-export const PREVIEW_REGION = "fw-preview-region";
+// In the `pagedeck-` namespace, so a site's registry cannot redefine it.
+export const PREVIEW_REGION = "pagedeck-preview-region";
 
-export const PREVIEW_REGION_TAG = "fw-region";
+export const PREVIEW_REGION_TAG = "pagedeck-region";
 
 // `data-*` only: a custom element carrying `onclick` would run it, and a draft is CMS content.
 const REGION_ATTRIBUTE = /^data-[a-z][a-z0-9-]*$/;

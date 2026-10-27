@@ -261,7 +261,7 @@ test("a page whose islands load the runtime on a trigger is still charged for it
   const home = reportIn(dir).pages.find((page) => page.path === "/");
   const counted = home?.chunks.map((chunk) => chunk.path) ?? [];
 
-  expect(counted.filter((path) => path.includes("/fw-core-"))).toHaveLength(1);
+  expect(counted.filter((path) => path.includes("/pagedeck-core-"))).toHaveLength(1);
   expect(home?.actual).toBeGreaterThan(40_000);
 }, 60_000);
 

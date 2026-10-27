@@ -159,17 +159,17 @@ test("a site that declares no foldStrategy is tuned per instance and per page", 
   const manifest = manifestIn(dist);
 
   const home = document(dist, "");
-  expect(home).toContain('data-fw-component="Widget" data-fw-mode="load"');
+  expect(home).toContain('data-pagedeck-component="Widget" data-pagedeck-mode="load"');
 
-  expect(home).toContain('data-fw-component="Pinned" data-fw-mode="visible"');
+  expect(home).toContain('data-pagedeck-component="Pinned" data-pagedeck-mode="visible"');
 
   const deep = document(dist, "/deep");
-  expect(deep).toContain('data-fw-component="Eager" data-fw-mode="visible"');
-  expect(home).toContain('data-fw-component="Eager" data-fw-mode="load"');
+  expect(deep).toContain('data-pagedeck-component="Eager" data-pagedeck-mode="visible"');
+  expect(home).toContain('data-pagedeck-component="Eager" data-pagedeck-mode="load"');
 
-  expect(deep).toContain('data-fw-component="Widget" data-fw-mode="visible"');
+  expect(deep).toContain('data-pagedeck-component="Widget" data-pagedeck-mode="visible"');
 
-  expect(deep).not.toContain('data-fw-component="Filler"');
+  expect(deep).not.toContain('data-pagedeck-component="Filler"');
 
   expect(pageRow(manifest, "/").foldTuning).toEqual([
     { component: "Widget", position: 0, from: "visible", to: "load" },
@@ -187,10 +187,10 @@ test("a site that turns foldStrategy off keeps every declared and defaulted mode
 
   const dist = join(dir, "dist");
   const home = document(dist, "");
-  expect(home).toContain('data-fw-component="Widget" data-fw-mode="visible"');
-  expect(home).toContain('data-fw-component="Eager" data-fw-mode="load"');
+  expect(home).toContain('data-pagedeck-component="Widget" data-pagedeck-mode="visible"');
+  expect(home).toContain('data-pagedeck-component="Eager" data-pagedeck-mode="load"');
   expect(document(dist, "/deep")).toContain(
-    'data-fw-component="Eager" data-fw-mode="load"',
+    'data-pagedeck-component="Eager" data-pagedeck-mode="load"',
   );
   const manifest = manifestIn(dist);
   expect(pageRow(manifest, "/").foldTuning).toEqual([]);
@@ -266,9 +266,9 @@ test("an island fold strategy promotes to load is tiered", async () => {
   });
   expect(
     manifest.tiers.assignments.find((one) => one.component === "Widget"),
-  ).toMatchObject({ tier: "core", group: "fw-core", pageCount: 2 });
+  ).toMatchObject({ tier: "core", group: "pagedeck-core", pageCount: 2 });
   const core = manifest.files.find((file) =>
-    /^\/assets\/fw-core-[\w-]+\.js$/.test(file.path),
+    /^\/assets\/pagedeck-core-[\w-]+\.js$/.test(file.path),
   );
   expect(core).toBeDefined();
   expect(readFileSync(join(dist, core?.path ?? ""), "utf8")).toContain(

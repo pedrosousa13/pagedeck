@@ -198,7 +198,7 @@ const VARIANT_NAME_FIX =
 const REPEATED_VARIANT_FIX = "give each variant of one page its own name";
 const VARIANT_WEIGHT_FIX =
   "write a positive number, such as 50; the shares are relative, so they need not total anything in particular";
-const COOKIE_KEY_FIX = 'write the key as a cookie name, such as "fw_pricing"';
+const COOKIE_KEY_FIX = 'write the key as a cookie name, such as "pagedeck_pricing"';
 const UNROUTED_EXPERIMENT_FIX =
   "name a page by the locale and path the route table spells it with, or drop the experiment";
 const CONTESTED_EXPERIMENT_FIX = "give each page one experiment";
@@ -1437,7 +1437,7 @@ const EXPERIMENT_LOCALE_FIX =
 const EXPERIMENT_PATH_FIX =
   'write the path the route table spells this page with, such as "/pricing"';
 const COOKIE_FIX =
-  'write the cookie key this experiment is assigned and read by, such as "fw_pricing"';
+  'write the cookie key this experiment is assigned and read by, such as "pagedeck_pricing"';
 const VARIANTS_FIX =
   'write the variants of this experiment, as variants: [{ name: "b", weight: 50 }]';
 const VARIANT_TYPE_FIX =

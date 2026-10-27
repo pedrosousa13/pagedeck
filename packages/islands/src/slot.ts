@@ -76,7 +76,7 @@ function AdoptedSlot(props: AdoptedSlotProps): ReactElement {
       );
     }
     adopt.mounted.add(slot);
-    // Hydrated through the ref, not a DOM query: a forged `<fw-slot>` under a
+    // Hydrated through the ref, not a DOM query: a forged `<pagedeck-slot>` under a
     // nested island could match the query first (#114).
     if (!adopt.inPlace.delete(slot) && element.current !== null) {
       adopt.hydrate(element.current);

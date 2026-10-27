@@ -172,7 +172,7 @@ test("the islands still hydrate around the metadata that left them", async () =>
 
   expect(body).toContain("marker-alpha-1d47");
   expect(body).toContain("marker-beta-6b02");
-  expect(count(body, "fw-island")).toBe(2);
+  expect(count(body, "pagedeck-island")).toBe(2);
 }, 120_000);
 
 test("two islands claiming one title differently fail the build", async () => {

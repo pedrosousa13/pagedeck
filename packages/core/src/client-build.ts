@@ -212,7 +212,7 @@ export function resolveModuleIds(
 // recorded.
 const SPLIT_PRIORITY = 10;
 
-export const STARTUP_GROUP = "fw-startup";
+export const STARTUP_GROUP = "pagedeck-startup";
 
 // Above core, which would otherwise take both as dependencies of its own modules,
 // and a page with no `load` island imports them at startup without core.
@@ -657,7 +657,7 @@ function refuseUpstreamImports(
   };
 }
 
-const GLOBAL_STYLES_ENTRY = "\0fw:global-styles";
+const GLOBAL_STYLES_ENTRY = "\0pagedeck:global-styles";
 
 /** With no island to import `build.css`, the sheets get their own entry; its
  * JavaScript chunk holds only those imports, so it is dropped (#104). */

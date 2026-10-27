@@ -414,7 +414,7 @@ test("an element that is not a template but sits where a stash does is left wher
   expect(reported).toEqual([]);
 });
 
-test("a <fw-slot> outside every marker is not what a re-shown panel is rebuilt from", async () => {
+test("a <pagedeck-slot> outside every marker is not what a re-shown panel is rebuilt from", async () => {
   const resolve = await buildPage([
     {
       component: "Tabs",
@@ -509,7 +509,7 @@ function Forger() {
   );
 }
 
-test("a <fw-slot> under a nested marker cannot claim the panel it is inside", async () => {
+test("a <pagedeck-slot> under a nested marker cannot claim the panel it is inside", async () => {
   const resolve = await buildPage([
     {
       component: "Stack",
@@ -914,7 +914,7 @@ function Decoy() {
   return <div className="cms" dangerouslySetInnerHTML={{ __html: DECOY }} />;
 }
 
-test("a forged <fw-slot> cannot take the hydrate meant for the panel being opened", async () => {
+test("a forged <pagedeck-slot> cannot take the hydrate meant for the panel being opened", async () => {
   const resolve = await buildPage([
     {
       component: "Reveal",

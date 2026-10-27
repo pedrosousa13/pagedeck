@@ -48,7 +48,7 @@ test("a render's islands are the demand's islands, unmapped", async () => {
     {
       locale: "en",
       path: "/signup",
-      id: expect.stringMatching(/^\0fw:entry\/entry-[0-9a-f]{16}$/),
+      id: expect.stringMatching(/^\0pagedeck:entry\/entry-[0-9a-f]{16}$/),
       name: expect.stringMatching(/^entry-[0-9a-f]{16}$/),
       components: [{ name: "Counter", module: "@ds/counter", eager: false }],
     },

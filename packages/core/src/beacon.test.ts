@@ -45,7 +45,7 @@ test("the beacon waits for the analytics category and nothing else", () => {
   const html = element();
 
   expect(BEACON_CATEGORY).toBe("analytics");
-  expect(html).toContain('"fwConsent"');
+  expect(html).toContain('"pagedeckConsent"');
   expect(html).toContain('granted("analytics")');
 });
 
@@ -73,7 +73,7 @@ test("an endpoint cannot end the script block it is written into", () => {
 });
 
 const BEACON_BEFORE_499 =
-  "<script>(function(){var q=[\"https://collector.example/rum\",\"en\",\"/\",0],m={};var o=function(t,f,d){try{new PerformanceObserver(f).observe({type:t,buffered:true,durationThreshold:d})}catch(e){}};var start=function(){o(\"largest-contentful-paint\",function(l){var e=l.getEntries(),v=e[e.length-1];if(v)m.lcp=Math.round(v.startTime)});var c=0,f=0,p=0;o(\"layout-shift\",function(l){var e=l.getEntries();for(var i=0;i<e.length;i++){var s=e[i];if(s.hadRecentInput)continue;if(c&&s.startTime-p<1000&&s.startTime-f<5000)c+=s.value;else{c=s.value;f=s.startTime}p=s.startTime;if(c>(m.cls||0))m.cls=Math.round(c*1e4)/1e4}});o(\"event\",function(l){var e=l.getEntries();for(var i=0;i<e.length;i++){var s=e[i];if(s.interactionId&&s.duration>(m.inp||0))m.inp=Math.round(s.duration)}},40);};if(\"requestIdleCallback\" in window)requestIdleCallback(start);else setTimeout(start,0);var sent,send=function(){if(sent)return;var g=window[\"fwConsent\"];if(!(g?!!g.granted(\"analytics\"):q[3]===1))return;m.locale=q[1];m.path=q[2];var b=JSON.stringify(m);if(!(navigator.sendBeacon&&navigator.sendBeacon(q[0],b)))fetch(q[0],{method:\"POST\",body:b,keepalive:true});sent=1};addEventListener(\"visibilitychange\",function(){if(document.visibilityState===\"hidden\")send()});addEventListener(\"pagehide\",send);})();</script>";
+  "<script>(function(){var q=[\"https://collector.example/rum\",\"en\",\"/\",0],m={};var o=function(t,f,d){try{new PerformanceObserver(f).observe({type:t,buffered:true,durationThreshold:d})}catch(e){}};var start=function(){o(\"largest-contentful-paint\",function(l){var e=l.getEntries(),v=e[e.length-1];if(v)m.lcp=Math.round(v.startTime)});var c=0,f=0,p=0;o(\"layout-shift\",function(l){var e=l.getEntries();for(var i=0;i<e.length;i++){var s=e[i];if(s.hadRecentInput)continue;if(c&&s.startTime-p<1000&&s.startTime-f<5000)c+=s.value;else{c=s.value;f=s.startTime}p=s.startTime;if(c>(m.cls||0))m.cls=Math.round(c*1e4)/1e4}});o(\"event\",function(l){var e=l.getEntries();for(var i=0;i<e.length;i++){var s=e[i];if(s.interactionId&&s.duration>(m.inp||0))m.inp=Math.round(s.duration)}},40);};if(\"requestIdleCallback\" in window)requestIdleCallback(start);else setTimeout(start,0);var sent,send=function(){if(sent)return;var g=window[\"pagedeckConsent\"];if(!(g?!!g.granted(\"analytics\"):q[3]===1))return;m.locale=q[1];m.path=q[2];var b=JSON.stringify(m);if(!(navigator.sendBeacon&&navigator.sendBeacon(q[0],b)))fetch(q[0],{method:\"POST\",body:b,keepalive:true});sent=1};addEventListener(\"visibilitychange\",function(){if(document.visibilityState===\"hidden\")send()});addEventListener(\"pagehide\",send);})();</script>";
 
 test("the beacon is the element it was before its ends became constants", () => {
   expect(
@@ -159,7 +159,7 @@ function run(
   }
 
   const window: Record<string, unknown> = {};
-  if (consent !== undefined) window["fwConsent"] = consent;
+  if (consent !== undefined) window["pagedeckConsent"] = consent;
   if (idleSupport) window["requestIdleCallback"] = undefined;
 
   const body = html.replace(/^<script>/, "").replace(/<\/script>$/, "");

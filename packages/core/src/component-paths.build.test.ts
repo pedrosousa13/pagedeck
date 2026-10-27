@@ -132,7 +132,7 @@ async function build(dir: string): Promise<Built> {
   await execFileAsync(process.execPath, [BIN, "build"], { cwd: dir });
   const html = readFileSync(join(dir, "dist", "index.html"), "utf8");
   return {
-    markers: [...html.matchAll(/<fw-island\b[^>]*>/g)].map((match) => match[0]),
+    markers: [...html.matchAll(/<pagedeck-island\b[^>]*>/g)].map((match) => match[0]),
     report: JSON.parse(
       readFileSync(budgetReportPath(dir), "utf8"),
     ) as BudgetReport,
@@ -144,7 +144,7 @@ test("a site declaring its components by path and by package specifier ships an 
 
   expect(byPath.markers).toHaveLength(3);
   for (const name of ["Counter", "Toggle", "Pricing"]) {
-    expect(byPath.markers.join("\n")).toContain(`data-fw-component="${name}"`);
+    expect(byPath.markers.join("\n")).toContain(`data-pagedeck-component="${name}"`);
   }
   const [page] = byPath.report.pages;
   expect(page?.actual).toBeGreaterThan(0);

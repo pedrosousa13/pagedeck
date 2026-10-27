@@ -133,7 +133,7 @@ test("islands and split chunks that share a file name build into a chunk each, a
   await pagedeck("build");
   const { files, tiers } = manifest();
   expect(tiers.assignments.filter((one) => one.group !== undefined)).toEqual([]);
-  for (const file of files.filter((one) => one.path.startsWith("/assets/fw-"))) {
+  for (const file of files.filter((one) => one.path.startsWith("/assets/pagedeck-"))) {
     expect(readFileSync(join(SITE, "site", file.path), "utf8"), file.path).not.toMatch(
       /marker-(?:fade|curve|ease)-[ab]-/,
     );

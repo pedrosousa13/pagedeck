@@ -62,7 +62,7 @@ export interface PlanEntriesOptions {
   providersDigest?: string;
 }
 
-const VIRTUAL_PREFIX = "\0fw:entry/";
+const VIRTUAL_PREFIX = "\0pagedeck:entry/";
 
 const MISSING_MODULE_FIX = {
   one: "pass its specifier in planEntries' modules option, or drop it from the pages that use it",

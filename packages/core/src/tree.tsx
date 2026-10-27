@@ -145,14 +145,14 @@ function rawHtml(html: string): {
   return { dangerouslySetInnerHTML: { __html: html } };
 }
 
-export const SEARCH_ATTRIBUTE = "data-fw-search";
+export const SEARCH_ATTRIBUTE = "data-pagedeck-search";
 
 const NAME_CHARACTER = "[-\\w]";
 
 export const IS_NAME_CHARACTER = new RegExp(NAME_CHARACTER);
 
 /**
- * An enumeration, not a `data-fw-` prefix (#394, #566). Bytes, not a parse, so
+ * An enumeration, not a `data-pagedeck-` prefix (#394, #566). Bytes, not a parse, so
  * a whole reserved name is removed wherever it is spelled.
  */
 const RESERVED_NAMES = new RegExp(

@@ -103,18 +103,18 @@ afterAll(() => {
 
 test("the banner's whole markup is in the document the build wrote", () => {
   // Asserted as rendered markup, never as a bare value, which the island's
-  // `data-fw-props` would satisfy alone.
+  // `data-pagedeck-props` would satisfy alone.
   expect(html).toContain(`>${BANNER_COPY.heading}</h2>`);
   expect(html).toContain(`>${BANNER_COPY.body}</p>`);
   expect(html).toContain(`>${BANNER_COPY.acceptLabel}</button>`);
   expect(html).toContain(`>${BANNER_COPY.rejectLabel}</button>`);
   expect(html).toMatch(/<section [^>]*role="region"/);
-  expect(html).toMatch(/aria-labelledby="fw-consent-banner-heading"/);
+  expect(html).toMatch(/aria-labelledby="pagedeck-consent-banner-heading"/);
 });
 
 test("the build islands it from its own directive", () => {
-  expect(html).toContain('data-fw-component="consent_banner"');
-  expect(html).toContain('data-fw-mode="visible"');
+  expect(html).toContain('data-pagedeck-component="consent_banner"');
+  expect(html).toContain('data-pagedeck-mode="visible"');
 
   const page = manifest.pages[0];
   expect(page?.components.map((component) => component.name)).toEqual([

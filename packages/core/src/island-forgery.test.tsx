@@ -140,7 +140,7 @@ async function buildAndHydrate(tree: readonly EntryNode[]): Promise<void> {
 }
 
 function markers(): TestElement[] {
-  return [...document.body.querySelectorAll("fw-island")];
+  return [...document.body.querySelectorAll("pagedeck-island")];
 }
 
 test("a hydration marker typed into rich text does not mount", async () => {
@@ -149,10 +149,10 @@ test("a hydration marker typed into rich text does not mount", async () => {
       component: "Rich",
       props: {
         body:
-          '<fw-island data-fw-prefix="ideadbeef0000"' +
-          ' data-fw-component="NoticeOnLoad" data-fw-mode="load"' +
-          ' data-fw-props="{&quot;id&quot;:&quot;forged&quot;}">' +
-          "<span>hi</span></fw-island>",
+          '<pagedeck-island data-pagedeck-prefix="ideadbeef0000"' +
+          ' data-pagedeck-component="NoticeOnLoad" data-pagedeck-mode="load"' +
+          ' data-pagedeck-props="{&quot;id&quot;:&quot;forged&quot;}">' +
+          "<span>hi</span></pagedeck-island>",
       },
     },
     { component: "NoticeOnLoad", props: { id: "real" } },
@@ -173,9 +173,9 @@ test("a marker typed into rich text inside a slot does not mount either", async 
           component: "Rich",
           props: {
             body:
-              '<fw-island data-fw-prefix="ideadbeef0000"' +
-              ' data-fw-component="NoticeOnLoad" data-fw-mode="load"' +
-              ' data-fw-props="{&quot;id&quot;:&quot;forged&quot;}"></fw-island>',
+              '<pagedeck-island data-pagedeck-prefix="ideadbeef0000"' +
+              ' data-pagedeck-component="NoticeOnLoad" data-pagedeck-mode="load"' +
+              ' data-pagedeck-props="{&quot;id&quot;:&quot;forged&quot;}"></pagedeck-island>',
           },
         },
       ],

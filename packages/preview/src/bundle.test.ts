@@ -117,5 +117,5 @@ test("a component importing @pagedeck/core/tree bundles for a browser", () => {
 
 test("it carries the mark a production build is searched for", () => {
   // The needle `preview-build.test.ts` searches production chunks for is really in preview's bytes.
-  expect(bundled()).toContain("fw-preview-build-target");
+  expect(bundled()).toContain("pagedeck-preview-build-target");
 });

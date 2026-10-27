@@ -147,7 +147,7 @@ test('a .tsx module carrying "use client" is islanded and its code shipped to hy
     html.indexOf("</article>"),
   );
   expect(article).toMatch(
-    /<fw-island[^>]*data-fw-component="Counter"[^>]*>.*marker-counter-7a2e/s,
+    /<pagedeck-island[^>]*data-pagedeck-component="Counter"[^>]*>.*marker-counter-7a2e/s,
   );
   expect(html).toContain('<script type="module"');
   const shipped = filesUnder(join(SITE, "dist")).filter(

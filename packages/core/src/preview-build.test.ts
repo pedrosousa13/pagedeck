@@ -202,7 +202,7 @@ test("a production client build emits no preview bytes", async () => {
 
   expect(built.files.length).toBeGreaterThan(0);
   for (const file of built.files) {
-    expect(file.contents).not.toContain("fw-preview-build-target");
+    expect(file.contents).not.toContain("pagedeck-preview-build-target");
     expect(file.contents).not.toContain("mountPreview");
     expect(file.name).not.toBe("preview");
     for (const id of built.modules.get(file.path) ?? []) {

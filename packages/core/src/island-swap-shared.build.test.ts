@@ -115,8 +115,8 @@ test("a page that swaps its island for another page's, when both islands import 
   expect(built).toContain("incremental: 1 of 2 pages rendered, 1 reused, 0 removed");
   expect(html("signup")).toBe(signup);
   const faq = html("faq");
-  expect(faq).toMatch(/<fw-island\b[^>]*data-fw-component="Signup"/);
-  expect(faq).not.toContain('data-fw-component="Faq"');
+  expect(faq).toMatch(/<pagedeck-island\b[^>]*data-pagedeck-component="Signup"/);
+  expect(faq).not.toContain('data-pagedeck-component="Faq"');
   expect(scripts(faq)).toEqual(scripts(signup));
 }, 180_000);
 
@@ -181,7 +181,7 @@ test("a reused page whose chunk gains an export for an island another page adds 
   const after = html("signup");
   expect(withoutAssets(after)).toBe(withoutAssets(signup));
   const faq = html("faq");
-  expect(faq).toMatch(/<fw-island\b[^>]*data-fw-component="Faq"/);
+  expect(faq).toMatch(/<pagedeck-island\b[^>]*data-pagedeck-component="Faq"/);
   for (const document of [after, faq]) {
     expect(assets(document).length).toBeGreaterThan(0);
     for (const asset of assets(document)) expect(emitted(asset), asset).toBe(true);

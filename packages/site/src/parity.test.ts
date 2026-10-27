@@ -91,8 +91,8 @@ const TRAP = `<!doctype html>
 <head><title>Home</title></head>
 <body>
 <a href="/en/pricing">Pricing</a>
-<script>var wrong = "/assets/assets/fw-core.js"; var page = "/en/nowhere";</script>
-<script type="module" src="/assets/assets/fw-core.js"></script>
+<script>var wrong = "/assets/assets/pagedeck-core.js"; var page = "/en/nowhere";</script>
+<script type="module" src="/assets/assets/pagedeck-core.js"></script>
 </body>
 </html>
 `;
@@ -102,7 +102,7 @@ test("an href inside a script's source text is not an href the page has", () => 
 
   expect(facts.internalHrefs).toEqual(["/en/pricing"]);
   expect(facts.internalHrefs).not.toContain("/en/nowhere");
-  expect(facts.internalHrefs).not.toContain("/assets/assets/fw-core.js");
+  expect(facts.internalHrefs).not.toContain("/assets/assets/pagedeck-core.js");
   expect(facts.text).toBe("Pricing");
 });
 

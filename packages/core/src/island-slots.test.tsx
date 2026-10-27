@@ -92,24 +92,24 @@ const CONTAINERS_ARE_CLIENT = {
 
 function marker(island: RenderedIsland, props: string): string {
   return (
-    `<fw-island data-fw-prefix="${island.prefix}"` +
-    ` data-fw-component="${island.component}"` +
-    ` data-fw-mode="${island.mode}"` +
-    ` data-fw-props="${props}"` +
-    ` role="presentation" style="display:contents">${island.html}</fw-island>`
+    `<pagedeck-island data-pagedeck-prefix="${island.prefix}"` +
+    ` data-pagedeck-component="${island.component}"` +
+    ` data-pagedeck-mode="${island.mode}"` +
+    ` data-pagedeck-props="${props}"` +
+    ` role="presentation" style="display:contents">${island.html}</pagedeck-island>`
   );
 }
 
 function slot(id: string, html: string): string {
   return (
-    `<fw-slot data-fw-slot="${id}"` +
-    ` role="presentation" style="display:contents">${html}</fw-slot>`
+    `<pagedeck-slot data-pagedeck-slot="${id}"` +
+    ` role="presentation" style="display:contents">${html}</pagedeck-slot>`
   );
 }
 
 function stash(id: string, html: string): string {
   const text = html.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-  return `<template data-fw-template="${id}">${text}</template>`;
+  return `<template data-pagedeck-template="${id}">${text}</template>`;
 }
 
 const TWO_PANELS: readonly EntryNode[] = [
@@ -194,8 +194,8 @@ test("a slot position spelled in rich text does not cost the reader a panel", as
             component: "Rich",
             props: {
               body:
-                '<span data-fw-slot="0.0">decoy</span>' +
-                '<fw-slot data-fw-slot="0.0"><p>decoy</p></fw-slot>',
+                '<span data-pagedeck-slot="0.0">decoy</span>' +
+                '<pagedeck-slot data-pagedeck-slot="0.0"><p>decoy</p></pagedeck-slot>',
             },
           },
         ],
@@ -226,7 +226,7 @@ test("a slot position spelled inside a longer name is not a copy of anything", a
           { component: "Panel", props: { title: "One" } },
           {
             component: "Rich",
-            props: { body: '<span xdata-fw-slot="0.0">decoy</span>' },
+            props: { body: '<span xdata-pagedeck-slot="0.0">decoy</span>' },
           },
         ],
       },
@@ -241,7 +241,7 @@ test("a slot position spelled inside a longer name is not a copy of anything", a
     '<div class="tabs">' +
       slot(
         "0.1",
-        '<div class="rich"><span xdata-fw-slot="0.0">decoy</span></div>',
+        '<div class="rich"><span xdata-pagedeck-slot="0.0">decoy</span></div>',
       ) +
       "</div>" +
       stash("0.0", "<p>One</p>"),
@@ -259,7 +259,7 @@ const FORGED_TABS = (body: string): readonly EntryNode[] => [
 test("a slot position spelled on another element is not a copy of anything", async () => {
   const { islands } = await renderPage({
     page: PAGE,
-    tree: FORGED_TABS('<span data-fw-slot="0.0">decoy</span>'),
+    tree: FORGED_TABS('<span data-pagedeck-slot="0.0">decoy</span>'),
     registry: REGISTRY,
     modules: CONTAINERS_ARE_CLIENT,
   });
@@ -268,7 +268,7 @@ test("a slot position spelled on another element is not a copy of anything", asy
 
   expect(island.html).toBe(
     '<div class="tabs">' +
-      '<div class="forged"><span data-fw-slot="0.0">decoy</span></div>' +
+      '<div class="forged"><span data-pagedeck-slot="0.0">decoy</span></div>' +
       slot("0.1", "<p>Two</p>") +
       "</div>" +
       stash("0.0", "<p>One</p>"),
@@ -278,7 +278,7 @@ test("a slot position spelled on another element is not a copy of anything", asy
 test("a slot position spelled in a text node is not a copy of anything", async () => {
   const { islands } = await renderPage({
     page: PAGE,
-    tree: FORGED_TABS('<p>data-fw-slot="0.0"</p>'),
+    tree: FORGED_TABS('<p>data-pagedeck-slot="0.0"</p>'),
     registry: REGISTRY,
     modules: CONTAINERS_ARE_CLIENT,
   });
@@ -287,7 +287,7 @@ test("a slot position spelled in a text node is not a copy of anything", async (
 
   expect(island.html).toBe(
     '<div class="tabs">' +
-      '<div class="forged"><p>data-fw-slot="0.0"</p></div>' +
+      '<div class="forged"><p>data-pagedeck-slot="0.0"</p></div>' +
       slot("0.1", "<p>Two</p>") +
       "</div>" +
       stash("0.0", "<p>One</p>"),
@@ -384,7 +384,7 @@ test("an island in a slot the container hid is still in the page", async () => {
       "</div>" +
       stash("0.0", marker(inner, "{&quot;label&quot;:&quot;Add&quot;}")),
   );
-  expect(html).toContain(`data-fw-prefix="${inner.prefix}"`);
+  expect(html).toContain(`data-pagedeck-prefix="${inner.prefix}"`);
 });
 
 test("an island whose node has no children emits the HTML it emits today", async () => {
@@ -401,8 +401,8 @@ test("an island whose node has no children emits the HTML it emits today", async
     /^<button class="counter" id="[^"]+">Add<\/button>$/,
   );
 
-  expect(html).not.toContain("fw-slot");
-  expect(html).not.toContain("data-fw-template");
+  expect(html).not.toContain("pagedeck-slot");
+  expect(html).not.toContain("data-pagedeck-template");
 });
 
 test("a container's children never travel through the props payload", async () => {
@@ -413,7 +413,7 @@ test("a container's children never travel through the props payload", async () =
     modules: CONTAINERS_ARE_CLIENT,
   });
 
-  expect(html).toContain('data-fw-props="{}"');
+  expect(html).toContain('data-pagedeck-props="{}"');
 });
 
 const DUPLICATE_FIX =

@@ -126,7 +126,7 @@ function textOf(contents: string | Uint8Array): string {
 test("the core tier holds the modules the plan assigned it", async () => {
   const build = await built();
 
-  const core = build.files.find((file) => file.name === "fw-core");
+  const core = build.files.find((file) => file.name === "pagedeck-core");
   expect(core).toBeDefined();
   const modules = build.modules.get(core?.path ?? "") ?? [];
 
@@ -326,7 +326,7 @@ test("a tier group that captured nothing fails the graph check", async () => {
     groups: [
       ...planned.groups,
       {
-        name: "fw-orphan",
+        name: "pagedeck-orphan",
         priority: 10,
         entriesAware: false,
         minSize: 0,
@@ -347,7 +347,7 @@ test("a tier group that captured nothing fails the graph check", async () => {
     new ConfigError(
       [
         "Client build: 1 chunk tier captured no module — check the module map spells the tier's specifiers the way the pages import them:",
-        '  "fw-orphan" — no module in the emitted graph matched it',
+        '  "pagedeck-orphan" — no module in the emitted graph matched it',
       ].join("\n"),
     ),
   );
@@ -445,7 +445,7 @@ test("a chunk importing something the build did not emit fails the graph check",
           fileName: "assets/en-aaaa.js",
           name: HOME,
           isEntry: true,
-          imports: ["assets/fw-core-cccc.js", "react"],
+          imports: ["assets/pagedeck-core-cccc.js", "react"],
           modules: [`${SRC}Hero.js`],
         },
         {
@@ -456,8 +456,8 @@ test("a chunk importing something the build did not emit fails the graph check",
           modules: [`${SRC}Chart.js`],
         },
         {
-          fileName: "assets/fw-core-cccc.js",
-          name: "fw-core",
+          fileName: "assets/pagedeck-core-cccc.js",
+          name: "pagedeck-core",
           isEntry: false,
           imports: [],
           modules: [`${SRC}Nav.js`],
@@ -581,7 +581,7 @@ test("a chunk's imports come back spelled the way its own path is", async () => 
     for (const target of one) expect(paths).toContain(target);
   }
 
-  const startup = build.files.find((file) => file.name === "fw-startup");
+  const startup = build.files.find((file) => file.name === "pagedeck-startup");
   expect(reached).toContain(startup?.path);
 }, 60_000);
 

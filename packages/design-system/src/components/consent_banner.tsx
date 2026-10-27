@@ -15,7 +15,7 @@ interface Browser {
 }
 const browser = globalThis as unknown as Browser;
 
-// Keyed by the constant, not by a `"fwConsent"` literal that could drift from it.
+// Keyed by the constant, not by a `"pagedeckConsent"` literal that could drift from it.
 const consentGlobal = globalThis as unknown as Record<
   string,
   ConsentSource | undefined
@@ -47,7 +47,7 @@ export default function ConsentBanner({
   acceptLabel,
   rejectLabel,
   manageLabel,
-  id = "fw-consent-banner",
+  id = "pagedeck-consent-banner",
 }: {
   heading: string;
   body: string;

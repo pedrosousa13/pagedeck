@@ -155,9 +155,9 @@ test("a facade carries its placeholder and a loader that waits on that placehold
   expect(elements).toHaveLength(2);
   const key = facadeKey(["<button>Chat</button>", "https://example.com/c.js"]);
   expect(elements[0]).toBe(
-    `<div data-fw-facade="${key}-0"><button>Chat</button></div>`,
+    `<div data-pagedeck-facade="${key}-0"><button>Chat</button></div>`,
   );
-  expect(elements[1]).toContain("data-fw-facade");
+  expect(elements[1]).toContain("data-pagedeck-facade");
   expect(elements[1]).toContain("el.addEventListener");
   expect(elements[1]).toContain("https://example.com/c.js");
   expect(elements[1]).not.toContain("requestIdleCallback");
@@ -224,8 +224,8 @@ test("taking one facade off a page leaves the rest contiguous and paired with th
     ["<button>Video</button>", "https://example.com/video.js"],
   );
   expect(elements.slice(0, 2)).toEqual([
-    `<div data-fw-facade="${key}-0"><button>Chat</button></div>`,
-    `<div data-fw-facade="${key}-1"><button>Video</button></div>`,
+    `<div data-pagedeck-facade="${key}-0"><button>Chat</button></div>`,
+    `<div data-pagedeck-facade="${key}-1"><button>Video</button></div>`,
   ]);
   expect(elements[2]).toContain(
     'var facades=["https://example.com/chat.js","https://example.com/video.js"]',
@@ -347,8 +347,8 @@ test("a page that categorizes nothing carries the loader it carried before conse
 
   const key = facadeKey(["<button>Chat</button>", "https://example.com/c.js"]);
   expect(elements).toEqual([
-    `<div data-fw-facade="${key}-0"><button>Chat</button></div>`,
-    `<script>(function(){var load=function(u){for(var i=0;i<u.length;i++){var s=document.createElement("script");s.src=u[i];s.async=true;document.head.appendChild(s)}};var run=function(){load(["https://example.com/a.js"])};if("requestIdleCallback" in window)window.requestIdleCallback(run);else setTimeout(run,0);var events=["pointerdown","keydown","wheel"],fire=function(){for(var i=0;i<events.length;i++)removeEventListener(events[i],fire);load(["https://example.com/p.js"])};for(var i=0;i<events.length;i++)addEventListener(events[i],fire,{passive:true});var facades=["https://example.com/c.js"];for(var j=0;j<facades.length;j++)(function(el,src){if(!el)return;var e=["pointerdown","keydown"],go=function(){for(var k=0;k<e.length;k++)el.removeEventListener(e[k],go);var s=document.createElement("script");s.src=src;s.async=true;s.addEventListener("load",function(){el.remove()});document.head.appendChild(s)};for(var k=0;k<e.length;k++)el.addEventListener(e[k],go,{passive:true})})(document.querySelector(\'[data-fw-facade="${key}-\'+j+\'"]\'),facades[j]);})();</script>`,
+    `<div data-pagedeck-facade="${key}-0"><button>Chat</button></div>`,
+    `<script>(function(){var load=function(u){for(var i=0;i<u.length;i++){var s=document.createElement("script");s.src=u[i];s.async=true;document.head.appendChild(s)}};var run=function(){load(["https://example.com/a.js"])};if("requestIdleCallback" in window)window.requestIdleCallback(run);else setTimeout(run,0);var events=["pointerdown","keydown","wheel"],fire=function(){for(var i=0;i<events.length;i++)removeEventListener(events[i],fire);load(["https://example.com/p.js"])};for(var i=0;i<events.length;i++)addEventListener(events[i],fire,{passive:true});var facades=["https://example.com/c.js"];for(var j=0;j<facades.length;j++)(function(el,src){if(!el)return;var e=["pointerdown","keydown"],go=function(){for(var k=0;k<e.length;k++)el.removeEventListener(e[k],go);var s=document.createElement("script");s.src=src;s.async=true;s.addEventListener("load",function(){el.remove()});document.head.appendChild(s)};for(var k=0;k<e.length;k++)el.addEventListener(e[k],go,{passive:true})})(document.querySelector(\'[data-pagedeck-facade="${key}-\'+j+\'"]\'),facades[j]);})();</script>`,
   ]);
 });
 
@@ -377,8 +377,8 @@ test("a page that declares an attribute pays for it in every half that appends",
 
   const key = facadeKey(["<button>Chat</button>", "https://example.com/c.js"]);
   expect(elements).toEqual([
-    `<div data-fw-facade="${key}-0"><button>Chat</button></div>`,
-    `<script>(function(){var load=function(u){for(var i=0;i<u.length;i++){var t=u[i],s=document.createElement("script");s.src=t[0];for(var a=1;a<t.length;a+=2)s.setAttribute(t[a],t[a+1]);s.async=true;document.head.appendChild(s)}};var run=function(){load([["https://example.com/a.js","data-domain","example.org"]])};if("requestIdleCallback" in window)window.requestIdleCallback(run);else setTimeout(run,0);var events=["pointerdown","keydown","wheel"],fire=function(){for(var i=0;i<events.length;i++)removeEventListener(events[i],fire);load([["https://example.com/p.js"]])};for(var i=0;i<events.length;i++)addEventListener(events[i],fire,{passive:true});var facades=[["https://example.com/c.js","data-repo","owner/repo","data-theme","dark"]];for(var j=0;j<facades.length;j++)(function(el,src){if(!el)return;var e=["pointerdown","keydown"],go=function(){for(var k=0;k<e.length;k++)el.removeEventListener(e[k],go);var s=document.createElement("script");s.src=src[0];for(var a=1;a<src.length;a+=2)s.setAttribute(src[a],src[a+1]);s.async=true;s.addEventListener("load",function(){el.remove()});document.head.appendChild(s)};for(var k=0;k<e.length;k++)el.addEventListener(e[k],go,{passive:true})})(document.querySelector('[data-fw-facade="${key}-'+j+'"]'),facades[j]);})();</script>`,
+    `<div data-pagedeck-facade="${key}-0"><button>Chat</button></div>`,
+    `<script>(function(){var load=function(u){for(var i=0;i<u.length;i++){var t=u[i],s=document.createElement("script");s.src=t[0];for(var a=1;a<t.length;a+=2)s.setAttribute(t[a],t[a+1]);s.async=true;document.head.appendChild(s)}};var run=function(){load([["https://example.com/a.js","data-domain","example.org"]])};if("requestIdleCallback" in window)window.requestIdleCallback(run);else setTimeout(run,0);var events=["pointerdown","keydown","wheel"],fire=function(){for(var i=0;i<events.length;i++)removeEventListener(events[i],fire);load([["https://example.com/p.js"]])};for(var i=0;i<events.length;i++)addEventListener(events[i],fire,{passive:true});var facades=[["https://example.com/c.js","data-repo","owner/repo","data-theme","dark"]];for(var j=0;j<facades.length;j++)(function(el,src){if(!el)return;var e=["pointerdown","keydown"],go=function(){for(var k=0;k<e.length;k++)el.removeEventListener(e[k],go);var s=document.createElement("script");s.src=src[0];for(var a=1;a<src.length;a+=2)s.setAttribute(src[a],src[a+1]);s.async=true;s.addEventListener("load",function(){el.remove()});document.head.appendChild(s)};for(var k=0;k<e.length;k++)el.addEventListener(e[k],go,{passive:true})})(document.querySelector('[data-pagedeck-facade="${key}-'+j+'"]'),facades[j]);})();</script>`,
   ]);
 });
 
@@ -538,25 +538,25 @@ test("a gated facade's placeholder carries its category's state and the loader t
   const key = facadeKey(["<button>Chat</button>", "https://example.com/c.js"]);
   const english = emitted(declared, HOME);
   expect(english[0]).toBe(
-    `<div data-fw-facade="${key}-0" data-fw-consent="denied"><button>Chat</button></div>`,
+    `<div data-pagedeck-facade="${key}-0" data-pagedeck-consent="denied"><button>Chat</button></div>`,
   );
 
   expect(emitted(declared, { locale: "de", path: "/" })[0]).toBe(
-    `<div data-fw-facade="${key}-0" data-fw-consent="granted"><button>Chat</button></div>`,
+    `<div data-pagedeck-facade="${key}-0" data-pagedeck-consent="granted"><button>Chat</button></div>`,
   );
 
   const loader = english[1] ?? "";
   expect(loader).toContain(
-    'var mark=function(el,g){if(g.length>1)el.setAttribute("data-fw-consent",ok(g)?"granted":"denied")};',
+    'var mark=function(el,g){if(g.length>1)el.setAttribute("data-pagedeck-consent",ok(g)?"granted":"denied")};',
   );
   expect(loader).toContain(
-    'mark(el,g);addEventListener("fw:consent",function(){mark(el,g)});',
+    'mark(el,g);addEventListener("pagedeck:consent",function(){mark(el,g)});',
   );
   expect(loader).toContain("if(g.length>1&&!ok(g))return;");
 });
 
 test("a page's consent attribute holds one of two words and nothing a site chose", () => {
-  const state = /data-fw-consent="([^"]*)"/.exec(
+  const state = /data-pagedeck-consent="([^"]*)"/.exec(
     emitted(
       settings({
         scripts: [
@@ -605,13 +605,13 @@ test("an uncategorized facade sharing a page with a gated one carries no consent
     [video, "https://example.com/v.js"],
   );
   expect(elements[0]).toBe(
-    `<div data-fw-facade="${key}-0" data-fw-consent="denied">${chat}</div>`,
+    `<div data-pagedeck-facade="${key}-0" data-pagedeck-consent="denied">${chat}</div>`,
   );
-  expect(elements[1]).toBe(`<div data-fw-facade="${key}-1">${video}</div>`);
+  expect(elements[1]).toBe(`<div data-pagedeck-facade="${key}-1">${video}</div>`);
 });
 
-test("a facade whose own markup carries a data-fw-facade cannot name another placeholder", () => {
-  const decoy = '<span data-fw-facade="1">decoy</span>';
+test("a facade whose own markup carries a data-pagedeck-facade cannot name another placeholder", () => {
+  const decoy = '<span data-pagedeck-facade="1">decoy</span>';
   const elements = emitted(
     settings({
       scripts: [
@@ -637,11 +637,11 @@ test("a facade whose own markup carries a data-fw-facade cannot name another pla
   );
 
   expect(elements[1]).toBe(
-    `<div data-fw-facade="${key}-1"><button>Video</button></div>`,
+    `<div data-pagedeck-facade="${key}-1"><button>Video</button></div>`,
   );
-  expect(elements[0]).not.toContain(`data-fw-facade="${key}-1"`);
+  expect(elements[0]).not.toContain(`data-pagedeck-facade="${key}-1"`);
   expect(elements[2]).toContain(
-    `document.querySelector('[data-fw-facade="${key}-'+j+'"]')`,
+    `document.querySelector('[data-pagedeck-facade="${key}-'+j+'"]')`,
   );
 });
 
@@ -660,10 +660,10 @@ test("a page's facade key is lowercase hex whatever the site's own bytes hold", 
     HOME,
   );
 
-  const key = /data-fw-facade="([^"]*)-0"/.exec(elements[0] ?? "")?.[1];
+  const key = /data-pagedeck-facade="([^"]*)-0"/.exec(elements[0] ?? "")?.[1];
   expect(key).toMatch(/^[0-9a-f]{8}$/);
   expect(elements[1]).toContain(
-    `document.querySelector('[data-fw-facade="${key ?? ""}-'+j+'"]')`,
+    `document.querySelector('[data-pagedeck-facade="${key ?? ""}-'+j+'"]')`,
   );
 });
 

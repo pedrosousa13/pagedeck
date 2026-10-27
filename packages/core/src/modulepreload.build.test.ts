@@ -156,7 +156,7 @@ test("a page with a load island preloads each chunk its entry imports statically
   const home = documentAt("");
   const entry = entryOf(home);
   const closure = staticClosure(entry);
-  expect(closure.some((path) => path.includes("/fw-core-"))).toBe(true);
+  expect(closure.some((path) => path.includes("/pagedeck-core-"))).toBe(true);
 
   expect(preloads(home)).toEqual(closure);
   expect(occurrences(home, 'rel="modulepreload"')).toBe(closure.length);
@@ -177,10 +177,10 @@ test("a page whose islands all wait for a trigger does not preload the runtime i
   const later = documentAt("later");
   const entry = entryOf(later);
   const closure = staticClosure(entry);
-  expect(closure.some((path) => path.includes("/fw-startup-"))).toBe(true);
+  expect(closure.some((path) => path.includes("/pagedeck-startup-"))).toBe(true);
 
   expect(preloads(later)).toEqual(closure);
-  expect(preloads(later).some((path) => path.includes("/fw-core-"))).toBe(false);
+  expect(preloads(later).some((path) => path.includes("/pagedeck-core-"))).toBe(false);
   expect(preloads(later).some((path) => path.includes("/Later-"))).toBe(false);
 });
 

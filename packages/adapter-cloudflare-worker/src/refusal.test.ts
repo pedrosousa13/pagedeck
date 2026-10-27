@@ -67,7 +67,7 @@ Edge target "cloudflare-worker": 2 header values cannot be sent — ${HEADER_VAL
           experiments: [
             {
               path: "/en/pricing",
-              cookie: "fw_pricing",
+              cookie: "pagedeck_pricing",
               variants: [
                 { name: "a", weight: 1 },
                 { name: "b", weight: 3 },
