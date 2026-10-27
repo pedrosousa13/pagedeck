@@ -201,6 +201,8 @@ export const RUNTIME_CEILING: RuntimeCeiling = { raw: 6_714, gzip: 3_404 };
 
 // React in a chunk of its own, so the framework's bytes read off files (#292). The
 // plugin is source text: a generated config resolves only published exports (#182).
+// Site plugins also run in the component resolution and the island scan, which
+// declare no split groups (#172).
 export async function buildRuntimeSite(site: string): Promise<string> {
   return buildScratchSite(site, [
     'import { siteConfig } from "@pagedeck/site";',
@@ -223,13 +225,16 @@ export async function buildRuntimeSite(site: string): Promise<string> {
     "        ...(site.build.vite?.plugins ?? []),",
     "        {",
     `          name: ${JSON.stringify(REACT_CHUNK)},`,
-    "          outputOptions: (options) => ({",
-    "            ...options,",
-    "            codeSplitting: {",
-    "              ...options.codeSplitting,",
-    "              groups: [react, ...options.codeSplitting.groups],",
-    "            },",
-    "          }),",
+    "          outputOptions: (options) =>",
+    "            options.codeSplitting?.groups === undefined",
+    "              ? options",
+    "              : {",
+    "                  ...options,",
+    "                  codeSplitting: {",
+    "                    ...options.codeSplitting,",
+    "                    groups: [react, ...options.codeSplitting.groups],",
+    "                  },",
+    "                },",
     "        },",
     "      ],",
     "    },",

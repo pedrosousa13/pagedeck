@@ -22,6 +22,7 @@ import { serveGeneratedEntries } from "./entry-modules.js";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
 import type { HydrationMode, ModuleFacts } from "@pagedeck/islands";
+import type { PluginOption } from "vite";
 
 export interface IslandFactsInput {
   root: string;
@@ -29,6 +30,7 @@ export interface IslandFactsInput {
   modules: ModuleMap;
   css?: readonly string[];
   components?: Readonly<Record<string, { readonly hydrate?: HydrationMode }>>;
+  plugins?: readonly PluginOption[];
 }
 
 export interface IslandFacts {
@@ -49,7 +51,11 @@ export interface ResolvedModules {
 /** The scan's resolution alone, with no graph, as the scan's `ssr.noExternal` reads it. */
 export async function resolveComponentModules(
   specifiers: readonly string[],
-  input: { root: string; origin: string },
+  input: {
+    root: string;
+    origin: string;
+    plugins?: readonly PluginOption[];
+  },
 ): Promise<ResolvedModules> {
   const resolver = resolveModuleIds(specifiers, input.origin);
   await inProductionEnv(async () =>
@@ -71,6 +77,7 @@ export async function resolveComponentModules(
         serveGeneratedEntries(new Map([[RESOLVE_ID, "export {};\n"]]), input.origin),
         resolver.plugin,
       ],
+      sitePlugins: input.plugins,
     }),
   );
   return resolver.taken();
@@ -128,6 +135,7 @@ export async function scanIslandFacts(
           serveGeneratedEntries(new Map([[ENTRY_ID, entry]]), input.origin),
           resolver.plugin,
         ],
+        sitePlugins: input.plugins,
       }),
     );
   } catch (error) {

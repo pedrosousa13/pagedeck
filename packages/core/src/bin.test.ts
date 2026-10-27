@@ -173,7 +173,12 @@ export default defineConfig({
   const passedThrough = stderr
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER));
-  expect(passedThrough).toEqual(["[another-tool] note: marker-foreign-3a9c"]);
+  // Once per bundler pass that runs the site's plugins: the island scan and the
+  // client build (#172).
+  expect(passedThrough).toEqual([
+    "[another-tool] note: marker-foreign-3a9c",
+    "[another-tool] note: marker-foreign-3a9c",
+  ]);
   expect(existsSync(join(dir, "dist", "manifest.json"))).toBe(true);
   const html = readFileSync(join(dir, "dist", "index.html"), "utf8");
   expect(html).toContain("marker-hero-bin-6f31");

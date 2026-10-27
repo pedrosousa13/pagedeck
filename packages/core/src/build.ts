@@ -840,6 +840,7 @@ async function stageSite(input: {
     modules: section.componentModules,
     components: section.components,
     css: globalCss,
+    plugins: section.vite?.plugins,
   });
 
   const previewEntry =
@@ -965,9 +966,7 @@ async function stageSite(input: {
     plan,
     tiers,
     globalCss,
-    ...(section.vite?.plugins === undefined
-      ? {}
-      : { plugins: section.vite.plugins }),
+    plugins: section.vite?.plugins,
     ...(incremental === undefined || input.previous === undefined
       ? {}
       : { split: previousSplit(input.previous) }),
@@ -984,9 +983,7 @@ async function stageSite(input: {
           origin: config.configPath,
           path: (section.preview as PreviewSetting).path,
           entry: previewEntry,
-          ...(section.vite?.plugins === undefined
-            ? {}
-            : { plugins: section.vite.plugins }),
+          plugins: section.vite?.plugins,
         });
 
   const workerFallback = workerFallbackWarning(section.scripts);

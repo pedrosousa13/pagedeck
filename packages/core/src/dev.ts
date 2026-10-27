@@ -114,6 +114,7 @@ export async function startDevServer(
     modules: section.componentModules,
     components: section.components,
     css: (section.css ?? []).map((path) => resolvePath(root, path)),
+    plugins: section.vite?.plugins,
   });
   for (const warning of warnings) input.err(warning);
   const site = { current: siteState(config, section, root) };

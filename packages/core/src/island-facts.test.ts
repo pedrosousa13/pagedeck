@@ -1,8 +1,9 @@
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import type { Plugin } from "vite";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { ConfigError } from "./exit.js";
-import { scanIslandFacts } from "./island-facts.js";
+import { resolveComponentModules, scanIslandFacts } from "./island-facts.js";
 
 const FIXTURE_DIR = fileURLToPath(
   new URL("../node_modules/.pagedeck-island-facts-test/", import.meta.url),
@@ -306,4 +307,74 @@ test('two unregistered "use client" modules are one warning naming both', async 
       `  "${SRC}Knob.js" — ${SRC}Frame.js → ${SRC}Knob.js\n` +
       `  "${SRC}Toggle.js" — ${SRC}Shell.js → ${SRC}Toggle.js`,
   ]);
+}, 120_000);
+
+const ALIAS: Plugin = {
+  name: "site:alias",
+  resolveId(source) {
+    return source.startsWith("@/") ? `${SRC}${source.slice(2)}` : undefined;
+  },
+};
+
+test("a site plugin resolves an aliased component module, and the scan reads its directive", async () => {
+  const modules = { Hero: "@/Hero.js", Copy: "@/Copy.js" };
+  const unplugged = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules,
+  }).catch((thrown: unknown) => thrown);
+  expect(unplugged).toBeInstanceOf(ConfigError);
+  expect((unplugged as Error).message).toContain(
+    "Island scan: 2 component modules did not resolve",
+  );
+
+  const { facts, clientComponents } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules,
+    plugins: [ALIAS],
+  });
+
+  expect(facts).toEqual({
+    Hero: { useClient: true },
+    Copy: { useClient: false },
+  });
+  expect(clientComponents).toEqual({ [`${SRC}Hero.js`]: "Hero" });
+}, 120_000);
+
+test("a site plugin resolves an aliased component module for the config", async () => {
+  const { ids, unresolved } = await resolveComponentModules(["@/Hero.js"], {
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plugins: [ALIAS],
+  });
+
+  expect(ids).toEqual({ "@/Hero.js": `${SRC}Hero.js` });
+  expect(unresolved).toEqual([]);
+}, 120_000);
+
+test("a site plugin hook that throws in the scan fails the scan with the bundler's error", async () => {
+  const refusal = new ConfigError("Island facts test: a site plugin refused", {
+    cause: new Error("what the site plugin met"),
+  });
+  const error = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Hero: "./src/Hero.js" },
+    plugins: [
+      {
+        name: "site:refusing",
+        transform(_code, id) {
+          if (id.endsWith("Hero.js")) throw refusal;
+        },
+      },
+    ],
+  }).catch((thrown: unknown) => thrown);
+
+  // Rolldown keeps the site's own error in `errors`.
+  expect(error).toBeInstanceOf(Error);
+  expect(error).not.toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toContain("[plugin site:refusing]");
+  expect((error as { errors?: unknown[] }).errors).toHaveLength(1);
+  expect((error as { errors: Error[] }).errors[0]).toBe(refusal);
 }, 120_000);
