@@ -113,6 +113,9 @@ In each pass the site's plugins come after the framework's own; a plugin with
 `enforce: "pre"` still runs first. Resolving components and the island scan
 are server-side builds, so a plugin that assumes a browser build must accept
 those too.
+Each pass runs the same plugin's hooks again, so a plugin that logs or keeps
+state does so once per pass: a line written from `buildStart` appears once for
+each pass that runs it.
 
 ## CSS tiers
 

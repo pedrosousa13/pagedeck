@@ -324,6 +324,9 @@ test("a site plugin resolves an aliased component module, and the scan reads its
     modules,
   }).catch((thrown: unknown) => thrown);
   expect(unplugged).toBeInstanceOf(ConfigError);
+  expect((unplugged as Error).message).toContain(
+    "Island scan: 2 component modules did not resolve",
+  );
 
   const { facts, clientComponents } = await scanIslandFacts({
     root: FIXTURE_DIR,
@@ -368,8 +371,7 @@ test("a site plugin hook that throws in the scan fails the scan with the bundler
     ],
   }).catch((thrown: unknown) => thrown);
 
-  // Site plugins are unguarded (bundler.ts): Rolldown's error carries the
-  // site's own, cause and all, in `errors`.
+  // Rolldown keeps the site's own error in `errors`.
   expect(error).toBeInstanceOf(Error);
   expect(error).not.toBeInstanceOf(ConfigError);
   expect((error as Error).message).toContain("[plugin site:refusing]");

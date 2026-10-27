@@ -174,8 +174,7 @@ export default defineConfig({
     .split("\n")
     .filter((line) => line.trim() !== "" && !line.startsWith(DIAGNOSTIC_MARKER));
   // Once per bundler pass that runs the site's plugins: the island scan and the
-  // client build (#172). #184 ruled other tools' lines are passed through, not
-  // filtered.
+  // client build (#172).
   expect(passedThrough).toEqual([
     "[another-tool] note: marker-foreign-3a9c",
     "[another-tool] note: marker-foreign-3a9c",
