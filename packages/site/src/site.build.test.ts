@@ -324,7 +324,7 @@ test("the island's cost is confined to the page that asked for it", () => {
   );
 });
 
-// The names before #89. Slice 2's brand tokens and class names are left to their own issue.
+// The names before #89. Brand tokens and class names: #125.
 const OLD_PREFIX =
   /<\/?fw-|\bfw-(?:island|slot|region|core|mid|startup|preview)\b|\bdata-fw-|\bfw:|\bfwConsent\b|\bfw\.shared-store\b/g;
 

@@ -50,7 +50,7 @@ const PIXEL: ScriptsSetting = {
 
 // `document.open()` replaces the document, not the window, so without this a grant in
 // one test fires the gate the previous test left armed.
-const RESET = `(function(){var w=window;var l=w.__fwListeners;if(l)for(var i=0;i<l.length;i++)w.removeEventListener(l[i][0],l[i][1]);w.__fwListeners=[];if(!w.__fwPatched){w.__fwPatched=1;var add=w.addEventListener;w.addEventListener=function(t,f,o){w.__fwListeners.push([t,f]);return add.call(w,t,f,o)}}delete w.${CONSENT_GLOBAL}})()`;
+const RESET = `(function(){var w=window;var l=w.__pagedeckListeners;if(l)for(var i=0;i<l.length;i++)w.removeEventListener(l[i][0],l[i][1]);w.__pagedeckListeners=[];if(!w.__pagedeckPatched){w.__pagedeckPatched=1;var add=w.addEventListener;w.addEventListener=function(t,f,o){w.__pagedeckListeners.push([t,f]);return add.call(w,t,f,o)}}delete w.${CONSENT_GLOBAL}})()`;
 
 function render(
   settings: ScriptsSetting,
