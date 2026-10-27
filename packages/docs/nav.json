@@ -24,6 +24,7 @@
       "how-to/deploy-to-nginx.md",
       "how-to/deploy-to-vercel.md",
       "how-to/publish-from-a-cms.md",
+      "how-to/report-island-errors.md",
       "how-to/run-an-app-beside-the-site.md",
       "how-to/upgrade-pagedeck.md",
       "how-to/write-a-loader.md"

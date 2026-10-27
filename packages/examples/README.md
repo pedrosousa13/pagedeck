@@ -34,8 +34,10 @@ contract gets an example or joins this list:
   `head`, `chrome`, `driftThreshold`, `driftSupplement`, `safelist`, `search`,
   `adapter` (`BuildAdapter`, #20),
   `links`, `retention`, `routing`, `sitemap`, `feed`, `favicon`, `robots`,
-  `preview`, `passthrough`, `speculation`, `viewTransitions` and `fonts`, with
-  the setting types each is written in (#40, #42), and `fromCollection`'s
+  `preview`, `passthrough`, `speculation`, `viewTransitions`, `islandErrors`
+  and `fonts`, with the setting types each is written in (#40, #42, #157),
+  `IslandErrorReport`, `IslandErrorReporter` and `IslandErrorKind`, which a
+  reporter receives in the browser (#157), and `fromCollection`'s
   `layout` with the frontmatter `components` list it reads, a claim about a
   build's output (#712).
 - `@pagedeck/core/dev`: `startDevServer`, `devOrigin`, `DevServer` (#268).
@@ -46,7 +48,9 @@ contract gets an example or joins this list:
   `HYDRATION_CONTRADICTION_FIX`, `checkRootProviders`, `rootProviderProbe`
   (#66); `store`, `hydrateStore`, `useStoreCallback`, `checkSharedStore`,
   `markRootsMounting`, `StoreError` (#252); `hotIslands`; `componentFaults`,
-  which `loadConfig` runs on a config's components (#708).
+  which `loadConfig` runs on a config's components (#708);
+  `reportIslandErrors` (`./island-errors`), which the build wires between the
+  runtime and a declared reporter (#157).
 - `@pagedeck/search`: `defineSearch`, `QUERY_CAP` (#457), `createSearchClient`
   and the search island (#62).
 - `@pagedeck/font-subset`: `defineFontSubset`.
