@@ -25,7 +25,10 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "customConditions": ["source"]
+    "customConditions": ["source"],
+    // `packages/app-example/pagedeck.config.ts` imports `./src/csp.ts` by its own name,
+    // because Node loads the config with types stripped and no build runs first (#160).
+    "allowImportingTsExtensions": true
   },
   "include": [
     "packages/*/src/**/*.ts",

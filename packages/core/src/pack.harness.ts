@@ -550,6 +550,7 @@ const APP_EXAMPLE_FILES = [
   "content",
   "public",
   "src/app.ts",
+  "src/csp.ts",
   "src/components",
   "src/release.ts",
 ];
@@ -568,8 +569,14 @@ test("the app example, copied out of the repository, builds from installed packa
       range.startsWith("workspace:") ? PUBLIC_VERSION : range,
     ]),
   );
+  const missing = APP_EXAMPLE_TOOLS.filter((name) => own.devDependencies?.[name] === undefined);
+  if (missing.length > 0) {
+    throw new Error(
+      `Package "${own.name}": its devDependencies lack ${missing.map((name) => `"${name}"`).join(", ")}, which its build and release run — declare each at the version the example uses, or take it out of APP_EXAMPLE_TOOLS in pack.harness.ts`,
+    );
+  }
   const tools = Object.fromEntries(
-    APP_EXAMPLE_TOOLS.map((name) => [name, own.devDependencies?.[name] as string]),
+    APP_EXAMPLE_TOOLS.map((name) => [name, own.devDependencies?.[name] ?? ""]),
   );
   await install(site, {
     name: "app-example",

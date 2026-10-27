@@ -33,7 +33,12 @@ The site names the prefix in `build.routing.upstreams`, in
 
 ```ts
 routing: {
-  headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }],
+  headers: [
+    {
+      prefix: "/",
+      set: [...SECURITY_HEADERS, { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY }],
+    },
+  ],
   upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" }],
 },
 ```
@@ -324,7 +329,7 @@ The app answers on the site's own origin, so:
 - a cookie the app sets with `Path=/` is sent with every later request to the
   site, pages and app alike;
 - a `Content-Security-Policy` needs only `'self'` in `connect-src` and
-  `form-action` to allow the calls.
+  `form-action` to allow the calls. The example's, in `src/csp.ts`, has both.
 
 ## Other hosts
 

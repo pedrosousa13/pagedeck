@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { budgetReportPath } from "@pagedeck/core";
+import { CONTENT_SECURITY_POLICY } from "./csp.js";
 import { build, clean, OUT, serve, SITE, stop } from "./wrangler.test-support.js";
 import type { Served } from "./wrangler.test-support.js";
 
@@ -70,6 +71,29 @@ test("no emitted file carries the app's code", () => {
   expect(leaked).toEqual([]);
 });
 
+function scriptSources(policy: string): readonly string[] {
+  for (const directive of policy.split(";")) {
+    const [name, ...sources] = directive.trim().split(/\s+/);
+    if (name === "script-src") return sources;
+  }
+  return [];
+}
+
+test("every page's inline scripts are in the policy, and the policy lists no other", () => {
+  const { pages } = JSON.parse(readFileSync(join(OUT, "manifest.json"), "utf8")) as {
+    pages: { path: string; inlineScriptHashes?: string[] }[];
+  };
+  const allowed = scriptSources(CONTENT_SECURITY_POLICY);
+  const carried = new Set<string>();
+  for (const page of pages) {
+    for (const hash of page.inlineScriptHashes ?? []) {
+      expect(allowed, `${page.path} carries ${hash}`).toContain(hash);
+      carried.add(hash);
+    }
+  }
+  expect(new Set(allowed.filter((source) => source.startsWith("'sha256-")))).toEqual(carried);
+});
+
 test("the build routes the prefix for Cloudflare Pages, and the upload leaves that file out", () => {
   expect(JSON.parse(readFileSync(join(OUT, "_routes.json"), "utf8"))).toEqual({
     version: 1,
@@ -87,6 +111,7 @@ test("a built page is served from site/ with the build's headers", async () => {
     expect(response.status, path).toBe(200);
     expect(response.headers.get("Content-Type"), path).toMatch(/^text\/html/);
     expect(response.headers.get("X-Frame-Options"), path).toBe("DENY");
+    expect(response.headers.get("Content-Security-Policy"), path).toBe(CONTENT_SECURITY_POLICY);
     expect(response.headers.get("Cache-Control"), path).not.toBe("no-store");
   }
 }, 30_000);
