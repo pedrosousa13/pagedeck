@@ -1252,6 +1252,7 @@ place, so a failed run leaves no release and changes no other one.
 | `worker/app.js` | the app, bundled by the site's own wrangler with `--define PAGEDECK_RELEASE:"<build id>"` | the app as it was, with no install or bundle step at restore time |
 | `wrangler.jsonc` | the site's own, copied unchanged | the Worker name, `compatibility_date` and `assets` routing |
 | `release.json` | the build id, the build's `createdAt` and `parent`, the bundle's SHA-256, the wrangler version | what this release is, to compare with what is live |
+| `.pagedeck/manifests` (kept beside the releases, not in one) | the retention store: the manifest of every recent build | the history `pagedeck build` reads to record each build's parent, and `check` compares with |
 
 The build id is the `build.id` in `site/manifest.json`. The app answers
 `GET /api/release` with the id it was bundled with, so a request to the live
@@ -1273,8 +1274,15 @@ Worker on Cloudflare and is not in the release.
 | `_routes.json`, `404.html` | `site/` | `.assetsignore` names them |
 | `release.json`, `wrangler.jsonc`, `worker/` | the release directory | outside `site/`, which is the only directory the Worker serves files from |
 
-`release.build.test.ts` requests each of these from a restored release and
-gets `404`.
+`release.build.test.ts` requests `/manifest.json`, `/_routes.json`,
+`/404.html`, `/.pagedeck/manifests`, `/content.db`, `/release.json`,
+`/wrangler.jsonc`, `/worker/app.js`, `/.dev.vars`, `/.env` and
+`/.env.production` from a restored release under `wrangler dev`, and gets
+`404` for each. The first three are in the release's `site/`, so the `404`
+shows that wrangler 4.148.0's `wrangler dev` applies `.assetsignore`. On
+Cloudflare, `.assetsignore` kept `/_routes.json`, `/manifest.json` and
+`/404.html` out of the example's upload in the run under "Observed on
+Cloudflare Workers Static Assets" above.
 
 ### Deploying a release
 
@@ -1302,6 +1310,17 @@ pnpm exec wrangler deploy worker/app.js --no-bundle
 curl <origin>/api/release            # answers {"release":"<build id>"}
 ```
 
+A release fetched from storage into a fresh directory has no `node_modules`.
+Use the wrangler version in its `release.json`, not the latest:
+
+```sh
+npx wrangler@<version from release.json> deploy worker/app.js --no-bundle
+```
+
+Every command in a release directory names `worker/app.js --no-bundle`. The
+copied `wrangler.jsonc` still says `"main": "src/app.ts"`, which is not in the
+release, so a bare `wrangler deploy` or `wrangler dev` there fails.
+
 A restore reads no manifest and runs no build, so it works for a release that
 an older pagedeck prepared. `wrangler rollback` is the other way back: it
 publishes a version Cloudflare kept, without a release directory, and
@@ -1309,8 +1328,10 @@ Cloudflare keeps only "the 100 most recently published versions"
 (<https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/>).
 
 After a restore, the next build records the newest manifest in the retention
-store as its parent, which is not the restored release. `check` refuses that
-build once. Read what it would overwrite, then pass `--force`.
+store as its parent, which is not the restored release, and `check` refuses
+it. `release.build.test.ts` restores release A over release B, builds on B's
+manifest and is refused. Read what the build would overwrite, then pass
+`--force`.
 
 ### A failed deploy and a stale one
 
@@ -1327,14 +1348,20 @@ the host:
 
 What is not verified, because it needs a live deploy:
 
-- **A `wrangler deploy` that fails partway.** wrangler uploads the assets and
-  then publishes a version. That the live version is unchanged when the upload
-  fails is not checked, and nothing here claims the upload is atomic. Recovery:
-  deploy the last known good release again, then check `/api/release`.
-- **Two deploys at once.** `wrangler deploy` has no check of its own, so the
-  last one to publish wins. `check` runs before the deploy, so a deploy that
-  lands between the two is not caught. Run one deploy at a time, for example
-  with a CI concurrency group.
+- **A `wrangler deploy` that fails partway.** Cloudflare says `wrangler
+  deploy` "creates a new version and immediately deploys it to 100% of traffic
+  in a single step", and that a version holds "its bundled code, static
+  assets, bindings, and compatibility settings"
+  (<https://developers.cloudflare.com/workers/configuration/versions-and-deployments/>).
+  It does not say what is live when the upload stops partway. The expectation
+  is that the version before stays live; that is not checked, and nothing here
+  claims the upload is atomic. Recovery: deploy the last known good release
+  again, then check `/api/release`.
+- **Two deploys at once.** The same page says nothing of concurrent deploys
+  or a lock. The expectation is that the last version to deploy is live; that
+  is not checked. `check` runs before the deploy, so a deploy that lands
+  between the two is not caught. Run one deploy at a time, for example with a
+  CI concurrency group.
 
 ### App and data changes
 
@@ -1358,11 +1385,16 @@ shape for one release. The example has no database.
 
 ### Retention and stale assets
 
-There is no grace period on this path. A Worker version serves only the assets
-of its own upload. In `release.build.test.ts`, after release A is restored, a
-chunk that only release B had answers `404` from the app. A tab that loaded a
-page of release B and loads that chunk later gets the `404`, and its island
-does not hydrate. That the live host does the same is not verified.
+There is no grace period on this path. A version holds its own static assets
+(the page above), and Cloudflare describes a page from one version whose
+request for a hashed file reaches another version that "does not have that
+file - resulting in a 404 error and a broken page"
+(<https://developers.cloudflare.com/workers/static-assets/routing/advanced/gradual-rollouts/>).
+In `release.build.test.ts`, after release A is restored, a chunk that only
+release B had answers `404` from the app. A tab that loaded a page of release B
+and loads that chunk later gets the `404`, and its island does not hydrate.
+That the live host answers that request this way after a restore is not
+verified.
 
 Keep releases outside the CI runner, which discards its disk when the job
 ends:
@@ -1402,6 +1434,11 @@ Each item is a host fact that `wrangler dev` cannot show:
 - Two deploys started together: the last to publish is live.
 - Secrets set with `wrangler secret put` are still set after a restore
   from a release directory.
+- `.assetsignore` keeps `manifest.json`, `_routes.json` and `404.html` out of
+  a release's upload, as it did for the example's own upload on 2026-10-14.
+- A `Content-Security-Policy` from `_headers` reaches every page of a
+  restored release.
+- `npx wrangler@<version>` in a fresh release directory deploys it.
 - `run_worker_first` names every upstream prefix. The build does not check
   it yet: #145 adds that check.
 
