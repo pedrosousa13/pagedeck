@@ -7,7 +7,13 @@ import { build, clean, OUT, serve, SITE } from "./wrangler.test-support.js";
 import type { Served } from "./wrangler.test-support.js";
 
 // Spelled again rather than imported, so a limit raised in the config fails here.
-const LIMITS = { "/": "0b", "/signup/": "63kb", "/signup/thanks/": "0b", "/signup/invalid/": "0b" };
+const LIMITS = {
+  "/": "0b",
+  "/signup/": "63kb",
+  "/signup/thanks/": "0b",
+  "/signup/invalid/": "0b",
+  "/signup/failed/": "0b",
+};
 
 // Every emitted `js` byte, Brotli, each file on its own: no budget row charges a lazy chunk.
 const BUILD_CEILING = 64 * 1024;
@@ -43,7 +49,7 @@ test("each page keeps its measured budget", () => {
     pages: { path: string; limitText: string; actual: number }[];
   };
   expect(Object.fromEntries(pages.map((row) => [row.path, row.limitText]))).toEqual(LIMITS);
-  for (const path of ["/", "/signup/thanks/", "/signup/invalid/"]) {
+  for (const path of ["/", "/signup/thanks/", "/signup/invalid/", "/signup/failed/"]) {
     expect(pages.find((row) => row.path === path)?.actual, path).toBe(0);
   }
 });
@@ -93,8 +99,8 @@ test("the prefix is answered by the app, with the app's own headers", async () =
   // `secureHeaders()`'s value, not the build's `DENY`: `_headers` never reaches the app.
   expect(accepted.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
 
-  const refused = await signup("");
-  expect(refused.status).toBe(400);
+  const refused = await signup("reader@localhost");
+  expect(refused.status).toBe(422);
   expect(await refused.json()).toEqual({ error: SERVER_ONLY });
 }, 30_000);
 
@@ -102,7 +108,7 @@ test("a form posted without JavaScript lands on a page that holds no address", a
   const html = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
   for (const [email, page] of [
     ["reader@example.com", "/signup/thanks/"],
-    ["", "/signup/invalid/"],
+    ["reader@localhost", "/signup/invalid/"],
   ] as const) {
     const response = await signup(email, html);
     expect(response.status, email).toBe(303);
@@ -111,13 +117,16 @@ test("a form posted without JavaScript lands on a page that holds no address", a
   }
 }, 30_000);
 
-test("a form posted from another site is refused", async () => {
+test("a form posted from another site is refused, and the navigation lands on a page", async () => {
   const response = await fetch(`${origin}/api/signup`, {
     method: "POST",
     headers: { Origin: "https://elsewhere.example" },
     body: new URLSearchParams({ email: "reader@example.com" }),
+    redirect: "manual",
   });
-  expect(response.status).toBe(403);
+  expect(response.status).toBe(303);
+  expect(response.headers.get("Location")).toBe("/signup/failed/");
+  expect((await fetch(`${origin}/signup/failed/`)).status).toBe(200);
 }, 30_000);
 
 test("a path with no file falls through to the app's 404", async () => {
