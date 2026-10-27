@@ -781,7 +781,7 @@ from them.
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-fw-consent` without a reload, and a denied press loads nothing (#460) |
 | `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
-| `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/signup.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
+| `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/app-form.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
 
 The singleton, lazy runtime and hydration task harnesses run emitted chunks
 from `packages/islands/dist`, because jsdom ignores `<script type="module">`,

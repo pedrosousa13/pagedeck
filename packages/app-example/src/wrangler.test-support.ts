@@ -34,7 +34,11 @@ function freePort(): Promise<number> {
       server.close(() =>
         typeof address === "object" && address !== null
           ? resolve(address.port)
-          : reject(new Error("no port")),
+          : reject(
+              new Error(
+                `App example: a listener on 127.0.0.1 port 0 reported ${JSON.stringify(address)} instead of a TCP address, so there is no free port to start wrangler dev on — check that this host allows a TCP listener on 127.0.0.1, then run the test again`,
+              ),
+            ),
       );
     });
   });
@@ -68,4 +72,13 @@ export async function serve(): Promise<Served> {
   }
   child.kill();
   throw new Error(`wrangler dev did not answer on ${origin}:\n${log}`);
+}
+
+/** Kills `wrangler dev` and waits for it, so nothing still holds `site/` when it is removed. */
+export async function stop(served: Served | undefined): Promise<void> {
+  const child = served?.child;
+  if (child === undefined || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  child.kill();
+  await exited;
 }

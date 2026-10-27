@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { budgetReportPath } from "@pagedeck/core";
-import { build, clean, OUT, serve, SITE } from "./wrangler.test-support.js";
+import { build, clean, OUT, serve, SITE, stop } from "./wrangler.test-support.js";
 import type { Served } from "./wrangler.test-support.js";
 
 // Spelled again rather than imported, so a limit raised in the config fails here.
@@ -39,8 +39,8 @@ beforeAll(async () => {
   origin = wrangler.origin;
 }, 180_000);
 
-afterAll(() => {
-  wrangler?.child.kill();
+afterAll(async () => {
+  await stop(wrangler);
   clean();
 });
 

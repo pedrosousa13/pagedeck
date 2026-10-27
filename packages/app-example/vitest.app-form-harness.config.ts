@@ -8,7 +8,7 @@ export default defineConfig({
     // Absolute: Vitest resolves a relative `root` against the working directory, and "no
     // test files found" passes silently.
     root: resolve(import.meta.dirname, "../.."),
-    include: ["packages/app-example/src/signup.harness.ts"],
+    include: ["packages/app-example/src/app-form.harness.ts"],
     testTimeout: 60_000,
     hookTimeout: 240_000,
   },
