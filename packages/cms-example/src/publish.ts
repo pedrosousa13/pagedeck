@@ -1,11 +1,15 @@
 import { execFile } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
+import { loadConfig, RETENTION_DIR } from "@pagedeck/core";
 
 export interface Coalesced {
   /** Asks for a run. Folds into the run already waiting, if there is one. */
   request(): void;
-  /** Settles once no run is going or waiting; rejects with the first failure since the last call. */
+  /**
+   * Settles once no run is going or waiting. Rejects with an `AggregateError` holding
+   * every failure since the last call, oldest first.
+   */
   idle(): Promise<void>;
 }
 
@@ -17,12 +21,12 @@ export interface Coalesced {
 export function coalesce(run: () => Promise<void>): Coalesced {
   let going: Promise<void> | undefined;
   let waiting = false;
-  let failure: { error: unknown } | undefined;
+  const failures: unknown[] = [];
 
   const start = (): void => {
     going = run()
       .catch((error: unknown) => {
-        failure ??= { error };
+        failures.push(error);
       })
       .finally(() => {
         going = undefined;
@@ -40,12 +44,15 @@ export function coalesce(run: () => Promise<void>): Coalesced {
     },
     async idle() {
       while (going !== undefined) await going;
-      const failed = failure;
-      failure = undefined;
-      if (failed !== undefined) throw failed.error;
+      const failed = failures.splice(0);
+      if (failed.length > 0) {
+        throw new AggregateError(failed, `${String(failed.length)} publishing runs failed since the last idle()`);
+      }
     },
   };
 }
+
+export type StepName = "sync" | "build" | "deploy";
 
 export interface PublishOptions {
   /** The directory holding `pagedeck.config.ts`. */
@@ -59,34 +66,55 @@ export interface PublishOptions {
   readonly env?: NodeJS.ProcessEnv;
   /** Per step. Default 600000. */
   readonly timeoutMs?: number;
+  /** Awaited after each step that succeeded, before the next one starts. */
+  readonly afterStep?: (step: StepName) => Promise<void>;
 }
 
 export interface PublishStep {
+  readonly name: StepName;
   readonly argv: readonly string[];
   readonly code: number | null;
   readonly stdout: string;
   readonly stderr: string;
 }
 
-export interface PublishResult {
-  readonly ok: boolean;
-  /** The step that failed: `sync`, `build` or `deploy`. */
-  readonly failed?: string;
-  readonly incremental: boolean;
-  readonly steps: readonly PublishStep[];
+export type PublishResult =
+  | { readonly ok: true; readonly incremental: boolean; readonly steps: readonly PublishStep[] }
+  | {
+      readonly ok: false;
+      readonly failed: StepName;
+      readonly incremental: boolean;
+      readonly steps: readonly PublishStep[];
+    };
+
+/** Relative to the site directory: the store and its SQLite journals, the retention store, `outDir`. */
+async function retained(site: string): Promise<{ store: string; paths: string[] }> {
+  const config = await loadConfig(site);
+  const store = relative(site, config.storePath);
+  const paths = [store, `${store}-wal`, `${store}-shm`, dirname(RETENTION_DIR)];
+  if (config.build !== undefined) paths.push(relative(site, join(site, config.build.outDir)));
+  const outside = paths.filter((path) => path === "" || path.startsWith("..") || isAbsolute(path));
+  if (outside.length > 0) {
+    throw new Error(
+      `Config "${config.configPath}": the job keeps ${outside.map((path) => JSON.stringify(path)).join(", ")} between runs, and each must be inside the site directory — point "store" and "build.outDir" at paths under it`,
+    );
+  }
+  return { store, paths };
 }
 
-/** The example's `content.db`, the retention store, and `outDir`. */
-const RETAINED = ["content.db", ".pagedeck", "site"] as const;
-
-function replace(from: string, to: string): void {
-  for (const name of RETAINED) {
-    rmSync(join(to, name), { recursive: true, force: true });
-    if (existsSync(join(from, name))) cpSync(join(from, name), join(to, name), { recursive: true });
+function replace(paths: readonly string[], from: string, to: string): void {
+  for (const path of paths) {
+    rmSync(join(to, path), { recursive: true, force: true });
+    if (existsSync(join(from, path))) cpSync(join(from, path), join(to, path), { recursive: true });
   }
 }
 
-function step(argv: readonly string[], cwd: string, options: PublishOptions): Promise<PublishStep> {
+function step(
+  name: StepName,
+  argv: readonly string[],
+  cwd: string,
+  options: PublishOptions,
+): Promise<PublishStep> {
   return new Promise((resolve) => {
     execFile(
       process.execPath,
@@ -94,7 +122,7 @@ function step(argv: readonly string[], cwd: string, options: PublishOptions): Pr
       { cwd, env: options.env, timeout: options.timeoutMs ?? 600_000, maxBuffer: 64 * 1024 * 1024 },
       (error, stdout, stderr) => {
         const code = error === null ? 0 : typeof error.code === "number" ? error.code : null;
-        resolve({ argv, code, stdout, stderr });
+        resolve({ name, argv, code, stdout, stderr });
       },
     );
   });
@@ -106,21 +134,23 @@ function step(argv: readonly string[], cwd: string, options: PublishOptions): Pr
  * nothing behind that the next run builds on.
  */
 export async function publish(options: PublishOptions): Promise<PublishResult> {
+  const { store, paths } = await retained(options.site);
   mkdirSync(options.state, { recursive: true });
-  const incremental = existsSync(join(options.state, "content.db"));
-  replace(options.state, options.site);
+  const incremental = existsSync(join(options.state, store));
+  replace(paths, options.state, options.site);
   const flag = incremental ? ["--incremental"] : [];
-  const plan: [string, string[]][] = [
-    ["sync", [options.pagedeck, "sync", ...flag]],
-    ["build", [options.pagedeck, "build", ...flag]],
-    ["deploy", [...options.deploy, "--apply", "--prune"]],
+  const plan: readonly { name: StepName; argv: readonly string[] }[] = [
+    { name: "sync", argv: [options.pagedeck, "sync", ...flag] },
+    { name: "build", argv: [options.pagedeck, "build", ...flag] },
+    { name: "deploy", argv: [...options.deploy, "--apply", "--prune"] },
   ];
   const steps: PublishStep[] = [];
-  for (const [name, argv] of plan) {
-    const ran = await step(argv, options.site, options);
+  for (const { name, argv } of plan) {
+    const ran = await step(name, argv, options.site, options);
     steps.push(ran);
     if (ran.code !== 0) return { ok: false, failed: name, incremental, steps };
+    await options.afterStep?.(name);
   }
-  replace(options.site, options.state);
+  replace(paths, options.site, options.state);
   return { ok: true, incremental, steps };
 }

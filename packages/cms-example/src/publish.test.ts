@@ -65,11 +65,33 @@ test("a run that fails does not stop the run waiting behind it", async () => {
 
   runs.request();
   runs.request();
-  await expect(runs.idle()).rejects.toThrow("sync failed");
+  await expect(runs.idle()).rejects.toThrow(AggregateError);
 
   expect(outcomes).toEqual(["failed", "deployed"]);
 });
 
 test("idle with nothing requested settles at once", async () => {
   await expect(coalesce(async () => undefined).idle()).resolves.toBeUndefined();
+});
+
+test("idle reports every failure since the last call, in the order the runs failed", async () => {
+  let calls = 0;
+  const runs = coalesce(async () => {
+    calls += 1;
+    throw new Error(`run ${String(calls)} failed`);
+  });
+
+  runs.request();
+  runs.request();
+  const failure = await runs.idle().then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+
+  expect(failure).toBeInstanceOf(AggregateError);
+  expect((failure as AggregateError).errors.map((error: Error) => error.message)).toEqual([
+    "run 1 failed",
+    "run 2 failed",
+  ]);
+  await expect(runs.idle()).resolves.toBeUndefined();
 });
