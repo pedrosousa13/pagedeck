@@ -358,7 +358,7 @@ regression fails `pagedeck build`.
   then `.pagedeck/budget-report.json`.
 - **Headroom is room for drift, never for a regression.** `0b` has none.
   The site port sizes it for a `react-dom` patch release walking
-  the shared `fw-core` chunk.
+  the shared `pagedeck-core` chunk.
 - **Each site's `site.build.test.ts` spells the limits again** instead of
   importing them, so a raised limit fails the suite, and holds the whole
   build's JavaScript to a ceiling, because no `build.budget` row charges a
@@ -406,17 +406,17 @@ Its fonts (#45) are static `ofl/firasans/` files from `google/fonts` at
 `e345593da2a4d596212542edbd28f2ed08fe6cbe`; a variable binary would serve one
 weight.
 
-**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 14.1% over
+**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 13.9% over
 its figure. Every locale is keyed: a page no pattern matches is unbudgeted, not
 free.
 
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 53871 B | `fw-core` chunk 52392 B, `fw-startup` chunk 881 B, entry chunk 233 B, the inline script loader 365 B |
+| `en /pricing` | `60kb` (61440 B) | 53919 B (#89) | `pagedeck-core` chunk 52426 B, `pagedeck-startup` chunk 888 B, entry chunk 238 B, the inline script loader 367 B |
 
-The whole-build ceiling is 61 kB Brotli (62464 B) against 54429 B of `js`
-measured, 14.8% over it, counting the 923 B `slot` chunk and not the inline
+The whole-build ceiling is 61 kB Brotli (62464 B) against 54482 B of `js`
+measured (#89), 14.6% over it, counting the 930 B `slot` chunk and not the inline
 loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):
@@ -604,9 +604,9 @@ runtime on the first trigger (#95).
 
 | Module | Limit | Measured |
 | --- | --- | --- |
-| `runtime.js` | 2048 B | 1621 B (#97) |
-| `slot.js` | 1280 B | 1063 B (re-measured on main 2026-10-09) |
-| `startup.js` | 640 B | 514 B (#95) |
+| `runtime.js` | 2048 B | 1630 B (#89) |
+| `slot.js` | 1280 B | 1067 B (#89) |
+| `startup.js` | 640 B | 508 B (#89) |
 
 Re-measure before editing any of them. A ratchet on one module cannot see bytes
 moved into the other, and every page with an island pays `runtime.js`.
@@ -739,9 +739,9 @@ from them.
 | Command | Runs | Claim |
 | --- | --- | --- |
 | `pnpm build && pnpm test:singleton-harness` | `packages/core/src/singleton.harness.ts` | two islands in two tier groups share one store module (#64) |
-| `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `fw-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
+| `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `pagedeck-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
-| `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-fw-consent` without a reload, and a denied press loads nothing (#460) |
+| `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-pagedeck-consent` without a reload, and a denied press loads nothing (#460) |
 | `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
 | `pnpm build && pnpm test:island-browsers-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/create-pagedeck/src/island-browsers.harness.ts` | the starter's counter island hydrates and counts clicks in Chromium, Firefox and WebKit (#161) |
 | `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/app-form.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
@@ -785,11 +785,11 @@ over the uncompressed local origin, not the Brotli of `build.budget`:
 | Page | Bytes limit | Measured | Requests |
 | --- | --- | --- | --- |
 | `/de/`, `/en/`, `/en/legal/terms/` | 0 | 0 | 0 |
-| `/en/pricing/` | 230400 | 196744 (196230 B of chunk on disk, `fw-core` 193914 B, `fw-startup` 1921 B, plus 514 B of headers) | 4 |
+| `/en/pricing/` | 230400 | 196744 (196230 B of chunk on disk, `pagedeck-core` 193914 B, `pagedeck-startup` 1921 B, plus 514 B of headers) | 4 |
 
 Zeros and request counts take no headroom: a request is a decision.
-`/en/pricing`'s 17.1% is for a `react-dom` patch release walking `fw-core`.
-`fw-startup` is one more request, the cost of #95's chunk split, which the
+`/en/pricing`'s 17.1% is for a `react-dom` patch release walking `pagedeck-core`.
+`pagedeck-startup` is one more request, the cost of #95's chunk split, which the
 maintainer ruled accepted. Another request is the consent manager at
 `consent.example`, which resolves nowhere; a real vendor there means
 re-measuring the row.

@@ -15,9 +15,10 @@ The product's name, chosen on 2026-10-02 (#651). The CLI is `pagedeck`, the
 packages are `@pagedeck/*`, a site's config file is `pagedeck.config.ts`, the
 environment variables start `PAGEDECK_`, and the working directory is
 `.pagedeck/`. Until #651 the working name was "framework", with an `fw` CLI and
-an `@fw/*` scope. ADRs, research notes and issue text keep the old name. What a
-page ships keeps the `fw` prefix, as the standing decision
-**Page output keeps the `fw` prefix** records.
+an `@fw/*` scope, and page output carried an `fw` prefix. ADRs, research notes
+and issue text keep the old names. What a page ships carries the `pagedeck`
+prefix, as the standing decision **Page output carries the `pagedeck` prefix**
+records.
 _Avoid_: "fw" and "the framework" as the product's name. "The framework" as a
 common noun, for what Pagedeck is, is fine.
 
@@ -211,10 +212,10 @@ _Avoid_: the off strategy, the fifth strategy, disable, exclusion map, opt-out
 map
 
 **Facade key**:
-The eight lowercase hex characters a page's `data-fw-facade` values begin with,
+The eight lowercase hex characters a page's `data-pagedeck-facade` values begin with,
 minted from a digest of that page's facade markup and shared by every
 placeholder on it (`packages/core/src/script-elements.ts`, #316). The whole
-attribute is that key and the facade's position — `data-fw-facade="9f1c2ab3-0"`
+attribute is that key and the facade's position — `data-pagedeck-facade="9f1c2ab3-0"`
 — and only the position tells two placeholders on one page apart.
 
 It is per page and not per site: two pages carrying different facades carry
@@ -231,7 +232,7 @@ mints it and the **Script loader**, above, reads it back out of a selector.
 It is also not an authenticator, and calling it a token or a signature claims
 what `docs/adr/0006-slot-ids-are-not-authenticated.md` refuses. It is derived
 from bytes a site can read, so what it does is stop a facade's own markup from
-naming another facade's placeholder; a page's own JSX, and a `data-fw-facade`
+naming another facade's placeholder; a page's own JSX, and a `data-pagedeck-facade`
 typed into a rich-text field, are untouched by it. The second is stripped at
 the content door instead (`unescapedHtml`, #394).
 _Avoid_: facade id, facade token, facade nonce, facade hash (that is the digest
@@ -258,7 +259,7 @@ _Avoid_: facade anchor, facade slot, facade target, mount element (that is the
 element, not the point), mount selector (it is an id)
 
 **Consent state attribute**:
-The `data-fw-consent` a gated facade's placeholder carries, whose value is what
+The `data-pagedeck-consent` a gated facade's placeholder carries, whose value is what
 that script's consent category answers right now — `granted` or `denied`.
 `CONSENT_ATTRIBUTE` is the name, `CONSENT_GRANTED` and `CONSENT_DENIED` are the
 two words (all three in `packages/core/src/consent.ts`, and `ConsentDefault` is
@@ -308,11 +309,11 @@ A script with no category, and a `necessary` one, have no state to report and
 their placeholders carry none of it.
 _Avoid_: consent flag, consent gate attribute (it gates nothing), denied slot,
 facade state (the placeholder has no other state to be about), data-consent
-(one spelling: `data-fw-consent`, in the `data-fw-*` family the **Facade key**
+(one spelling: `data-pagedeck-consent`, in the `data-pagedeck-*` family the **Facade key**
 already names on the same element), state (unqualified, inside the script layer)
 
 **Consent source**:
-The site-supplied object at `window.fwConsent` that answers, in the browser,
+The site-supplied object at `window.pagedeckConsent` that answers, in the browser,
 whether this visitor has consented to one category — `ConsentSource`, spec §12,
 #47. Core ships none, names no consent manager, and reads it only at the moment
 a gated script would load.
@@ -2968,29 +2969,23 @@ ruling, comments were 42% of the non-blank lines under `packages/**` and
 `.github/workflows/` (88,753 lines), and the reduction is done package by
 package in #632 to #637. Ruled on #631.
 
-### Page output keeps the `fw` prefix
+### Page output carries the `pagedeck` prefix
 
-The rename to **Pagedeck** (#651) stops at page output: the HTML, CSS and
-JavaScript a page ships. #651 named what it keeps: the `fw-island` element, the
-`data-fw-*` attributes and the shared brand's `fw-` CSS classes. Renaming them
-would move every byte budget and every figure measured on emitted bytes, and a
-page deployed before the rename would no longer hydrate against a runtime
-deployed after it.
+The rename to **Pagedeck** (#651) first stopped at page output, which kept the
+`fw` prefix. #89 renamed what a published package puts into a page: the
+`pagedeck-island`, `pagedeck-slot` and `pagedeck-region` elements, the
+`data-pagedeck-*` attributes, the `pagedeck-core`, `pagedeck-mid` and
+`pagedeck-startup` chunks, the `pagedeck:consent` event and the
+`pagedeckConsent` global, the consent banner's `pagedeck-consent` storage key,
+the `pagedeck.shared-store` symbol, the `pagedeck:islands` HMR event, the
+preview's `pagedeck-preview` ids and region, and the `pagedeck:` virtual module
+ids. The prefix is spelled out, as the sibling decks spell theirs: `pd` could
+collide with another library, and the bytes it would save vanish under Brotli.
 
-The same reason keeps the rest of the `fw` names a page ships, which #651 did
-not list: the other custom elements (`fw-slot`, `fw-region`), the `--fw-*`
-custom properties, the `fw-core` and `fw-mid` chunks, the `fw:consent` event
-and the `fwConsent` global, the consent banner's `fw-consent` storage key, the
-`fw.shared-store` symbol, the `fw:islands` HMR event and the preview's `fw-`
-ids.
-
-What a developer types or reads is renamed: the packages, the CLI, the config
-file, the environment variables and the working directory. The origin's deploy
-keys (`/.pagedeck/manifests/`, a **Reserved deploy key**) and the edge
-artifacts that refuse them were renamed too, on purpose: no origin had been
-deployed when the rename landed, so there was no deployed history to keep
-reading. A later issue can rename the page-output prefix if the maintainer asks
-for it. Ruled on #651.
+No old spelling is accepted, aliased or named in a message: there are no users
+and no deployed page to keep hydrating. ADRs, research notes and specs keep the
+old names as a record. The shared brand's `--fw-*` custom properties and the
+sites' `fw-` class names are private, and #125 renames them. Ruled on #89.
 
 ### An example runs in process, and a contract it cannot show is listed
 
