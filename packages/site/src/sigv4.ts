@@ -92,3 +92,51 @@ export function presignPath(
     .digest("hex");
   return `${protocol}//${host}${options.path}?${canonicalQuery}&X-Amz-Signature=${signature}`;
 }
+
+/** The headers that sign a request in its `Authorization` header, with each header given. */
+export function signHeaders(options: {
+  method: string;
+  url: string;
+  region: string;
+  service: string;
+  accessKey: string;
+  secretKey: string;
+  sessionToken?: string;
+  body: string;
+  now?: Date;
+  headers?: Readonly<Record<string, string>>;
+}): Record<string, string> {
+  const { host, pathname, searchParams } = new URL(options.url);
+  const { amzDate, dateStamp } = stamps(options.now ?? new Date());
+  const sent: Record<string, string> = {
+    ...options.headers,
+    "x-amz-date": amzDate,
+    ...(options.sessionToken === undefined ? {} : { "x-amz-security-token": options.sessionToken }),
+  };
+  const headers = canonicalHeaders(host, sent);
+  const scope = `${dateStamp}/${options.region}/${options.service}/aws4_request`;
+  const canonicalQuery = [...searchParams]
+    .map(([k, v]) => [encode(k), encode(v)])
+    .sort((a, b) => ((a[0] as string) < (b[0] as string) ? -1 : 1))
+    .map(([k, v]) => `${k as string}=${v as string}`)
+    .join("&");
+  const canonicalRequest = [
+    options.method,
+    pathname,
+    canonicalQuery,
+    headers.canonical,
+    headers.signed,
+    sha256hex(options.body),
+  ].join("\n");
+  const stringToSign = [ALGORITHM, amzDate, scope, sha256hex(canonicalRequest)].join("\n");
+  const signature = createHmac(
+    "sha256",
+    signingKey(options.secretKey, dateStamp, options.region, options.service),
+  )
+    .update(stringToSign)
+    .digest("hex");
+  return {
+    ...sent,
+    authorization: `${ALGORITHM} Credential=${options.accessKey}/${scope}, SignedHeaders=${headers.signed}, Signature=${signature}`,
+  };
+}
