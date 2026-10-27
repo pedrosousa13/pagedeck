@@ -8,8 +8,8 @@ import { validator } from "hono/validator";
 // The island asks for JSON; a form posted without JavaScript is a navigation, and gets a page.
 const wantsJson = (c: Context) => c.req.header("Accept")?.includes("application/json") === true;
 
-// Before `basePath`, so the middleware and the error handler also cover a path with no file,
-// which reaches the Worker too.
+// Before `basePath`, so the middleware also covers a path with no file, which reaches the
+// Worker too.
 const app = new Hono()
   .use(secureHeaders())
   .use(async (c, next) => {
@@ -17,17 +17,19 @@ const app = new Hono()
     c.header("Cache-Control", "no-store");
   })
   .onError((error, c) =>
-    c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500),
+    wantsJson(c)
+      ? c.json({ error: "Something went wrong. Try again." }, error instanceof HTTPException ? error.status : 500)
+      : c.redirect("/signup/failed/", 303),
   )
   .basePath("/api")
   .use(csrf())
   .post(
     "/signup",
-    validator("form", (value: { email?: string }, c) => {
+    validator("form", (value: { email?: string | File | (string | File)[] }, c) => {
       const { email } = value;
-      if (typeof email !== "string" || !/^[^@\s]+@[^@\s]+$/.test(email)) {
+      if (typeof email !== "string" || !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) {
         return wantsJson(c)
-          ? c.json({ error: "Enter an email address." }, 400)
+          ? c.json({ error: "Enter an email address." }, 422)
           : c.redirect("/signup/invalid/", 303);
       }
       return { email };

@@ -26,7 +26,7 @@ async function send(email: string): Promise<Status> {
       { headers: { Accept: "application/json" } },
     );
     if (response.status === 201) return { phase: "sent", text: (await response.json()).message };
-    if (response.status === 400) return { phase: "refused", text: (await response.json()).error };
+    if (response.status === 422) return { phase: "refused", text: (await response.json()).error };
   } catch {
     // A request that never arrived, or a body that is not the JSON its status promised.
   }
@@ -50,7 +50,6 @@ export default function Signup() {
     <form
       method="post"
       action="/api/signup"
-      aria-busy={pending}
       onSubmit={async (event) => {
         event.preventDefault();
         if (sending.current) return;

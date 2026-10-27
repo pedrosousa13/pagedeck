@@ -140,7 +140,8 @@ test("while the request is out the form says so, and a second submit sends nothi
   answer = slow.answer;
   await submit(container, "reader@example.com");
   expect(status(container)).toBe("Signing up…");
-  expect(the(container, "form").getAttribute("aria-busy")).toBe("true");
+  // `aria-busy` on an ancestor would let assistive technology hold back this announcement.
+  expect(the(container, "form").getAttribute("aria-busy")).toBeNull();
   expect(the(container, "button").getAttribute("aria-disabled")).toBe("true");
   await act(async () => the(container, "button").click());
   await act(async () => the(container, "button").click());
@@ -157,16 +158,25 @@ test("while the request is out the form says so, and a second submit sends nothi
   expect(the(container, "button").getAttribute("aria-disabled")).toBe("false");
 });
 
-// A malformed address never leaves the page, since `type="email"` blocks the submit; an empty
-// one does, and the app refuses it.
+// `type="email"` accepts `reader@localhost`; the app's own check refuses it.
 test("the app's refusal is shown against the field, and the field keeps what was typed", async () => {
   const container = await hydrated();
-  await submit(container, "");
+  await submit(container, "reader@localhost");
   await vi.waitFor(() => expect(status(container)).toBe("Enter an email address."));
   const input = the(container, "input");
+  expect(input.value).toBe("reader@localhost");
   expect(input.getAttribute("aria-invalid")).toBe("true");
   expect(input.getAttribute("aria-describedby")).toBe(the(container, '[role="status"]').getAttribute("id"));
   expect(requests).toHaveLength(1);
+});
+
+test("a 400 the app did not write as a refusal is a failure, not a fault in the field", async () => {
+  const container = await hydrated();
+  answer = () => Promise.resolve(Response.json({ error: "Something went wrong. Try again." }, { status: 400 }));
+  await submit(container, "reader@example.com");
+  await vi.waitFor(() => expect(status(container)).toBe(FAILED));
+  expect(the(container, "input").getAttribute("aria-invalid")).toBe("false");
+  expect(the(container, "input").value).toBe("reader@example.com");
 });
 
 test("an answer that is not the app's JSON is a failure, and its body never reaches the page", async () => {

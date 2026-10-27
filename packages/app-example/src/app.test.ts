@@ -20,10 +20,11 @@ test("a valid address is accepted", async () => {
   });
 });
 
+// `reader@localhost` passes a browser's `type="email"` check; only the app's own check refuses it.
 test("anything else is refused with the reason", async () => {
-  for (const email of [undefined, "", "no-at-sign"]) {
+  for (const email of [undefined, "", "no-at-sign", "reader@localhost"]) {
     const response = await signup(email);
-    expect(response.status, String(email)).toBe(400);
+    expect(response.status, String(email)).toBe(422);
     expect(await response.json()).toEqual({ error: "Enter an email address." });
   }
 });
@@ -34,7 +35,7 @@ test("a JSON body is refused, since the form's encoding is the one the app reads
     headers: { Origin: ORIGIN, Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify({ email: "reader@example.com" }),
   });
-  expect(response.status).toBe(400);
+  expect(response.status).toBe(422);
 });
 
 test("a form posted without JavaScript is redirected to a page, never to a URL holding the address", async () => {
@@ -42,16 +43,33 @@ test("a form posted without JavaScript is redirected to a page, never to a URL h
   expect(accepted.status).toBe(303);
   expect(accepted.headers.get("Location")).toBe("/signup/thanks/");
 
-  const refused = await signup("no-at-sign", { Origin: ORIGIN });
+  const refused = await signup("reader@localhost", { Origin: ORIGIN });
   expect(refused.status).toBe(303);
   expect(refused.headers.get("Location")).toBe("/signup/invalid/");
 });
 
-test("a form posted from another site is refused", async () => {
+test("a form posted without JavaScript that fails is redirected to a page, never shown JSON", async () => {
+  for (const [label, response] of [
+    ["from another site", await signup("reader@example.com", { Origin: "https://elsewhere.example" })],
+    [
+      "with a malformed body",
+      await app.request(`${ORIGIN}/api/signup`, {
+        method: "POST",
+        headers: { Origin: ORIGIN, "Content-Type": "multipart/form-data; boundary=x" },
+        body: "not multipart",
+      }),
+    ],
+  ] as const) {
+    expect(response.status, label).toBe(303);
+    expect(response.headers.get("Location"), label).toBe("/signup/failed/");
+  }
+});
+
+test("a request from another site is refused", async () => {
   const crossSite: Record<string, string>[] = [
-    { Origin: "https://elsewhere.example" },
-    { Origin: "https://elsewhere.example", "Sec-Fetch-Site": "cross-site" },
-    {},
+    { Origin: "https://elsewhere.example", Accept: "application/json" },
+    { Origin: "https://elsewhere.example", "Sec-Fetch-Site": "cross-site", Accept: "application/json" },
+    { Accept: "application/json" },
   ];
   for (const headers of crossSite) {
     const response = await signup("reader@example.com", headers);
@@ -74,7 +92,7 @@ test("a same-origin fetch is accepted on Sec-Fetch-Site when Origin names anothe
 test("an error inside the app is answered with fixed text, never its own message", async () => {
   const response = await app.request(`${ORIGIN}/api/signup`, {
     method: "POST",
-    headers: { Origin: ORIGIN, "Content-Type": "multipart/form-data; boundary=x" },
+    headers: { Origin: ORIGIN, Accept: "application/json", "Content-Type": "multipart/form-data; boundary=x" },
     body: "not multipart",
   });
   expect(response.status).toBe(400);
