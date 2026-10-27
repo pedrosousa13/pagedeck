@@ -1,11 +1,20 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { SITE_DEPENDENCIES } from "create-pagedeck";
 import { expect, test } from "vitest";
 import { PUBLIC_PACKAGES } from "../../core/src/public-packages.test-support.js";
 
 const PACKAGES = join(import.meta.dirname, "..", "..");
 const PAGE = join(import.meta.dirname, "..", "reference", "support.md");
-const CI = join(PACKAGES, "..", ".github", "workflows", "ci.yml");
+const REPOSITORY = join(PACKAGES, "..");
+const CI = join(REPOSITORY, ".github", "workflows", "ci.yml");
+
+const NODE_POLICY_COPIES = [
+  "README.md",
+  "packages/core/README.md",
+  "packages/create-pagedeck/README.md",
+  "packages/docs/tutorials/your-first-site.md",
+] as const;
 
 const PACKAGE_NAME = /^(@pagedeck\/[a-z-]+|create-pagedeck)$/;
 
@@ -26,7 +35,7 @@ const manifests = (): Manifest[] =>
 
 const page = (): string => readFileSync(PAGE, "utf8");
 
-function statement(text: string, pattern: RegExp, what: string): RegExpExecArray {
+function requiredSentence(text: string, pattern: RegExp, what: string): RegExpExecArray {
   const found = pattern.exec(text);
   if (found === null) {
     throw new Error(
@@ -103,7 +112,7 @@ function lowestOnLine(range: string, line: number): Version | undefined {
 }
 
 function supported(text: string): { floor: string; lines: number[] } {
-  const found = statement(
+  const found = requiredSentence(
     text,
     /\*\*Supported:\*\* Node\.js (\d+) from `(\d+\.\d+\.\d+)`, and Node\.js (\d+)\./,
     "supported Node.js lines",
@@ -113,7 +122,7 @@ function supported(text: string): { floor: string; lines: number[] } {
 
 function testedOnPage(text: string): string[] {
   return codeSpans(
-    statement(text, /CI runs the install, scaffold and build checks on Node\.js (`[^`]+` and `[^`]+`)\./, "CI Node.js versions")[1] as string,
+    requiredSentence(text, /CI runs the install, scaffold and build checks on Node\.js (`[^`]+` and `[^`]+`)\./, "CI Node.js versions")[1] as string,
   );
 }
 
@@ -177,12 +186,11 @@ test("ci.yml's Node matrix is the floor and each supported line, as the page sta
   }
 });
 
+const reactRange = (text: string): string =>
+  requiredSentence(text, /declares `react` and `react-dom` as `([^`]+)`/, "React range")[1] as string;
+
 test("every public react and react-dom range is the one the page states", () => {
-  const range = statement(
-    page(),
-    /declares `react` and `react-dom` as `([^`]+)`/,
-    "React range",
-  )[1] as string;
+  const range = reactRange(page());
   const found = manifests().flatMap((manifest) =>
     REACT_FIELDS.flatMap((field) =>
       REACT_PACKAGES.flatMap((name) => {
@@ -208,4 +216,25 @@ test("the range reader takes the manifests' forms and refuses any other", () => 
   expect(lowestOnLine("^22.13.0 || >=23.4.0", 22)).toEqual([22, 13, 0]);
   expect(lowestOnLine(">=22.0.0", 22)).toEqual([22, 0, 0]);
   expect(lowestOnLine(">=23.0.0", 22)).toBeUndefined();
+});
+
+test("the React range npm create pagedeck writes into a new site is the one the page states", () => {
+  const text = page();
+  requiredSentence(text, /`npm create pagedeck` writes the same range into a new site/, "React range for a new site");
+  const range = reactRange(text);
+  expect(
+    SITE_DEPENDENCIES,
+    `reference/support.md says npm create pagedeck writes react and react-dom as ${range} — change SITE_DEPENDENCIES in packages/create-pagedeck/src/index.ts or the page`,
+  ).toEqual({ react: range, "react-dom": range });
+});
+
+test("every short copy of the Node.js policy names the page's supported lines", () => {
+  const text = page();
+  const { floor, lines } = supported(text);
+  const unsupported = requiredSentence(text, /\*\*Node\.js (\d+) is not supported\.\*\*/, "unsupported Node.js line")[1] as string;
+  const sentence = `supports Node.js ${String(lines[0])} from ${floor.replace(/\.0$/, "")}, and Node.js ${String(lines[1])}. Node.js ${unsupported} is not supported.`;
+  const drifted = NODE_POLICY_COPIES.filter(
+    (file) => !readFileSync(join(REPOSITORY, file), "utf8").replace(/\s+/g, " ").includes(sentence),
+  );
+  expect(drifted, `each of these should say "${sentence}", as reference/support.md does — change the copy or the page`).toEqual([]);
 });

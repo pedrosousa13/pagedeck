@@ -5,6 +5,7 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { extname, join, normalize } from "node:path";
 import { promisify } from "node:util";
+import { readManifest } from "@pagedeck/core";
 import { chromium, firefox, webkit } from "playwright";
 import type { BrowserType } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -40,9 +41,8 @@ beforeAll(async () => {
   await execFileAsync(process.execPath, [BIN, "sync"], { cwd: SITE });
   await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE });
 
-  const { pages } = JSON.parse(readFileSync(join(OUT, "manifest.json"), "utf8")) as {
-    pages: { path: string; output: string }[];
-  };
+  const manifestFile = join(OUT, "manifest.json");
+  const { pages } = readManifest(readFileSync(manifestFile, "utf8"), manifestFile);
   const counter = pages.find((page) => page.path.replace(/\/$/, "").endsWith("/counter"));
   if (counter === undefined) {
     throw new Error(

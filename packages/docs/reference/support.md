@@ -23,8 +23,7 @@ A new even line is supported when a release says so.
 
 **Node.js 23 is not supported.** It is an odd-numbered line and has reached
 its end of life. `@pagedeck/core` installs on 23.7 and later, because its
-`engines.node` admits it, but nothing tests it and a defect seen only on 23 is
-not fixed.
+`engines.node` admits it, but that is not support.
 
 **Node.js 20 and earlier are not supported.** Every package's `engines.node`
 excludes them, and npm and pnpm warn when they install there.
@@ -40,11 +39,12 @@ dependencies need. Some packages need less than the supported floor, but a
 site always installs `@pagedeck/core`, so a site needs the floor.
 
 - `^22.18.0 || >=23.7.0`: `@pagedeck/core` and every package that depends on
-  it: `@pagedeck/adapter-cloudflare-pages`, `@pagedeck/adapter-cloudflare-worker`,
-  `@pagedeck/adapter-cloudfront`, `@pagedeck/adapter-netlify`,
-  `@pagedeck/adapter-nginx`, `@pagedeck/adapter-vercel`, `@pagedeck/edge`,
-  `@pagedeck/font-subset`, `@pagedeck/preview`, `@pagedeck/search`,
-  `@pagedeck/social-image` and `create-pagedeck`. Node.js 22.18 loads
+  it: `@pagedeck/adapter-cloudflare-pages`,
+  `@pagedeck/adapter-cloudflare-worker`, `@pagedeck/adapter-cloudfront`,
+  `@pagedeck/adapter-netlify`, `@pagedeck/adapter-nginx`,
+  `@pagedeck/adapter-vercel`, `@pagedeck/edge`, `@pagedeck/font-subset`,
+  `@pagedeck/preview`, `@pagedeck/search`, `@pagedeck/social-image` and
+  `create-pagedeck`. Node.js 22.18 loads
   `pagedeck.config.ts` with its types stripped and no flag. Node.js 23.7 is the
   first 23 release with `module.setSourceMapsSupport`, which the `pagedeck`
   command calls when it starts.
@@ -111,7 +111,8 @@ not, the page still works:
   task.
 - **Cross-document view transitions** with `build.viewTransitions` (Chrome
   126, Edge 126, Safari 18.2; Firefox not yet). Without them, a link loads
-  the next page with no animation. See [View Transitions](./view-transitions.md).
+  the next page with no animation. See
+  [View Transitions](./view-transitions.md).
 - **Speculation rules** (Chrome 109, Edge 109). Other browsers ignore the
   rules and fetch each page when a reader follows its link. See
   [Speculation rules](./speculation-rules.md).
@@ -138,7 +139,8 @@ These are outside the tests, so they are not promises:
   are not tested.
 - **React releases other than the one the lockfile resolves.**
 - **Hosts.** What has been deployed to a real host and what has not is listed
-  in the [deploy recipe](../deploy-recipe.md#what-has-been-proven-and-what-has-not).
+  in the
+  [deploy recipe](../deploy-recipe.md#what-has-been-proven-and-what-has-not).
 
 ## Versions before 1.0
 
@@ -150,11 +152,9 @@ version, so a site that mixes versions installs two copies.
 
 - **A patch release never breaks a site.** Moving from `0.4.0` to `0.4.1`
   needs no change to config, code or content.
-- **A minor release may break a site.** Moving from `0.3.x` to `0.4.0` can change a config
-  field, an exported API, a manifest version or what a build writes. Its
-  release notes list each break with the change that fixes it.
-
-After 1.0, a break needs a major release.
+- **A minor release may break a site.** Moving from `0.3.x` to `0.4.0` can
+  change a config field, an exported API, a manifest version or what a build
+  writes. Its release notes list each break with the change that fixes it.
 
 ### Deprecation
 
@@ -166,9 +166,12 @@ such as a fix for a security defect, says why in its release notes.
 
 ### Release notes
 
-Each release has notes on its GitHub release,
-`https://github.com/pedrosousa13/pagedeck/releases/tag/v<version>`. The notes
-of a minor release have these parts, and leave out a part with nothing in it:
+The maintainer writes each release's notes by hand, as the GitHub release for
+its `v<version>` tag,
+`https://github.com/pedrosousa13/pagedeck/releases/tag/v<version>`. The
+release workflow publishes the packages and does not create that release. The
+notes of a minor release have these parts, and leave out a part with nothing in
+it:
 
 - **Breaking changes**, one entry per break: what changed, who it affects,
   and the steps to migrate, with the config or code before and after.
@@ -189,10 +192,10 @@ A patch release has only fixes, and says so.
 ## Getting help
 
 Support is community support, through
-[GitHub issues](https://github.com/pedrosousa13/pagedeck/issues), on a best
-effort basis. There is no commercial support, no response time and no service
-level agreement. Include the `@pagedeck/core` version, the Node.js version,
-and the command and output that fail.
+[GitHub issues](https://github.com/pedrosousa13/pagedeck/issues), on a
+best-effort basis. There is no commercial support, no response time and no
+service level agreement. Include the `@pagedeck/core` version, the Node.js
+version, and the command and output that fail.
 
 ## Reporting a vulnerability
 

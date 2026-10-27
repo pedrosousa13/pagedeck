@@ -555,6 +555,13 @@ pages say about Pagedeck's own starter, examples, CLI and repository live here:
     `@pagedeck/markdown-loader`'s renderer writes, which that loader renders
     with. Checked against `https://page.deck.cool` on 2026-10-27. If deck-cool
     changes either, change `routeOf` or the renderer here.
+  - `support.test.ts` holds `reference/support.md` to what it describes
+    (#161): each public package's `engines.node`, `react` and `react-dom`
+    ranges, `create-pagedeck`'s `SITE_DEPENDENCIES` (the React range a new
+    site gets), `ci.yml`'s Node matrix, and the short Node.js sentence in the root
+    README, core's and `create-pagedeck`'s READMEs and the tutorial. Change
+    a range, the matrix or the policy, and change the page and each copy
+    with it.
 - **`packages/create-pagedeck/src/add-an-island.build.test.ts`** follows
   `how-to/add-an-island.md` from a copy of the starter template (#696): it
   writes each file the page names, splices each `build` key it shows into the
@@ -650,9 +657,10 @@ installs the tarballs in a temporary directory outside the repository, imports
 every subpath from there, and follows
 `packages/docs/tutorials/your-first-site.md` from `create-pagedeck`'s
 tarball to a built site. `ci.yml` runs it on every push, on Node 22.18.0 and
-24 in the `consumer` job's matrix (#161), and `release.yml` before publishing. It fails on a tarball file outside
-`package.json`, `README*`, `LICENSE`, `dist`, for `create-pagedeck` alone
-the `template/` and `template-app/` files its `files` names one by one, and for `@pagedeck/docs`
+24 in the `consumer` job's matrix (#161), and `release.yml` before
+publishing. It fails on a tarball file outside `package.json`, `README*`,
+`LICENSE`, `dist`, for `create-pagedeck` alone the `template/` and
+`template-app/` files its `files` names one by one, and for `@pagedeck/docs`
 alone its markdown, `nav.json` and `assets/`, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
 and on a packed manifest that still says
