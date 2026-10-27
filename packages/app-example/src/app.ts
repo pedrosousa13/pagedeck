@@ -5,6 +5,9 @@ import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import { validator } from "hono/validator";
 
+// `src/release.ts` defines it when it bundles the app for a release.
+declare const PAGEDECK_RELEASE: string | undefined;
+
 // The island asks for JSON; a form posted without JavaScript is a navigation, and gets a page.
 const wantsJson = (c: Context) => c.req.header("Accept")?.includes("application/json") === true;
 
@@ -41,5 +44,10 @@ const app = new Hono()
   );
 
 export type AppType = typeof app;
+
+// After `AppType`: no island calls it. The release this bundle is, so an operator can see what is live.
+app.get("/release", (c) =>
+  c.json({ release: typeof PAGEDECK_RELEASE === "string" ? PAGEDECK_RELEASE : null }),
+);
 
 export default app;
