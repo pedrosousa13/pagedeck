@@ -81,10 +81,10 @@ test("a component module behind a site plugin's alias is scanned, built and isla
   await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE });
 
   const html = readFileSync(join(SITE, "dist", "index.html"), "utf8");
-  const islands = [...html.matchAll(/<fw-island\b[^>]*>/g)].map(
+  const islands = [...html.matchAll(/<pagedeck-island\b[^>]*>/g)].map(
     (match) => match[0],
   );
   expect(islands).toHaveLength(1);
-  expect(islands[0]).toContain('data-fw-component="Counter"');
+  expect(islands[0]).toContain('data-pagedeck-component="Counter"');
   expect(html).toContain("marker-aliased-5e2d");
 }, 120_000);

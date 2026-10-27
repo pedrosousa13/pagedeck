@@ -89,7 +89,7 @@ interface Manifest {
 }
 
 function islandTags(html: string): { component: string; at: number }[] {
-  return [...html.matchAll(/<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>/g)].map(
+  return [...html.matchAll(/<pagedeck-island\b[^>]*data-pagedeck-component="([^"]+)"[^>]*>/g)].map(
     (match) => ({ component: match[1] as string, at: match.index }),
   );
 }
@@ -121,13 +121,13 @@ test("a client module another client module imports islands where the server ren
   await execFileAsync(process.execPath, [BIN, "build"], { cwd: SITE });
 
   const html = readFileSync(join(SITE, "site", "index.html"), "utf8");
-  expect(html.match(/<fw-island\b/g)).toHaveLength(2);
+  expect(html.match(/<pagedeck-island\b/g)).toHaveLength(2);
   const [panel, badge] = islandTags(html) as [
     { component: string; at: number },
     { component: string; at: number },
   ];
   expect([panel.component, badge.component]).toEqual(["panel", "badge"]);
-  const panelMarkup = html.slice(panel.at, html.indexOf("</fw-island>", panel.at));
+  const panelMarkup = html.slice(panel.at, html.indexOf("</pagedeck-island>", panel.at));
   expect(panelMarkup).toContain("panel-7c1e");
   expect(panelMarkup).toContain(">inside-3f2a</output>");
   expect(html.slice(badge.at)).toContain(">direct-91d4</output>");

@@ -748,7 +748,7 @@ test("a component declared by path is islanded, and its page's entry imports it"
 test("a component behind a site plugin's alias is islanded, and its module serves", async () => {
   const page = await get("/aliased");
   expect(page.status).toBe(200);
-  expect(page.body).toContain('data-fw-component="aliased"');
+  expect(page.body).toContain('data-pagedeck-component="aliased"');
   expect(page.body).toContain("aliased-9b14");
 
   const entries = scriptUrls(page.body).filter((url) => url.startsWith("/@id/"));
@@ -813,13 +813,13 @@ test("a client module another client module imports islands where the server ren
   const { status, body } = await get("/nested");
   expect(status).toBe(200);
 
-  expect(body.match(/<fw-island\b/g)).toHaveLength(2);
+  expect(body.match(/<pagedeck-island\b/g)).toHaveLength(2);
   const tags = [
-    ...body.matchAll(/<fw-island\b[^>]*data-fw-component="([^"]+)"[^>]*>/g),
+    ...body.matchAll(/<pagedeck-island\b[^>]*data-pagedeck-component="([^"]+)"[^>]*>/g),
   ].map((match) => ({ component: match[1], at: match.index }));
   expect(tags.map((tag) => tag.component)).toEqual(["nest_panel", "nest_badge"]);
   const [panel, badge] = tags as [(typeof tags)[0], (typeof tags)[0]];
-  const panelMarkup = body.slice(panel.at, body.indexOf("</fw-island>", panel.at));
+  const panelMarkup = body.slice(panel.at, body.indexOf("</pagedeck-island>", panel.at));
   expect(panelMarkup).toContain("nest-panel-6b0d");
   expect(panelMarkup).toContain(">nest-inside-2e85</output>");
   expect(body.slice(badge.at)).toContain(">nest-direct-c39a</output>");

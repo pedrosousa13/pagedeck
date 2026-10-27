@@ -318,7 +318,7 @@ function NestingTemplate() {
   );
 }
 
-const ISLAND_TAG_OPEN = /<fw-island\b/g;
+const ISLAND_TAG_OPEN = /<pagedeck-island\b/g;
 
 test("a client component another client component imports islands where the server renders it, and hydrates inside the other's island", async () => {
   const { html, islands } = await renderPage({
