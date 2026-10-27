@@ -734,6 +734,15 @@ A second applying run therefore queues behind the first rather than interleaving
 its uploads into one origin, and the raced-deploy refusal is underneath it
 either way.
 
+**This workflow's webhook runs never write; a site's own can.** The dogfood
+site has no content store secret, so its `repository_dispatch` runs stay dry
+runs. A site that publishes from its CMS runs the apply on the webhook, in a
+group that is never cancelled, and saves its store only after the deploy
+succeeded. "Publish from a CMS" (`packages/docs/how-to/publish-from-a-cms.md`)
+is that workflow, which `packages/cms-example/src/publish.build.test.ts` runs
+against a directory origin. Its group keeps at most one run waiting, and that,
+not a delay, is what folds a burst of webhooks into one more run.
+
 ## The grace period
 
 **A deploy never deletes on its own.** `applyPlan` uploads and stops; the prune

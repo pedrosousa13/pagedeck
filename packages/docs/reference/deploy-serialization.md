@@ -163,72 +163,58 @@ The output tree is not what makes the rollback correct — the manifest is. What
 `pagedeck rollback` gives you is the ordering: uploads before prunes, with
 `--grace-seconds` keeping a pruned file reachable while caches turn over.
 
-## Recipe: debouncing a webhook storm
+## Recipe: a webhook storm
 
 One editor pressing publish on eight entries sends eight webhooks. Eight builds
 of the same site is waste; eight *deploys* of the same site is the race above.
 
-**This is your scheduler's job and not `pagedeck`'s.** The debounce window belongs
-where the trigger is — a CI concurrency group, a queue, a cron — because that is
-the only place that can see a second webhook arrive while the first run is still
-going. Core would have to hold state between runs to do it, and `pagedeck` is a
-command that starts, builds and exits.
+**This is your scheduler's job and not `pagedeck`'s.** Folding the webhooks
+together belongs where the trigger is — a CI concurrency group, a queue, a
+cron — because that is the only place that can see a second webhook arrive
+while the first run is still going. Core would have to hold state between runs
+to do it, and `pagedeck` is a command that starts, builds and exits.
 
-The shape to reach for is a window before the sync, and one run at a time after
-it:
+The shape to reach for is one run at a time, with at most one waiting:
 
 ```
 concurrency:
-  group: deploy-${{ github.repository }}
+  group: publish-site
   cancel-in-progress: false
 
 on:
   repository_dispatch:
-    types: [cms-publish]
-
-jobs:
-  deploy:
-    steps:
-      - run: sleep 60          # the debounce window
-      - uses: actions/cache@v4  # the store, carried between runs
-        with:
-          path: .pagedeck
-          key: pagedeck-manifests-${{ github.run_id }}
-          restore-keys: pagedeck-manifests-
-      - run: pagedeck sync --incremental
-      - run: pagedeck build
-      - run: pagedeck diff "$LIVE_MANIFEST" dist/manifest.json > plan.json
-      - run: ./deploy.sh plan.json
+    types: [content-published]
 ```
 
-`$LIVE_MANIFEST` is the manifest of the build the host is currently serving,
-from wherever your pipeline keeps it — the previous run's artifact, or the
-newest document in `.pagedeck/manifests` on a runner with a persistent checkout.
+That rule is what folds the storm, not a delay. GitHub runs one job in the
+group at a time and keeps at most one waiting; a new run replaces the one
+waiting. So eight webhooks while a run is going leave one more run, which
+starts after the last of them and syncs everything they announced. A `sleep`
+before the sync folds nothing: it starts every run later.
 
-Two properties are what make this work, and they are worth stating separately
-because only one of them is the sleep:
+[Publish from a CMS](../how-to/publish-from-a-cms.md) gives the whole job and
+the state it carries between runs, and the CMS example's test measures the
+rule: eight edits made two runs, neither overlapping the other, and the origin
+served the last edit.
 
-- **`cancel-in-progress: false` with a concurrency group serializes the
-  deploys.** A second webhook waits for the first run rather than running beside
-  it, so the second build reads a store the first build has already written to,
-  and records that build as its parent.
-- **The window before `pagedeck sync` absorbs the storm.** Eight webhooks within a
-  minute collapse into one run that syncs every entry, instead of one run per
-  entry each syncing a site that is still changing.
+**Carry the store between runs, and save it only after the deploy succeeded.**
+Restore `.pagedeck/` at the start of the job and save it at the end, as a step
+that runs only when every step before it passed. A run that built and then
+failed to deploy has already filed its manifest in the store. Saved, it would
+be the parent of the next build while the origin still serves the build before
+it, and every later deploy would be refused as raced.
 
-**A window that is too short produces exactly the deploy `pagedeck diff` refuses.**
-Two runs starting inside each other's build time both read the store before
-either uploads, so both record the same parent, and the second one is a stale
-deploy — reported, not silently applied. That is the intended failure: the
-detection is what makes a badly tuned window visible instead of leaving a mixed
-site behind.
+**Two runs that overlap produce exactly the deploy `pagedeck diff` refuses.**
+Both read the store before either uploads, so both record the same parent, and
+the second one is a stale deploy — reported, not silently applied. That is the
+intended failure: the detection is what makes a missing concurrency rule
+visible instead of leaving a mixed site behind.
 
 **Do not answer that refusal with `--force` in CI.** `--force` means "I know
 another deploy landed and I want mine anyway", which is a judgement a person
 makes about one deploy. A pipeline that passes it always has turned the
-detection off. The fixes in order are: serialize the runs, lengthen the window,
-or re-run `pagedeck build` so it is based on what is live.
+detection off. The fixes in order are: serialize the runs, restore the store the
+last successful run saved, or re-run `pagedeck build` so it is based on what is
+live.
 
-Whether to debounce at all is a property of your CMS's webhook behaviour and
-your deploy cost, which is why this is a recipe rather than a setting. What `pagedeck`
-guarantees is that getting it wrong is loud.
+What `pagedeck` guarantees is that getting it wrong is loud.
