@@ -7,7 +7,7 @@ import { cp, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from "n
 import { createRequire } from "node:module";
 import { basename, dirname, join, relative } from "node:path";
 import { promisify } from "node:util";
-import { diffManifests, racedDeployReport, readManifest } from "@pagedeck/core";
+import { diffManifests, racedDeployReport, readManifest, unusableId } from "@pagedeck/core";
 
 const run = promisify(execFile);
 
@@ -107,7 +107,7 @@ export async function prepareRelease(input: ReleaseInput): Promise<{ id: string;
     } catch (cause) {
       const { stdout = "", stderr = "" } = cause as { stdout?: string; stderr?: string };
       throw new Error(
-        `${subject}: wrangler could not bundle the app, so no release was written — fix the app until "wrangler deploy --dry-run" passes in "${input.site}", then prepare again. wrangler printed:\n${stdout}${stderr}`,
+        `${subject}: wrangler could not bundle the app, so no release was written — fix the app until "wrangler deploy --dry-run" passes in "${input.site}", then prepare again. wrangler printed, emails and IDs redacted:\n${redact(`${stdout}${stderr}`)}`,
         { cause },
       );
     }
@@ -152,39 +152,49 @@ export interface CheckInput {
  */
 export async function checkLive(input: CheckInput): Promise<void> {
   const subject = `Release "${input.release}"`;
-  let answer: unknown;
+  const endpoint = new URL("/api/release", input.live).href;
+  let response: Response;
   try {
-    const response = await fetch(new URL("/api/release", input.live));
-    answer = response.ok ? ((await response.json()) as { release?: unknown }).release : undefined;
+    response = await fetch(endpoint);
   } catch (cause) {
     throw new Error(
       `${subject}: "${input.live}" could not be asked which release it serves — check the origin, or pass --force to deploy without the check`,
       { cause },
     );
   }
-  if (typeof answer !== "string") {
+  if (!response.ok) {
     throw new Error(
-      `${subject}: "${input.live}/api/release" names no release, so what is live was not deployed from a prepared release — check it by hand, then pass --force`,
+      `${subject}: "${endpoint}" answered ${String(response.status)}, so which release is live is unknown — check the origin, or pass --force to deploy without the check`,
     );
   }
-  const live = answer;
+  const live = ((await response.json()) as { release?: unknown }).release;
+  if (typeof live !== "string") {
+    throw new Error(
+      `${subject}: "${endpoint}" names no release, so what is live was not deployed from a prepared release — check it by hand, then pass --force`,
+    );
+  }
+  const unusable = unusableId(live);
+  if (unusable !== undefined) {
+    throw new Error(
+      `${subject}: "${endpoint}" names "${live}" as live, which is not a build id — ${unusable}; check what the origin serves, or pass --force`,
+    );
+  }
   if (live === input.release) return;
 
-  const read = async (id: string) => {
+  const [currentPath, candidatePath] = [live, input.release].map((id) => {
     const path = join(input.releases, id, "site", "manifest.json");
     if (!existsSync(path)) {
       throw new Error(
         `${subject}: release "${id}" is not in "${input.releases}" — restore the releases kept outside this runner, or pass --force`,
       );
     }
-    return readManifest(await readFile(path, "utf8"), path);
-  };
-  const candidate = await read(input.release);
+    return path;
+  }) as [string, string];
+  const candidate = readManifest(await readFile(candidatePath, "utf8"), candidatePath);
   let current;
   try {
-    current = await read(live);
+    current = readManifest(await readFile(currentPath, "utf8"), currentPath);
   } catch (cause) {
-    if (cause instanceof Error && cause.message.startsWith(subject)) throw cause;
     throw new Error(
       `${subject}: the live release "${live}" has a manifest this pagedeck cannot read, so nothing says what this release was built on — restoring "${live}" needs no manifest; check what is live by hand, then pass --force`,
       { cause },
@@ -192,6 +202,14 @@ export async function checkLive(input: CheckInput): Promise<void> {
   }
   const raced = racedDeployReport(diffManifests({ from: current, to: candidate }));
   if (raced !== undefined) throw new Error(`${subject} over live release "${live}": ${raced}`);
+}
+
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+const HEX_ID = /(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])/gi;
+
+/** wrangler can print the account's email and ID, which a CI log must not keep. */
+export function redact(text: string): string {
+  return text.replace(EMAIL, "<email>").replace(HEX_ID, "<id>");
 }
 
 const USAGE =
