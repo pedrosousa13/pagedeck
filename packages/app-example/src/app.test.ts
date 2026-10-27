@@ -117,3 +117,11 @@ test("only the signup route answers", async () => {
   expect((await app.request("/api/signup")).status).toBe(404);
   expect((await app.request("/signup", { method: "POST" })).status).toBe(404);
 });
+
+// `src/release.ts` stamps the bundle; under `wrangler dev` or a test nothing has.
+test("an unstamped app names no release", async () => {
+  const response = await app.request(`${ORIGIN}/api/release`);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ release: null });
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+});

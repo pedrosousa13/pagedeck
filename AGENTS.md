@@ -752,6 +752,14 @@ It runs the bin once more with `--app` and installs that site the same way, so
 builds it, and requires the manifest to declare `/api/` as the one upstream,
 and no chunk to hold a string that only `app/index.ts` has.
 
+Last, it copies `packages/app-example` out of the repository with the
+dependencies its manifest declares, `workspace:` ranges pinned to the public
+version and only `react-dom` and `wrangler` of its dev dependencies, and
+installs, syncs, builds and runs `node src/release.ts prepare` there, then
+`wrangler deploy --dry-run` in the release (#160). `cleanEnv` strips
+`NODE_PATH`, which pnpm's bin shims set to this workspace's store, so a
+`require` in a spawned process finds only what the site installed.
+
 ### Measurement harnesses
 
 | Command | Runs | Re-run on |

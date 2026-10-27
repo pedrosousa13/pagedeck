@@ -2,6 +2,8 @@ import { defineCollection } from "@pagedeck/content";
 import { defineMarkdownLoader } from "@pagedeck/markdown-loader";
 import { cloudflarePages } from "@pagedeck/adapter-cloudflare-pages";
 import { defineConfig, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";
+// `.ts`: Node loads this config with types stripped, and runs no build of `src/` first.
+import { CONTENT_SECURITY_POLICY } from "./src/csp.ts";
 
 const pages = defineCollection({
   name: "pages",
@@ -21,7 +23,12 @@ export default defineConfig({
     passthrough: { root: "./public" },
     adapter: cloudflarePages(),
     routing: {
-      headers: [{ prefix: "/", set: [...SECURITY_HEADERS] }],
+      headers: [
+        {
+          prefix: "/",
+          set: [...SECURITY_HEADERS, { name: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY }],
+        },
+      ],
       upstreams: [{ prefix: "/api/", dev: "http://127.0.0.1:8787", source: "src/app.ts" }],
     },
     // Measured, not chosen: re-measure rather than raise a limit (README.md, "Budgets").

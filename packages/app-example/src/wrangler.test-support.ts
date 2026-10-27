@@ -10,8 +10,8 @@ const execFileAsync = promisify(execFile);
 
 export const SITE = join(import.meta.dirname, "..");
 export const OUT = join(SITE, "site");
-const BIN = join(SITE, "..", "core", "dist", "bin.js");
-const WRANGLER = join(SITE, "node_modules", ".bin", "wrangler");
+export const BIN = join(SITE, "..", "core", "dist", "bin.js");
+export const WRANGLER = join(SITE, "node_modules", ".bin", "wrangler");
 
 export function clean(): void {
   for (const path of [OUT, join(SITE, "content.db"), join(SITE, RETENTION_DIR), join(SITE, ".wrangler")]) {
@@ -49,11 +49,14 @@ export interface Served {
   readonly child: ChildProcess;
 }
 
-/** `wrangler dev` over `site/` and the app, on one origin, as the README runs it. */
-export async function serve(): Promise<Served> {
+/**
+ * `wrangler dev` over `site/` and the app, on one origin, as the README runs it. In a
+ * release directory, `args` names its bundle: `["worker/app.js", "--no-bundle"]`.
+ */
+export async function serve(cwd = SITE, args: readonly string[] = []): Promise<Served> {
   const port = await freePort();
-  const child = spawn(WRANGLER, ["dev", "--ip", "127.0.0.1", "--port", String(port)], {
-    cwd: SITE,
+  const child = spawn(WRANGLER, ["dev", ...args, "--ip", "127.0.0.1", "--port", String(port)], {
+    cwd,
     env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });

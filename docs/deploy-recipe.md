@@ -10,7 +10,9 @@ one secret is, what a dry run does, how to roll back, and what the grace period
 protects. Issue #57. The landing page and the docs site are deployed to
 Cloudflare as Workers Static Assets with wrangler, not through this CLI. Their
 runbooks are the last two sections, "The landing page on Cloudflare" and "The
-docs site on Cloudflare".
+docs site on Cloudflare". A site with an app beside it on Workers Static
+Assets releases and restores as "A site and its app: releases and recovery"
+describes.
 
 ## What has been proven, and what has not
 
@@ -1228,6 +1230,217 @@ conformance interpreter assume it. The first deploy to that host checks it.
   empty for `/api`.
 - **Cloudflare Pages**: `/api/*` in `_routes.json` does not match `/api`, hence
   the exact rule.
+
+## A site and its app: releases and recovery
+
+One reference path for a site with an app beside it: `packages/app-example`
+on Cloudflare Workers Static Assets, deployed with wrangler (#160). It does not
+go through `deploy.bin.js`, so the deploy history, the grace period and the
+rollback above do not apply to it. Each deploy is one `wrangler deploy` of a
+**release**, a directory the site keeps, and a restore deploys an earlier
+release again. Other hosts are #11 and #147 to #149.
+
+### The release
+
+`node src/release.ts prepare`, run in the site after `pagedeck build`, writes
+`releases/<build id>/`. It writes a staging directory and renames it into
+place, so a failed run leaves no release and changes no other one.
+
+| Part | What it is | Why a restore needs it |
+| --- | --- | --- |
+| `site/` | the built tree, byte for byte | the pages and assets the host serves |
+| `worker/app.js` | the app, bundled by the site's own wrangler with `--define PAGEDECK_RELEASE:"<build id>"` | the app as it was, with no install or bundle step at restore time |
+| `wrangler.jsonc` | the site's own, copied unchanged | the Worker name, `compatibility_date` and `assets` routing |
+| `release.json` | the build id, the build's `createdAt` and `parent`, the bundle's SHA-256, the wrangler version | what this release is, to compare with what is live |
+| `.pagedeck/manifests` (kept beside the releases, not in one) | the retention store: the manifest of every recent build | the history `pagedeck build` reads to record each build's parent, and `check` compares with |
+
+The build id is the `build.id` in `site/manifest.json`. The app answers
+`GET /api/release` with the id it was bundled with, so a request to the live
+site shows which release it serves, and that the pages and the app came from
+one release. Under `wrangler dev` from the source the answer is `null`.
+
+A release holds no secret and no binding. A secret set with
+`wrangler secret put`, and every KV, D1 or R2 binding's data, stays with the
+Worker on Cloudflare and is not in the release.
+
+### What must not be served
+
+| File | Where it is | How it stays private |
+| --- | --- | --- |
+| `.dev.vars`, `.env*` (wrangler's local secrets) | beside `wrangler.jsonc` | never under `site/`; `prepare` refuses a release whose `site/` holds a file with one of these names |
+| `content.db` (every entry, drafts and unpublished entries too) | the site root | outside `site/`, never in a release |
+| `.pagedeck/` (the retention store and the budget report) | the site root | outside `site/`, never in a release |
+| `manifest.json` (every file and the build ids) | `site/` | `.assetsignore` names it, so wrangler does not upload it |
+| `_routes.json`, `404.html` | `site/` | `.assetsignore` names them |
+| `release.json`, `wrangler.jsonc`, `worker/` | the release directory | outside `site/`, which is the only directory the Worker serves files from |
+
+`release.build.test.ts` requests `/manifest.json`, `/_routes.json`,
+`/404.html`, `/.pagedeck/manifests`, `/content.db`, `/release.json`,
+`/wrangler.jsonc`, `/worker/app.js`, `/.dev.vars`, `/.env` and
+`/.env.production` from a restored release under `wrangler dev`, and gets
+`404` for each. The first three are in the release's `site/`, so the `404`
+shows that wrangler 4.148.0's `wrangler dev` applies `.assetsignore`. On
+Cloudflare, `.assetsignore` kept `/_routes.json`, `/manifest.json` and
+`/404.html` out of the example's upload in the run under "Observed on
+Cloudflare Workers Static Assets" above.
+
+### Deploying a release
+
+In the site, after `pnpm build` at the repository root:
+
+```sh
+node ../core/dist/bin.js sync
+node ../core/dist/bin.js build
+node src/release.ts prepare                          # writes releases/<build id>/
+node src/release.ts check <build id> --live <origin> # refuses a stale release
+cd releases/<build id>
+pnpm exec wrangler deploy --dry-run worker/app.js --no-bundle   # lists the upload; sends nothing
+pnpm exec wrangler deploy worker/app.js --no-bundle
+```
+
+A site installed from npm runs `npx pagedeck` for the first two lines. The
+pack harness runs `prepare` and the dry run on a copy of the example installed
+outside the repository, with only the dependencies the example declares.
+
+### Restoring a release
+
+```sh
+cd releases/<build id>
+pnpm exec wrangler deploy worker/app.js --no-bundle
+curl <origin>/api/release            # answers {"release":"<build id>"}
+```
+
+A release fetched from storage into a fresh directory has no `node_modules`.
+Use the wrangler version in its `release.json`, not the latest:
+
+```sh
+npx wrangler@<version from release.json> deploy worker/app.js --no-bundle
+```
+
+Every command in a release directory names `worker/app.js --no-bundle`. The
+copied `wrangler.jsonc` still says `"main": "src/app.ts"`, which is not in the
+release, so a bare `wrangler deploy` or `wrangler dev` there fails.
+
+A restore reads no manifest and runs no build, so it works for a release that
+an older pagedeck prepared. `wrangler rollback` is the other way back: it
+publishes a version Cloudflare kept, without a release directory, and
+Cloudflare keeps only "the 100 most recently published versions"
+(<https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/>).
+
+After a restore, the next build records the newest manifest in the retention
+store as its parent, which is not the restored release, and `check` refuses
+it. `release.build.test.ts` restores release A over release B, builds on B's
+manifest and is refused. Read what the build would overwrite, then pass
+`--force`.
+
+### A failed deploy and a stale one
+
+What is verified locally, in `release.build.test.ts`, with `wrangler dev` as
+the host:
+
+- **A release that fails to prepare** (the app does not bundle) writes no
+  release and changes no byte of the others. The live site is not touched,
+  because nothing is deployed.
+- **A stale release**, built on release A while release B is live, is refused
+  by `check`, which reads the live id from `/api/release` and compares the two
+  manifests with `racedDeployReport`, the check `pagedeck diff` runs. The
+  refusal names both builds. `--force` deploys it anyway.
+
+What is not verified, because it needs a live deploy:
+
+- **A `wrangler deploy` that fails partway.** Cloudflare says `wrangler
+  deploy` "creates a new version and immediately deploys it to 100% of traffic
+  in a single step", and that a version holds "its bundled code, static
+  assets, bindings, and compatibility settings"
+  (<https://developers.cloudflare.com/workers/configuration/versions-and-deployments/>).
+  It does not say what is live when the upload stops partway. The expectation
+  is that the version before stays live; that is not checked, and nothing here
+  claims the upload is atomic. Recovery: deploy the last known good release
+  again, then check `/api/release`.
+- **Two deploys at once.** The same page says nothing of concurrent deploys
+  or a lock. The expectation is that the last version to deploy is live; that
+  is not checked. `check` runs before the deploy, so a deploy that lands
+  between the two is not caught. Run one deploy at a time, for example with a
+  CI concurrency group.
+
+### App and data changes
+
+A restore puts back the pages and the app's code. It does not reverse a
+database migration, and it does not restore the data in a binding: Cloudflare
+says a rollback leaves the Worker's bindings, KV, D1, R2 and Durable Objects,
+unchanged (same page). So keep every release able to run on the data the next
+and the previous release write:
+
+1. **Expand.** Add a column, table or field that the current release ignores.
+   Deploy the migration first.
+2. **Release.** Deploy the app that writes and reads the new shape, and still
+   reads the old one.
+3. **Contract.** Remove the old shape only after no release you may restore
+   reads it.
+
+An island and the app it calls deploy together in one release, but a visitor's
+open tab runs the previous release's island against the new app. Change a
+request or response shape the same way: the app accepts the old and the new
+shape for one release. The example has no database.
+
+### Retention and stale assets
+
+There is no grace period on this path. A version holds its own static assets
+(the page above), and Cloudflare describes a page from one version whose
+request for a hashed file reaches another version that "does not have that
+file - resulting in a 404 error and a broken page"
+(<https://developers.cloudflare.com/workers/static-assets/routing/advanced/gradual-rollouts/>).
+In `release.build.test.ts`, after release A is restored, a chunk that only
+release B had answers `404` from the app. A tab that loaded a page of release B
+and loads that chunk later gets the `404`, and its island does not hydrate.
+That the live host answers that request this way after a restore is not
+verified.
+
+Keep releases outside the CI runner, which discards its disk when the job
+ends:
+
+- the release directory of the live build, and of at least one build before
+  it, as the last known good;
+- `.pagedeck/manifests`, the retention store, restored into the site before
+  `pagedeck build`, so each build records its parent and `check` can compare.
+
+A CI artifact with a retention period, or a bucket the runner can write to, is
+enough. When you delete an old release, keep the one live and the one you
+would restore.
+
+### Across a manifest version
+
+`readManifest` refuses a manifest of another version (ADR-0008), so
+`pagedeck diff`, `pagedeck rollback` and `check` cannot compare a build with a
+release an older pagedeck prepared. `check` then refuses with the version in
+the cause and the fix: restore that release, which needs no manifest, or check
+what is live by hand and pass `--force`. `release.build.test.ts` restores a
+release whose manifest is one version older than this pagedeck reads. Nothing
+promises that the current CLI reads every old manifest.
+
+### Unverified until a live run
+
+Each item is a host fact that `wrangler dev` cannot show:
+
+- `wrangler deploy worker/app.js --no-bundle` in a release directory
+  publishes the release, and `/api/release` answers its build id.
+- Restoring an earlier release the same way serves its pages, its assets
+  and its app, with the `_headers` set on pages and the app's own headers
+  on `/api/*`.
+- After a restore, a hashed asset only the newer release had answers
+  `404`.
+- A `wrangler deploy` stopped during the asset upload leaves the live
+  version serving.
+- Two deploys started together: the last to publish is live.
+- Secrets set with `wrangler secret put` are still set after a restore
+  from a release directory.
+- `.assetsignore` keeps `manifest.json`, `_routes.json` and `404.html` out of
+  a release's upload, as it did for the example's own upload on 2026-10-14.
+- A `Content-Security-Policy` from `_headers` reaches every page of a
+  restored release.
+- `npx wrangler@<version>` in a fresh release directory deploys it.
+- `run_worker_first` names every upstream prefix. The build does not check
+  it yet: #145 adds that check.
 
 ## The landing page on Cloudflare
 
