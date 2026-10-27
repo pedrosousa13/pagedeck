@@ -2,6 +2,7 @@ import { execFile, spawn as spawnProcess } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import {
   copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readFile,
@@ -52,12 +53,17 @@ interface Packed {
 }
 
 // The variables `pnpm test:pack-harness` itself exports would configure the
-// install below with this workspace's settings. The OIDC request pair would let
-// anything the harness spawns mint a token, should a job ever grant one (#58).
+// install below with this workspace's settings, and the `NODE_PATH` pnpm's bin
+// shims export would let a `require` find this workspace's packages. The OIDC
+// request pair would let anything the harness spawns mint a token, should a job
+// ever grant one (#58).
 function cleanEnv(): NodeJS.ProcessEnv {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !/^(npm_|pnpm_config_|ACTIONS_ID_TOKEN_REQUEST_(URL|TOKEN)$)/i.test(key)),
-  );
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !/^(npm_|pnpm_config_|NODE_PATH$|ACTIONS_ID_TOKEN_REQUEST_(URL|TOKEN)$)/i.test(key)),
+    ),
+    WRANGLER_SEND_METRICS: "false",
+  };
 }
 
 async function spawn(
@@ -101,10 +107,10 @@ async function install(
     ]),
   );
   await writeFile(join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-  // JSON is YAML. `esbuild` is allowed its build script here as the workspace allows it.
+  // JSON is YAML. `esbuild` and `workerd` get the build-script decision the workspace gives them.
   await writeFile(
     join(dir, "pnpm-workspace.yaml"),
-    `${JSON.stringify({ overrides, allowBuilds: { esbuild: true }, hoist: false }, null, 2)}\n`,
+    `${JSON.stringify({ overrides, allowBuilds: { esbuild: true, workerd: false }, hoist: false }, null, 2)}\n`,
   );
   // Without it, a range resolves to the newest version in pnpm's metadata cache,
   // not the version this workspace locked.
@@ -533,6 +539,72 @@ test("the site create-pagedeck --app writes installs Hono from npm, builds with 
       unique.filter((marker) => code.includes(marker)).map((marker) => `${file}: ${marker}`),
     ),
   ).toEqual([]);
+}, 600_000);
+
+// The files `packages/app-example`'s README builds from, and the dev dependencies that build
+// and its release run: the others are its tests'.
+const APP_EXAMPLE_FILES = [
+  "pagedeck.config.ts",
+  "wrangler.jsonc",
+  "favicon.ico",
+  "content",
+  "public",
+  "src/app.ts",
+  "src/components",
+  "src/release.ts",
+];
+const APP_EXAMPLE_TOOLS = ["react-dom", "wrangler"];
+
+test("the app example, copied out of the repository, builds from installed packages and prepares a release wrangler would upload", async () => {
+  const example = join(REPO, "packages", "app-example");
+  const site = join(root, "app-example");
+  for (const path of APP_EXAMPLE_FILES) {
+    await cp(join(example, path), join(site, path), { recursive: true });
+  }
+  const own = JSON.parse(await readFile(join(example, "package.json"), "utf8")) as Manifest;
+  const pinned = Object.fromEntries(
+    Object.entries(own.dependencies ?? {}).map(([name, range]) => [
+      name,
+      range.startsWith("workspace:") ? PUBLIC_VERSION : range,
+    ]),
+  );
+  const tools = Object.fromEntries(
+    APP_EXAMPLE_TOOLS.map((name) => [name, own.devDependencies?.[name] as string]),
+  );
+  await install(site, {
+    name: "app-example",
+    private: true,
+    type: "module",
+    dependencies: pinned,
+    devDependencies: tools,
+  });
+
+  const bin = join(site, "node_modules", ".bin", "pagedeck");
+  await spawn(bin, ["sync"], site);
+  await spawn(bin, ["build"], site);
+  const prepared = await spawn(process.execPath, ["src/release.ts", "prepare"], site);
+
+  const releases = join(site, "releases");
+  const [id, ...others] = await readdir(releases);
+  expect(others).toEqual([]);
+  const built = JSON.parse(await readFile(join(site, "site", "manifest.json"), "utf8")) as {
+    build: { id: string };
+  };
+  expect(id).toBe(built.build.id);
+  const release = join(releases, id as string);
+  expect(prepared.stdout).toContain(`Release "${built.build.id}" written to "${release}"`);
+  const record = JSON.parse(await readFile(join(release, "release.json"), "utf8")) as {
+    worker: string;
+    wrangler: string;
+  };
+  expect(record.wrangler).toBe(tools.wrangler);
+
+  const upload = await spawn(
+    join(site, "node_modules", ".bin", "wrangler"),
+    ["deploy", "--dry-run", record.worker, "--no-bundle"],
+    release,
+  );
+  expect(`${upload.stdout}${upload.stderr}`).toContain("--dry-run: exiting now.");
 }, 600_000);
 
 interface HostCase {

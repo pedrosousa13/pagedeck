@@ -32,7 +32,15 @@ export interface ReleaseRecord {
 // The site's own wrangler, the version its manifest declares, never whatever `npx` finds.
 function wranglerOf(site: string): { bin: string; version: string } {
   const require = createRequire(join(site, "package.json"));
-  const path = require.resolve("wrangler/package.json");
+  let path: string;
+  try {
+    path = require.resolve("wrangler/package.json");
+  } catch (cause) {
+    throw new Error(
+      `Release of "${join(site, "site")}": finds no wrangler installed for "${site}", and the app is bundled with the site's own — add wrangler to its devDependencies at an exact version, install, then prepare again`,
+      { cause },
+    );
+  }
   const manifest = require(path) as { version: string; bin: { wrangler: string } };
   return { bin: join(dirname(path), manifest.bin.wrangler), version: manifest.version };
 }
