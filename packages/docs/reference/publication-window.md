@@ -45,6 +45,12 @@ An ISO-8601 timestamp in UTC, as text:
 be written in a format that sorts chronologically. `2026-09-01T09:00:00Z` does;
 `2026-09-01T09:00:00+02:00` sorts wrong against it.
 
+**Write the milliseconds.** The build's instant has them, as
+`2026-09-01T09:00:00.412Z`, and `.` sorts before `Z`. So against
+`2026-09-01T09:00:00Z`, every build instant inside that second compares as
+earlier: the entry is published, or unpublished, up to one second late. Written
+as `2026-09-01T09:00:00.000Z`, the field compares exactly.
+
 A field that is **absent or null is no bound at that end**, not a missing
 value. An entry with no publish time is already published; an entry with no
 unpublish time never expires. Most entries of a scheduled collection carry
@@ -101,4 +107,5 @@ the framework's — nothing here polls, wakes up, or triggers anything.
 In practice that means an entry becomes a page on the first build that starts
 after its `publishAt`, and stops being one on the first build that starts at or
 after its `unpublishAt`. Between those builds the site says what the last build
-said.
+said. [Publish from a CMS](../how-to/publish-from-a-cms.md) runs a build on a
+schedule and gives the delay that follows from it.

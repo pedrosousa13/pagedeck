@@ -23,6 +23,7 @@
       "how-to/deploy-to-netlify.md",
       "how-to/deploy-to-nginx.md",
       "how-to/deploy-to-vercel.md",
+      "how-to/publish-from-a-cms.md",
       "how-to/run-an-app-beside-the-site.md",
       "how-to/write-a-loader.md"
     ]
