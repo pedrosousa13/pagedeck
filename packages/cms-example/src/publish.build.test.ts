@@ -293,6 +293,36 @@ test("a build that fails its budget fails the run at build, and the corrected pa
   expect(served("")).toContain("Welcome back");
 }, 480_000);
 
+test("a run whose retained state was lost is refused at deploy, and the live build's document put back in the retention store lets the next run deploy", async () => {
+  schedule = false;
+  try {
+    rmSync(STATE, { recursive: true, force: true });
+    const origin = tree(ORIGIN);
+
+    const refused = await job();
+
+    expect(refused.failed).toBe("deploy");
+    expect(refused.incremental).toBe(false);
+    expect(refused.steps.at(-1)?.code).toBe(2);
+    expect(refused.steps.at(-1)?.stderr).toContain("records no parent");
+    expect(tree(ORIGIN)).toEqual(origin);
+
+    const live = liveManifest().build.id;
+    mkdirSync(join(STATE, ".pagedeck", "manifests"), { recursive: true });
+    cpSync(
+      join(ORIGIN, ".pagedeck", "manifests", `${live}.json`),
+      join(STATE, ".pagedeck", "manifests", `${live}.json`),
+    );
+    const seeded = await job();
+
+    expect(seeded.ok, seeded.failed).toBe(true);
+    expect(seeded.incremental).toBe(false);
+    expect(seeded.steps.flatMap(({ argv }) => argv)).not.toContain("--force");
+  } finally {
+    schedule = true;
+  }
+}, 480_000);
+
 test("every deploy was built on the one before it, so no run raced another", () => {
   const history = join(ORIGIN, ".pagedeck", "manifests");
   const builds = readdirSync(history)
