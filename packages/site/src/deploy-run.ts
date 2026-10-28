@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { ConfigError, EXIT_CODES, quoteIdentifier } from "@pagedeck/core";
 import type { Manifest } from "@pagedeck/core";
-import { planDeploy, planRetainedPrune, planRollback, describePlan } from "./deploy.js";
+import { APPLY_FLAG, planDeploy, planRetainedPrune, planRollback, describePlan } from "./deploy.js";
 import type {
   DeployPlan,
   DeployPlanInput,
@@ -30,7 +30,7 @@ import type { DeployUrls } from "./deploy-urls.js";
 import { distributionTargets, updateDistributions } from "./deploy-distribution.js";
 import type { Distributions } from "./deploy-distribution.js";
 
-export const APPLY_FLAG = "--apply";
+export { APPLY_FLAG };
 
 export const FORCE_FLAG = "--force";
 

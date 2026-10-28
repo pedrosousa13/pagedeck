@@ -18,8 +18,8 @@ export interface Distributions {
   endpoint?: string;
 }
 
-const treeName = (tree: string | undefined): string =>
-  tree === undefined ? "the default tree" : `the ${quoteIdentifier(tree)} tree`;
+// As the plan names a tree: `(default)` for the default tree.
+const label = (tree: string | undefined): string => (tree === undefined ? "(default)" : quoteIdentifier(tree));
 
 /** `values` are the `--distribution` arguments in order: `<id>` or `<tree>=<id>`. */
 export function readDistributions(
@@ -35,14 +35,14 @@ export function readDistributions(
     const id = split === -1 ? value : value.slice(split + 1);
     if (id === "" || tree === "") {
       faults.push(
-        `Option "${DISTRIBUTION_FLAG}" is given ${quoteIdentifier(value)}, which names no ${id === "" ? "distribution" : "tree"} — pass a distribution id for the default tree, or <tree>=<id> for a domain tree.`,
+        `Option "${DISTRIBUTION_FLAG}" is given ${quoteIdentifier(value)}, which names no ${id === "" ? "distribution" : "tree"} — pass a distribution id for tree (default), or <tree>=<id> for a domain tree.`,
       );
       continue;
     }
     const already = ids.get(tree);
     if (already !== undefined) {
       faults.push(
-        `Option "${DISTRIBUTION_FLAG}" names ${treeName(tree)} twice, as ${quoteIdentifier(already)} and as ${quoteIdentifier(id)} — two sources for one value are refused rather than ranked; pass it once.`,
+        `Option "${DISTRIBUTION_FLAG}" names tree ${label(tree)} twice, as ${quoteIdentifier(already)} and as ${quoteIdentifier(id)} — two sources for one value are refused rather than ranked; pass it once.`,
       );
       continue;
     }
@@ -88,13 +88,12 @@ export function distributionTargets(
   const withFragments = [
     ...new Set(artifacts.filter((one) => one.role === "distribution-config").map((one) => one.domain)),
   ];
-  const label = (tree: string | undefined): string => (tree === undefined ? "(default)" : quoteIdentifier(tree));
   const faults: string[] = [];
   const targets: DistributionTarget[] = [];
   for (const [tree, id] of distributions.ids) {
     if (!trees.includes(tree)) {
       faults.push(
-        `Distribution ${id}: the build has no tree ${tree === undefined ? "(default)" : quoteIdentifier(tree)} — name one of its trees: ${trees.map(label).join(", ")}`,
+        `Distribution ${id}: the build has no tree ${label(tree)} — name one of its trees: ${trees.map(label).join(", ")}`,
       );
       continue;
     }
@@ -104,7 +103,7 @@ export function distributionTargets(
     if (fragments.length === 0) {
       const others = withFragments.filter((one) => one !== tree);
       faults.push(
-        `Distribution ${id}: ${treeName(tree)} has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page — drop it from ${DISTRIBUTION_FLAG}, or ${others.length === 0 ? "declare one" : `name a tree that has one: ${others.map(label).join(", ")}`}`,
+        `Distribution ${id}: tree ${label(tree)} has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page — drop it from ${DISTRIBUTION_FLAG}, or ${others.length === 0 ? "declare one" : `name a tree that has one: ${others.map(label).join(", ")}`}`,
       );
       continue;
     }

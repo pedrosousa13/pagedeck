@@ -217,7 +217,7 @@ test("--distribution for a tree with no distribution-config fragment is refused 
   expect(run.code).toBe(EXIT_CODES.configError);
   expect(run.stdout).toBe("");
   expect(run.stderr).toContain(
-    "Distribution E2EXAMPLE: the default tree has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page",
+    "Distribution E2EXAMPLE: tree (default) has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page",
   );
   for (const text of [run.stdout, run.stderr]) {
     expect(text).not.toContain("AKIDBINTEST");

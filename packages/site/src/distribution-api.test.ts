@@ -56,7 +56,7 @@ test("a dry run reads the config, prints the merged config, and sends no update"
   expect(printed).toContain("Distribution E2EXAMPLE: 1 Pagedeck origin, 2 Pagedeck cache behaviors");
   expect(printed).toContain("<PathPattern>/api/*</PathPattern>");
   expect(printed).toContain("<Quantity>3</Quantity>");
-  expect(lines.at(-1)).toBe("Dry run: distribution E2EXAMPLE is not updated. Pass --apply to send this config.");
+  expect(lines.at(-1)).toBe("DRY RUN: distribution E2EXAMPLE is not updated. Pass --apply to send this config.");
 });
 
 test("applying twice updates once, under the ETag it read, and the second run sends nothing", async () => {
@@ -79,7 +79,7 @@ test("a config changed between the read and the update is refused, not overwritt
   const failure = run(true);
   await expect(failure).rejects.toBeInstanceOf(ConfigError);
   await expect(failure).rejects.toThrow(
-    "Distribution E2EXAMPLE: UpdateDistribution answered 412 PreconditionFailed — the config changed after this deploy read it at ETag E1; run the deploy again, which reads it afresh",
+    "Distribution E2EXAMPLE: UpdateDistribution answered 412 PreconditionFailed — the config changed after this deploy read it; run the deploy again, which reads it afresh",
   );
 });
 

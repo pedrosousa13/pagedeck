@@ -113,18 +113,16 @@ function parse(argv: readonly string[], env: NodeJS.ProcessEnv): Args {
       args.force = true;
       continue;
     }
-    if (arg === DISTRIBUTION_FLAG) {
-      const value = argv[index + 1];
-      if (value === undefined) throw usageError(`Option "${DISTRIBUTION_FLAG}" takes a value.`);
-      index += 1;
-      distributions.push(value);
-      continue;
-    }
-    const option = VALUE_OPTIONS.find((one) => one === arg);
+    const option = arg === DISTRIBUTION_FLAG ? arg : VALUE_OPTIONS.find((one) => one === arg);
     if (option === undefined) throw usageError(`Unknown option ${quoteIdentifier(arg)}.`);
     const value = argv[index + 1];
     if (value === undefined) throw usageError(`Option "${option}" takes a value.`);
     index += 1;
+    // The one option given once per tree.
+    if (option === DISTRIBUTION_FLAG) {
+      distributions.push(value);
+      continue;
+    }
     const already = values.get(option);
     if (already !== undefined) {
       throw usageError(

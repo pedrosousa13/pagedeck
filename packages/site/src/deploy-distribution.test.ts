@@ -129,8 +129,8 @@ test("--distribution without a credential, twice for a tree, empty, or without t
   expect(read).toThrow(ConfigError);
   expect(read).toThrow(
     [
-      'Option "--distribution" names the default tree twice, as "E1" and as "E2" — two sources for one value are refused rather than ranked; pass it once.',
-      'Option "--distribution" is given "shop.example=", which names no distribution — pass a distribution id for the default tree, or <tree>=<id> for a domain tree.',
+      'Option "--distribution" names tree (default) twice, as "E1" and as "E2" — two sources for one value are refused rather than ranked; pass it once.',
+      'Option "--distribution" is given "shop.example=", which names no distribution — pass a distribution id for tree (default), or <tree>=<id> for a domain tree.',
       'Option "--distribution" applies the cloudfront-function adapter\'s distribution-config fragments, and --edge is "netlify" — pass --edge cloudfront-function, or drop --distribution.',
       'Option "--distribution" calls CloudFront\'s API, and PAGEDECK_CLOUDFRONT_ACCESS_KEY_ID and PAGEDECK_CLOUDFRONT_SECRET_ACCESS_KEY are not set — set both to a credential allowed cloudfront:GetDistributionConfig and cloudfront:UpdateDistribution, and PAGEDECK_CLOUDFRONT_SESSION_TOKEN beside them for a temporary one.',
     ].join("\n"),
@@ -145,7 +145,7 @@ test("a dry run reads the recorded config, prints the merged config, and updates
   const printed = lines.join("\n");
   expect(printed).toContain("Distribution E2EXAMPLE: 1 Pagedeck origin, 2 Pagedeck cache behaviors and 1 Pagedeck error response go ahead of the operator's");
   expect(printed).toContain("<PathPattern>/api/*</PathPattern>");
-  expect(printed).toContain("Dry run: distribution E2EXAMPLE is not updated. Pass --apply to send this config.");
+  expect(printed).toContain("DRY RUN: distribution E2EXAMPLE is not updated. Pass --apply to send this config.");
   expect(lines.at(-1)).toContain("DRY RUN: nothing was uploaded");
   expect(lines).toContain("    stage  upstreams.json (distribution-config) — merged into distribution E2EXAMPLE before the upload");
 });
@@ -226,7 +226,7 @@ test("a tree with no fragment, or no tree of that name, is refused before any re
   });
   await expect(run).rejects.toThrow(
     [
-      'Distribution E2EXAMPLE: the default tree has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page — drop it from --distribution, or name a tree that has one: "shop.example"',
+      'Distribution E2EXAMPLE: tree (default) has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page — drop it from --distribution, or name a tree that has one: "shop.example"',
       'Distribution E3SHOP: the build has no tree "nope.example" — name one of its trees: (default), "shop.example"',
     ].join("\n"),
   );

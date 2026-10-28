@@ -203,6 +203,8 @@ function edgeBytes(staging: EdgeStaging | undefined): number {
   );
 }
 
+export const APPLY_FLAG = "--apply";
+
 /** `applied` maps a tree to the distribution `--distribution` updates with its fragments. */
 export function describePlan(
   plan: DeployPlan,

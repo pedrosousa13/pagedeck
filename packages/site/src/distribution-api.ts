@@ -3,11 +3,12 @@ import { ConfigError } from "@pagedeck/core";
 import { planDistribution } from "./distribution-config.js";
 import type { DistributionFragment } from "./distribution-config.js";
 import { signHeaders } from "./sigv4.js";
+import { APPLY_FLAG } from "./deploy.js";
 
 /** https://docs.aws.amazon.com/general/latest/gr/cf_region.html : one global endpoint, signed for us-east-1. */
 export const CLOUDFRONT_ENDPOINT = "https://cloudfront.amazonaws.com";
 const REGION = "us-east-1";
-const SERVICE = "cloudfront";
+const CLOUDFRONT_SERVICE = "cloudfront";
 
 export interface CloudFrontAccess {
   accessKey: string;
@@ -18,7 +19,7 @@ export interface CloudFrontAccess {
 const FIXES: Readonly<Record<string, string>> = {
   AccessDenied: "give the credential cloudfront:GetDistributionConfig and cloudfront:UpdateDistribution on this distribution",
   NoSuchDistribution: "check the distribution id",
-  PreconditionFailed: "the config changed after this deploy read it",
+  PreconditionFailed: "the config changed after this deploy read it; run the deploy again, which reads it afresh",
   InvalidIfMatchVersion: "the ETag this deploy sent was refused; run the deploy again, which reads it afresh",
   TooManyCacheBehaviors: "the distribution is at its cache-behavior quota; raise it, or set cloudfront({ limits: { cacheBehaviors } }) to the quota so the build refuses first",
   TooManyOrigins: "the distribution is at its origin quota; raise it, or route fewer prefixes",
@@ -42,7 +43,7 @@ async function call(
     method: init.method,
     url,
     region: REGION,
-    service: SERVICE,
+    service: CLOUDFRONT_SERVICE,
     ...access,
     body,
     ...(init.headers === undefined ? {} : { headers: init.headers }),
@@ -57,17 +58,9 @@ async function call(
   }
 }
 
-async function refusal(
-  response: Response,
-  distributionId: string,
-  action: string,
-  etag?: string,
-): Promise<ConfigError> {
+async function refusal(response: Response, distributionId: string, action: string): Promise<ConfigError> {
   const code = errorCode(await response.text());
-  let fix = FIXES[code] ?? "see https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html#API_UpdateDistribution_Errors";
-  if (code === "PreconditionFailed" && etag !== undefined) {
-    fix = `${fix} at ETag ${etag}; run the deploy again, which reads it afresh`;
-  }
+  const fix = FIXES[code] ?? "see https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html#API_UpdateDistribution_Errors";
   return new ConfigError(
     `Distribution ${distributionId}: ${action} answered ${String(response.status)} ${code} — ${fix}`,
   );
@@ -102,7 +95,7 @@ export async function applyDistributionConfig(options: {
   if (!plan.changed) return { changed: false };
   if (!options.apply) {
     write(plan.printed.trimEnd());
-    write(`Dry run: distribution ${distributionId} is not updated. Pass --apply to send this config.`);
+    write(`DRY RUN: distribution ${distributionId} is not updated. Pass ${APPLY_FLAG} to send this config.`);
     return { changed: true };
   }
   const update = await call(endpoint, access, distributionId, "UpdateDistribution", {
@@ -110,7 +103,7 @@ export async function applyDistributionConfig(options: {
     body: plan.config,
     headers: { "content-type": "application/xml", "if-match": etag },
   });
-  if (!update.ok) throw await refusal(update, distributionId, "UpdateDistribution", etag);
+  if (!update.ok) throw await refusal(update, distributionId, "UpdateDistribution");
   write(`Updated distribution ${distributionId}: ETag ${etag} is now ${update.headers.get("etag") ?? "unreported"}.`);
   return { changed: true };
 }
