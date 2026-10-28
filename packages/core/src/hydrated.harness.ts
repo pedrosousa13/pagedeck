@@ -170,11 +170,8 @@ async function open(missing: ReadonlySet<string> = new Set()): Promise<Opened> {
   return { page, errors };
 }
 
-function hydrated(page: BrowserPage, selector: string): Promise<boolean> {
-  return page.locator(selector).evaluate(
-    (marker, name) => marker.hasAttribute(name),
-    HYDRATED,
-  );
+async function hydrated(page: BrowserPage, selector: string): Promise<boolean> {
+  return (await page.locator(selector).getAttribute(HYDRATED)) !== null;
 }
 
 test("the server HTML marks no island hydrated", () => {
