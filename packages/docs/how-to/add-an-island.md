@@ -115,6 +115,14 @@ but an explicit `"load"` below the fold is demoted to `visible`.
 [What gets moved](../reference/fold-strategy.md#what-gets-moved-and-what-never-does)
 has the full table.
 
+Each island is wrapped in a `<pagedeck-island>` element. Once the island's
+tree has hydrated, the islands runtime sets `data-pagedeck-hydrated` on that
+element. The built HTML never carries it, and an island whose JavaScript fails
+to load never gets it. A test or a script that must wait for every island on a page
+waits until `pagedeck-island:not([data-pagedeck-hydrated])` matches nothing,
+and one island is ready when its own element matches
+`pagedeck-island[data-pagedeck-hydrated]`.
+
 Pin the greeting to `idle`, so its JavaScript waits until the page has
 loaded. Change its row in `pagedeck.config.ts`:
 

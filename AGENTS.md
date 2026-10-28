@@ -751,13 +751,14 @@ from them.
 | --- | --- | --- |
 | `pnpm build && pnpm test:singleton-harness` | `packages/core/src/singleton.harness.ts` | two islands in two tier groups share one store module (#64) |
 | `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `pagedeck-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
+| `pnpm build && pnpm test:hydrated-harness` | `packages/core/src/hydrated.harness.ts` | a `load` island's marker carries `data-pagedeck-hydrated` once it commits, an `idle` island's only after its trigger, and an island whose module fails to load never does (#139) |
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-pagedeck-consent` without a reload, and a denied press loads nothing (#460) |
 | `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
 | `pnpm build && pnpm test:island-browsers-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/create-pagedeck/src/island-browsers.harness.ts` | the starter's counter island hydrates and counts clicks in Chromium, Firefox and WebKit (#161) |
 | `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/app-form.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
 
-The singleton, lazy runtime and hydration task harnesses run emitted chunks
+The singleton, lazy runtime, hydrated and hydration task harnesses run emitted chunks
 from `packages/islands/dist`, because jsdom ignores `<script type="module">`,
 so build first; none can detect a stale `dist`. The consent facade and view
 transitions harnesses drive `runCli` in process and need no build. The island
