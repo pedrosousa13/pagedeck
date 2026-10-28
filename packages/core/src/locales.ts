@@ -268,7 +268,7 @@ function prefixedFaultReport(faulted: readonly PrefixedFault[]): string {
   return `${SUBJECT}${headline} — ${PREFIXED_FIX}:\n${detail}`;
 }
 
-function faultyPrefixed(
+function faultyPrefixedValues(
   declared: readonly (readonly [string, LocaleDefinition])[],
 ): PrefixedFault[] {
   return declared.flatMap(([code, locale]) => {
@@ -290,10 +290,11 @@ const SHARED_UNPREFIXED_FIX =
 
 function sharedUnprefixedReport(shared: readonly SharedUnprefixed[]): string {
   const count = shared.length;
-  const headline =
+  const counted =
     count === 1
-      ? '1 locale declares prefixed: false on a tree it shares with other locales, where every locale is prefixed so that none of them holds "/"'
-      : `${String(count)} locales declare prefixed: false on a tree they share with other locales, where every locale is prefixed so that none of them holds "/"`;
+      ? "1 locale declares prefixed: false on a tree it shares"
+      : `${String(count)} locales declare prefixed: false on a tree they share`;
+  const headline = `${counted} with other locales, where every locale is prefixed so that none of them holds "/"`;
   const detail = shared
     .map(({ code, tree, others }) => {
       const where =
@@ -306,28 +307,29 @@ function sharedUnprefixedReport(shared: readonly SharedUnprefixed[]): string {
 
 function sharedUnprefixed(
   declared: readonly (readonly [string, LocaleDefinition])[],
+  trees: ReadonlyMap<string | undefined, readonly string[]>,
 ): SharedUnprefixed[] {
   const shared: SharedUnprefixed[] = [];
   for (const [code, locale] of declared) {
     if (locale.prefixed !== false) continue;
     const tree = localeTree(locale);
-    const others = declared
-      .filter(([other, held]) => other !== code && localeTree(held) === tree)
-      .map(([other]) => other);
+    const others = (trees.get(tree) ?? []).filter((other) => other !== code);
     if (others.length > 0) shared.push({ code, tree, others });
   }
   return shared;
 }
 
-function treeSizes(
+function treeCodes(
   declared: readonly (readonly [string, LocaleDefinition])[],
-): Map<string | undefined, number> {
-  const sizes = new Map<string | undefined, number>();
-  for (const [, locale] of declared) {
+): Map<string | undefined, string[]> {
+  const trees = new Map<string | undefined, string[]>();
+  for (const [code, locale] of declared) {
     const tree = localeTree(locale);
-    sizes.set(tree, (sizes.get(tree) ?? 0) + 1);
+    const codes = trees.get(tree) ?? [];
+    trees.set(tree, codes);
+    codes.push(code);
   }
-  return sizes;
+  return trees;
 }
 
 export function defineLocales(
@@ -353,9 +355,12 @@ export function defineLocales(
     }
   }
   if (missing.length > 0) sections.push(missingFallbackReport(missing));
-  const faultyPrefix = faultyPrefixed(declared);
-  if (faultyPrefix.length > 0) sections.push(prefixedFaultReport(faultyPrefix));
-  const shared = sharedUnprefixed(declared);
+  const faultyPrefixedValue = faultyPrefixedValues(declared);
+  if (faultyPrefixedValue.length > 0) {
+    sections.push(prefixedFaultReport(faultyPrefixedValue));
+  }
+  const trees = treeCodes(declared);
+  const shared = sharedUnprefixed(declared, trees);
   if (shared.length > 0) sections.push(sharedUnprefixedReport(shared));
   if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
 
@@ -364,7 +369,6 @@ export function defineLocales(
   const cycles = cyclesIn(declared);
   if (cycles.length > 0) throw new ConfigError(cycleReport(cycles));
 
-  const sizes = treeSizes(declared);
   return new Map(
     declared.map(([code, { prefixed, ...locale }]) => [
       code,
@@ -372,7 +376,7 @@ export function defineLocales(
         ...locale,
         code,
         prefix:
-          prefixed !== true && sizes.get(localeTree(locale)) === 1
+          prefixed !== true && trees.get(localeTree(locale))?.length === 1
             ? ""
             : `/${code}`,
       },

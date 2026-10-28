@@ -1029,8 +1029,8 @@ The host that names an output tree: the host the URL parser reads out of a
 locale's declared `domain` — lowercased, IDNA-encoded, an IPv4 address in its
 dotted-quad form (`localeTree` and `domainHost`, `packages/core/src/locales.ts`,
 #396). It is `Page.domain`, the directory under `outDir`, the manifest's
-`domain` and the host half of every deploy key, and it is what `treeSizes`
-counts, so `münchen.de` and `xn--mnchen-3ya.de` are one tree whose locales are
+`domain` and the host half of every deploy key, and it is what `treeCodes`
+groups locales by, so `münchen.de` and `xn--mnchen-3ya.de` are one tree whose locales are
 prefixed.
 
 The **declared domain** is the other value, and the two are kept apart on

@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, expect, test } from "vitest";
 import { diffOutputTrees } from "./determinism.js";
 import { EXIT_CODES } from "./exit.js";
+import { readManifest } from "./manifest.js";
 
 const SITES = fileURLToPath(new URL("../node_modules/", import.meta.url));
 const CORE = import.meta.dirname;
@@ -22,7 +23,7 @@ const ORIGIN = "https://example.com";
 const PREFIXED_SITE = join(SITES, ".pagedeck-prefixed-locale-test");
 const UNPREFIXED_LINK_SITE = join(
   SITES,
-  ".pagedeck-prefixed-locale-root-link-test",
+  ".pagedeck-prefixed-locale-unprefixed-link-test",
 );
 const ABSENT_SITE = join(SITES, ".pagedeck-prefixed-locale-absent-test");
 const FALSE_SITE = join(SITES, ".pagedeck-prefixed-locale-false-test");
@@ -42,6 +43,7 @@ interface Fixture {
   readonly locales: string;
   readonly links: Readonly<Record<string, readonly string[]>>;
   readonly content?: Readonly<Record<string, readonly string[]>>;
+  readonly routing?: string;
 }
 
 function site(root: string, fixture: Fixture): string {
@@ -81,6 +83,7 @@ export default defineConfig({
     origin: ${JSON.stringify(ORIGIN)},
     xDefault: "en",
     sitemap: { pattern: "suffix" },
+    ${fixture.routing === undefined ? "" : `routing: ${fixture.routing},`}
     pages: definePages({
       trailingSlash: "always",
       locales: defineLocales(${fixture.locales}),
@@ -165,10 +168,11 @@ afterAll(() => {
   }
 });
 
-test("a one-locale site with prefixed: true writes its pages, canonicals and sitemap under /en/ and nothing at / (#173)", async () => {
+test("a one-locale site with prefixed: true writes its pages, canonicals, sitemap and redirects under /en/ and nothing at / (#173)", async () => {
   const built = await build(PREFIXED_SITE, {
     locales: ONE_PREFIXED,
     links: { home: ["/en/about/"], about: ["/en/"] },
+    routing: `{ redirects: [{ from: "/en/old/", to: "/en/about/", status: 301 }] }`,
   });
   expect(built.code, built.err).toBe(EXIT_CODES.success);
 
@@ -191,6 +195,12 @@ test("a one-locale site with prefixed: true writes its pages, canonicals and sit
     "https://example.com/en/",
     "https://example.com/en/about/",
   ]);
+  const manifest = join(PREFIXED_SITE, "dist", "manifest.json");
+  expect(
+    readManifest(readFileSync(manifest, "utf8"), manifest).routing?.trees.map(
+      (tree) => tree.redirects.map(({ from, to }) => `${from} -> ${to}`),
+    ),
+  ).toEqual([["/en/old/ -> /en/about/"]]);
 }, 120_000);
 
 test("the link checker refuses a link to / on a one-locale site with prefixed: true (#173)", async () => {
