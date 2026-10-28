@@ -142,8 +142,8 @@ reader leaves the page is not sent. Send it with `navigator.sendBeacon` or
 `fetch` with `keepalive: true`, so a report already sent is not lost when the
 page closes.
 
-If the reporter throws, its error goes to `console.error` and is not reported,
-so a broken reporter never calls itself. The island's own error is still
+If the reporter throws, or returns a promise that rejects, its error goes to
+`console.error` and is not reported, so a broken reporter never calls itself. The island's own error is still
 logged, and every other island still hydrates.
 
 The reporter module is loaded with a dynamic import. If it throws at its top

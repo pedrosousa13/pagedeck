@@ -21,7 +21,9 @@ export interface IslandErrorReport {
   readonly error: unknown;
 }
 
-export type IslandErrorReporter = (report: IslandErrorReport) => void;
+export type IslandErrorReporter = (
+  report: IslandErrorReport,
+) => void | Promise<void>;
 
 export interface IslandErrors {
   readonly hydrateRoot: typeof hydrateRoot;
@@ -84,7 +86,7 @@ export function reportIslandErrors(
       if (send === undefined) return;
       const id = await (release ??= readRelease());
       try {
-        send({
+        await send({
           kind,
           page,
           component,
