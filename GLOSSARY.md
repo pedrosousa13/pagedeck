@@ -1625,6 +1625,12 @@ inert until an operator installs it. What that installation requires is
 recorded in the artifacts themselves, so a deploy verb reads it rather than
 inferring it.
 
+A deploy may update an existing distribution, never create one. With
+`--distribution`, `deploy.bin.js` merges a tree's `distribution-config`
+fragments into the CloudFront distribution it names, before any upload. The
+distribution, its default behaviour and its certificate are still the
+operator's to provision. Ruled on #146.
+
 Past an inline size limit the redirect table moves out of the function into a
 host-side lookup store, which keeps the function flat in rule count. Sharding
 the table across several functions was the strategy first named, and it was
