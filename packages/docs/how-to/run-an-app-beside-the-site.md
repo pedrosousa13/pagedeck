@@ -158,12 +158,19 @@ beside `pagedeck.config.ts`, comments and all, and fails when
   docs do not say whether `/api/*` matches `/api`
   (<https://developers.cloudflare.com/workers/static-assets/binding/#run_worker_first>),
   so the build asks for both.
-- is `true`. The app then runs before every request, and each built page
-  costs a Worker invocation.
+- is `true`, unless the adapter is `cloudflarePages({ runWorkerFirst: true })`.
+  The app then runs before every request, and each built page costs a Worker
+  invocation, so the build asks you to say so in the config.
 - lists a pattern that is neither of a declared prefix's two patterns.
 - lists a negative pattern, written with a leading `!`, that matches `/api`
   or any path under `/api/`, such as `!/api/docs/*`, `!/api*` or `!/*`. A
   request it matches is answered from `site/`, which holds nothing there.
+
+With `cloudflarePages({ runWorkerFirst: true })`, every request reaches the
+app, so the build checks no pattern. It fails instead when `run_worker_first`
+is not `true`, when no `wrangler.json` or `wrangler.jsonc` sits beside the
+config, and on a Cloudflare Pages project's file: the option says what the
+wrangler file does, and the build holds the file to it.
 
 So when you add, move or remove a prefix, change `run_worker_first` with it,
 and the build tells you when they disagree. It cannot read `wrangler.toml`,

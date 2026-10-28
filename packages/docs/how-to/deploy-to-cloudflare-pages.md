@@ -186,7 +186,10 @@ under the prefix. On Workers Static Assets, the app is the Worker:
 patterns per prefix, `["/api", "/api/*"]`. The build reads `wrangler.jsonc`
 and fails when `run_worker_first` and `build.routing.upstreams` disagree, so
 change `run_worker_first` whenever you add, move or remove a prefix, and keep
-`/_routes.json` in `.assetsignore`, as above.
+`/_routes.json` in `.assetsignore`, as above. To run the app before every
+request, set `run_worker_first` to `true` and the adapter to
+`cloudflarePages({ runWorkerFirst: true })`; the build refuses either one
+without the other.
 [Run an app beside the site](./run-an-app-beside-the-site.md) walks through
 the whole Workers Static Assets setup with a working example.
 

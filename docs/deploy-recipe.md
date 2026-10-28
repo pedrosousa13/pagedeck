@@ -1143,7 +1143,7 @@ included.
 
 | Adapter | `url` | What the build writes | What the operator does |
 | --- | --- | --- | --- |
-| `cloudflarePages()` | refused | `_routes.json`, two include rules per prefix | deploy the app as Pages Functions under the prefix; on Workers Static Assets, name the prefixes in `run_worker_first`, which the build checks against them, and keep `/_routes.json` out of the upload with `.assetsignore` |
+| `cloudflarePages()` | refused | `_routes.json`, two include rules per prefix | deploy the app as Pages Functions under the prefix; on Workers Static Assets, name the prefixes in `run_worker_first`, which the build checks against them (or set it to `true` with `cloudflarePages({ runWorkerFirst: true })`), and keep `/_routes.json` out of the upload with `.assetsignore` |
 | `cloudflareWorker()` | optional | the routing in `worker.js` | bind the app's Worker under the name `cloudflareWorker({ upstreams })` gives, or deploy the app at `url` |
 | `netlify()` | required | two forced proxy rows per prefix in `_redirects` | nothing beyond the deploy |
 | `vercel()` | required | one route per prefix in `vercel.json`, ahead of the filesystem | nothing beyond the deploy |
@@ -1430,7 +1430,10 @@ Each item is a host fact that `wrangler dev` cannot show:
 
 `pagedeck build` checks that `run_worker_first` in `wrangler.jsonc` names
 every upstream prefix and nothing else (#145), so no release is prepared from
-a build whose app a prefix cannot reach.
+a build whose app a prefix cannot reach. It refuses `true`, which runs the app
+before every request, unless the config's adapter is
+`cloudflarePages({ runWorkerFirst: true })`; with that option it refuses
+anything but `true`.
 
 ## The landing page and the docs
 
