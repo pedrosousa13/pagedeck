@@ -1,9 +1,10 @@
-import { createElement, startTransition } from "react";
-import type { ComponentType } from "react";
+import { createElement, startTransition, useEffect } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
   ISLAND_EXPORT_ATTRIBUTE,
+  ISLAND_HYDRATED_ATTRIBUTE,
   ISLAND_ID_PATTERN,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
@@ -22,6 +23,7 @@ import type { Schedule } from "./startup.js";
 
 export interface IslandElement extends IslandRoot {
   getAttribute(name: string): string | null;
+  setAttribute(name: string, value: string): void;
   querySelector(selectors: string): IslandElement | null;
   readonly localName: string;
   readonly parentElement: IslandElement | null;
@@ -216,6 +218,16 @@ function markerFailure(failures: readonly UnreadableMarker[]): RegistryError {
   );
 }
 
+// Outermost, so its effect runs after every effect in the island's tree.
+function Hydrated(props: { marker: IslandElement; children?: ReactNode }) {
+  // React Compiler's memo cache would add about 308 B raw to every island page.
+  "use no memo";
+  useEffect(() => {
+    props.marker.setAttribute(ISLAND_HYDRATED_ATTRIBUTE, "");
+  }, []);
+  return props.children;
+}
+
 // `slot.js` is imported on demand so a page of leaf islands never downloads it.
 async function mount(
   marker: IslandElement,
@@ -247,10 +259,14 @@ async function mount(
   startTransition(() => {
     hydrateRoot(
       marker,
-      wrapInProviders(
-        createElement(component as AnyComponent, island.props, ...children),
-        options.providers ?? [],
-        options.probe,
+      createElement(
+        Hydrated,
+        { marker },
+        wrapInProviders(
+          createElement(component as AnyComponent, island.props, ...children),
+          options.providers ?? [],
+          options.probe,
+        ),
       ),
       { identifierPrefix: island.prefix },
     );

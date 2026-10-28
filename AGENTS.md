@@ -409,17 +409,17 @@ Its fonts (#45) are static `ofl/firasans/` files from `google/fonts` at
 `e345593da2a4d596212542edbd28f2ed08fe6cbe`; a variable binary would serve one
 weight.
 
-**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 13.9% over
+**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 13.8% over
 its figure. Every locale is keyed: a page no pattern matches is unbudgeted, not
 free.
 
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 53921 B (#176) | `pagedeck-core` chunk 52403 B, `pagedeck-startup` chunk 899 B, entry chunk 252 B, the inline script loader 367 B |
+| `en /pricing` | `60kb` (61440 B) | 54010 B (#139) | `pagedeck-core` chunk 52478 B, `pagedeck-startup` chunk 907 B, entry chunk 258 B, the inline script loader 367 B |
 
-The whole-build ceiling is 61 kB Brotli (62464 B) against 54485 B of `js`
-measured (#176), 14.6% over it, counting the 931 B `slot` chunk and not the inline
+The whole-build ceiling is 61 kB Brotli (62464 B) against 54573 B of `js`
+measured (#139), 14.5% over it, counting the 930 B `slot` chunk and not the inline
 loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):
@@ -614,7 +614,7 @@ runtime on the first trigger (#95).
 
 | Module | Limit | Measured |
 | --- | --- | --- |
-| `runtime.js` | 2048 B | 1659 B (#176) |
+| `runtime.js` | 2048 B | 1691 B (#139) |
 | `slot.js` | 1280 B | 1067 B (#89) |
 | `startup.js` | 640 B | 508 B (#89) |
 | `island-errors.js` | 640 B | 541 B (#157), only with `build.islandErrors` |
@@ -751,13 +751,14 @@ from them.
 | --- | --- | --- |
 | `pnpm build && pnpm test:singleton-harness` | `packages/core/src/singleton.harness.ts` | two islands in two tier groups share one store module (#64) |
 | `pnpm build && pnpm test:lazy-runtime-harness` | `packages/core/src/lazy-runtime.harness.ts` | an all-`idle` page requests no `pagedeck-core` chunk before the idle trigger fires, and its island hydrates after it (#95) |
+| `pnpm build && pnpm test:hydrated-harness` | `packages/core/src/hydrated.harness.ts` | a `load` island's marker carries `data-pagedeck-hydrated` once it commits, an `idle` island's only after its trigger, and an island whose module fails to load never does (#139) |
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-pagedeck-consent` without a reload, and a denied press loads nothing (#460) |
 | `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
 | `pnpm build && pnpm test:island-browsers-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/create-pagedeck/src/island-browsers.harness.ts` | the starter's counter island hydrates and counts clicks in Chromium, Firefox and WebKit (#161) |
 | `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/app-form.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
 
-The singleton, lazy runtime and hydration task harnesses run emitted chunks
+The singleton, lazy runtime, hydrated and hydration task harnesses run emitted chunks
 from `packages/islands/dist`, because jsdom ignores `<script type="module">`,
 so build first; none can detect a stale `dist`. The consent facade and view
 transitions harnesses drive `runCli` in process and need no build. The island
@@ -796,10 +797,10 @@ over the uncompressed local origin, not the Brotli of `build.budget`:
 | Page | Bytes limit | Measured | Requests |
 | --- | --- | --- | --- |
 | `/de/`, `/en/`, `/en/legal/terms/` | 0 | 0 | 0 |
-| `/en/pricing/` | 230400 | 196826 (#89; 196312 B of chunk on disk, `pagedeck-core` 193900 B, `pagedeck-startup` 1981 B, plus 514 B of headers) | 4 |
+| `/en/pricing/` | 230400 | 197083 (#139; 196569 B of chunk on disk, `pagedeck-core` 194081 B, `pagedeck-startup` 2047 B, plus 514 B of headers) | 4 |
 
 Zeros and request counts take no headroom: a request is a decision.
-`/en/pricing`'s 17.1% is for a `react-dom` patch release walking `pagedeck-core`.
+`/en/pricing`'s 16.9% is for a `react-dom` patch release walking `pagedeck-core`.
 `pagedeck-startup` is one more request, the cost of #95's chunk split, which the
 maintainer ruled accepted. Another request is the consent manager at
 `consent.example`, which resolves nowhere; a real vendor there means

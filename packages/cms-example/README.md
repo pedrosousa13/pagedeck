@@ -212,11 +212,11 @@ again and give the reason. Do not raise it to make the failure go away.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `/` | `0b` | 0 B (#694) | no chunks |
-| `/faq/` | `60kb` (61440 B) | 53675 B (#176) | `pagedeck-core` 52120 B, `pagedeck-startup` 899 B, `faq` 414 B, entry 242 B |
-| `/signup/` | `60kb` (61440 B) | 53820 B (#176) | `pagedeck-core` 52120 B, `pagedeck-startup` 899 B, `signup_form` 557 B, entry 244 B |
+| `/faq/` | `60kb` (61440 B) | 53657 B (#139) | `pagedeck-core` 52095 B, `pagedeck-startup` 907 B, `faq` 419 B, entry 236 B |
+| `/signup/` | `60kb` (61440 B) | 53802 B (#139) | `pagedeck-core` 52095 B, `pagedeck-startup` 907 B, `signup_form` 557 B, entry 243 B |
 
-The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 55405 B
-measured on #176, each file compressed on its own.
+The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 55388 B
+measured on #139, each file compressed on its own.
 
 ## Tests
 

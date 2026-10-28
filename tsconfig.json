@@ -39,6 +39,7 @@
     "packages/core/vitest.crash-harness.config.ts",
     "packages/core/vitest.singleton-harness.config.ts",
     "packages/core/vitest.lazy-runtime-harness.config.ts",
+    "packages/core/vitest.hydrated-harness.config.ts",
     "packages/core/vitest.hydration-task-harness.config.ts",
     "packages/core/vitest.consent-facade-harness.config.ts",
     "packages/core/vitest.view-transitions-harness.config.ts",

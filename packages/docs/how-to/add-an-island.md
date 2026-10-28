@@ -115,6 +115,17 @@ but an explicit `"load"` below the fold is demoted to `visible`.
 [What gets moved](../reference/fold-strategy.md#what-gets-moved-and-what-never-does)
 has the full table.
 
+Each island is wrapped in a `<pagedeck-island>` element. Once the island's
+tree has hydrated, the islands runtime sets `data-pagedeck-hydrated` on that
+element. The built HTML never carries it, and an island whose JavaScript fails
+to load never gets it. The attribute means the island's root has committed: an
+error that the island's own error boundary catches still leaves the island
+marked, and a `<Suspense>` boundary inside the island can still be waiting
+when the attribute appears. A test or a script that must wait for every island on a page
+waits until `pagedeck-island:not([data-pagedeck-hydrated])` matches nothing,
+and one island is ready when its own element matches
+`pagedeck-island[data-pagedeck-hydrated]`.
+
 Pin the greeting to `idle`, so its JavaScript waits until the page has
 loaded. Change its row in `pagedeck.config.ts`:
 
@@ -146,15 +157,15 @@ The build fails with exit code 2, and prints:
 
 ```
 pagedeck: JavaScript budget: 2 pages transfer more JavaScript for first render than their budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
-pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53644 B over 4 chunks, the 3 largest:
-pagedeck:     /assets/pagedeck-core-BmFn17hg.js — 52163 B
-pagedeck:     /assets/pagedeck-startup-BFmEUn9Z.js — 1000 B
-pagedeck:     /assets/entry-5d5e90792793d37f-X9zmd4S3.js — 242 B
+pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53728 B over 4 chunks, the 3 largest:
+pagedeck:     /assets/pagedeck-core-Fd3gtD28.js — 52215 B
+pagedeck:     /assets/pagedeck-startup-B0-zO-Qr.js — 1017 B
+pagedeck:     /assets/counter-DW3eABbQ.js — 257 B
 pagedeck:     fold strategy promoted "counter" at tree position 1 from "visible" to "load" — position 1 is above the fold threshold of 4
-pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53452 B over 3 chunks:
-pagedeck:     /assets/pagedeck-core-BmFn17hg.js — 52163 B
-pagedeck:     /assets/pagedeck-startup-BFmEUn9Z.js — 1000 B
-pagedeck:     /assets/entry-ce914658698880e6-Chnhioxc.js — 289 B
+pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53524 B over 3 chunks:
+pagedeck:     /assets/pagedeck-core-Fd3gtD28.js — 52215 B
+pagedeck:     /assets/pagedeck-startup-B0-zO-Qr.js — 1017 B
+pagedeck:     /assets/entry-ce914658698880e6-BTeEtYuX.js — 292 B
 ```
 
 The message names every page over its limit, the pattern that set the limit,
@@ -162,8 +173,7 @@ what the page transfers, and its largest chunks. `/` and `/about/` are not in
 it, because they ship 0 B.
 
 Read the two pages against step 3. The counter has no `hydrate`, so fold
-strategy promoted it to `load`, and its chunk counts, though it is the
-smallest of the four and not on the list. The greeting hydrates on
+strategy promoted it to `load`, and its chunk counts. The greeting hydrates on
 `idle`, so its own chunk is not on the list. Both pages pay for `pagedeck-core`,
 which holds React and the island runtime, and for `pagedeck-startup`, which waits for
 each island's trigger. `/counter/` loads `pagedeck-core` at once. `/greet/` has no
@@ -172,7 +182,7 @@ and the budget charges it all the same. Moving an island off `load` saves the
 island's own chunk, not React.
 
 Give each page with an island a limit of its own. Size it from the figure the
-build printed, plus room for drift: about 15% over 53644 B, rounded to a whole
+build printed, plus room for drift: about 15% over 53728 B, rounded to a whole
 kilobyte, is `60kb`. Replace the budget in `pagedeck.config.ts`:
 
 ```ts
@@ -207,16 +217,16 @@ It has one row per budgeted page. This is the row for the greeting's page:
   "pattern": "/greet/",
   "limitText": "60kb",
   "limit": 61440,
-  "actual": 53452,
+  "actual": 53524,
   "jsInlined": 0,
   "css": 0,
   "cssInlined": 0,
-  "html": 315,
+  "html": 319,
   "breach": false,
   "chunks": [
-    { "path": "/assets/pagedeck-core-BmFn17hg.js", "bytes": 52163 },
-    { "path": "/assets/pagedeck-startup-BFmEUn9Z.js", "bytes": 1000 },
-    { "path": "/assets/entry-ce914658698880e6-Chnhioxc.js", "bytes": 289 }
+    { "path": "/assets/pagedeck-core-Fd3gtD28.js", "bytes": 52215 },
+    { "path": "/assets/pagedeck-startup-B0-zO-Qr.js", "bytes": 1017 },
+    { "path": "/assets/entry-ce914658698880e6-BTeEtYuX.js", "bytes": 292 }
   ],
   "causes": [],
   "largestIslandProps": 2,

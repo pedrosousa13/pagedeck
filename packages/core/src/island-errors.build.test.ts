@@ -21,6 +21,7 @@ import { planTiers } from "./tiers.js";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
   ISLAND_EXPORT_ATTRIBUTE,
+  ISLAND_HYDRATED_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
@@ -29,7 +30,12 @@ import {
 import type { IslandErrorReport } from "@pagedeck/islands";
 
 declare const document: {
-  body: { innerHTML: string };
+  body: {
+    innerHTML: string;
+    querySelectorAll(
+      selectors: string,
+    ): ArrayLike<{ hasAttribute(name: string): boolean }>;
+  };
   documentElement: { lang: string };
 };
 declare const history: {
@@ -293,6 +299,68 @@ export function Header() {
     release: RELEASE,
   });
   expect(hydrated).toEqual(["Header"]);
+  expect(
+    Array.from(document.body.querySelectorAll(ISLAND_TAG), (marker) =>
+      marker.hasAttribute(ISLAND_HYDRATED_ATTRIBUTE),
+    ),
+  ).toEqual([true, false]);
+}, 120_000);
+
+test("with a reporter declared, an island that throws while rendering is reported as uncaught and never marked hydrated", async () => {
+  writeFileSync(
+    `${FIXTURE_DIR}src/Broken.js`,
+    `export default function Broken() { throw new Error("broken-3e9d"); }\n`,
+  );
+  const broken = planEntries(
+    [{ page: page("/broken"), islands: [{ component: "Broken", mode: "load" }] }],
+    { modules: { Broken: "./src/Broken.js" } },
+  );
+  const built = await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: broken,
+    tiers: planTiers({ entries: broken.entries, ranking: [], policy: {} }),
+    islandErrors: "./src/report.js",
+  });
+  const dir = join(FIXTURE_DIR, "site-broken");
+  rmSync(dir, { recursive: true, force: true });
+  for (const file of built.files) {
+    const path = join(dir, file.path);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, file.contents);
+  }
+
+  document.documentElement.lang = "en";
+  history.replaceState(null, "", "/en/broken/");
+  document.body.innerHTML = marker("Broken", "i1", "<p>server text</p>");
+  const reports: IslandErrorReport[] = [];
+  (globalThis as Reports).__islandReports = reports;
+  vi.stubGlobal("reportError", vi.fn());
+  vi.stubGlobal(
+    "fetch",
+    async () => new Response(JSON.stringify({ build: { id: RELEASE } })),
+  );
+  try {
+    const entry = built.entryScripts.get(broken.entries[0]?.name ?? "");
+    await import(/* @vite-ignore */ pathToFileURL(join(dir, entry ?? "")).href);
+    await vi.waitFor(() => {
+      expect(reports.map((report) => report.kind)).toContain("uncaught");
+    });
+    // Settled: a mark set after the error would land by now.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  } finally {
+    vi.unstubAllGlobals();
+  }
+
+  expect(reports.find((report) => report.kind === "uncaught")).toMatchObject({
+    component: "Broken",
+    error: expect.objectContaining({ message: "broken-3e9d" }),
+  });
+  expect(
+    Array.from(document.body.querySelectorAll(ISLAND_TAG), (one) =>
+      one.hasAttribute(ISLAND_HYDRATED_ATTRIBUTE),
+    ),
+  ).toEqual([false]);
 }, 120_000);
 
 test("a build with no reporter declared bundles none of the reporting module", async () => {

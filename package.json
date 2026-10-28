@@ -18,6 +18,7 @@
     "test:compiler-crash-harness": "vitest run --config packages/core/vitest.crash-harness.config.ts",
     "test:singleton-harness": "vitest run --config packages/core/vitest.singleton-harness.config.ts",
     "test:lazy-runtime-harness": "vitest run --config packages/core/vitest.lazy-runtime-harness.config.ts",
+    "test:hydrated-harness": "vitest run --config packages/core/vitest.hydrated-harness.config.ts",
     "test:hydration-task-harness": "vitest run --config packages/core/vitest.hydration-task-harness.config.ts",
     "test:consent-facade-harness": "vitest run --config packages/core/vitest.consent-facade-harness.config.ts",
     "test:view-transitions-harness": "vitest run --config packages/core/vitest.view-transitions-harness.config.ts",

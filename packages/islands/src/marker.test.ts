@@ -3,6 +3,7 @@ import {
   ISLAND_COMPONENT_ATTRIBUTE,
   ISLAND_EXPORT_ATTRIBUTE,
   ISLAND_FACADE_ATTRIBUTE,
+  ISLAND_HYDRATED_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
@@ -29,6 +30,10 @@ test("the slot names are the contract both sides import", () => {
 
 test("the facade placeholder name is the contract the build and its loader share", () => {
   expect(ISLAND_FACADE_ATTRIBUTE).toBe("data-pagedeck-facade");
+});
+
+test("the hydrated mark is the public signal a waiter selects on", () => {
+  expect(ISLAND_HYDRATED_ATTRIBUTE).toBe("data-pagedeck-hydrated");
 });
 
 test("both tags are custom elements, which the HTML parser requires a hyphen for", () => {

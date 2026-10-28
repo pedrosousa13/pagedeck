@@ -13,6 +13,7 @@ import { prerender } from "react-dom/static";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_HYDRATED_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
@@ -915,4 +916,81 @@ test("a click during hydration is still handled", async () => {
   await vi.waitFor(() => {
     expect(markers()[0]?.querySelector("button")?.textContent).toBe("1");
   });
+});
+
+function hydrated(marker: TestElement | undefined): boolean {
+  return marker?.getAttribute(ISLAND_HYDRATED_ATTRIBUTE) !== null;
+}
+
+const observed: string[] = [];
+
+function Observer() {
+  observed.push(`render ${String(hydrated(markers()[0]))}`);
+  useEffect(() => {
+    observed.push(`effect ${String(hydrated(markers()[0]))}`);
+  }, []);
+  return <p>observer</p>;
+}
+
+test("a load island's marker is marked hydrated once its tree commits, and not before", async () => {
+  fakeBrowser();
+  const resolve = await buildPage([
+    { component: "Observer", render: Observer, mode: "load", prefix: "iload" },
+  ]);
+  observed.length = 0;
+  expect(hydrated(markers()[0])).toBe(false);
+
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+
+  expect(observed).toEqual(["render false", "effect false"]);
+  expect(hydrated(markers()[0])).toBe(true);
+});
+
+test("an idle island's marker is marked hydrated only after its trigger", async () => {
+  fakeBrowser({ idle: true });
+  const resolve = await buildPage([
+    { component: "Reveal", render: Reveal, mode: "idle", prefix: "iidle" },
+  ]);
+
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+  expect(hydrated(markers()[0])).toBe(false);
+
+  await runIdleCallbacks();
+
+  expect(hydrated(markers()[0])).toBe(true);
+});
+
+let failOnClient = false;
+
+function Failing() {
+  if (failOnClient) throw new Error("Failing: refused to render on the client");
+  return <p>server</p>;
+}
+
+test("an island whose tree throws while hydrating is never marked hydrated", async () => {
+  fakeBrowser();
+  failOnClient = false;
+  const resolve = await buildPage([
+    { component: "Failing", render: Failing, mode: "load", prefix: "ifail" },
+  ]);
+  failOnClient = true;
+
+  await complaintsWhile(async () => {
+    // A promise, not `act`'s own thenable: `.rejects` on that thenable fails
+    // outside the test, which then passes.
+    await expect(
+      (async () => {
+        await act(async () => {
+          hydrateIslands({ resolve });
+        });
+      })(),
+    ).rejects.toThrow(/refused to render/);
+  });
+  failOnClient = false;
+
+  expect(hydrated(markers()[0])).toBe(false);
 });
