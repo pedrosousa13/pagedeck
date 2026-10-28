@@ -223,6 +223,35 @@ A rule is scoped to its own tree in every direction: paths are tree-relative, so
 a redirect cannot point at a page on another host, and each tree gets its own
 404 page and its own header table.
 
+## The locale prefix
+
+Each locale's pages sit under a prefix, decided per output tree. A locale that
+shares its tree with other locales is written under its own key, `/en/about`
+and `/de/about`, so no two of them hold one path. A locale alone in its tree is
+written at the tree's root, `/about`. A one-locale site is one such tree, and
+so is a locale on a `domain` of its own.
+
+That moves every URL when a second locale joins the tree: `/about` becomes
+`/en/about`. To keep the prefix from the first build, declare it on the locale:
+
+```ts
+locales: defineLocales({
+  en: { label: "English", direction: "ltr", prefixed: true },
+}),
+```
+
+`en`'s pages are then written under `/en`, its home page at `/en/`, and no
+page is written at `/`: the tree's root holds what a tree shared by several
+locales holds there, such as the sitemap index and the `404.html` copy. Its
+canonicals, `hreflang` links, sitemap entries and `href` results all carry the
+prefix, and the link checker refuses a link to `/about`, which no page
+answers. A redirect's `from` and `to` are tree paths, written as served, so
+they carry the prefix as you write it.
+
+`prefixed: false` is what leaving the field out does, and is refused on a
+locale that shares its tree: two unprefixed locales would claim the same
+paths. Delete it there, or give the locale a `domain` of its own.
+
 ## What is refused, and when
 
 Two doors, and which one a fault meets tells you what it is.

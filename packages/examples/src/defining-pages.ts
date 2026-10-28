@@ -1,6 +1,6 @@
 // Example: build a route table from a collection, a literal list and a route template, then
 // link to one of the pages with `href`. `collectDefaultedPages` below is the same table built on
-// the defaults.
+// the defaults, and `collectPrefixedPages` a one-locale site that keeps its locale prefix.
 import {
   collectPages,
   defineLocales,
@@ -133,4 +133,31 @@ export async function collectDefaultedPages(
   const pages = definePages({ sources: [fromCollection(site)] });
 
   return { store, pages: collectPages(store, pages) };
+}
+
+export function collectPrefixedPages(storePath: string): {
+  store: ContentStore;
+  pages: Page[];
+  aboutLink: string;
+} {
+  const store = openStore(storePath);
+
+  // Alone on its tree, `en` would route its home page at `/`. `prefixed: true` keeps `/en`, so
+  // no URL moves when a second locale joins it.
+  const pages = definePages({
+    sources: ["/", "/about"].map((template) =>
+      fromTemplate(template, () => [
+        { locale: "en", params: {}, dependencies: [] },
+      ]),
+    ),
+    locales: defineLocales({
+      en: { label: "English", direction: "ltr", prefixed: true },
+    }),
+  });
+
+  return {
+    store,
+    pages: collectPages(store, pages),
+    aboutLink: pages.href("/about"),
+  };
 }

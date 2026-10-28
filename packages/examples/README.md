@@ -10,9 +10,8 @@ Which contracts get an example is `GLOSSARY.md`'s standing decision **An example
 runs in process, and a contract it cannot show is listed**. A new public
 contract gets an example or joins this list:
 
-- `@pagedeck/core`: `defineConfig`, `runCli`, `syncSite`, `defineLocales`,
-  `loadConfig` and the `LoadedConfig` and `LoadedBuildSection` it returns
-  (#708),
+- `@pagedeck/core`: `defineConfig`, `runCli`, `syncSite`, `loadConfig` and
+  the `LoadedConfig` and `LoadedBuildSection` it returns (#708),
   `canonicalizePath`, `getEntryCached`, `openStoreReadOnly`,
   `loadFixtureStore`, `readDelta` (#28), `RootProviderStack` (#66), the
   snapshot verbs, `PageChrome` (#409), the paged list (`paginate` and its

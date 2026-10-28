@@ -1,6 +1,10 @@
 export { defineFixturePages } from "./defining-a-collection.js";
 export type { DefinedCollection } from "./defining-a-collection.js";
-export { collectDefaultedPages, collectSitePages } from "./defining-pages.js";
+export {
+  collectDefaultedPages,
+  collectPrefixedPages,
+  collectSitePages,
+} from "./defining-pages.js";
 export type { CollectedPages } from "./defining-pages.js";
 export { syncHandWrittenLoader } from "./implementing-a-loader.js";
 export type { HandWrittenLoaderRun, Note } from "./implementing-a-loader.js";

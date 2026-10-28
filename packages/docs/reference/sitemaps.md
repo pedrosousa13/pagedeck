@@ -52,8 +52,10 @@ and the addresses are ones you then have to keep serving.
 Both write the tree's index at `/sitemap.xml`, which is the address to give a
 crawler or a `robots.txt` line. `"directory"` names the locale rather than the
 locale's URL prefix, which only matters on a tree with a single locale: such a
-tree is unprefixed, its pages sit at `/about` rather than `/de/about`, and its
-sitemap still goes to `/de/sitemap.xml` so that `/sitemap.xml` stays the index.
+tree is unprefixed unless the locale declares `prefixed: true` (see
+[Routing](./routing.md#the-locale-prefix)), its pages sit at `/about` rather
+than `/de/about`, and its sitemap still goes to `/de/sitemap.xml` so that
+`/sitemap.xml` stays the index.
 
 ## One index per output tree
 
