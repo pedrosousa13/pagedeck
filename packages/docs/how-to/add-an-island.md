@@ -118,7 +118,10 @@ has the full table.
 Each island is wrapped in a `<pagedeck-island>` element. Once the island's
 tree has hydrated, the islands runtime sets `data-pagedeck-hydrated` on that
 element. The built HTML never carries it, and an island whose JavaScript fails
-to load never gets it. A test or a script that must wait for every island on a page
+to load never gets it. The attribute means the island's root has committed: an
+error that the island's own error boundary catches still leaves the island
+marked, and a `<Suspense>` boundary inside the island can still be waiting
+when the attribute appears. A test or a script that must wait for every island on a page
 waits until `pagedeck-island:not([data-pagedeck-hydrated])` matches nothing,
 and one island is ready when its own element matches
 `pagedeck-island[data-pagedeck-hydrated]`.
