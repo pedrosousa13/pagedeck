@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks), there are 126 below, 113 of them
+`x` at/from `path`, outside fenced blocks), there are 127 below, 114 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 309 messages fenced
-below, 232 are checked that way and 77 are not**, and that test lists the 77
-one by one with the reason each is out: 75 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 311 messages fenced
+below, 232 are checked that way and 79 are not**, and that test lists the 79
+one by one with the reason each is out: 77 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150: it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 232 checked messages pin 35195 of the 98358 fenced characters, and
+below**: the 232 checked messages pin 35195 of the 99012 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2896,6 +2896,37 @@ reaches this one end to end is a specifier that resolves for the scan's SSR
 invocation and not for the browser build: a package exported under the `node`
 condition alone. #235 measured that case on a spawned `pagedeck build`;
 `client-build.test.ts` pins the report directly rather than spawning one.
+
+A specifier whose resolution throws gets a third report, from the same three
+resolutions: the island scan, the config's resolution of a package path in
+`build.components`, and the client build (#189). `this.resolve` rejects when
+a `resolveId` hook throws, and since #184 the hooks of `build.vite.plugins` run
+there, so a bug in a site's plugin read as a module that did not resolve, and
+the plugin's error was dropped. `resolveThrowReport`
+(`packages/core/src/client-build.ts`) names the specifier, and the plugin when
+the error carries one in `plugin`, which Rolldown sets for every plugin
+written in JavaScript. A lone throw keeps the plugin's own error as the cause
+(rule 4):
+
+```
+Island scan: 1 specifier failed to resolve because a resolveId hook threw — fix the plugin that threw, or the component's path or specifier in build.components:
+  "@/Hero.tsx" — plugin "site:alias" threw, resolved against "/site/pagedeck.config.ts"
+```
+
+Several are one report with no cause, each error quoted on its specifier's
+line (rule 5):
+
+```
+Island scan: 2 specifiers failed to resolve because resolveId hooks threw — fix the plugin that threw, or the component's path or specifier in build.components:
+  "@/Copy.tsx" — plugin "site:alias" threw, resolved against "/site/pagedeck.config.ts": no module at "/site/src/Copy.tsx"
+  "@/Hero.tsx" — plugin "site:alias" threw, resolved against "/site/pagedeck.config.ts": no module at "/site/src/Hero.tsx"
+```
+
+Vite's own resolver throws too, on a subpath that a package's `exports` does
+not list, so that specifier is reported here with Vite's text, where it read
+as "did not resolve" before. It is a `ConfigError`, as the reports beside it
+are, and the plugin's error keeps its own class in the cause. A specifier that
+resolves to nothing, with no hook throwing, is still "did not resolve".
 
 The client build also refuses an island import that reaches an upstream app's
 source (#141). `refuseUpstreamImports` (`packages/core/src/client-build.ts`)

@@ -354,6 +354,8 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: "Critical CSS: 1 stylesheet cannot be", because: "assembled" },
   { names: "Client build: 2 grouped specifiers", because: "assembled" },
   { names: "Client build: 1 component specifier", because: "assembled" },
+  { names: "Island scan: 1 specifier failed", because: "assembled" },
+  { names: "Island scan: 2 specifiers failed", because: "assembled" },
   {
     names: "Client build: 1 import from island code reaches",
     because: "assembled",
