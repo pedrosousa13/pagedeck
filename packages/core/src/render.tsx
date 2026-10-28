@@ -951,6 +951,7 @@ export async function renderPage(
 
       const island: RenderedIsland = {
         component: instance.name,
+        ...(instance.export === undefined ? {} : { export: instance.export }),
         mode: instance.mode,
         prefix: instance.prefix,
         html: own.html,

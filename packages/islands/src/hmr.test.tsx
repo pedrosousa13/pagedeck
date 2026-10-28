@@ -148,3 +148,29 @@ test("the swap wrapper leaves the ids React generates unchanged", async () => {
   expect(reported).toEqual([]);
   expect(container.innerHTML).toBe(html);
 });
+
+test("a named export resolves and swaps apart from its module's default", async () => {
+  const hot = { data: {} };
+  const modules = (edit: string): IslandModules => ({
+    layout: () =>
+      Promise.resolve({
+        default: counter(`main-${edit}`),
+        Header: counter(`header-${edit}`),
+      }),
+  });
+
+  const first = hotIslands(hot, modules("before"));
+  const header = await mount(await first.resolve("layout", "Header"));
+  const main = await mount(await first.resolve("layout", null));
+  await click(header);
+  expect(header.textContent).toBe("header-before:1");
+  expect(main.textContent).toBe("main-before:0");
+
+  hotIslands(hot, modules("after"));
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(header.textContent).toBe("header-after:0");
+  expect(main.textContent).toBe("main-after:0");
+});

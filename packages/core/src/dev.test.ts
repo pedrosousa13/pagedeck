@@ -171,10 +171,33 @@ function writeSite(): void {
     ].join("\n"),
   );
   writeFileSync(
+    join(SOURCE, "NamedIslands.tsx"),
+    [
+      `"use client";`,
+      `export function NamedHeader() {`,
+      `  return <header>named-header-8e3b</header>;`,
+      `}`,
+      `export function NamedFooter() {`,
+      `  return <footer>named-footer-d47a</footer>;`,
+      `}`,
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(SOURCE, "NamedPage.tsx"),
+    [
+      `import { NamedFooter, NamedHeader } from "./NamedIslands.tsx";`,
+      `export default function NamedPage() {`,
+      `  return <div><NamedHeader /><NamedFooter /></div>;`,
+      `}`,
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
     join(SOURCE, "Foot.js"),
     `export default function Foot() { return "foot-5a90"; }\n`,
   );
-  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "aliased", "path-noted", "quoted", "shouted", "bailing", "flaky", "nested"]) {
+  for (const path of ["hot", "twin", "cold", "missing", "broken-head", "framed", "noted", "pathed", "aliased", "path-noted", "quoted", "shouted", "bailing", "flaky", "nested", "named"]) {
     writeFileSync(
       join(CONTENT, "en", `${path}.json`),
       `${JSON.stringify({ rev: 1, data: { title: path } })}\n`,
@@ -212,6 +235,7 @@ const TREES = {
   "/bailing": [{ component: "bailing", props: { title: "bailing" } }],
   "/flaky": [{ component: "flaky", props: { text: "flaky" } }],
   "/nested": [{ component: "nest_page" }],
+  "/named": [{ component: "named_page" }],
 };
 
 // \`@/\` is an alias only the site's plugin knows.
@@ -261,6 +285,8 @@ export default defineConfig({
       nest_page: "./src/NestPage.tsx",
       nest_panel: { path: "./src/NestPanel.tsx", hydrate: "load" },
       nest_badge: { path: "./src/NestBadge.tsx", hydrate: "load" },
+      named_page: "./src/NamedPage.tsx",
+      named_islands: { path: "./src/NamedIslands.tsx", hydrate: "load" },
     },
     content: (page) => ({ tree: TREES[page.path] }),
     chrome: (page) =>
@@ -823,6 +849,27 @@ test("a client module another client module imports islands where the server ren
   expect(panelMarkup).toContain("nest-panel-6b0d");
   expect(panelMarkup).toContain(">nest-inside-2e85</output>");
   expect(body.slice(badge.at)).toContain(">nest-direct-c39a</output>");
+}, 30_000);
+
+test("a named export's island names its export, and the page's entry resolves it through the hot path", async () => {
+  const { status, body } = await get("/named");
+  expect(status).toBe(200);
+
+  const tags = [...body.matchAll(/<pagedeck-island\b[^>]*>/g)].map((match) => match[0]);
+  expect(tags).toHaveLength(2);
+  expect(tags[0]).toContain('data-pagedeck-component="named_islands"');
+  expect(tags[0]).toContain('data-pagedeck-export="NamedHeader"');
+  expect(tags[1]).toContain('data-pagedeck-export="NamedFooter"');
+  expect(body).toContain("named-header-8e3b");
+  expect(body).toContain("named-footer-d47a");
+
+  const entryUrl = scriptUrls(body).find((url) => url !== "/@vite/client") as string;
+  const entry = await get(entryUrl);
+  expect(entry.body).toContain("resolve: hot.resolve,");
+  const module = await get(importSpecifier(entry.body, "NamedIslands.tsx"));
+  expect(module.status).toBe(200);
+  expect(module.body).toMatch(/export function NamedHeader\b/);
+  expect(module.body).toMatch(/export function NamedFooter\b/);
 }, 30_000);
 
 test("a dev run wrote no site tree", () => {

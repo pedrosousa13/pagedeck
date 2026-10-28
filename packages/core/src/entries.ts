@@ -295,7 +295,7 @@ export function renderEntryModule(
     // Last before the hydrate, where "before any root mounts" stops being true.
     hydrate.push("markRootsMounting();");
   }
-  const load = "(name) => modules[name]().then((module) => module.default)";
+  const load = '(name, key) => modules[name]().then((module) => module[key ?? "default"])';
   hydrate.push(
     "hydrateIslands({",
     hot

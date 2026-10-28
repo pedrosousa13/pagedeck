@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
 type AnyComponent = ComponentType<Record<string, unknown>>;
 
 export type IslandModules = Readonly<
-  Record<string, () => Promise<{ default: ComponentType<never> }>>
+  Record<string, () => Promise<Readonly<Record<string, unknown>>>>
 >;
 
 // Typed here rather than through Vite's client types, which a Node build of
@@ -15,7 +15,7 @@ export interface HotContext {
 
 export interface HotIslands {
   readonly hydrated: boolean;
-  resolve(name: string): Promise<ComponentType<never>>;
+  resolve(name: string, exported?: string | null): Promise<ComponentType<never>>;
 }
 
 interface Swap {
@@ -24,6 +24,8 @@ interface Swap {
 }
 
 interface HotName {
+  readonly name: string;
+  readonly exported: string;
   readonly swap: Swap;
   readonly component: ComponentType<never>;
 }
@@ -43,13 +45,13 @@ export function hotIslands(
     hot.data[SWAPS] = mounted;
     return {
       hydrated: false,
-      resolve: (name) => resolve(mounted, modules, name),
+      resolve: (name, exported) => resolve(mounted, modules, name, exported),
     };
   }
-  for (const [name, hot_] of existing) void swap(modules, name, hot_.swap);
+  for (const known of existing.values()) void swap(modules, known);
   return {
     hydrated: true,
-    resolve: (name) => resolve(existing, modules, name),
+    resolve: (name, exported) => resolve(existing, modules, name, exported),
   };
 }
 
@@ -57,34 +59,34 @@ async function resolve(
   mounted: Map<string, HotName>,
   modules: IslandModules,
   name: string,
+  exported: string | null | undefined,
 ): Promise<ComponentType<never>> {
+  const key = exported ?? "default";
   const module = await modules[name]();
-  const known = mounted.get(name);
+  const current = module[key] as AnyComponent;
+  const id = JSON.stringify([name, key]);
+  const known = mounted.get(id);
   if (known !== undefined) {
-    known.swap.current = module.default as AnyComponent;
+    known.swap.current = current;
     return known.component;
   }
-  const swap: Swap = {
-    current: module.default as AnyComponent,
-    roots: new Set(),
-  };
+  const swap: Swap = { current, roots: new Set() };
   const fresh = {
+    name,
+    exported: key,
     swap,
     component: hotComponent(swap) as ComponentType<never>,
   };
-  mounted.set(name, fresh);
+  mounted.set(id, fresh);
   return fresh.component;
 }
 
 // An unchanged module comes back as the same function, and re-mounting on it
 // would reset every island on each edit.
-async function swap(
-  modules: IslandModules,
-  name: string,
-  swap_: Swap,
-): Promise<void> {
-  const module = await modules[name]();
-  const next = module.default as AnyComponent;
+async function swap(modules: IslandModules, known: HotName): Promise<void> {
+  const swap_ = known.swap;
+  const module = await modules[known.name]();
+  const next = module[known.exported] as AnyComponent;
   if (next === swap_.current) return;
   swap_.current = next;
   for (const root of swap_.roots) root(next);

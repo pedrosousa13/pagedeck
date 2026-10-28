@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_EXPORT_ATTRIBUTE,
   ISLAND_FACADE_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
@@ -17,6 +18,7 @@ test("the marker names are the contract both sides import", () => {
   expect(ISLAND_COMPONENT_ATTRIBUTE).toBe("data-pagedeck-component");
   expect(ISLAND_MODE_ATTRIBUTE).toBe("data-pagedeck-mode");
   expect(ISLAND_PROPS_ATTRIBUTE).toBe("data-pagedeck-props");
+  expect(ISLAND_EXPORT_ATTRIBUTE).toBe("data-pagedeck-export");
 });
 
 test("the slot names are the contract both sides import", () => {

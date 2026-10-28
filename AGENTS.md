@@ -611,7 +611,7 @@ runtime on the first trigger (#95).
 
 | Module | Limit | Measured |
 | --- | --- | --- |
-| `runtime.js` | 2048 B | 1630 B (#89) |
+| `runtime.js` | 2048 B | 1659 B (#176) |
 | `slot.js` | 1280 B | 1067 B (#89) |
 | `startup.js` | 640 B | 508 B (#89) |
 | `island-errors.js` | 640 B | 541 B (#157), only with `build.islandErrors` |

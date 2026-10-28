@@ -262,7 +262,7 @@ test("a rejected island module is reported as module-load and still rejects", as
   const failure = new TypeError("Failed to fetch dynamically imported module");
   const resolve = errors().resolve(() => Promise.reject(failure));
 
-  await expect(resolve("Newsletter")).rejects.toBe(failure);
+  await expect(resolve("Newsletter", null)).rejects.toBe(failure);
   await reported(1);
   expect(reports).toEqual([
     {
@@ -287,7 +287,7 @@ test("two errors at once share one manifest.json request", async () => {
   const failure = new TypeError("Failed to fetch dynamically imported module");
   const resolve = errors().resolve(() => Promise.reject(failure));
 
-  await Promise.allSettled([resolve("Newsletter"), resolve("Search")]);
+  await Promise.allSettled([resolve("Newsletter", null), resolve("Search", null)]);
   await hydratePage(
     [{ component: "PricingTable", prefix: "i1", serverHtml: "<p>server text</p>" }],
     { PricingTable: Mismatch },
