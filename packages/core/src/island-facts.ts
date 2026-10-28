@@ -172,12 +172,12 @@ export async function scanIslandFacts(
   const clientModules = new Set(boundaries.clientModules);
   const placers = resourceImporters.filter(({ id }) => clientModules.has(id));
   const islandModules = new Set(clientModules);
-  const islandRoots = new Set<string>();
+  const hydratedIds = new Set<string>();
   for (const name of names) {
     const hydrate = input.components?.[name]?.hydrate;
     const id = ids[input.modules[name] as string];
     if (hydrate === undefined || hydrate === "none" || id === undefined) continue;
-    islandRoots.add(id);
+    hydratedIds.add(id);
     for (const module of reachableFrom(id, graph.imports)) {
       islandModules.add(module);
     }
@@ -188,7 +188,7 @@ export async function scanIslandFacts(
     .filter((id) => id !== undefined);
   const unregistered = unregisteredClientModules(
     graph,
-    islandRoots,
+    hydratedIds,
     registeredIds,
   );
   const warnings = [
@@ -290,19 +290,19 @@ function unlinkedStylesheetWarning(
 
 function unregisteredClientModules(
   graph: ModuleGraph,
-  islandRoots: ReadonlySet<string>,
+  hydratedIds: ReadonlySet<string>,
   registeredIds: readonly string[],
 ): (readonly string[])[] {
   const registered = new Set(registeredIds);
   const imports = new Map<string, readonly string[]>();
   for (const [importer, imported] of graph.imports) {
-    if (islandRoots.has(importer)) continue;
+    if (hydratedIds.has(importer)) continue;
     if (graph.directives.get(importer) === "use client") continue;
     imports.set(importer, imported);
   }
   const via = chainsFromEntries({
     ...graph,
-    entries: registeredIds.filter((id) => !islandRoots.has(id)),
+    entries: registeredIds,
     imports,
   });
   return [...graph.directives]

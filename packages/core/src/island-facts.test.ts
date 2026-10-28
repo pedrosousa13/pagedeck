@@ -29,6 +29,7 @@ const FIXTURE: Record<string, string> = {
   "Widget.js": `import Knob from "./Knob.js";\nexport default function Widget() { return Knob(); }\n`,
   "Shared.js": `import Knob from "./Knob.js";\nexport default function Shared() { return Knob(); }\n`,
   "Page.js": `import Shared from "./Shared.js";\nexport default function Page() { return Shared(); }\n`,
+  "Holder.js": `import Shared from "./Shared.js";\nexport default function Holder() { return Shared(); }\n`,
   "Panel.js": `"use client";\nimport Shared from "./Shared.js";\nexport default function Panel() { return Shared(); }\n`,
   "styled.css": `.styled { color: red; }\n`,
   "other.css": `.other { color: blue; }\n`,
@@ -325,7 +326,7 @@ test('an unregistered "use client" module is reported through a static module an
   ]);
 }, 120_000);
 
-test('a registered static component an island imports is still walked for unregistered "use client" modules', async () => {
+test('a registered static component a registered "use client" component imports is still walked for unregistered "use client" modules', async () => {
   const { warnings } = await scanIslandFacts({
     root: FIXTURE_DIR,
     origin: ORIGIN,
@@ -335,6 +336,20 @@ test('a registered static component an island imports is still walked for unregi
   expect(warnings).toEqual([
     `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript — register it under build.components, or import it only from an island's module${UNREGISTERED_REASON}\n` +
       `  "${SRC}Knob.js" — ${SRC}Shared.js → ${SRC}Knob.js`,
+  ]);
+}, 120_000);
+
+test('an unregistered "use client" module is reported through a static module a registered island without the directive also imports', async () => {
+  const { warnings } = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Page: "./src/Page.js", Holder: "./src/Holder.js" },
+    components: { Holder: { hydrate: "idle" } },
+  });
+
+  expect(warnings).toEqual([
+    `Island scan: 1 module carrying "use client" is imported from outside every island but is not registered in build.components, so it renders as static HTML with no JavaScript — register it under build.components, or import it only from an island's module${UNREGISTERED_REASON}\n` +
+      `  "${SRC}Knob.js" — ${SRC}Page.js → ${SRC}Shared.js → ${SRC}Knob.js`,
   ]);
 }, 120_000);
 
