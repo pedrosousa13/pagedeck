@@ -35,11 +35,13 @@ export function threwFault(
   field: string | undefined,
 ): ResolutionFault {
   const plugin = namedPlugin(error);
+  // Unnamed is either Vite's resolver refusing an unexported subpath or a
+  // plugin that threw a non-Error, which Rolldown 1.2.13 cannot mark (#189).
   const fix =
     plugin === undefined
       ? field === undefined
-        ? "fix the package's exports"
-        : `fix ${field}, or the package's exports`
+        ? "fix the plugin that threw, or the package's exports"
+        : `fix the plugin that threw, or ${field}`
       : field === undefined
         ? "fix that plugin"
         : `fix that plugin, or ${field}`;
@@ -47,7 +49,7 @@ export function threwFault(
     lead,
     what:
       plugin === undefined
-        ? "a resolveId hook threw"
+        ? "a resolveId hook threw (a plugin, or the resolver refusing a subpath the package does not export)"
         : `plugin "${plugin}" threw`,
     fix,
     thrown: { error },

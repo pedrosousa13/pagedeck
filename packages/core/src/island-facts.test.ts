@@ -426,6 +426,8 @@ test("a site plugin hook that throws in the scan fails the scan with the bundler
 
 const COMPONENT_FIELD =
   "the component's path or specifier in build.components";
+const NO_PLUGIN_THREW =
+  "a resolveId hook threw (a plugin, or the resolver refusing a subpath the package does not export)";
 
 function throwingResolver(
   throws: Readonly<Record<string, () => never>>,
@@ -551,12 +553,37 @@ test("a subpath a package does not export fails the scan as a resolver throw nam
   expect((error as Error).message).toBe(
     [
       `Island scan: 1 component module did not resolve against "${ORIGIN}", because a resolveId hook threw — fix it as its line says:`,
-      `  "Widget" — "@ds/exports-only/widget" — a resolveId hook threw — fix ${COMPONENT_FIELD}, or the package's exports`,
+      `  "Widget" — "@ds/exports-only/widget" — ${NO_PLUGIN_THREW} — fix the plugin that threw, or ${COMPONENT_FIELD}`,
     ].join("\n"),
   );
   expect(((error as Error).cause as Error).message).toContain(
     '"./widget" is not exported',
   );
+}, 120_000);
+
+test("a site plugin that throws a string fails the scan with a line that blames neither the plugin nor the package alone", async () => {
+  const error = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Hero: "@/Hero.js" },
+    plugins: [
+      throwingResolver({
+        "@/Hero.js": () => {
+          throw "bad alias";
+        },
+      }),
+    ],
+  }).catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(Error);
+  expect(error).not.toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Island scan: 1 component module did not resolve against "${ORIGIN}", because a resolveId hook threw — fix it as its line says:`,
+      `  "Hero" — "@/Hero.js" — ${NO_PLUGIN_THREW} — fix the plugin that threw, or ${COMPONENT_FIELD}`,
+    ].join("\n"),
+  );
+  expect((error as Error).cause).toBeDefined();
 }, 120_000);
 
 test("a site plugin's resolveId throw fails component resolution naming the component and plugin, with the plugin's error as cause", async () => {

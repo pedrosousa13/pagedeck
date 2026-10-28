@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 236 checked messages pin 35415 of the 99756 fenced characters, and
+below**: the 236 checked messages pin 35415 of the 99831 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2938,12 +2938,14 @@ Client build: 2 specifiers did not resolve against "/site/pagedeck.config.ts", 1
 ```
 
 Vite's own resolver throws too, on a subpath that a package's `exports` does
-not list. Rolldown names no plugin for it, so the line says so, and the cause
-carries Vite's text:
+not list, and Rolldown names no plugin for it. Nor does it for a plugin that
+throws a value that is not an `Error`, such as a string, whose text it drops.
+The line cannot tell the two apart, so it names both and claims neither, and
+the cause carries what Rolldown kept, Vite's text in the first case:
 
 ```
 Island scan: 1 component module did not resolve against "/site/pagedeck.config.ts", because a resolveId hook threw — fix it as its line says:
-  "Widget" — "@ds/widgets/chart" — a resolveId hook threw — fix the component's path or specifier in build.components, or the package's exports
+  "Widget" — "@ds/widgets/chart" — a resolveId hook threw (a plugin, or the resolver refusing a subpath the package does not export) — fix the plugin that threw, or the component's path or specifier in build.components
 ```
 
 Each is a plain `Error` at exit 1, not a `ConfigError`: a plugin's errors,
