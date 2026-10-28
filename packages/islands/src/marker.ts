@@ -15,6 +15,9 @@ export const ISLAND_MODE_ATTRIBUTE = "data-pagedeck-mode";
 // holding `</script>` cannot end the payload early.
 export const ISLAND_PROPS_ATTRIBUTE = "data-pagedeck-props";
 
+// Set by the runtime once an island's tree commits; the build never writes it.
+export const ISLAND_HYDRATED_ATTRIBUTE = "data-pagedeck-hydrated";
+
 export const ISLAND_SLOT_TAG = "pagedeck-slot";
 
 export const ISLAND_SLOT_ATTRIBUTE = "data-pagedeck-slot";
