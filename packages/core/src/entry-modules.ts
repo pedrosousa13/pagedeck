@@ -1,5 +1,5 @@
 import { renderEntryModule } from "./entries.js";
-import type { EntryPlan } from "./entries.js";
+import type { EntryModuleOptions, EntryPlan } from "./entries.js";
 import { renderPreviewModule } from "./preview-entry.js";
 import type { PreviewEntry } from "./preview-entry.js";
 import type { Plugin } from "vite";
@@ -7,13 +7,13 @@ import type { Plugin } from "vite";
 export function serveEntryModules(
   plan: EntryPlan,
   origin: string,
-  globalCss: readonly string[] = [],
+  options: Omit<EntryModuleOptions, "hot"> = {},
 ): Plugin {
   return serveGeneratedEntries(
     new Map(
       plan.entries.map((entry) => [
         entry.id,
-        renderEntryModule(entry, { globalCss }),
+        renderEntryModule(entry, options),
       ]),
     ),
     origin,

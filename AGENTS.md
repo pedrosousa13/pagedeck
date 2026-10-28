@@ -598,10 +598,13 @@ dependencies pass. A new public contract gets an example or joins the list in
 ### The islands runtime budgets
 
 `packages/islands/src/runtime.size.test.ts` holds `runtime.ts` to 2048 B,
-`slot.size.test.ts` holds `slot.ts` to 1280 B, and `startup.size.test.ts`
-holds `startup.ts` to 640 B, each bundled with `react` and `react-dom/client`
+`slot.size.test.ts` holds `slot.ts` to 1280 B, `startup.size.test.ts`
+holds `startup.ts` to 640 B, and `island-errors.size.test.ts` holds
+`island-errors.ts` to 640 B, each bundled with `react` and `react-dom/client`
 external, Brotli at quality 11. The runtime's 2 kB is spec §8's product
-decision; the slot and startup ceilings are ratchets. The runtime imports the
+decision; the slot, startup and island-errors ceilings are ratchets.
+`island-errors.js` ships only on a site that declares `build.islandErrors`
+(#157). The runtime imports the
 startup module's triggers, so its figure includes them. A page whose islands
 are all `idle` or `visible` loads only the startup module at first, and the
 runtime on the first trigger (#95).
@@ -611,6 +614,7 @@ runtime on the first trigger (#95).
 | `runtime.js` | 2048 B | 1630 B (#89) |
 | `slot.js` | 1280 B | 1067 B (#89) |
 | `startup.js` | 640 B | 508 B (#89) |
+| `island-errors.js` | 640 B | 541 B (#157), only with `build.islandErrors` |
 
 Re-measure before editing any of them. A ratchet on one module cannot see bytes
 moved into the other, and every page with an island pays `runtime.js`.

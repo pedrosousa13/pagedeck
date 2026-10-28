@@ -288,6 +288,58 @@ test("a global stylesheet is imported at startup beside a load island, and on th
   );
 });
 
+test("a declared island error reporter adds one import and wraps the resolve, naming no release", () => {
+  const plan = planEntries([TWO_ISLANDS], { modules: MODULES });
+
+  expect(
+    renderEntryModule(only(plan.entries), {
+      islandErrors: "./src/report.ts",
+    }),
+  ).toBe(
+    [
+      `import { hydrateIslands } from "@pagedeck/islands/runtime";`,
+      `import { islandErrors } from "pagedeck:island-errors";`,
+      `const modules = {`,
+      `  "Hero": () => import("@ds/hero"),`,
+      `  "NewsletterSignup": () => import("@ds/newsletter-signup"),`,
+      `};`,
+      `hydrateIslands({`,
+      `  resolve: islandErrors.resolve((name) => modules[name]().then((module) => module.default)),`,
+      `});`,
+      "",
+    ].join("\n"),
+  );
+});
+
+test("a page with no load island imports the island error reporter on the trigger, with the runtime", () => {
+  const plan = planEntries([ALL_DEFERRED], { modules: MODULES });
+
+  expect(
+    renderEntryModule(only(plan.entries), {
+      islandErrors: "./src/report.ts",
+    }),
+  ).toBe(
+    [
+      `import { hydrateOnTrigger } from "@pagedeck/islands/startup";`,
+      `const modules = {`,
+      `  "Hero": () => import("@ds/hero"),`,
+      `  "NewsletterSignup": () => import("@ds/newsletter-signup"),`,
+      `};`,
+      `hydrateOnTrigger(async (schedule) => {`,
+      `  const [{ hydrateIslands }, { islandErrors }] = await Promise.all([`,
+      `    import("@pagedeck/islands/runtime"),`,
+      `    import("pagedeck:island-errors"),`,
+      `  ]);`,
+      `  hydrateIslands({`,
+      `    resolve: islandErrors.resolve((name) => modules[name]().then((module) => module.default)),`,
+      `    schedule,`,
+      `  });`,
+      `});`,
+      "",
+    ].join("\n"),
+  );
+});
+
 test("the dev server's hot entry loads the runtime at startup whatever the modes", () => {
   const plan = planEntries([ALL_DEFERRED], { modules: MODULES });
 

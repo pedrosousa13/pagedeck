@@ -63,6 +63,11 @@
       "source": "./src/slot.ts",
       "types": "./dist/slot.d.ts",
       "default": "./dist/slot.js"
+    },
+    "./island-errors": {
+      "source": "./src/island-errors.ts",
+      "types": "./dist/island-errors.d.ts",
+      "default": "./dist/island-errors.js"
     }
   },
   "files": [

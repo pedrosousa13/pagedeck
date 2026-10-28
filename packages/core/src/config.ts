@@ -136,6 +136,11 @@ export interface BuildSection {
   readonly tierPolicy?: Partial<TierPolicy>;
   readonly budget?: BudgetMap;
   readonly islandPropsBudget?: string;
+  /**
+   * A module specifier, resolved from `pagedeck.config.ts`, whose default export
+   * receives each `IslandErrorReport`. Bundled only when declared.
+   */
+  readonly islandErrors?: string;
   readonly criticalCss?: CriticalCssMap;
   readonly foldStrategy?: FoldStrategySetting;
   readonly driftThreshold?: number;
@@ -442,6 +447,13 @@ function assertBuildSection(
     const report = islandPropsBudgetFaultReport(islandPropsBudget, where);
     if (report !== undefined) sections.push(report);
   }
+  const islandErrors = Object.hasOwn(record, "islandErrors")
+    ? record["islandErrors"]
+    : undefined;
+  if (islandErrors !== undefined) {
+    const report = islandErrorsFaultReport(islandErrors, where);
+    if (report !== undefined) sections.push(report);
+  }
   const criticalCss = Object.hasOwn(record, "criticalCss")
     ? record["criticalCss"]
     : undefined;
@@ -721,6 +733,23 @@ function isPluginOption(value: unknown): boolean {
   if (typeof value !== "object") return false;
   if ("then" in value && typeof value.then === "function") return true;
   return "name" in value && typeof value.name === "string";
+}
+
+const ISLAND_ERRORS_FIX = 'islandErrors: "./src/report-island-errors.ts"';
+
+function islandErrorsFaultReport(
+  value: unknown,
+  where: string,
+): string | undefined {
+  if (typeof value !== "string") {
+    return `${where}: "build.islandErrors" must name the module that default-exports the reporter, as a path from pagedeck.config.ts — ${ISLAND_ERRORS_FIX}`;
+  }
+  if (value.trim() === "") {
+    return `${where}: "build.islandErrors" is ${
+      value === "" ? "empty" : "only whitespace"
+    }, so it names no module — ${ISLAND_ERRORS_FIX}`;
+  }
+  return undefined;
 }
 
 const ROOT_PROVIDERS_SHAPE_FIX =
