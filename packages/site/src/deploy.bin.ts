@@ -35,15 +35,26 @@ import {
   readSignedIndex,
 } from "./deploy-urls.js";
 import type { DeployUrls } from "./deploy-urls.js";
+import {
+  ACCESS_KEY_VARIABLE,
+  DISTRIBUTION_FLAG,
+  readDistributions,
+  SECRET_KEY_VARIABLE,
+} from "./deploy-distribution.js";
+import type { Distributions } from "./deploy-distribution.js";
 
 const USAGE = [
   "Usage: node dist/deploy.bin.js --origin <dir> [--out <dir>] [--from <manifest>]",
   "                              [--staging <dir>] [--edge <target>]",
   "                              [--rollback <build-id>] [--apply] [--prune] [--force]",
+  `                              [${DISTRIBUTION_FLAG} [<tree>=]<id>]...`,
   `       ${DEPLOY_URLS_VARIABLE}=<file> node dist/deploy.bin.js [--requests <file>] ...`,
   "",
   `Prints the deploy plan and writes nothing. Pass ${APPLY_FLAG} to upload it.`,
   `${DEPLOY_URLS_VARIABLE} names a file of presigned URLs, in place of --origin.`,
+  `${DISTRIBUTION_FLAG} merges a tree's distribution-config fragments into that CloudFront`,
+  `distribution before any upload, with the credential in ${ACCESS_KEY_VARIABLE}`,
+  `and ${SECRET_KEY_VARIABLE}; a dry run reads the config and prints the merge.`,
 ].join("\n");
 
 function usageError(message: string): ConfigError {
@@ -70,6 +81,7 @@ interface Args {
   rollback?: string;
   requests?: string;
   signedUrls?: string;
+  distributions?: Distributions;
   apply: boolean;
   prune: boolean;
   force: boolean;
@@ -86,6 +98,7 @@ function sameFile(a: string, b: string): boolean {
 function parse(argv: readonly string[], env: NodeJS.ProcessEnv): Args {
   const args: Args = { out: "./site", apply: false, prune: false, force: false };
   const values = new Map<ValueOption, string>();
+  const distributions: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] as string;
     if (arg === APPLY_FLAG) {
@@ -98,6 +111,13 @@ function parse(argv: readonly string[], env: NodeJS.ProcessEnv): Args {
     }
     if (arg === FORCE_FLAG) {
       args.force = true;
+      continue;
+    }
+    if (arg === DISTRIBUTION_FLAG) {
+      const value = argv[index + 1];
+      if (value === undefined) throw usageError(`Option "${DISTRIBUTION_FLAG}" takes a value.`);
+      index += 1;
+      distributions.push(value);
       continue;
     }
     const option = VALUE_OPTIONS.find((one) => one === arg);
@@ -154,6 +174,7 @@ function parse(argv: readonly string[], env: NodeJS.ProcessEnv): Args {
       `Options "--rollback" and "--from" are given together, as ${quoteIdentifier(args.rollback)} and ${quoteIdentifier(args.from)} — a rollback deploys the retained build over what "--out" says is live, so there is no second source for that side; drop "--from", or drop "--rollback" to plan a deploy.`,
     );
   }
+  if (distributions.length > 0) args.distributions = readDistributions(distributions, env, args.edge);
   return args;
 }
 
@@ -236,7 +257,14 @@ async function mainSigned(
   args: Args,
   file: string,
   out: string,
-  run: { source: string; staging?: string; apply: boolean; pruneAfterUpload: boolean; force: boolean },
+  run: {
+    source: string;
+    staging?: string;
+    apply: boolean;
+    pruneAfterUpload: boolean;
+    force: boolean;
+    distributions?: Distributions;
+  },
   write: (line: string) => void,
 ): Promise<number> {
   const urls = await readDeployUrls(file);
@@ -368,6 +396,7 @@ async function main(): Promise<number> {
         apply: args.apply,
         pruneAfterUpload: args.prune,
         force: args.force,
+        ...(args.distributions === undefined ? {} : { distributions: args.distributions }),
       },
       write,
     );
@@ -380,6 +409,7 @@ async function main(): Promise<number> {
     apply: args.apply,
     pruneAfterUpload: args.prune,
     force: args.force,
+    ...(args.distributions === undefined ? {} : { distributions: args.distributions }),
   };
 
   const current = await manifestAt(join(out, "manifest.json"));
