@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 311 messages fenced
-below, 232 are checked that way and 79 are not**, and that test lists the 79
-one by one with the reason each is out: 77 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 313 messages fenced
+below, 236 are checked that way and 77 are not**, and that test lists the 77
+one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150: it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 232 checked messages pin 35195 of the 99012 fenced characters, and
+below**: the 236 checked messages pin 35415 of the 99756 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2902,31 +2902,55 @@ resolutions: the island scan, the config's resolution of a package path in
 `build.components`, and the client build (#189). `this.resolve` rejects when
 a `resolveId` hook throws, and since #184 the hooks of `build.vite.plugins` run
 there, so a bug in a site's plugin read as a module that did not resolve, and
-the plugin's error was dropped. `resolveThrowReport`
-(`packages/core/src/client-build.ts`) names the specifier, and the plugin when
-the error carries one in `plugin`, which Rolldown sets for every plugin
-written in JavaScript. A lone throw keeps the plugin's own error as the cause
-(rule 4):
+the plugin's error was dropped. `resolutionFailure`
+(`packages/core/src/resolve-faults.ts`) names the component and the specifier,
+and the plugin when Rolldown marks the error with one, which it does for every
+plugin written in JavaScript. Each line states its own fix, and names the
+field the specifier came from. A lone throw keeps the plugin's own error as the
+cause (rule 4), which the run prints after the fix:
 
 ```
-Island scan: 1 specifier failed to resolve because a resolveId hook threw — fix the plugin that threw, or the component's path or specifier in build.components:
-  "@/Hero.tsx" — plugin "site:alias" threw, resolved against "/site/pagedeck.config.ts"
+Island scan: 1 component module did not resolve against "/site/pagedeck.config.ts", because a resolveId hook threw — fix it as its line says:
+  "Hero" — "@/Hero.tsx" — plugin "site:alias" threw — fix that plugin, or the component's path or specifier in build.components
 ```
 
-Several are one report with no cause, each error quoted on its specifier's
-line (rule 5):
+Several are one report with no cause, each error quoted under its line, every
+line of it indented four spaces (rule 5):
 
 ```
-Island scan: 2 specifiers failed to resolve because resolveId hooks threw — fix the plugin that threw, or the component's path or specifier in build.components:
-  "@/Copy.tsx" — plugin "site:alias" threw, resolved against "/site/pagedeck.config.ts": no module at "/site/src/Copy.tsx"
-  "@/Hero.tsx" — plugin "site:alias" threw, resolved against "/site/pagedeck.config.ts": no module at "/site/src/Hero.tsx"
+Island scan: 2 component modules did not resolve against "/site/pagedeck.config.ts", because resolveId hooks threw — fix each as its line says:
+  "Copy" — "@/Copy.tsx" — plugin "site:alias" threw — fix that plugin, or the component's path or specifier in build.components:
+    no module at "/site/src/Copy.tsx"
+  "Hero" — "@/Hero.tsx" — plugin "site:alias" threw — fix that plugin, or the component's path or specifier in build.components:
+    no module at "/site/src/Hero.tsx"
+```
+
+A throw in the same pass as a specifier that resolves to nothing, or, in the
+config's resolution, a path that names no file, is the same report, so the one
+fault does not hide the other. The client build names the field each specifier
+came from, and a specifier the framework imports itself has none:
+
+```
+Client build: 2 specifiers did not resolve against "/site/pagedeck.config.ts", 1 of them because a resolveId hook threw — fix each as its line says:
+  "@/Chart.tsx" — plugin "site:alias" threw — fix that plugin, or the component's path or specifier in build.components:
+    no module at "/site/src/Chart.tsx"
+  "@ds/absent" — resolves to nothing — install the package
 ```
 
 Vite's own resolver throws too, on a subpath that a package's `exports` does
-not list, so that specifier is reported here with Vite's text, where it read
-as "did not resolve" before. It is a `ConfigError`, as the reports beside it
-are, and the plugin's error keeps its own class in the cause. A specifier that
-resolves to nothing, with no hook throwing, is still "did not resolve".
+not list. Rolldown names no plugin for it, so the line says so, and the cause
+carries Vite's text:
+
+```
+Island scan: 1 component module did not resolve against "/site/pagedeck.config.ts", because a resolveId hook threw — fix it as its line says:
+  "Widget" — "@ds/widgets/chart" — a resolveId hook threw — fix the component's path or specifier in build.components, or the package's exports
+```
+
+Each is a plain `Error` at exit 1, not a `ConfigError`: a plugin's errors,
+Vite's among them, are not the framework's to reclassify (rule 7), so a site
+plugin exits the same whichever hook threw, and its error keeps its class in
+the cause. A specifier that resolves to nothing, with no hook throwing, is
+still "did not resolve" at exit 2.
 
 The client build also refuses an island import that reaches an upstream app's
 source (#141). `refuseUpstreamImports` (`packages/core/src/client-build.ts`)
