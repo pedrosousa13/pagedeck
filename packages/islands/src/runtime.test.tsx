@@ -922,17 +922,29 @@ function hydrated(marker: TestElement | undefined): boolean {
   return marker?.getAttribute(ISLAND_HYDRATED_ATTRIBUTE) !== null;
 }
 
+const observed: string[] = [];
+
+function Observer() {
+  observed.push(`render ${String(hydrated(markers()[0]))}`);
+  useEffect(() => {
+    observed.push(`effect ${String(hydrated(markers()[0]))}`);
+  }, []);
+  return <p>observer</p>;
+}
+
 test("a load island's marker is marked hydrated once its tree commits, and not before", async () => {
   fakeBrowser();
   const resolve = await buildPage([
-    { component: "Reveal", render: Reveal, mode: "load", prefix: "iload" },
+    { component: "Observer", render: Observer, mode: "load", prefix: "iload" },
   ]);
+  observed.length = 0;
   expect(hydrated(markers()[0])).toBe(false);
 
   await act(async () => {
     hydrateIslands({ resolve });
   });
 
+  expect(observed).toEqual(["render false", "effect false"]);
   expect(hydrated(markers()[0])).toBe(true);
 });
 
