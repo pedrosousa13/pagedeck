@@ -289,6 +289,12 @@ test("the interactive page carries exactly one island, server-rendered before an
   expect(jsClosure(entry)).toEqual(expect.arrayContaining(modulePreloads(html)));
 });
 
+test("no page the build writes marks an island hydrated, which only the browser does", () => {
+  for (const row of manifest.pages) {
+    expect(document(row.output)).not.toContain("data-pagedeck-hydrated");
+  }
+});
+
 test("the island's cost is confined to the page that asked for it", () => {
   const pricing = page(PRICING);
 
