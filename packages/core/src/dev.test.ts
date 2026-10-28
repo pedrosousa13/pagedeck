@@ -851,7 +851,7 @@ test("a client module another client module imports islands where the server ren
   expect(body.slice(badge.at)).toContain(">nest-direct-c39a</output>");
 }, 30_000);
 
-test("a named export's island names its export, and the page's entry resolves it through the hot path", async () => {
+test("a named export's island names its export in dev, the page's entry hands the hot resolve to the runtime, and the dev server serves the module with both exports", async () => {
   const { status, body } = await get("/named");
   expect(status).toBe(200);
 
