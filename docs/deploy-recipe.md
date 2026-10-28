@@ -1433,7 +1433,8 @@ every upstream prefix and nothing else (#145), so no release is prepared from
 a build whose app a prefix cannot reach. It refuses `true`, which runs the app
 before every request, unless the config's adapter is
 `cloudflarePages({ runWorkerFirst: true })`; with that option it refuses
-anything but `true`.
+anything but `true`, and a site with no wrangler file or a Cloudflare Pages
+project's.
 
 ## The landing page and the docs
 

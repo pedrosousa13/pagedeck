@@ -168,15 +168,16 @@ beside `pagedeck.config.ts`, comments and all, and fails when
 
 With `cloudflarePages({ runWorkerFirst: true })`, every request reaches the
 app, so the build checks no pattern. It fails instead when `run_worker_first`
-is not `true`, when no `wrangler.json` or `wrangler.jsonc` sits beside the
-config, and on a Cloudflare Pages project's file: the option says what the
-wrangler file does, and the build holds the file to it.
+is not `true`, when no `wrangler.json`, `wrangler.jsonc` or `wrangler.toml`
+sits beside the config, and on a Cloudflare Pages project's file: the option
+says what the wrangler file does, and the build holds the file to it.
 
 So when you add, move or remove a prefix, change `run_worker_first` with it,
 and the build tells you when they disagree. It cannot read `wrangler.toml`,
 and fails on one when the config declares upstreams: write it as
-`wrangler.jsonc` instead. A file with `pages_build_output_dir` is a Cloudflare
-Pages project, which reads `_routes.json` instead, and is not checked.
+`wrangler.jsonc` instead. Without `runWorkerFirst`, a file with
+`pages_build_output_dir` is a Cloudflare Pages project, which reads
+`_routes.json` instead, and is not checked.
 
 `cloudflarePages()` also writes `site/_routes.json`, which sends the same
 prefixes to Pages Functions on Cloudflare Pages
