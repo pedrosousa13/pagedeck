@@ -23,7 +23,6 @@ import type {
 export interface ClientReferenceOptions {
   name: string;
   mode: HydrationMode;
-  /** The export the component is, when it is not the module's default. */
   export?: string;
 }
 
