@@ -57,7 +57,11 @@ export async function resolveComponentModules(
     plugins?: readonly PluginOption[];
   },
 ): Promise<ResolvedModules> {
-  const resolver = resolveModuleIds(specifiers, input.origin);
+  const resolver = resolveModuleIds(
+    specifiers,
+    input.origin,
+    `Config ${JSON.stringify(input.origin)}`,
+  );
   await inProductionEnv(async () =>
     runBundle({
       config: {
@@ -95,7 +99,7 @@ export async function scanIslandFacts(
     ...new Set(names.map((name) => input.modules[name] as string)),
   ].sort();
 
-  const resolver = resolveModuleIds(specifiers, input.origin);
+  const resolver = resolveModuleIds(specifiers, input.origin, "Island scan");
   let graph: ModuleGraph | undefined;
   const scan = recordIslandBoundaries((recorded) => {
     graph = recorded;

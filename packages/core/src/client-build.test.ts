@@ -205,6 +205,40 @@ test("a component specifier the bundler cannot resolve fails the build", async (
   );
 }, 60_000);
 
+test("a site plugin's resolveId throw fails the client build naming the specifier and the plugin, with the plugin's error as cause", async () => {
+  const thrown = new TypeError("what the site resolver met");
+  const entries = plan();
+
+  const failure = await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: entries,
+    tiers: tiers(entries),
+    plugins: [
+      {
+        name: "site:throwing-resolver",
+        enforce: "pre",
+        resolveId(source: string) {
+          if (source === "./src/Chart.js") throw thrown;
+          return undefined;
+        },
+      },
+    ],
+  }).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect((failure as Error).message).toBe(
+    [
+      `Client build: 1 specifier failed to resolve because a resolveId hook threw — fix the plugin that threw, or the component's path or specifier in build.components:`,
+      `  "./src/Chart.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}"`,
+    ].join("\n"),
+  );
+  expect((failure as Error).cause).toBe(thrown);
+}, 60_000);
+
 test("a fault a build hook raised outranks the unresolved-specifier report", async () => {
   writeFileSync(`${SRC}Broken.js`, `export default function Broken( { return 1;\n`);
 

@@ -13,7 +13,7 @@ import {
   serveEntryModules,
   serveGeneratedEntries,
 } from "./entry-modules.js";
-import { ConfigError } from "./exit.js";
+import { ConfigError, describeError } from "./exit.js";
 import type { EmittedFile, FileKind, ManifestChunk } from "./manifest.js";
 import { compileIslands } from "./react-compiler.js";
 import type { UpstreamRule } from "./routing.js";
@@ -184,6 +184,7 @@ function declaredVersion(path: string): string | undefined {
 export function resolveModuleIds(
   specifiers: readonly string[],
   origin: string,
+  subject: string,
 ): ModuleIdResolver {
   const resolved = new Map<string, string>();
   const unresolved: string[] = [];
@@ -194,16 +195,28 @@ export function resolveModuleIds(
       async buildStart() {
         resolved.clear();
         unresolved.length = 0;
+        const thrown: ResolveThrow[] = [];
         for (const specifier of specifiers) {
-          const answer = await this.resolve(specifier, origin).catch(
-            () => null,
-          );
+          let answer: Awaited<ReturnType<typeof this.resolve>>;
+          try {
+            answer = await this.resolve(specifier, origin);
+          } catch (error) {
+            // Rolldown wraps a plugin's throw in an error of its own, which
+            // names only the specifier, and keeps the plugin's as its cause.
+            const original =
+              error instanceof Error && error.cause !== undefined
+                ? error.cause
+                : error;
+            thrown.push({ specifier, error: original });
+            continue;
+          }
           if (answer === null || answer === undefined) {
             unresolved.push(specifier);
           } else {
             resolved.set(specifier, answer.id);
           }
         }
+        if (thrown.length > 0) throw resolveThrowReport(subject, origin, thrown);
       },
     },
     taken: () => ({
@@ -211,6 +224,41 @@ export function resolveModuleIds(
       unresolved: [...unresolved],
     }),
   };
+}
+
+interface ResolveThrow {
+  specifier: string;
+  error: unknown;
+}
+
+const RESOLVE_THROW_FIX =
+  "fix the plugin that threw, or the component's path or specifier in build.components";
+
+function resolveThrowReport(
+  subject: string,
+  origin: string,
+  thrown: readonly ResolveThrow[],
+): ConfigError {
+  const one = thrown.length === 1;
+  const lines = [...thrown]
+    .sort((a, b) => (a.specifier < b.specifier ? -1 : 1))
+    .map(({ specifier, error }) => {
+      const plugin = (error as { plugin?: unknown } | null)?.plugin;
+      const line = `  "${specifier}" — ${
+        typeof plugin === "string" ? `plugin "${plugin}" threw, ` : ""
+      }resolved against "${origin}"`;
+      return one
+        ? line
+        : `${line}: ${describeError(error).split("\n").join("\n    ")}`;
+    });
+  const message = `${subject}: ${String(thrown.length)} ${
+    one
+      ? "specifier failed to resolve because a resolveId hook threw"
+      : "specifiers failed to resolve because resolveId hooks threw"
+  } — ${RESOLVE_THROW_FIX}:\n${lines.join("\n")}`;
+  return one
+    ? new ConfigError(message, { cause: (thrown[0] as ResolveThrow).error })
+    : new ConfigError(message);
 }
 
 // Below the tiers, so a tier captures what it captured when the split was
@@ -421,6 +469,7 @@ export async function buildClient(
       ]),
     ],
     input.origin,
+    "Client build",
   );
 
   // A thunk: each group reads the record on its first `test`, after

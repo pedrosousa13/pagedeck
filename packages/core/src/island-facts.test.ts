@@ -422,3 +422,112 @@ test("a site plugin hook that throws in the scan fails the scan with the bundler
   expect((error as { errors?: unknown[] }).errors).toHaveLength(1);
   expect((error as { errors: Error[] }).errors[0]).toBe(refusal);
 }, 120_000);
+
+const RESOLVE_THROW_FIX =
+  "fix the plugin that threw, or the component's path or specifier in build.components";
+
+test("a site plugin's resolveId throw fails the scan naming the specifier and the plugin, with the plugin's error as cause", async () => {
+  const thrown = new TypeError("what the site resolver met");
+  const error = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Hero: "@/Hero.js", Copy: "./src/Copy.js" },
+    plugins: [
+      {
+        name: "site:throwing-resolver",
+        resolveId(source) {
+          if (source === "@/Hero.js") throw thrown;
+        },
+      },
+    ],
+  }).catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Island scan: 1 specifier failed to resolve because a resolveId hook threw — ${RESOLVE_THROW_FIX}:`,
+      `  "@/Hero.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}"`,
+    ].join("\n"),
+  );
+  expect((error as Error).cause).toBe(thrown);
+}, 120_000);
+
+test("several resolveId throws are one scan report naming each specifier and plugin, with no cause", async () => {
+  const error = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Hero: "@/Hero.js", Copy: "@/Copy.js" },
+    plugins: [
+      {
+        name: "site:throwing-resolver",
+        resolveId(source) {
+          if (source === "@/Hero.js") this.error("no hero here");
+          if (source === "@/Copy.js") throw new Error("no copy\neither");
+        },
+      },
+    ],
+  }).catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Island scan: 2 specifiers failed to resolve because resolveId hooks threw — ${RESOLVE_THROW_FIX}:`,
+      `  "@/Copy.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}": no copy`,
+      `    either`,
+      `  "@/Hero.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}": no hero here`,
+    ].join("\n"),
+  );
+  expect((error as Error).cause).toBeUndefined();
+}, 120_000);
+
+test("a site plugin's resolveId throw fails component resolution naming the specifier and the plugin, with the plugin's error as cause", async () => {
+  const thrown = new TypeError("what the site resolver met");
+  const error = await resolveComponentModules(["@/Hero.js"], {
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plugins: [
+      {
+        name: "site:throwing-resolver",
+        resolveId(source) {
+          if (source === "@/Hero.js") throw thrown;
+        },
+      },
+    ],
+  }).catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Config "${ORIGIN}": 1 specifier failed to resolve because a resolveId hook threw — ${RESOLVE_THROW_FIX}:`,
+      `  "@/Hero.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}"`,
+    ].join("\n"),
+  );
+  expect((error as Error).cause).toBe(thrown);
+}, 120_000);
+
+test("a subpath a package does not export fails the scan as a resolver throw, quoting the resolver", async () => {
+  const pkg = `${FIXTURE_DIR}node_modules/@ds/exports-only/`;
+  mkdirSync(pkg, { recursive: true });
+  writeFileSync(
+    `${pkg}package.json`,
+    JSON.stringify({ name: "@ds/exports-only", type: "module", exports: { ".": "./index.js" } }),
+  );
+  writeFileSync(`${pkg}index.js`, "export default function Index() {}\n");
+
+  const error = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Widget: "@ds/exports-only/widget" },
+  }).catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Island scan: 1 specifier failed to resolve because a resolveId hook threw — ${RESOLVE_THROW_FIX}:`,
+      `  "@ds/exports-only/widget" — resolved against "${ORIGIN}"`,
+    ].join("\n"),
+  );
+  expect(((error as Error).cause as Error).message).toContain(
+    '"./widget" is not exported',
+  );
+}, 120_000);
