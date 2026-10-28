@@ -727,3 +727,90 @@ test("every locale whose domain is not a host name is reported in one failure", 
     ].join("\n"),
   );
 });
+
+test("a prefixed locale keeps its key alone on a tree, and the placed locale carries only the prefix (#173)", () => {
+  const locales = defineLocales({
+    en: { label: "English", direction: "ltr", prefixed: true },
+    ar: {
+      label: "العربية",
+      direction: "rtl",
+      domain: "example.ae",
+      prefixed: true,
+    },
+  });
+
+  expect(locales.get("en")).toEqual({
+    code: "en",
+    label: "English",
+    direction: "ltr",
+    prefix: "/en",
+  });
+  expect(locales.get("ar")?.prefix).toBe("/ar");
+});
+
+test("prefixed: false on a locale alone on its tree places it as leaving the field out does (#173)", () => {
+  const written = defineLocales({
+    en: { label: "English", direction: "ltr", prefixed: false },
+  });
+  const absent = defineLocales({ en: { label: "English", direction: "ltr" } });
+
+  expect(written).toEqual(absent);
+  expect(written.get("en")?.prefix).toBe("");
+});
+
+test("prefixed: true on locales sharing a tree changes nothing, since they are prefixed already (#173)", () => {
+  const locales = defineLocales({
+    en: { label: "English", direction: "ltr", prefixed: true },
+    de: { label: "Deutsch", direction: "ltr" },
+  });
+
+  expect([...locales.values()].map((locale) => locale.prefix)).toEqual([
+    "/en",
+    "/de",
+  ]);
+});
+
+test("prefixed: false on a locale sharing its tree is refused, naming the locale, its tree and the fix (#173)", () => {
+  const failure = failureOf(() =>
+    defineLocales({
+      en: { label: "English", direction: "ltr", prefixed: false },
+      de: { label: "Deutsch", direction: "ltr" },
+      fr: { label: "Français", direction: "ltr", domain: "example.fr" },
+      "fr-CA": {
+        label: "Français (CA)",
+        direction: "ltr",
+        domain: "example.fr",
+        prefixed: false,
+      },
+    }),
+  );
+
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect(failure.message).toBe(
+    [
+      'Locale set: 2 locales declare prefixed: false on a tree they share with other locales, where every locale is prefixed so that none of them holds "/" — delete prefixed: false, or give the locale a domain of its own:',
+      '  "en" shares the origin\'s tree with "de"',
+      '  "fr-CA" shares the tree "example.fr" with "fr"',
+    ].join("\n"),
+  );
+});
+
+test("a prefixed value that is not a boolean is refused (#173)", () => {
+  const failure = failureOf(() =>
+    defineLocales({
+      en: {
+        label: "English",
+        direction: "ltr",
+        prefixed: "false" as unknown as boolean,
+      },
+    }),
+  );
+
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect(failure.message).toBe(
+    [
+      "Locale set: 1 locale declares prefixed as something other than true or false — write prefixed: true to keep the locale's key in its paths, or delete the field:",
+      '  "en": "false"',
+    ].join("\n"),
+  );
+});

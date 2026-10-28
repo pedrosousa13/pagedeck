@@ -2036,6 +2036,18 @@ test("href takes the site's only locale when none is given", () => {
   expect(pages.href("/about")).toBe(collectPages(store, pages)[0]?.output);
 });
 
+test("a prefixed locale alone on its tree routes and links under its key (#173)", () => {
+  const store = emptySite();
+  const pages = aboutPage(
+    defineLocales({ en: { label: "English", direction: "ltr", prefixed: true } }),
+  );
+
+  expect(collectPages(store, pages).map((page) => page.output)).toEqual([
+    "/en/about",
+  ]);
+  expect(pages.href("/about")).toBe("/en/about");
+});
+
 test("href refuses an omitted locale when the site declares more than one", () => {
   const pages = aboutPage(TWO_FOLDER_LOCALES);
 

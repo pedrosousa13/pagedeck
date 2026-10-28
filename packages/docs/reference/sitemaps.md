@@ -54,6 +54,8 @@ crawler or a `robots.txt` line. `"directory"` names the locale rather than the
 locale's URL prefix, which only matters on a tree with a single locale: such a
 tree is unprefixed, its pages sit at `/about` rather than `/de/about`, and its
 sitemap still goes to `/de/sitemap.xml` so that `/sitemap.xml` stays the index.
+A locale that declares `prefixed: true` keeps `/de/about` on such a tree (see
+[Routing](./routing.md#the-locale-prefix)).
 
 ## One index per output tree
 

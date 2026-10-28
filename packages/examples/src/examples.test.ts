@@ -10,7 +10,11 @@ import { cloudfront } from "@pagedeck/adapter-cloudfront";
 import { netlify } from "@pagedeck/adapter-netlify";
 import { nginx } from "@pagedeck/adapter-nginx";
 import { defineFixturePages } from "./defining-a-collection.js";
-import { collectDefaultedPages, collectSitePages } from "./defining-pages.js";
+import {
+  collectDefaultedPages,
+  collectPrefixedPages,
+  collectSitePages,
+} from "./defining-pages.js";
 import { syncHandWrittenLoader } from "./implementing-a-loader.js";
 import { queryArticles } from "./querying-with-a-schema.js";
 import { syncBrokenArticle } from "./a-broken-entry.js";
@@ -125,6 +129,16 @@ test("the defaults example routes index entries at their directories, in one en 
   expect(
     pages.map((page) => `${page.locale} ${page.path} -> ${page.output}`),
   ).toEqual(["en / -> /", "en /about/ -> /about/", "en /docs/ -> /docs/"]);
+});
+
+test("the prefixed example keeps a one-locale site under /en, and href links there (#173)", () => {
+  const { store, pages, aboutLink } = collectPrefixedPages(tempStorePath());
+  track(store);
+
+  expect(
+    pages.map((page) => `${page.locale} ${page.path} -> ${page.output}`),
+  ).toEqual(["en / -> /en/", "en /about/ -> /en/about/"]);
+  expect(aboutLink).toBe("/en/about/");
 });
 
 test("the loader example applies a full sync, then only the delta", async () => {
