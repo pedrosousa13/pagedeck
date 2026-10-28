@@ -1195,10 +1195,22 @@ reads the config and its `ETag` with `GetDistributionConfig`, and merges
   Pagedeck's. Those are replaced by the fragment's and put first.
 - The operator's items stay, in their order, after Pagedeck's.
 - Each `Quantity` is counted again, since an update replaces each whole list.
+- A new item's fields take the order of an item of its kind in the config
+  read, and the API reference's order where there is none.
+- A Pagedeck item counts as unchanged when the config holds every field the
+  fragment sets, in any order. A field the service filled in with its default
+  is not a change.
+
+An error response has no `Id`, so it is Pagedeck's by its `ErrorCode`. An
+operator's own response for a code the site declares, such as `404`, is
+replaced, and the diff marks it. A code the site stops declaring is not
+removed: its response stays until the operator removes it.
 
 A dry run reads the config too, the way it reads `<origin>/manifest.json`, and
 changes nothing. It prints what changes (`+` added, `~` changed, `-` removed)
-and the whole config an apply would send. With `--apply`, the deploy sends
+and the whole config an apply would send, with each origin custom header's
+value printed as `<redacted>`. The plan's line for each fragment it applies
+names the distribution. With `--apply`, the deploy sends
 that config with `UpdateDistribution` under `If-Match`, **before any upload**,
 so the app's routes exist before a page links to them. A config that already
 holds the fragments is not sent, so a second apply of the same build changes
@@ -1217,6 +1229,10 @@ The deploy refuses, naming the distribution, and uploads nothing:
 
 A deploy updates an existing distribution and never creates one (`GLOSSARY.md`,
 **Edge artifacts are emitted, not provisioned**).
+
+The merge is not yet proven against a live distribution. The tests run it
+against a stand-in for the API, written from the API reference, which gives
+no sample response. Try the first apply on a staging distribution.
 
 **The fallback is the merge by hand.** Without `--distribution`, the deploy
 only stages `upstreams.json` beside `error-responses.json`. Merge their
