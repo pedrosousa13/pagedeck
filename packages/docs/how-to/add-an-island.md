@@ -162,7 +162,7 @@ what the page transfers, and its largest chunks. `/` and `/about/` are not in
 it, because they ship 0 B.
 
 Read the two pages against step 3. The counter has no `hydrate`, so fold
-strategy promoted it to `load`, and its chunk counts, though at 239 B it is the
+strategy promoted it to `load`, and its chunk counts, though it is the
 smallest of the four and not on the list. The greeting hydrates on
 `idle`, so its own chunk is not on the list. Both pages pay for `pagedeck-core`,
 which holds React and the island runtime, and for `pagedeck-startup`, which waits for
