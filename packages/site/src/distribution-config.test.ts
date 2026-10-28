@@ -170,6 +170,18 @@ test("an operator error response for a code the site declares is replaced, and t
   expect(plan.config).not.toContain("/denied.html");
 });
 
+test("the printed config redacts each origin custom header's value, and the config sent keeps it", () => {
+  const operator = RECORDED.replace(
+    "<OriginPath></OriginPath>",
+    "<OriginPath></OriginPath><CustomHeaders><Quantity>1</Quantity><Items><OriginCustomHeader><HeaderName>X-Origin-Secret</HeaderName><HeaderValue>s3cr3t-value</HeaderValue></OriginCustomHeader></Items></CustomHeaders>",
+  );
+  const plan = planDistribution(operator, fragments(["/api/"]), "E2EXAMPLE");
+  expect(plan.config).toContain("<HeaderValue>s3cr3t-value</HeaderValue>");
+  expect(plan.printed).not.toContain("s3cr3t-value");
+  expect(plan.printed).toContain("<HeaderValue><redacted></HeaderValue>");
+  expect(plan.printed).toContain("<HeaderName>X-Origin-Secret</HeaderName>");
+});
+
 test("a lone bad fragment keeps its cause, and several are reported together", () => {
   let lone: unknown;
   try {

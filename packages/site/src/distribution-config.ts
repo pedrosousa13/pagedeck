@@ -11,6 +11,8 @@ export interface DistributionFragment {
 export interface DistributionPlan {
   /** The whole `DistributionConfig` an update would send. */
   config: string;
+  /** `config` with each origin custom header's value redacted, for a log. */
+  printed: string;
   changed: boolean;
   lines: string[];
 }
@@ -295,9 +297,11 @@ export function planDistribution(
     setItems(root, kind, members);
   }
   const config = writeXml(root);
+  const printed = config.replace(/<HeaderValue>[^<]*<\/HeaderValue>/g, "<HeaderValue><redacted></HeaderValue>");
   if (diff.length === 0 && !reordered) {
     return {
       config,
+      printed,
       changed: false,
       lines: [`Distribution ${distributionId}: unchanged — its config already holds these fragments.`],
     };
@@ -312,6 +316,7 @@ export function planDistribution(
   const oursCount = { origin: ours.origin.length, behavior: ours.behavior.length, error: ours.error.length };
   return {
     config,
+    printed,
     changed: true,
     lines: [
       `Distribution ${distributionId}: ${list(oursCount, "Pagedeck ")} go ahead of the operator's ${list(operator, "")}.`,

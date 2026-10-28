@@ -101,7 +101,7 @@ export async function applyDistributionConfig(options: {
   for (const line of plan.lines) write(line);
   if (!plan.changed) return { changed: false };
   if (!options.apply) {
-    write(plan.config.trimEnd());
+    write(plan.printed.trimEnd());
     write(`Dry run: distribution ${distributionId} is not updated. Pass --apply to send this config.`);
     return { changed: true };
   }
