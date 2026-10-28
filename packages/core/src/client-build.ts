@@ -13,10 +13,17 @@ import {
   serveEntryModules,
   serveGeneratedEntries,
 } from "./entry-modules.js";
-import { ConfigError, describeError } from "./exit.js";
+import { ConfigError } from "./exit.js";
 import type { EmittedFile, FileKind, ManifestChunk } from "./manifest.js";
 import { compileIslands } from "./react-compiler.js";
 import type { UpstreamRule } from "./routing.js";
+import {
+  COMPONENT_FIELD,
+  pluginError,
+  resolutionFailure,
+  threwFault,
+} from "./resolve-faults.js";
+import type { ResolveThrow } from "./resolve-faults.js";
 import { redactTarget } from "./snapshot.js";
 import { CORE_GROUP, MID_GROUP, codeSplitting } from "./tiers.js";
 import type { ModuleIds, TierPlan } from "./tiers.js";
@@ -115,7 +122,11 @@ export interface ClientChunkFacts {
 
 export interface ModuleIdResolver {
   plugin: Plugin;
-  taken(): { ids: ModuleIds; unresolved: readonly string[] };
+  taken(): {
+    ids: ModuleIds;
+    unresolved: readonly string[];
+    thrown: readonly ResolveThrow[];
+  };
 }
 
 export const UNRESOLVED_FIX =
@@ -184,10 +195,10 @@ function declaredVersion(path: string): string | undefined {
 export function resolveModuleIds(
   specifiers: readonly string[],
   origin: string,
-  subject: string,
 ): ModuleIdResolver {
   const resolved = new Map<string, string>();
   const unresolved: string[] = [];
+  const thrown: ResolveThrow[] = [];
   return {
     plugin: {
       name: "pagedeck:resolve-module-ids",
@@ -195,19 +206,14 @@ export function resolveModuleIds(
       async buildStart() {
         resolved.clear();
         unresolved.length = 0;
-        const thrown: ResolveThrow[] = [];
+        thrown.length = 0;
         for (const specifier of specifiers) {
           let answer: Awaited<ReturnType<typeof this.resolve>>;
           try {
             answer = await this.resolve(specifier, origin);
           } catch (error) {
-            // Rolldown wraps a plugin's throw in an error of its own, which
-            // names only the specifier, and keeps the plugin's as its cause.
-            const original =
-              error instanceof Error && error.cause !== undefined
-                ? error.cause
-                : error;
-            thrown.push({ specifier, error: original });
+            // A throw is the hook's failure, not an answer of null (#189).
+            thrown.push({ specifier, error: pluginError(error) });
             continue;
           }
           if (answer === null || answer === undefined) {
@@ -216,49 +222,14 @@ export function resolveModuleIds(
             resolved.set(specifier, answer.id);
           }
         }
-        if (thrown.length > 0) throw resolveThrowReport(subject, origin, thrown);
       },
     },
     taken: () => ({
       ids: Object.fromEntries(resolved),
       unresolved: [...unresolved],
+      thrown: [...thrown],
     }),
   };
-}
-
-interface ResolveThrow {
-  specifier: string;
-  error: unknown;
-}
-
-const RESOLVE_THROW_FIX =
-  "fix the plugin that threw, or the component's path or specifier in build.components";
-
-function resolveThrowReport(
-  subject: string,
-  origin: string,
-  thrown: readonly ResolveThrow[],
-): ConfigError {
-  const one = thrown.length === 1;
-  const lines = [...thrown]
-    .sort((a, b) => (a.specifier < b.specifier ? -1 : 1))
-    .map(({ specifier, error }) => {
-      const plugin = (error as { plugin?: unknown } | null)?.plugin;
-      const line = `  "${specifier}" — ${
-        typeof plugin === "string" ? `plugin "${plugin}" threw, ` : ""
-      }resolved against "${origin}"`;
-      return one
-        ? line
-        : `${line}: ${describeError(error).split("\n").join("\n    ")}`;
-    });
-  const message = `${subject}: ${String(thrown.length)} ${
-    one
-      ? "specifier failed to resolve because a resolveId hook threw"
-      : "specifiers failed to resolve because resolveId hooks threw"
-  } — ${RESOLVE_THROW_FIX}:\n${lines.join("\n")}`;
-  return one
-    ? new ConfigError(message, { cause: (thrown[0] as ResolveThrow).error })
-    : new ConfigError(message);
 }
 
 // Below the tiers, so a tier captures what it captured when the split was
@@ -469,7 +440,6 @@ export async function buildClient(
       ]),
     ],
     input.origin,
-    "Client build",
   );
 
   // A thunk: each group reads the record on its first `test`, after
@@ -581,6 +551,8 @@ export async function buildClient(
       // A failure over a component specifier is the site's wiring and is
       // rewrapped (#235); anything else is rethrown as it arrived.
       .catch((failure: unknown): never => {
+        const threw = refuseThrownResolutions(input.plan, resolver, input.origin);
+        if (threw !== undefined) throw threw;
         // A hook fault first, or the rewrap would reclassify it.
         if (hookFault !== undefined) throw hookFault;
         const wrapped = refuseUnresolvedComponents(
@@ -593,6 +565,8 @@ export async function buildClient(
       }),
   );
 
+  const threw = refuseThrownResolutions(input.plan, resolver, input.origin);
+  if (threw !== undefined) throw threw;
   const { ids, unresolved } = resolver.taken();
   // Before the graph check: an unresolved group captures nothing, so every
   // later fault would mislead.
@@ -929,6 +903,53 @@ function paragraph(
   lines: readonly string[],
 ): string {
   return `Client build: ${String(count)} ${subject} — ${fix}:\n${lines.join("\n")}`;
+}
+
+function refuseThrownResolutions(
+  plan: EntryPlan,
+  resolver: ModuleIdResolver,
+  origin: string,
+): Error | undefined {
+  const { unresolved, thrown } = resolver.taken();
+  if (thrown.length === 0) return undefined;
+  const components = new Set(
+    plan.entries.flatMap((entry) => entry.components.map((c) => c.module)),
+  );
+  const providers = new Set(plan.entries.map((entry) => entry.providers));
+  const fieldOf = (specifier: string): string | undefined =>
+    components.has(specifier)
+      ? COMPONENT_FIELD
+      : providers.has(specifier)
+        ? "the module in build.rootProviders"
+        : undefined;
+  const faults = [
+    ...thrown.map(({ specifier, error }) => ({
+      specifier,
+      fault: threwFault(`"${specifier}"`, error, fieldOf(specifier)),
+    })),
+    ...unresolved.map((specifier) => {
+      const field = fieldOf(specifier);
+      return {
+        specifier,
+        fault: {
+          lead: `"${specifier}"`,
+          what: "resolves to nothing",
+          fix:
+            field === undefined
+              ? "install the package"
+              : `install the package, or fix ${field}`,
+        },
+      };
+    }),
+  ]
+    .sort((a, b) => (a.specifier < b.specifier ? -1 : 1))
+    .map(({ fault }) => fault);
+  return resolutionFailure({
+    where: "Client build",
+    noun: { one: "specifier", many: "specifiers" },
+    against: origin,
+    faults,
+  });
 }
 
 function refuseUnresolvedComponents(

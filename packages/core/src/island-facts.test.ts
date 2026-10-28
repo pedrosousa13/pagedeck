@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { deriveComponents } from "./components.js";
 import { ConfigError } from "./exit.js";
 import { resolveComponentModules, scanIslandFacts } from "./island-facts.js";
 
@@ -423,89 +424,115 @@ test("a site plugin hook that throws in the scan fails the scan with the bundler
   expect((error as { errors: Error[] }).errors[0]).toBe(refusal);
 }, 120_000);
 
-const RESOLVE_THROW_FIX =
-  "fix the plugin that threw, or the component's path or specifier in build.components";
+const COMPONENT_FIELD =
+  "the component's path or specifier in build.components";
 
-test("a site plugin's resolveId throw fails the scan naming the specifier and the plugin, with the plugin's error as cause", async () => {
+function throwingResolver(
+  throws: Readonly<Record<string, () => never>>,
+): Plugin {
+  return {
+    name: "site:throwing-resolver",
+    resolveId(source) {
+      const thrower = throws[source];
+      if (thrower === undefined) return undefined;
+      // Through the hook's `this`, so `this.error` reaches Rolldown's own.
+      return thrower.call(this);
+    },
+  };
+}
+
+test("a site plugin's resolveId throw fails the scan naming the component, specifier and plugin, with the plugin's error as cause", async () => {
   const thrown = new TypeError("what the site resolver met");
   const error = await scanIslandFacts({
     root: FIXTURE_DIR,
     origin: ORIGIN,
     modules: { Hero: "@/Hero.js", Copy: "./src/Copy.js" },
-    plugins: [
-      {
-        name: "site:throwing-resolver",
-        resolveId(source) {
-          if (source === "@/Hero.js") throw thrown;
-        },
-      },
-    ],
+    plugins: [throwingResolver({ "@/Hero.js": () => { throw thrown; } })],
   }).catch((caught: unknown) => caught);
 
-  expect(error).toBeInstanceOf(ConfigError);
+  expect(error).toBeInstanceOf(Error);
+  expect(error).not.toBeInstanceOf(ConfigError);
   expect((error as Error).message).toBe(
     [
-      `Island scan: 1 specifier failed to resolve because a resolveId hook threw — ${RESOLVE_THROW_FIX}:`,
-      `  "@/Hero.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}"`,
+      `Island scan: 1 component module did not resolve against "${ORIGIN}", because a resolveId hook threw — fix it as its line says:`,
+      `  "Hero" — "@/Hero.js" — plugin "site:throwing-resolver" threw — fix that plugin, or ${COMPONENT_FIELD}`,
     ].join("\n"),
   );
   expect((error as Error).cause).toBe(thrown);
 }, 120_000);
 
-test("several resolveId throws are one scan report naming each specifier and plugin, with no cause", async () => {
+test("the cause is the plugin's error, not the error that error carries as its own cause", async () => {
+  const thrown = new Error("the site resolver gave up", {
+    cause: new Error("what it met underneath"),
+  });
+  const error = await scanIslandFacts({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    modules: { Hero: "@/Hero.js" },
+    plugins: [throwingResolver({ "@/Hero.js": () => { throw thrown; } })],
+  }).catch((caught: unknown) => caught);
+
+  expect((error as Error).cause).toBe(thrown);
+}, 120_000);
+
+test("several resolveId throws are one scan report quoting each error, with no cause", async () => {
   const error = await scanIslandFacts({
     root: FIXTURE_DIR,
     origin: ORIGIN,
     modules: { Hero: "@/Hero.js", Copy: "@/Copy.js" },
     plugins: [
-      {
-        name: "site:throwing-resolver",
-        resolveId(source) {
-          if (source === "@/Hero.js") this.error("no hero here");
-          if (source === "@/Copy.js") throw new Error("no copy\neither");
+      throwingResolver({
+        "@/Hero.js": function (this: { error(message: string): never }) {
+          return this.error("no hero here");
         },
-      },
+        "@/Copy.js": () => {
+          throw new Error("no copy\neither");
+        },
+      }),
     ],
   }).catch((caught: unknown) => caught);
 
-  expect(error).toBeInstanceOf(ConfigError);
+  expect(error).not.toBeInstanceOf(ConfigError);
   expect((error as Error).message).toBe(
     [
-      `Island scan: 2 specifiers failed to resolve because resolveId hooks threw — ${RESOLVE_THROW_FIX}:`,
-      `  "@/Copy.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}": no copy`,
+      `Island scan: 2 component modules did not resolve against "${ORIGIN}", because resolveId hooks threw — fix each as its line says:`,
+      `  "Copy" — "@/Copy.js" — plugin "site:throwing-resolver" threw — fix that plugin, or ${COMPONENT_FIELD}:`,
+      `    no copy`,
       `    either`,
-      `  "@/Hero.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}": no hero here`,
+      `  "Hero" — "@/Hero.js" — plugin "site:throwing-resolver" threw — fix that plugin, or ${COMPONENT_FIELD}:`,
+      `    no hero here`,
     ].join("\n"),
   );
   expect((error as Error).cause).toBeUndefined();
 }, 120_000);
 
-test("a site plugin's resolveId throw fails component resolution naming the specifier and the plugin, with the plugin's error as cause", async () => {
-  const thrown = new TypeError("what the site resolver met");
-  const error = await resolveComponentModules(["@/Hero.js"], {
+test("a resolveId throw beside a module that resolves to nothing is one scan report naming both, with no cause", async () => {
+  const error = await scanIslandFacts({
     root: FIXTURE_DIR,
     origin: ORIGIN,
+    modules: { Hero: "@/Hero.js", Ghost: "./src/Ghost.js" },
     plugins: [
-      {
-        name: "site:throwing-resolver",
-        resolveId(source) {
-          if (source === "@/Hero.js") throw thrown;
+      throwingResolver({
+        "@/Hero.js": () => {
+          throw new TypeError("what the site resolver met");
         },
-      },
+      }),
     ],
   }).catch((caught: unknown) => caught);
 
-  expect(error).toBeInstanceOf(ConfigError);
+  expect(error).not.toBeInstanceOf(ConfigError);
   expect((error as Error).message).toBe(
     [
-      `Config "${ORIGIN}": 1 specifier failed to resolve because a resolveId hook threw — ${RESOLVE_THROW_FIX}:`,
-      `  "@/Hero.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}"`,
+      `Island scan: 2 component modules did not resolve against "${ORIGIN}", 1 of them because a resolveId hook threw — fix each as its line says:`,
+      `  "Ghost" — "./src/Ghost.js" — resolves to nothing — install the package, or fix ${COMPONENT_FIELD}`,
+      `  "Hero" — "@/Hero.js" — plugin "site:throwing-resolver" threw — fix that plugin, or ${COMPONENT_FIELD}:`,
+      `    what the site resolver met`,
     ].join("\n"),
   );
-  expect((error as Error).cause).toBe(thrown);
+  expect((error as Error).cause).toBeUndefined();
 }, 120_000);
 
-test("a subpath a package does not export fails the scan as a resolver throw, quoting the resolver", async () => {
+test("a subpath a package does not export fails the scan as a resolver throw naming no plugin, quoting the resolver", async () => {
   const pkg = `${FIXTURE_DIR}node_modules/@ds/exports-only/`;
   mkdirSync(pkg, { recursive: true });
   writeFileSync(
@@ -520,14 +547,55 @@ test("a subpath a package does not export fails the scan as a resolver throw, qu
     modules: { Widget: "@ds/exports-only/widget" },
   }).catch((caught: unknown) => caught);
 
-  expect(error).toBeInstanceOf(ConfigError);
+  expect(error).not.toBeInstanceOf(ConfigError);
   expect((error as Error).message).toBe(
     [
-      `Island scan: 1 specifier failed to resolve because a resolveId hook threw — ${RESOLVE_THROW_FIX}:`,
-      `  "@ds/exports-only/widget" — resolved against "${ORIGIN}"`,
+      `Island scan: 1 component module did not resolve against "${ORIGIN}", because a resolveId hook threw — fix it as its line says:`,
+      `  "Widget" — "@ds/exports-only/widget" — a resolveId hook threw — fix ${COMPONENT_FIELD}, or the package's exports`,
     ].join("\n"),
   );
   expect(((error as Error).cause as Error).message).toContain(
     '"./widget" is not exported',
   );
+}, 120_000);
+
+test("a site plugin's resolveId throw fails component resolution naming the component and plugin, with the plugin's error as cause", async () => {
+  const thrown = new TypeError("what the site resolver met");
+  const error = await deriveComponents({ hero: "@/Hero.js" }, ORIGIN, [
+    throwingResolver({ "@/Hero.js": () => { throw thrown; } }),
+  ]).catch((caught: unknown) => caught);
+
+  expect(error).not.toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Config "${ORIGIN}": 1 component did not resolve, because a resolveId hook threw — fix it as its line says:`,
+      `  "hero" — "@/Hero.js" — plugin "site:throwing-resolver" threw — fix that plugin, or ${COMPONENT_FIELD}`,
+    ].join("\n"),
+  );
+  expect((error as Error).cause).toBe(thrown);
+}, 120_000);
+
+test("a resolveId throw beside a path that names no file is one component report naming both", async () => {
+  const error = await deriveComponents(
+    { ghost: "./src/Ghost.js", hero: "@/Hero.js" },
+    ORIGIN,
+    [
+      throwingResolver({
+        "@/Hero.js": () => {
+          throw new TypeError("what the site resolver met");
+        },
+      }),
+    ],
+  ).catch((caught: unknown) => caught);
+
+  expect(error).not.toBeInstanceOf(ConfigError);
+  expect((error as Error).message).toBe(
+    [
+      `Config "${ORIGIN}": 2 components did not resolve, 1 of them because a resolveId hook threw — fix each as its line says:`,
+      `  "ghost" — "./src/Ghost.js" — resolves to "${SRC}Ghost.js", and no file is there — point its path at a file, relative to this config file`,
+      `  "hero" — "@/Hero.js" — plugin "site:throwing-resolver" threw — fix that plugin, or ${COMPONENT_FIELD}:`,
+      `    what the site resolver met`,
+    ].join("\n"),
+  );
+  expect((error as Error).cause).toBeUndefined();
 }, 120_000);

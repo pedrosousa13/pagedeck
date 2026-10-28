@@ -217,6 +217,7 @@ test("a site plugin's resolveId throw fails the client build naming the specifie
     plugins: [
       {
         name: "site:throwing-resolver",
+        // Vite's own resolver answers a relative path before a normal-order plugin.
         enforce: "pre",
         resolveId(source: string) {
           if (source === "./src/Chart.js") throw thrown;
@@ -229,14 +230,67 @@ test("a site plugin's resolveId throw fails the client build naming the specifie
     (error: unknown) => error,
   );
 
-  expect(failure).toBeInstanceOf(ConfigError);
+  expect(failure).toBeInstanceOf(Error);
+  expect(failure).not.toBeInstanceOf(ConfigError);
   expect((failure as Error).message).toBe(
     [
-      `Client build: 1 specifier failed to resolve because a resolveId hook threw — fix the plugin that threw, or the component's path or specifier in build.components:`,
-      `  "./src/Chart.js" — plugin "site:throwing-resolver" threw, resolved against "${ORIGIN}"`,
+      `Client build: 1 specifier did not resolve against "${ORIGIN}", because a resolveId hook threw — fix it as its line says:`,
+      `  "./src/Chart.js" — plugin "site:throwing-resolver" threw — fix that plugin, or the component's path or specifier in build.components`,
     ].join("\n"),
   );
   expect((failure as Error).cause).toBe(thrown);
+}, 60_000);
+
+test("a normal-order site plugin's throw on an aliased specifier and a grouped specifier that resolves to nothing are one client build report", async () => {
+  const entries = planEntries(
+    [
+      {
+        page: PAGES[0] as Page,
+        islands: [{ component: "Chart", mode: "load" }],
+      },
+    ],
+    { modules: { Chart: "@/Chart.js" } },
+  );
+  const planned = tiers(entries);
+  const orphaned: TierPlan = {
+    ...planned,
+    groups: planned.groups.map((group) => ({
+      ...group,
+      modules: [...group.modules, "@ds/absent"],
+    })),
+  };
+
+  const failure = await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: entries,
+    tiers: orphaned,
+    plugins: [
+      {
+        name: "site:throwing-resolver",
+        resolveId(source: string) {
+          if (source === "@/Chart.js") {
+            throw new TypeError("what the site resolver met");
+          }
+          return undefined;
+        },
+      },
+    ],
+  }).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+
+  expect(failure).not.toBeInstanceOf(ConfigError);
+  expect((failure as Error).message).toBe(
+    [
+      `Client build: 2 specifiers did not resolve against "${ORIGIN}", 1 of them because a resolveId hook threw — fix each as its line says:`,
+      `  "@/Chart.js" — plugin "site:throwing-resolver" threw — fix that plugin, or the component's path or specifier in build.components:`,
+      `    what the site resolver met`,
+      `  "@ds/absent" — resolves to nothing — install the package`,
+    ].join("\n"),
+  );
+  expect((failure as Error).cause).toBeUndefined();
 }, 60_000);
 
 test("a fault a build hook raised outranks the unresolved-specifier report", async () => {
