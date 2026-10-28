@@ -1,4 +1,3 @@
-import { realpathSync } from "node:fs";
 import { runBundle } from "./bundler.js";
 import {
   UNRESOLVED_FIX,
@@ -21,6 +20,7 @@ import type { ModuleGraph } from "./directives.js";
 import { serveGeneratedEntries } from "./entry-modules.js";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
+import { realPath } from "./real-path.js";
 import type { HydrationMode, ModuleFacts } from "@pagedeck/islands";
 import type { PluginOption } from "vite";
 
@@ -257,14 +257,6 @@ function unlinkedStylesheets(
     .filter(([path]) => !linked.has(path))
     .sort(([left], [right]) => (left < right ? -1 : 1))
     .map(([id, importers]) => ({ id, importers: [...importers].sort() }));
-}
-
-export function realPath(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    return path;
-  }
 }
 
 const UNLINKED_FIX = {

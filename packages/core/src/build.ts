@@ -62,7 +62,7 @@ import {
   quotedValue,
 } from "./head.js";
 import type { PageHead, SocialImageDimensions } from "./head.js";
-import { realPath, scanIslandFacts } from "./island-facts.js";
+import { scanIslandFacts } from "./island-facts.js";
 import { contentOf, layoutContents } from "./layout.js";
 import {
   checkSiteLinks,
@@ -114,6 +114,7 @@ import type { PageIdentity } from "./page-patterns.js";
 import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
 import { quote, quoteIdentifier } from "./quote.js";
+import { realPath } from "./real-path.js";
 import { RenderError, renderPage } from "./render.js";
 import { DEFAULT_RETENTION_POLICY, retainManifest } from "./retention.js";
 import type { AbsorbedMetadata, ChromeMarkup, SocialCard } from "./render.js";
