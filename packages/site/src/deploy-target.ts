@@ -257,7 +257,7 @@ async function bytesOf(
   }
 }
 
-function escapedStagedPaths(staging: string, plan: DeployPlan): ConfigError | undefined {
+export function escapedStagedPaths(staging: string, plan: DeployPlan): ConfigError | undefined {
   const escaped = (plan.edge?.outOfBand ?? [])
     .map((one) => one.staged)
     .filter((path) => {

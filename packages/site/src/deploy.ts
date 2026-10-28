@@ -203,7 +203,11 @@ function edgeBytes(staging: EdgeStaging | undefined): number {
   );
 }
 
-export function describePlan(plan: DeployPlan): readonly string[] {
+/** `applied` maps a tree to the distribution `--distribution` updates with its fragments. */
+export function describePlan(
+  plan: DeployPlan,
+  applied: ReadonlyMap<string | undefined, string> = new Map(),
+): readonly string[] {
   const lines: string[] = [];
   const uploads = plan.trees.reduce((n, tree) => n + tree.upload.length, 0);
   const prunes = plan.trees.reduce((n, tree) => n + tree.prune.length, 0);
@@ -230,7 +234,12 @@ export function describePlan(plan: DeployPlan): readonly string[] {
     for (const one of edge.treeFiles) lines.push(`    upload ${one.path} (${one.role})`);
     for (const one of edge.outOfBand) {
       const tree = one.domain === undefined ? "" : `, tree ${one.domain}`;
-      lines.push(`    stage  ${one.staged} (${one.role}${tree}) — applied out of band by CI`);
+      const id = one.role === "distribution-config" ? applied.get(one.domain) : undefined;
+      lines.push(
+        id === undefined
+          ? `    stage  ${one.staged} (${one.role}${tree}) — applied out of band by CI`
+          : `    stage  ${one.staged} (${one.role}${tree}) — merged into distribution ${id} before the upload`,
+      );
     }
   }
   return lines;

@@ -94,6 +94,7 @@ async function deploy(options: {
   edge: ReturnType<typeof edgeOf>;
   ids: Distributions["ids"];
   origin?: string;
+  staging?: string;
 }): Promise<{ lines: string[]; origin: string }> {
   const origin = options.origin ?? scratch();
   const lines: string[] = [];
@@ -106,6 +107,7 @@ async function deploy(options: {
       origin,
       apply: options.apply,
       target: recording(origin),
+      ...(options.staging === undefined ? {} : { staging: options.staging }),
       distributions,
     },
     (line) => lines.push(line),
@@ -145,6 +147,19 @@ test("a dry run reads the recorded config, prints the merged config, and updates
   expect(printed).toContain("<PathPattern>/api/*</PathPattern>");
   expect(printed).toContain("Dry run: distribution E2EXAMPLE is not updated. Pass --apply to send this config.");
   expect(lines.at(-1)).toContain("DRY RUN: nothing was uploaded");
+  expect(lines).toContain("    stage  upstreams.json (distribution-config) — merged into distribution E2EXAMPLE before the upload");
+});
+
+test("a staged path outside the staging directory is refused before the distribution is read", async () => {
+  const compiled = edgeOf([UPSTREAM_TREE]);
+  const edge = {
+    ...compiled,
+    artifacts: [...compiled.artifacts, { domain: "../../x", role: "edge-module" as const, path: "worker.js", contents: "escaped" }],
+  };
+  const run = deploy({ apply: true, edge, ids: new Map([[undefined, "E2EXAMPLE"]]), staging: join(scratch(), "a", "b") });
+  await expect(run).rejects.toThrow("would be staged outside the staging directory");
+  expect(fake.seen).toEqual([]);
+  expect(uploads).toEqual([]);
 });
 
 test("an apply updates the distribution before any upload, and a second apply sends no update", async () => {

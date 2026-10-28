@@ -73,6 +73,7 @@ export function readDistributions(
 }
 
 export interface DistributionTarget {
+  tree: string | undefined;
   id: string;
   fragments: readonly DistributionFragment[];
 }
@@ -107,7 +108,7 @@ export function distributionTargets(
       );
       continue;
     }
-    targets.push({ id, fragments });
+    targets.push({ tree, id, fragments });
   }
   if (faults.length > 0) throw new ConfigError(faults.join("\n"));
   return targets;

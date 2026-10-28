@@ -8,7 +8,13 @@ import type {
   RetainedPrune,
   RollbackPlanInput,
 } from "./deploy.js";
-import { applyPlan, filesystemTarget, prunePlan, pruneSuperseded } from "./deploy-target.js";
+import {
+  applyPlan,
+  escapedStagedPaths,
+  filesystemTarget,
+  prunePlan,
+  pruneSuperseded,
+} from "./deploy-target.js";
 import type { DeployTarget } from "./deploy-target.js";
 import { UNKNOWN_TYPE } from "./deploy-metadata.js";
 import {
@@ -124,7 +130,8 @@ export async function executePlan(
 ): Promise<number> {
   const distributions =
     run.distributions === undefined ? [] : distributionTargets(run.distributions, plan.edge);
-  for (const line of describePlan(plan)) out(line);
+  const applied = new Map(distributions.map((one) => [one.tree, one.id]));
+  for (const line of describePlan(plan, applied)) out(line);
 
   // Before the write, and with the plan's own grace period, so the window printed is
   // the window that runs.
@@ -203,6 +210,9 @@ export async function executePlan(
     target = signedUrlTarget(run.presigned.urls);
   }
   if (run.distributions !== undefined) {
+    // applyPlan checks this too, but after the update would already have been sent.
+    const escaped = run.staging === undefined ? undefined : escapedStagedPaths(run.staging, plan);
+    if (escaped !== undefined) throw escaped;
     await updateDistributions(distributions, run.distributions, true, out);
   }
   const report = await applyPlan(plan, {
