@@ -21,21 +21,24 @@ const CORE = import.meta.dirname;
 const FIXTURES = join(CORE, "..", "..", "fixtures", "src", "index.ts");
 
 const SITE = join(SITES, ".pagedeck-package-chunk-names-test");
+// Outside every `node_modules`, as a pnpm workspace package's real path is (#138).
+const WORKSPACE = join(CORE, "..", ".pagedeck-build-test-package-chunk-names");
 
 const PACKAGES = ["player", "provider-one", "provider-two"] as const;
 
-function write(file: string, contents: string): void {
-  mkdirSync(dirname(join(SITE, file)), { recursive: true });
-  writeFileSync(join(SITE, file), contents);
+function write(root: string, file: string, contents: string): void {
+  mkdirSync(dirname(join(root, file)), { recursive: true });
+  writeFileSync(join(root, file), contents);
 }
 
-// The layout pnpm gives workspace packages: each entry at `dist/index.js`,
-// linked into `node_modules` (#138).
 function site(): void {
   rmSync(SITE, { recursive: true, force: true });
+  rmSync(WORKSPACE, { recursive: true, force: true });
+  mkdirSync(join(SITE, "node_modules", "@kit"), { recursive: true });
   for (const name of PACKAGES) {
     write(
-      `packages/${name}/package.json`,
+      WORKSPACE,
+      `${name}/package.json`,
       `${JSON.stringify({
         name: `@kit/${name}`,
         type: "module",
@@ -43,36 +46,33 @@ function site(): void {
       })}\n`,
     );
     write(
-      `packages/${name}/dist/index.js`,
+      WORKSPACE,
+      `${name}/dist/index.js`,
       `export function label() { return "marker-${name}-8d3e"; }\n`,
     );
-    mkdirSync(join(SITE, "node_modules", "@kit"), { recursive: true });
-    symlinkSync(
-      `../../packages/${name}`,
-      join(SITE, "node_modules", "@kit", name),
-      "dir",
-    );
+    symlinkSync(join(WORKSPACE, name), join(SITE, "node_modules", "@kit", name), "dir");
   }
   write(
+    SITE,
     "components/Player.js",
     `"use client";
 import { createElement, useEffect, useState } from "react";
 import { label } from "@kit/player";
 
-export const providers = () =>
-  Promise.all([import("@kit/provider-one"), import("@kit/provider-two")]);
-
 export default function Player() {
   const [text, setText] = useState(label());
   useEffect(() => {
-    void providers().then(([one, two]) => setText(one.label() + two.label()));
+    void Promise.all([import("@kit/provider-one"), import("@kit/provider-two")]).then(
+      ([one, two]) => setText(one.label() + " " + two.label()),
+    );
   }, []);
   return createElement("output", null, text);
 }
 `,
   );
-  write("content/en/home.json", `${JSON.stringify({ rev: 1, data: { title: "home" } })}\n`);
+  write(SITE, "content/en/home.json", `${JSON.stringify({ rev: 1, data: { title: "home" } })}\n`);
   write(
+    SITE,
     "pagedeck.config.ts",
     `
 import { defineConfig } from ${JSON.stringify(join(CORE, "config.ts"))};
@@ -117,8 +117,31 @@ function relativeImports(source: string): string[] {
   ].map((match) => match[1] as string);
 }
 
+// The page under jsdom, its entry imported as the browser would: the island
+// hydrates, and its effect loads both provider chunks.
+const HYDRATE = `
+import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
+const [html, entry] = process.argv.slice(1);
+const { window } = new JSDOM(readFileSync(html, "utf8"));
+for (const key of ["window", "document", "navigator", "HTMLElement", "Node", "Element", "Event", "MutationObserver", "requestIdleCallback", "IntersectionObserver"]) {
+  if (key in window) Object.defineProperty(globalThis, key, { value: key === "window" ? window : window[key], configurable: true });
+}
+await import(entry);
+const deadline = Date.now() + 10_000;
+let text = "";
+while (Date.now() < deadline) {
+  text = window.document.querySelector("output")?.textContent ?? "";
+  if (text.includes("provider-two")) break;
+  await new Promise((resolve) => setTimeout(resolve, 20));
+}
+console.log(text);
+process.exit(0);
+`;
+
 afterAll(() => {
   rmSync(SITE, { recursive: true, force: true });
+  rmSync(WORKSPACE, { recursive: true, force: true });
 });
 
 test("an island importing packages whose entries are all dist/index.js builds a distinctly named chunk per package, and every chunk loads", async () => {
@@ -129,46 +152,51 @@ test("an island importing packages whose entries are all dist/index.js builds a 
   const out = join(SITE, "dist");
   const file = join(out, "manifest.json");
   const manifest = readManifest(readFileSync(file, "utf8"), file);
-  const js = manifest.files.filter((one) => one.kind === "js");
-  for (const one of js) {
-    for (const specifier of relativeImports(readFileSync(join(out, one.path), "utf8"))) {
-      expect(
-        existsSync(join(out, posix.join(posix.dirname(one.path), specifier))),
-        `${one.path} imports ${specifier}`,
-      ).toBe(true);
+  const js = manifest.files.filter((entry) => entry.kind === "js").map((entry) => entry.path);
+  const imports = new Map(
+    js.map((path) => [
+      path,
+      relativeImports(readFileSync(join(out, path), "utf8")).map((specifier) =>
+        posix.join(posix.dirname(path), specifier),
+      ),
+    ]),
+  );
+  for (const [path, targets] of imports) {
+    for (const target of targets) {
+      expect(existsSync(join(out, target)), `${path} imports ${target}`).toBe(true);
     }
   }
 
   const holding = (name: string) =>
-    js
-      .filter((one) => readFileSync(join(out, one.path), "utf8").includes(`marker-${name}-8d3e`))
-      .map((one) => one.path);
-  const [player, one, two] = PACKAGES.map(holding);
+    js.filter((path) => readFileSync(join(out, path), "utf8").includes(`marker-${name}-8d3e`));
+  const [player, providerOne, providerTwo] = PACKAGES.map(holding);
   expect(player).toHaveLength(1);
-  expect(one).toHaveLength(1);
-  expect(two).toHaveLength(1);
-  const providers = [...(one ?? []), ...(two ?? [])];
+  expect(providerOne).toHaveLength(1);
+  expect(providerTwo).toHaveLength(1);
+  const providers = [...(providerOne as string[]), ...(providerTwo as string[])];
   expect(new Set(providers.map((path) => posix.basename(path))).size).toBe(2);
-  const island = relativeImports(readFileSync(join(out, player?.[0] ?? ""), "utf8"));
-  for (const path of providers) expect(island).toContain(`./${posix.basename(path)}`);
 
-  // A page entry starts the islands runtime against `document`, which Node lacks.
-  const entries = new Set(manifest.pages.map((page) => page.entryChunk));
-  const loadable = js.map((chunk) => chunk.path).filter((path) => !entries.has(path));
+  const reached = new Set<string>();
+  const queue = [...(player as string[])];
+  for (let path = queue.pop(); path !== undefined; path = queue.pop()) {
+    if (reached.has(path)) continue;
+    reached.add(path);
+    queue.push(...(imports.get(path) ?? []));
+  }
+  for (const path of providers) expect(reached, path).toContain(path);
+
+  const [page] = manifest.pages;
+  if (page?.entryChunk === undefined) throw new Error("the page has no entry chunk");
   const { stdout } = await execFileAsync(
     process.execPath,
     [
       "--input-type=module",
       "-e",
-      `for (const path of ${JSON.stringify(loadable)}) {
-  const chunk = await import(new URL("." + path, ${JSON.stringify(pathToFileURL(out + "/").href)}));
-  if (typeof chunk.label === "function") console.log(chunk.label());
-}`,
+      HYDRATE,
+      join(out, page.html),
+      pathToFileURL(join(out, page.entryChunk)).href,
     ],
-    { cwd: SITE },
+    { cwd: CORE, timeout: 30_000 },
   );
-  expect(stdout.trim().split("\n").sort()).toEqual([
-    "marker-provider-one-8d3e",
-    "marker-provider-two-8d3e",
-  ]);
+  expect(stdout.trim()).toBe("marker-provider-one-8d3e marker-provider-two-8d3e");
 }, 120_000);
