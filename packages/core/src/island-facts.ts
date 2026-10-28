@@ -259,7 +259,7 @@ function unlinkedStylesheets(
     .map(([id, importers]) => ({ id, importers: [...importers].sort() }));
 }
 
-function realPath(path: string): string {
+export function realPath(path: string): string {
   try {
     return realpathSync(path);
   } catch {

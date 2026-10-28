@@ -62,7 +62,7 @@ import {
   quotedValue,
 } from "./head.js";
 import type { PageHead, SocialImageDimensions } from "./head.js";
-import { scanIslandFacts } from "./island-facts.js";
+import { realPath, scanIslandFacts } from "./island-facts.js";
 import { contentOf, layoutContents } from "./layout.js";
 import {
   checkSiteLinks,
@@ -831,8 +831,9 @@ async function stageSite(input: {
   const foldStrategy = resolveFoldStrategy(section.foldStrategy);
 
   // Before the renders: the client build is downstream of them (#167).
+  // Rolldown names a module by its real path (#135).
   const globalCss = (section.css ?? []).map((path) =>
-    resolve(dirname(config.configPath), path),
+    realPath(resolve(dirname(config.configPath), path)),
   );
   const { facts, clientComponents, warnings } = await scanIslandFacts({
     root: dirname(config.configPath),
