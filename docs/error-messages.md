@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 306 messages fenced
-below, 231 are checked that way and 75 are not**, and that test lists the 75
-one by one with the reason each is out: 73 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 307 messages fenced
+below, 231 are checked that way and 76 are not**, and that test lists the 76
+one by one with the reason each is out: 74 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 231 checked messages pin 35059 of the 97700 fenced characters, and
+below**: the 231 checked messages pin 35059 of the 98029 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -848,7 +848,7 @@ Edge target "cloudflare-worker": 1 prefix names both a url and a service binding
 ```
 
 On Workers Static Assets the site's own `wrangler.jsonc` sends each prefix to
-the app, so `checkWrangler`
+the app, so `wranglerCheck`
 (`packages/adapter-cloudflare-pages/src/wrangler.ts`) holds its
 `assets.run_worker_first` to the prefixes the document declares (#145). A
 prefix it leaves out, a pattern no prefix declares and a negative pattern
@@ -882,13 +882,17 @@ Edge target "cloudflare-pages": 1 wrangler.toml cannot be checked against build.
 `cloudflarePages({ runWorkerFirst: true })` says the wrangler file sets
 `run_worker_first` to `true`: every request then reaches the app, so no prefix
 can be left out and no pattern can stray, and the check only holds the file to
-the adapter's word. A file that sets anything else, no wrangler file, and a
-Cloudflare Pages project's file each break it. The fix names both directions,
-because the build cannot tell which of the two the author meant:
+the adapter's word. A Workers file that sets anything else breaks it, and the
+fix names both directions, because the build cannot tell which of the two the
+author meant; it names the file the build read, here `wrangler.jsonc`. With no
+wrangler file, or a Cloudflare Pages project's file, there is no
+`run_worker_first` to set, so the only fix is to remove the option:
 
 ```
-Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not met by the site's wrangler file — set assets.run_worker_first to true in wrangler.jsonc beside pagedeck.config.ts, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says:
+Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not met by the site's wrangler file — set assets.run_worker_first to true in wrangler.jsonc, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says:
   "/site/wrangler.jsonc" sets it to ["/api","/api/*"]
+Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true has no Workers Static Assets wrangler file to hold — remove runWorkerFirst from cloudflarePages(); only a wrangler.json or wrangler.jsonc of a Worker with static assets, beside pagedeck.config.ts, has assets.run_worker_first:
+  no wrangler.json, wrangler.jsonc or wrangler.toml in "/site"
 ```
 
 A file that will not read or parse carries the error as the refusal's

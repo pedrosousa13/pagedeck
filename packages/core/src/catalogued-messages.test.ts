@@ -300,7 +300,11 @@ const UNCHECKED: readonly Unchecked[] = [
     because: "assembled",
   },
   {
-    names: 'Edge target "cloudflare-pages": 1 opt-in to',
+    names: 'Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true has',
     because: "assembled",
   },
   {

@@ -107,7 +107,10 @@ describe("run_worker_first: true", () => {
   });
 });
 
-const UNMET = `Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not met by the site's wrangler file — set assets.run_worker_first to true in wrangler.jsonc beside pagedeck.config.ts, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says:`;
+const UNMET = (name: string): string =>
+  `Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not met by the site's wrangler file — set assets.run_worker_first to true in ${name}, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says:`;
+
+const UNHELD = `Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true has no Workers Static Assets wrangler file to hold — remove runWorkerFirst from cloudflarePages(); only a wrangler.json or wrangler.jsonc of a Worker with static assets, beside pagedeck.config.ts, has assets.run_worker_first:`;
 
 describe("cloudflarePages({ runWorkerFirst: true }) without run_worker_first: true", () => {
   it("is refused when the wrangler file lists patterns, and checks none of them", () => {
@@ -116,38 +119,41 @@ describe("cloudflarePages({ runWorkerFirst: true }) without run_worker_first: tr
       workerFirst({ run_worker_first: ["/api", "/admin/*"] }),
     );
     expect(refusal(declaring("/api/"), root, cloudflarePages({ runWorkerFirst: true }))).toBe(
-      `${UNMET}\n  "${file}" sets it to ["/api","/admin/*"]`,
+      `${UNMET("wrangler.jsonc")}\n  "${file}" sets it to ["/api","/admin/*"]`,
     );
   });
 
-  it("is refused when the wrangler file sets none", () => {
+  it("is refused when the wrangler file sets none, naming wrangler.json in the fix", () => {
     const { root, file } = siteWith("wrangler.json", JSON.stringify({ name: "site" }));
     expect(refusal(ALWAYS_FIXTURE, root, cloudflarePages({ runWorkerFirst: true }))).toBe(
-      `${UNMET}\n  "${file}" sets none`,
+      `${UNMET("wrangler.json")}\n  "${file}" sets none`,
     );
   });
 
-  it("is refused with no wrangler file beside the config", () => {
+  it("is refused with no wrangler file beside the config, naming every file looked for", () => {
     const root = mkdtempSync(join(tmpdir(), "pagedeck-wrangler-"));
     roots.push(root);
     expect(refusal(ALWAYS_FIXTURE, root, cloudflarePages({ runWorkerFirst: true }))).toBe(
-      `${UNMET}\n  no wrangler.json or wrangler.jsonc in "${root}"`,
+      `${UNHELD}\n  no wrangler.json, wrangler.jsonc or wrangler.toml in "${root}"`,
     );
   });
 
   it("is refused for a Cloudflare Pages project's wrangler file", () => {
-    const { root, file } = siteWith(
-      "wrangler.toml",
-      `name = "site"\npages_build_output_dir = "./site"\n`,
+    const toml = siteWith("wrangler.toml", `name = "site"\npages_build_output_dir = "./site"\n`);
+    expect(refusal(ALWAYS_FIXTURE, toml.root, cloudflarePages({ runWorkerFirst: true }))).toBe(
+      `${UNHELD}\n  "${toml.file}" is a Cloudflare Pages project, which has no run_worker_first`,
     );
-    expect(refusal(ALWAYS_FIXTURE, root, cloudflarePages({ runWorkerFirst: true }))).toBe(
-      `${UNMET}\n  "${file}" is a Cloudflare Pages project, which has no run_worker_first`,
+    const json = siteWith("wrangler.jsonc", JSON.stringify({ name: "site", pages_build_output_dir: "./site" }));
+    expect(refusal(declaring("/api/"), json.root, cloudflarePages({ runWorkerFirst: true }))).toBe(
+      `${UNHELD}\n  "${json.file}" is a Cloudflare Pages project, which has no run_worker_first`,
     );
   });
 
-  it("refuses a wrangler.toml it cannot check, with no upstream declared", () => {
+  it("passes a wrangler.toml with no upstream declared, and refuses one with upstreams", () => {
     const { root, file } = siteWith("wrangler.toml", `name = "site"\n[assets]\nrun_worker_first = true\n`);
-    expect(refusal(ALWAYS_FIXTURE, root, cloudflarePages({ runWorkerFirst: true }))).toBe(
+    const adapter = cloudflarePages({ runWorkerFirst: true });
+    expect(() => adapter.compile(ALWAYS_FIXTURE, { root })).not.toThrow();
+    expect(refusal(declaring("/api/"), root, adapter)).toBe(
       `Edge target "cloudflare-pages": 1 wrangler.toml cannot be checked against build.routing.upstreams — write it as wrangler.jsonc, which wrangler also reads; the build reads JSON and JSONC only, so it cannot check assets.run_worker_first in TOML:\n  "${file}"`,
     );
   });

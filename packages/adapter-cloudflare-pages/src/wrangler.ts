@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import type { RoutingManifest } from "@pagedeck/core/routing";
 
@@ -48,12 +48,22 @@ const EVERY_REQUEST = {
   fix: 'list the two patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"], or pass cloudflarePages({ runWorkerFirst: true }) to run the app before every request on purpose; true makes each built page cost a Worker invocation',
 };
 
-const UNMET = {
+function unmet(name: string) {
+  return {
+    subject: {
+      one: "opt-in to run_worker_first: true is not met by the site's wrangler file",
+      many: "opt-ins to run_worker_first: true are not met by the site's wrangler files",
+    },
+    fix: `set assets.run_worker_first to true in ${name}, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says`,
+  };
+}
+
+const UNHELD = {
   subject: {
-    one: "opt-in to run_worker_first: true is not met by the site's wrangler file",
-    many: "opt-ins to run_worker_first: true are not met by the site's wrangler files",
+    one: "opt-in to run_worker_first: true has no Workers Static Assets wrangler file to hold",
+    many: "opt-ins to run_worker_first: true have no Workers Static Assets wrangler files to hold",
   },
-  fix: 'set assets.run_worker_first to true in wrangler.jsonc beside pagedeck.config.ts, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says',
+  fix: "remove runWorkerFirst from cloudflarePages(); only a wrangler.json or wrangler.jsonc of a Worker with static assets, beside pagedeck.config.ts, has assets.run_worker_first",
 };
 
 const UNROUTED = {
@@ -172,9 +182,12 @@ function patternsOf(setting: unknown): readonly string[] | undefined {
   return setting.every((pattern) => typeof pattern === "string") ? (setting as string[]) : undefined;
 }
 
-function readWrangler(root: string, faults: Fault[]): { file: string; text: string } | undefined {
+function readWrangler(
+  root: string,
+  faults: Fault[],
+): { file: string; text: string } | "absent" | undefined {
   const name = NAMES.find((candidate) => existsSync(join(root, candidate)));
-  if (name === undefined) return undefined;
+  if (name === undefined) return "absent";
   const file = join(root, name);
   try {
     return { file, text: readFileSync(file, "utf8") };
@@ -231,56 +244,67 @@ function checkPatterns(
   }
 }
 
-/**
- * On Workers Static Assets the site's own wrangler file sends each upstream prefix to the app
- * (ADR-0010), so it is held to `build.routing.upstreams` here.
- */
-export function checkWrangler(
-  manifest: RoutingManifest,
-  faults: Fault[],
-  site: AdapterSite | undefined,
-  runWorkerFirst: boolean,
-): void {
-  if (site === undefined) return;
-  const unmet = (line: string): void => {
-    if (runWorkerFirst) faults.push({ kind: "adapter", ...UNMET, line });
-  };
-  if (!NAMES.some((name) => existsSync(join(site.root, name)))) {
-    unmet(`no wrangler.json or wrangler.jsonc in ${JSON.stringify(site.root)}`);
-    return;
-  }
-  const read = readWrangler(site.root, faults);
-  if (read === undefined) return;
+type Wrangler =
+  | { kind: "absent"; root: string }
+  | { kind: "pages"; file: string }
+  | { kind: "toml"; file: string }
+  | { kind: "workers"; file: string; setting: unknown };
+
+function loadWrangler(root: string, faults: Fault[]): Wrangler | undefined {
+  const read = readWrangler(root, faults);
+  if (read === "absent") return { kind: "absent", root };
+  if (read === undefined) return undefined;
   const { file, text } = read;
-  const pagesProject = `${JSON.stringify(file)} is a Cloudflare Pages project, which has no run_worker_first`;
-  const upstreams = manifest.trees.flatMap((tree) =>
+  if (file.endsWith(".toml")) {
+    return isTomlPagesProject(text) ? { kind: "pages", file } : { kind: "toml", file };
+  }
+  const config = parseWrangler(file, text, faults);
+  if (config === undefined) return undefined;
+  if (config.pages_build_output_dir !== undefined) return { kind: "pages", file };
+  return { kind: "workers", file, setting: config.assets?.run_worker_first };
+}
+
+function upstreamsOf(manifest: RoutingManifest): readonly Upstream[] {
+  return manifest.trees.flatMap((tree) =>
     (tree.upstreams ?? []).map(({ prefix }) => ({ domain: tree.domain, prefix })),
   );
+}
 
-  if (file.endsWith(".toml")) {
-    if (isTomlPagesProject(text)) unmet(pagesProject);
-    else if (upstreams.length > 0 || runWorkerFirst) {
-      faults.push({ kind: "adapter", ...TOML, line: JSON.stringify(file) });
+type Hold = (wrangler: Wrangler, upstreams: readonly Upstream[], faults: Fault[]) => void;
+
+const holdToTrue: Hold = (wrangler, upstreams, faults) => {
+  switch (wrangler.kind) {
+    case "absent":
+      faults.push({
+        kind: "adapter",
+        ...UNHELD,
+        line: `no ${NAMES.slice(0, -1).join(", ")} or ${NAMES.at(-1)!} in ${JSON.stringify(wrangler.root)}`,
+      });
+      return;
+    case "pages":
+      faults.push({
+        kind: "adapter",
+        ...UNHELD,
+        line: `${JSON.stringify(wrangler.file)} is a Cloudflare Pages project, which has no run_worker_first`,
+      });
+      return;
+    case "toml":
+      holdToml(wrangler.file, upstreams, faults);
+      return;
+    case "workers": {
+      const { file, setting } = wrangler;
+      if (setting === true) return;
+      const sets = setting === undefined ? "sets none" : `sets it to ${JSON.stringify(setting)}`;
+      faults.push({ kind: "adapter", ...unmet(basename(file)), line: `${JSON.stringify(file)} ${sets}` });
     }
-    return;
   }
+};
 
-  const config = parseWrangler(file, text, faults);
-  if (config === undefined) return;
-  if (config.pages_build_output_dir !== undefined) {
-    unmet(pagesProject);
-    return;
-  }
-
-  const raw = config.assets?.run_worker_first;
-  if (runWorkerFirst) {
-    if (raw !== true) {
-      const sets = raw === undefined ? "sets none" : `sets it to ${JSON.stringify(raw)}`;
-      unmet(`${JSON.stringify(file)} ${sets}`);
-    }
-    return;
-  }
-  const setting = raw ?? false;
+const holdToUpstreams: Hold = (wrangler, upstreams, faults) => {
+  if (wrangler.kind === "toml") holdToml(wrangler.file, upstreams, faults);
+  if (wrangler.kind !== "workers") return;
+  const { file } = wrangler;
+  const setting = wrangler.setting ?? false;
   if (setting === true) {
     faults.push({ kind: "adapter", ...EVERY_REQUEST, line: JSON.stringify(file) });
     return;
@@ -295,4 +319,23 @@ export function checkWrangler(
     return;
   }
   checkPatterns(file, patterns, upstreams, faults);
+};
+
+function holdToml(file: string, upstreams: readonly Upstream[], faults: Fault[]): void {
+  if (upstreams.length > 0) faults.push({ kind: "adapter", ...TOML, line: JSON.stringify(file) });
+}
+
+/**
+ * On Workers Static Assets the site's own wrangler file sends each upstream prefix to the app
+ * (ADR-0010), so it is held to `build.routing.upstreams` here, or, with the opt-in, to `true`.
+ */
+export function wranglerCheck(
+  runWorkerFirst: boolean,
+): (manifest: RoutingManifest, faults: Fault[], site: AdapterSite | undefined) => void {
+  const hold = runWorkerFirst ? holdToTrue : holdToUpstreams;
+  return (manifest, faults, site) => {
+    if (site === undefined) return;
+    const wrangler = loadWrangler(site.root, faults);
+    if (wrangler !== undefined) hold(wrangler, upstreamsOf(manifest), faults);
+  };
 }
