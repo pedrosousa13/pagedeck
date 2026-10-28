@@ -968,10 +968,14 @@ test("an island whose tree throws while hydrating is never marked hydrated", asy
   failOnClient = true;
 
   await complaintsWhile(async () => {
+    // A promise, not `act`'s own thenable: `.rejects` on that thenable fails
+    // outside the test, which then passes.
     await expect(
-      act(async () => {
-        hydrateIslands({ resolve });
-      }),
+      (async () => {
+        await act(async () => {
+          hydrateIslands({ resolve });
+        });
+      })(),
     ).rejects.toThrow(/refused to render/);
   });
   failOnClient = false;
