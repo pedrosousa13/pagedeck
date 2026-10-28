@@ -1018,7 +1018,10 @@ treats them as two groups because a host does:
 - **everything else**: a CloudFront Function, its config fragment, a KeyValueStore
   dataset, an nginx include, a Cloudflare Worker. **Published out of band.** `applyPlan` writes them
   into the `--staging` directory and stops; the workflow uploads that directory
-  as a build artifact, and an operator applies it.
+  as a build artifact, and an operator applies it. The one exception is a
+  `distribution-config` fragment on `cloudfront-function`, which
+  `--distribution` merges into a distribution before the upload (see
+  "CloudFront" under "An app beside the site"). It is still staged.
 
 **A domain tree's artifacts are staged in a directory named for its tree key**
 (#669). Every tree compiles to the same file names, so with one flat directory
@@ -1151,7 +1154,7 @@ included.
 | `cloudflareWorker()` | optional | the routing in `worker.js` | bind the app's Worker under the name `cloudflareWorker({ upstreams })` gives, or deploy the app at `url` |
 | `netlify()` | required | two forced proxy rows per prefix in `_redirects` | nothing beyond the deploy |
 | `vercel()` | required | one route per prefix in `vercel.json`, ahead of the filesystem | nothing beyond the deploy |
-| `cloudfront()` | required | `upstreams.json`, a `distribution-config` fragment | merge it into the distribution, below |
+| `cloudfront()` | required | `upstreams.json`, a `distribution-config` fragment | pass `--distribution`, or merge it by hand, below |
 | `nginx()` | required | the proxy locations in `routing.conf`, and the WebSocket map in `http.conf` | include `http.conf` once in the `http` block |
 
 ### CloudFront
@@ -1166,13 +1169,79 @@ last. A viewer function on every path is avoided on purpose: the managed
 Cache-Control: no-cache, no-store, or private directives are present"
 (<https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html>).
 
-The deploy stages the file beside `error-responses.json`. The operator merges
-its `Origins.Items` and `CacheBehaviors.Items` into the distribution's config,
-puts its behaviors ahead of any of their own that could also match under the
-prefix, and updates both `Quantity` fields, since an update replaces the whole
-list. Two behaviors per prefix count against the distribution's cache-behavior
+Two behaviors per prefix count against the distribution's cache-behavior
 quota, 75 by default; an account with a raised quota sets
 `cloudfront({ limits: { cacheBehaviors } })`.
+
+**`--distribution` applies the fragments** (#146). Name the distribution that
+serves the default tree, and `<tree>=<id>` for each domain tree:
+
+```sh
+PAGEDECK_CLOUDFRONT_ACCESS_KEY_ID=<key id> \
+PAGEDECK_CLOUDFRONT_SECRET_ACCESS_KEY=<secret> \
+node dist/deploy.bin.js --origin <dir> --staging <dir> \
+  --edge cloudfront-function \
+  --distribution E2EXAMPLE --distribution shop.example=E3EXAMPLE
+```
+
+Set `PAGEDECK_CLOUDFRONT_SESSION_TOKEN` too for a temporary credential. The
+credential needs `cloudfront:GetDistributionConfig` and
+`cloudfront:UpdateDistribution` on each distribution. For each one, the deploy
+reads the config and its `ETag` with `GetDistributionConfig`, and merges
+`upstreams.json` and `error-responses.json` into it:
+
+- Each origin whose `Id` starts `pagedeck-upstream`, each cache behavior that
+  targets one, and each custom error response whose code a fragment holds is
+  Pagedeck's. Those are replaced by the fragment's and put first.
+- The operator's items stay, in their order, after Pagedeck's.
+- Each `Quantity` is counted again, since an update replaces each whole list.
+- A new item's fields take the order of an item of its kind in the config
+  read, and the API reference's order where there is none.
+- A Pagedeck item counts as unchanged when the config holds every field the
+  fragment sets, in any order. A field the service filled in with its default
+  is not a change. So a field a later Pagedeck release stops setting stays on
+  the distribution, and the item reads as unchanged. The next change to the
+  item writes only the fragment's fields, so the old field goes with no diff
+  line. To clear it at once, remove the item and deploy.
+
+An error response has no `Id`, so it is Pagedeck's by its `ErrorCode`. An
+operator's own response for a code the site declares, such as `404`, is
+replaced, and the diff marks it. A code the site stops declaring is not
+removed: its response stays until the operator removes it.
+
+A dry run reads the config too, the way it reads `<origin>/manifest.json`, and
+changes nothing. It prints what changes (`+` added, `~` changed, `-` removed)
+and the whole config an apply would send, with each origin custom header's
+value printed as `<redacted>`. The plan's line for each fragment it applies
+names the distribution. With `--apply`, the deploy sends
+that config with `UpdateDistribution` under `If-Match`, **before any upload**,
+so the app's routes exist before a page links to them. A config that already
+holds the fragments is not sent, so a second apply of the same build changes
+nothing. A config that changed after the deploy read it answers `412`, and the
+deploy uploads nothing: run it again, and it reads the config again.
+
+The deploy refuses, naming the distribution, and uploads nothing:
+
+- when an operator behavior ahead of Pagedeck's matches the prefix or a path
+  under it, since applying would take those paths from it. On a first apply
+  that includes a broad pattern such as `*.jpg`. Narrow or remove that
+  behavior, or merge by hand.
+- when `--edge` is not `cloudfront-function`, when a credential variable is
+  unset, when a tree is named twice, or when a named tree does not exist or has
+  no `distribution-config` fragment.
+
+A deploy updates an existing distribution and never creates one (`GLOSSARY.md`,
+**Edge artifacts are emitted, not provisioned**).
+
+The merge is not yet proven against a live distribution. The tests run it
+against a stand-in for the API, written from the API reference, which gives
+no sample response. Try the first apply on a staging distribution.
+
+**The fallback is the merge by hand.** Without `--distribution`, the deploy
+only stages `upstreams.json` beside `error-responses.json`. Merge their
+`Origins.Items`, `CacheBehaviors.Items` and `CustomErrorResponses.Items` into
+the distribution's config, put the behaviors ahead of any of your own that
+could also match under the prefix, and update each `Quantity` field.
 
 ### nginx
 

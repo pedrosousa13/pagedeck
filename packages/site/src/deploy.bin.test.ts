@@ -56,10 +56,13 @@ function urlsFile(name: string, document: unknown): string {
 async function deploy(
   argv: string[],
   urls?: string,
+  extra: NodeJS.ProcessEnv = {},
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const env: NodeJS.ProcessEnv = { ...process.env };
   delete env.PAGEDECK_DEPLOY_URLS;
+  for (const name of Object.keys(env)) if (name.startsWith("PAGEDECK_CLOUDFRONT_")) delete env[name];
   if (urls !== undefined) env.PAGEDECK_DEPLOY_URLS = urls;
+  Object.assign(env, extra);
   return await new Promise((resolve) => {
     execFile(process.execPath, [BIN, "--out", out, ...argv], { env, cwd: dir }, (error, stdout, stderr) => {
       resolve({ code: error === null ? 0 : Number(error.code), stdout, stderr });
@@ -194,4 +197,30 @@ test("a rollback whose --out tree is another build is refused before any request
     `Rollback to build "build-00": the tree at "${out}" is build "build-01", and a rollback uploads the restored build's own bytes from that tree — pass --out the tree build "build-00" wrote.`,
   );
   expectNoCredential(run);
+}, 30_000);
+
+test("--distribution with no CloudFront credential is refused, naming both variables", async () => {
+  const run = await deploy(["--origin", join(dir, "origin"), "--edge", "cloudfront-function", "--distribution", "E2EXAMPLE"]);
+  expect(run.code).toBe(EXIT_CODES.configError);
+  expect(run.stdout).toBe("");
+  expect(run.stderr).toContain(
+    'Option "--distribution" calls CloudFront\'s API, and PAGEDECK_CLOUDFRONT_ACCESS_KEY_ID and PAGEDECK_CLOUDFRONT_SECRET_ACCESS_KEY are not set',
+  );
+}, 30_000);
+
+test("--distribution for a tree with no distribution-config fragment is refused before any request, and no credential is printed", async () => {
+  const run = await deploy(
+    ["--origin", join(dir, "origin"), "--edge", "cloudfront-function", "--distribution", "E2EXAMPLE", "--apply"],
+    undefined,
+    { PAGEDECK_CLOUDFRONT_ACCESS_KEY_ID: "AKIDBINTEST", PAGEDECK_CLOUDFRONT_SECRET_ACCESS_KEY: "bin-secret-never-printed" },
+  );
+  expect(run.code).toBe(EXIT_CODES.configError);
+  expect(run.stdout).toBe("");
+  expect(run.stderr).toContain(
+    "Distribution E2EXAMPLE: tree (default) has no distribution-config fragment to apply, since its routing declares no upstream and no notFound page",
+  );
+  for (const text of [run.stdout, run.stderr]) {
+    expect(text).not.toContain("AKIDBINTEST");
+    expect(text).not.toContain("bin-secret-never-printed");
+  }
 }, 30_000);

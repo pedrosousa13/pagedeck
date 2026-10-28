@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { canonicalHeaders, objectPath, presignPath, signingKey } from "./sigv4.js";
+import { canonicalHeaders, objectPath, presignPath, signHeaders, signingKey } from "./sigv4.js";
 
 const EXAMPLE = {
   accessKey: "AKIAIOSFODNN7EXAMPLE",
@@ -100,6 +100,48 @@ describe("signed headers", () => {
   test("a value's outer spaces are trimmed and inner runs collapsed, as SigV4 canonicalises it", () => {
     expect(canonicalHeaders("h", { "content-type": "  text/html;   charset=utf-8 " }).canonical).toBe(
       "content-type:text/html; charset=utf-8\nhost:h\n",
+    );
+  });
+});
+
+describe("a header-signed request", () => {
+  // AWS's Signature Version 4 test suite, "get-vanilla": GET / on example.amazonaws.com,
+  // service "service", region us-east-1, 20150830T123600Z.
+  test("matches the get-vanilla vector, signature and all", () => {
+    const headers = signHeaders({
+      method: "GET",
+      url: "https://example.amazonaws.com/",
+      region: "us-east-1",
+      service: "service",
+      accessKey: "AKIDEXAMPLE",
+      secretKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+      body: "",
+      now: new Date("2015-08-30T12:36:00Z"),
+    });
+    expect(headers).toEqual({
+      "x-amz-date": "20150830T123600Z",
+      authorization:
+        "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31",
+    });
+  });
+
+  test("a session token is sent and signed, and so is each header given", () => {
+    const headers = signHeaders({
+      method: "PUT",
+      url: "https://example.amazonaws.com/x",
+      region: "us-east-1",
+      service: "cloudfront",
+      accessKey: "AKIDEXAMPLE",
+      secretKey: "secret",
+      sessionToken: "token",
+      body: "<A/>",
+      headers: { "If-Match": "E1" },
+      now: new Date("2015-08-30T12:36:00Z"),
+    });
+    expect(headers["x-amz-security-token"]).toBe("token");
+    expect(headers["If-Match"]).toBe("E1");
+    expect(headers.authorization).toContain(
+      "/20150830/us-east-1/cloudfront/aws4_request, SignedHeaders=host;if-match;x-amz-date;x-amz-security-token, Signature=",
     );
   });
 });

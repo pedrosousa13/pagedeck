@@ -1,14 +1,20 @@
 import { writeFile } from "node:fs/promises";
 import { ConfigError, EXIT_CODES, quoteIdentifier } from "@pagedeck/core";
 import type { Manifest } from "@pagedeck/core";
-import { planDeploy, planRetainedPrune, planRollback, describePlan } from "./deploy.js";
+import { APPLY_FLAG, planDeploy, planRetainedPrune, planRollback, describePlan } from "./deploy.js";
 import type {
   DeployPlan,
   DeployPlanInput,
   RetainedPrune,
   RollbackPlanInput,
 } from "./deploy.js";
-import { applyPlan, filesystemTarget, prunePlan, pruneSuperseded } from "./deploy-target.js";
+import {
+  applyPlan,
+  escapedStagedPaths,
+  filesystemTarget,
+  prunePlan,
+  pruneSuperseded,
+} from "./deploy-target.js";
 import type { DeployTarget } from "./deploy-target.js";
 import { UNKNOWN_TYPE } from "./deploy-metadata.js";
 import {
@@ -21,8 +27,10 @@ import {
   unsignedPuts,
 } from "./deploy-urls.js";
 import type { DeployUrls } from "./deploy-urls.js";
+import { distributionTargets, updateDistributions } from "./deploy-distribution.js";
+import type { Distributions } from "./deploy-distribution.js";
 
-export const APPLY_FLAG = "--apply";
+export { APPLY_FLAG };
 
 export const FORCE_FLAG = "--force";
 
@@ -48,6 +56,8 @@ export interface DeployRun {
     reads: readonly string[];
     requests?: string;
   };
+  // Updated before any upload, so an upstream's routes exist before a page links to them.
+  distributions?: Distributions;
   // Read before the apply, which is not a race: the apply adds only `live`.
   retention?: {
     live: Manifest;
@@ -118,7 +128,10 @@ export async function executePlan(
   run: DeployRun,
   out: Out,
 ): Promise<number> {
-  for (const line of describePlan(plan)) out(line);
+  const distributions =
+    run.distributions === undefined ? [] : distributionTargets(run.distributions, plan.edge);
+  const applied = new Map(distributions.map((one) => [one.tree, one.id]));
+  for (const line of describePlan(plan, applied)) out(line);
 
   // Before the write, and with the plan's own grace period, so the window printed is
   // the window that runs.
@@ -173,6 +186,9 @@ export async function executePlan(
     if (run.pruneAfterUpload === true && run.pruneWithheld !== undefined) {
       out(`Prune: deletes nothing — ${run.pruneWithheld}.`);
     }
+    if (run.distributions !== undefined) {
+      await updateDistributions(distributions, run.distributions, false, out);
+    }
     out(`DRY RUN: nothing was uploaded. Pass ${APPLY_FLAG} to deploy this plan.`);
     return EXIT_CODES.success;
   }
@@ -192,6 +208,12 @@ export async function executePlan(
       unsignedDeletes(run.presigned.urls, deletes);
     if (unsigned !== undefined) throw unsigned;
     target = signedUrlTarget(run.presigned.urls);
+  }
+  if (run.distributions !== undefined) {
+    // applyPlan checks this too, but after the update would already have been sent.
+    const escaped = run.staging === undefined ? undefined : escapedStagedPaths(run.staging, plan);
+    if (escaped !== undefined) throw escaped;
+    await updateDistributions(distributions, run.distributions, true, out);
   }
   const report = await applyPlan(plan, {
     source: run.source,

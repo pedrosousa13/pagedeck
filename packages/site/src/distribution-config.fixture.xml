@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A stand-in, not a captured response: written by hand from the GetDistributionConfig response
+     syntax in https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_GetDistributionConfig.html
+     to model a distribution an operator set up before Pagedeck's fragments, with every name and
+     id invented. The test strips this comment before reading, since the reader refuses comments. -->
+<DistributionConfig xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">
+  <CallerReference>operator-2026-10-01</CallerReference>
+  <Aliases>
+    <Quantity>1</Quantity>
+    <Items>
+      <CNAME>www.example.com</CNAME>
+    </Items>
+  </Aliases>
+  <DefaultRootObject>index.html</DefaultRootObject>
+  <Origins>
+    <Quantity>1</Quantity>
+    <Items>
+      <Origin>
+        <Id>site-bucket</Id>
+        <DomainName>site-bucket.s3.us-east-1.amazonaws.com</DomainName>
+        <OriginPath></OriginPath>
+        <S3OriginConfig>
+          <OriginAccessIdentity></OriginAccessIdentity>
+        </S3OriginConfig>
+      </Origin>
+    </Items>
+  </Origins>
+  <DefaultCacheBehavior>
+    <TargetOriginId>site-bucket</TargetOriginId>
+    <ViewerProtocolPolicy>redirect-to-https</ViewerProtocolPolicy>
+    <CachePolicyId>658327ea-f89d-4fab-a63d-7e88639e58f6</CachePolicyId>
+    <Compress>true</Compress>
+  </DefaultCacheBehavior>
+  <CacheBehaviors>
+    <Quantity>1</Quantity>
+    <Items>
+      <CacheBehavior>
+        <PathPattern>/images/*</PathPattern>
+        <TargetOriginId>site-bucket</TargetOriginId>
+        <ViewerProtocolPolicy>redirect-to-https</ViewerProtocolPolicy>
+        <CachePolicyId>658327ea-f89d-4fab-a63d-7e88639e58f6</CachePolicyId>
+        <Compress>true</Compress>
+      </CacheBehavior>
+    </Items>
+  </CacheBehaviors>
+  <CustomErrorResponses>
+    <Quantity>1</Quantity>
+    <Items>
+      <CustomErrorResponse>
+        <ErrorCode>403</ErrorCode>
+        <ResponsePagePath>/denied.html</ResponsePagePath>
+        <ResponseCode>403</ResponseCode>
+        <ErrorCachingMinTTL>10</ErrorCachingMinTTL>
+      </CustomErrorResponse>
+    </Items>
+  </CustomErrorResponses>
+  <Comment>Operator &amp; Pagedeck</Comment>
+  <Enabled>true</Enabled>
+</DistributionConfig>
