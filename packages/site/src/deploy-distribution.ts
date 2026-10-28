@@ -18,7 +18,6 @@ export interface Distributions {
   endpoint?: string;
 }
 
-// As the plan names a tree: `(default)` for the default tree.
 const label = (tree: string | undefined): string => (tree === undefined ? "(default)" : quoteIdentifier(tree));
 
 /** `values` are the `--distribution` arguments in order: `<id>` or `<tree>=<id>`. */
