@@ -21,6 +21,12 @@ import { serveGeneratedEntries } from "./entry-modules.js";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
 import { realPath } from "./real-path.js";
+import {
+  COMPONENT_FIELD,
+  resolutionFailure,
+  threwFault,
+} from "./resolve-faults.js";
+import type { ResolutionFault, ResolveThrow } from "./resolve-faults.js";
 import type { HydrationMode, ModuleFacts } from "@pagedeck/islands";
 import type { PluginOption } from "vite";
 
@@ -46,6 +52,7 @@ const RESOLVE_ID = "\0pagedeck:component-modules";
 export interface ResolvedModules {
   ids: Readonly<Record<string, string>>;
   unresolved: readonly string[];
+  thrown: readonly ResolveThrow[];
 }
 
 /** The scan's resolution alone, with no graph, as the scan's `ssr.noExternal` reads it. */
@@ -142,9 +149,12 @@ export async function scanIslandFacts(
     failure = error;
   }
 
-  const { ids, unresolved } = resolver.taken();
+  const { ids, unresolved, thrown } = resolver.taken();
   const { unparsed, resourceImporters } = scan.taken();
-  // First: a hook that faulted leaves the graph incomplete, so the reports
+  // Before `hookFault`: the throw is also what the entry's own resolution of
+  // the same specifier faulted on.
+  if (thrown.length > 0) throw scanResolutionFailure(input, unresolved, thrown);
+  // Then a hook that faulted, which leaves the graph incomplete, so the reports
   // below would mislead.
   if (hookFault !== undefined) throw hookFault;
   if (unresolved.length > 0) {
@@ -366,6 +376,38 @@ function unparsedReport(unparsed: readonly UnparsedModule[]): string {
     unparsed.length === 1 ? "component module" : "component modules";
   const scope = unparsed.length === 1 ? "" : " in each";
   return `Island scan: ${String(unparsed.length)} ${subject} ${UNPARSABLE_REFUSAL}${scope}:\n${lines.join("\n")}`;
+}
+
+function scanResolutionFailure(
+  input: IslandFactsInput,
+  unresolved: readonly string[],
+  thrown: readonly ResolveThrow[],
+): Error {
+  const missing = new Set(unresolved);
+  const faults = Object.keys(input.modules)
+    .sort()
+    .flatMap((name): ResolutionFault[] => {
+      const specifier = input.modules[name] as string;
+      const lead = `"${name}" — "${specifier}"`;
+      const threw = thrown.find((entry) => entry.specifier === specifier);
+      if (threw !== undefined) {
+        return [threwFault(lead, threw.error, COMPONENT_FIELD)];
+      }
+      if (!missing.has(specifier)) return [];
+      return [
+        {
+          lead,
+          what: "resolves to nothing",
+          fix: UNRESOLVED_FIX,
+        },
+      ];
+    });
+  return resolutionFailure({
+    where: "Island scan",
+    noun: { one: "component module", many: "component modules" },
+    against: input.origin,
+    faults,
+  });
 }
 
 function unresolvedReport(

@@ -11,6 +11,12 @@ import type {
 import type { PluginOption } from "vite";
 import type { ModuleMap } from "./entries.js";
 import { ConfigError } from "./exit.js";
+import {
+  COMPONENT_FIELD,
+  resolutionFailure,
+  threwFault,
+} from "./resolve-faults.js";
+import type { ResolutionFault } from "./resolve-faults.js";
 
 export interface SiteComponents {
   readonly registry: ComponentRegistry;
@@ -68,33 +74,51 @@ export async function deriveComponents(
     (isFilePath(one.path) ? files : packages).push(one);
   }
 
-  const faults = new Map<string, string>();
+  const faults = new Map<string, { line?: string; fault: ResolutionFault }>();
   for (const { name, path, hydrate } of files) {
     const file = resolve(root, path);
     if (!isFile(file)) {
-      faults.set(
-        name,
-        `  "${name}" — "${path}" resolves to "${file}", and no file is there`,
-      );
+      faults.set(name, {
+        line: `  "${name}" — "${path}" resolves to "${file}", and no file is there`,
+        fault: {
+          lead: `"${name}" — "${path}"`,
+          what: `resolves to "${file}", and no file is there`,
+          fix: "point its path at a file, relative to this config file",
+        },
+      });
       continue;
     }
     registry[name] = loader(file, hydrate);
     derived[name] = moduleSpecifier(root, file);
   }
 
+  let threw = false;
   if (packages.length > 0) {
     const { resolveComponentModules } = await import("./island-facts.js");
-    const { ids } = await resolveComponentModules(
+    const { ids, thrown } = await resolveComponentModules(
       [...new Set(packages.map(({ path }) => path))],
       { root, origin: configPath, plugins },
     );
     for (const { name, path, hydrate } of packages) {
+      const lead = `"${name}" — "${path}"`;
+      const failed = thrown.find(({ specifier }) => specifier === path);
+      if (failed !== undefined) {
+        threw = true;
+        faults.set(name, {
+          fault: threwFault(lead, failed.error, COMPONENT_FIELD),
+        });
+        continue;
+      }
       const id = Object.hasOwn(ids, path) ? ids[path] : undefined;
       if (id === undefined || !isAbsolute(id)) {
-        faults.set(
-          name,
-          `  "${name}" — "${path}" resolves to no module from "${configPath}"`,
-        );
+        faults.set(name, {
+          line: `  ${lead} resolves to no module from "${configPath}"`,
+          fault: {
+            lead,
+            what: "resolves to no module",
+            fix: "install the package its specifier names",
+          },
+        });
         continue;
       }
       registry[name] = loader(id, hydrate);
@@ -103,11 +127,23 @@ export async function deriveComponents(
   }
 
   if (faults.size > 0) {
-    const lines = Object.keys(declared).flatMap((name) => {
-      const line = faults.get(name);
-      return line === undefined ? [] : [line];
+    const held = Object.keys(declared).flatMap((name) => {
+      const held = faults.get(name);
+      return held === undefined ? [] : [held];
     });
-    throw new ConfigError(unresolvedReport(lines, configPath));
+    if (threw) {
+      throw resolutionFailure({
+        where: `Config "${configPath}"`,
+        noun: { one: "component", many: "components" },
+        faults: held.map(({ fault }) => fault),
+      });
+    }
+    throw new ConfigError(
+      unresolvedReport(
+        held.flatMap(({ line }) => (line === undefined ? [] : [line])),
+        configPath,
+      ),
+    );
   }
   return { registry, modules: derived };
 }
