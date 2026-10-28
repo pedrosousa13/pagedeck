@@ -17,8 +17,8 @@ build: {
 }
 ```
 
-`pagedeck build` puts every declared stylesheet in the **core tier** — the one
-stylesheet the whole site shares and caches under one URL — and links that sheet
+`pagedeck build` puts every declared stylesheet in the **core tier** (the one
+stylesheet the whole site shares and caches under one URL) and links that sheet
 from every page, including a page that renders no components at all.
 
 The field is optional. A site that declares no `css` behaves as it did before:
@@ -37,7 +37,7 @@ that shipped 0 B before still ships 0 B.
 ## Why global means core-tier
 
 Those are one claim, not two. A page's stylesheets are ranked by how many pages
-share them — see "CSS tiers" below — and "shared by every page" is
+share them (see "CSS tiers" below), and "shared by every page" is
 what the core tier is. A stylesheet the site calls global and the build then left
 in a narrower tier would be a sheet one page downloads while the rest of the site
 renders class names with no rules behind them.
@@ -69,7 +69,7 @@ export default defineConfig({
 The toolkit is the site's dependency, at the version the site chose. Its plugin
 compiles `./styles/global.css`; the framework pins the result to the core tier
 because the site said the sheet is global. Nothing about the arrangement is
-specific to any one toolkit — the plain-CSS example above uses the same key and
+specific to any one toolkit: the plain-CSS example above uses the same key and
 gets the same treatment.
 
 ### What `vite.plugins` accepts
@@ -80,7 +80,7 @@ off, or a promise of any of those.
 
 `build.vite` is scoped to `plugins` and is not a general Vite config merge. The
 build pins its own `mode`, `define`, JSX transform and output filenames, and each
-of those pins closes a real defect — a config merge would hand them all back.
+of those pins closes a real defect; a config merge would hand them all back.
 
 **Determinism becomes your responsibility inside this array.** Two builds of one
 site must emit byte-identical output. A plugin that writes a timestamp, a random
@@ -121,13 +121,13 @@ each pass that runs it.
 
 Every page links its stylesheets widest-shared first:
 
-1. the core sheet — the whole site's shared rules, and every declared global
+1. the core sheet: the whole site's shared rules, and every declared global
    stylesheet,
 2. the mid sheet, for components several pages share,
 3. the page's own sheet, for components only it renders.
 
 A narrower sheet comes later, so it can override a wider one at equal
-specificity. A page links only the tiers it actually reaches — plus the global
+specificity. A page links only the tiers it actually reaches, plus the global
 sheet, which every page reaches by definition.
 
 ## What is refused

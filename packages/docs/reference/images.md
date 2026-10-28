@@ -8,7 +8,7 @@ description: Declare how your CDN resizes images and get srcset, sizes, dimensio
 
 An image is the heaviest thing on most pages and the easiest one to get wrong:
 served at one size to every screen, converted by nobody, and sized by the
-browser only once the bytes arrive — which moves everything under it.
+browser only once the bytes arrive, which moves everything under it.
 
 The framework's answer is one contract and one adapter. You declare how your CDN
 spells a resized image; the framework works out which sizes to ask for, writes
@@ -37,7 +37,7 @@ export const images = defineImages({
 ```
 
 `defineImages` checks the settings and hands them straight back. It is where a
-typo fails — a `quality` in quotes, a misspelled key — rather than a minute into
+typo fails (a `quality` in quotes, a misspelled key) rather than a minute into
 a build, or never.
 
 There is no `build.images` in `pagedeck.config.ts`, on purpose. Nothing in the build
@@ -54,14 +54,14 @@ loader into the browser.
 
 | Placeholder  | What it becomes                                       |
 | ------------ | ----------------------------------------------------- |
-| `{src}`      | the image source, escaped for a **path** — slashes kept |
+| `{src}`      | the image source, escaped for a **path**, slashes kept |
 | `{srcParam}` | the image source, escaped for a **query parameter**   |
 | `{width}`    | the width this candidate is for                       |
 | `{quality}`  | your `quality`                                        |
 | `{format}`   | your `format`                                         |
 
 Use `{src}` when your service takes the image as part of the path, and
-`{srcParam}` when it takes it as a parameter — `?url={srcParam}`. Either way the
+`{srcParam}` when it takes it as a parameter: `?url={srcParam}`. Either way the
 source is escaped, so a filename holding an `&` cannot add a parameter of its own
 to the request.
 
@@ -70,16 +70,16 @@ on this list fails immediately, where you wrote it.
 
 ### The other fields
 
-- **`widths`** — the sizes your layout actually uses. Order and duplicates do
+- **`widths`**: the sizes your layout actually uses. Order and duplicates do
   not matter. No image is ever asked for at a width larger than its own file, so
   a list that reaches 1920 costs a 600-pixel thumbnail nothing.
-- **`quality`** — a number on your CDN's own scale. The framework has no default
+- **`quality`**: a number on your CDN's own scale. The framework has no default
   for it, because the scales differ between services.
-- **`format`** — your CDN's format token. Most services take one meaning
+- **`format`**: your CDN's format token. Most services take one meaning
   "whatever this request accepts" (`auto` above), and that is where format
   negotiation happens: this build emits static files and has no server to read
   `Accept` on, so the CDN does it at request time.
-- **`sizes`** — your default CSS `sizes`, overridden per image. Left out, images
+- **`sizes`**: your default CSS `sizes`, overridden per image. Left out, images
   get `100vw`, which is what a browser assumes anyway.
 
 ## Rendering an image
@@ -127,14 +127,14 @@ still free to scale the element to anything.
 
 `page` is there so that a failure can say which page it happened on. Your
 `build.content` callback receives one, so a site with no page prop to hand can
-call `imageAttributes` there instead and pass the finished attributes down — they
+call `imageAttributes` there instead and pass the finished attributes down; they
 are plain JSON and travel through an island's props like any other content.
 
 ## Above the fold
 
 `aboveFold: true` sets `loading="eager"` and `fetchpriority="high"`; everything
 else loads lazily at the browser's own priority. Say it on the image a visitor
-sees before scrolling — usually one per page — and leave it off everywhere else.
+sees before scrolling (usually one per page) and leave it off everywhere else.
 
 You decide it, and the framework lends you the numbering and the comparison.
 `foldPositions` numbers a tree the way the build numbers it, and `isAboveFold`
@@ -166,8 +166,8 @@ const nodesOf = (numbered) =>
 const tree = nodesOf(foldPositions(cmsNodes, (node) => node.children));
 ```
 
-Each numbered node carries `position` — its index in a pre-order walk, parents
-before children — and `treeSize`, the whole tree's node count, which is what
+Each numbered node carries `position` (its index in a pre-order walk, parents
+before children) and `treeSize`, the whole tree's node count, which is what
 `isAboveFold` reads to know whether the tree states an order at all. Both
 numbers are the build's own: `islandInstances` calls the same function when it
 tunes hydration, so position 3 is one node and not two.
@@ -179,13 +179,13 @@ content it does not write by hand.
 
 **It answers about the node, not about the image**, and that is a limit worth
 knowing rather than a gap. A fold position counts nodes, so two images rendered
-by one component get one verdict — if your card draws a photo and a logo, both
+by one component get one verdict: if your card draws a photo and a logo, both
 are eager when the card is above the fold. That is why the field stays yours to
 set: where one node draws one image, pass the rule's answer straight through;
 where it draws four, you know which of them the verdict was about and the
 framework does not.
 
-A page whose entry is a single node — a template-driven page — has no order for
+A page whose entry is a single node (a template-driven page) has no order for
 a fold to divide, so `isAboveFold` says `false` for it whatever the threshold.
 Say `aboveFold: true` yourself on such a page's hero.
 
@@ -231,7 +231,7 @@ imageAttributes({
 ```
 
 It becomes `style="background-color:…"`, which changes nothing the browser
-reserves space with — the `width` and `height` above already do that, and the
+reserves space with: the `width` and `height` above already do that, and the
 colour cannot move anything.
 
 A store written before this feature existed has no colours in it and says so:
@@ -241,11 +241,11 @@ failing.
 
 **What happens when it goes wrong.** A source your probe cannot reach renders
 with no placeholder and never fails the sync; the sync warns, naming every
-source it could not fetch, and asks again on the next sync — every sync asks
+source it could not fetch, and asks again on the next sync; every sync asks
 about every source your collection holds that has no cached answer, not only the
 entries that changed, so a source that failed during an outage is retried
 without anybody editing the page it is on. A source with no colour to
-give — return `undefined` — is remembered as answered, so it is asked about
+give (return `undefined`) is remembered as answered, so it is asked about
 once and never again. Only a probe that answers with something that is not a
 string stops the run, because that is your code rather than a host.
 
@@ -310,7 +310,7 @@ For the same reason, every value quoted above is cut at its `?` or `#`.
 **An image that would shift the page.** This is the one thing the framework will
 not let you ship. An `<img>` with no dimensions jumps under the reader's finger,
 it costs a real Core Web Vitals score, and the fix is a field in the CMS rather
-than a line of code — so the build names the page and the image and stops.
+than a line of code, so the build names the page and the image and stops.
 
 ```
 Entry /en/home: image "/uploads/hero.jpg" declares 2 intrinsic dimensions that are not pixel sizes, so the browser reserves no space for it and the page shifts as it loads — pass the asset's own pixel width and height:
@@ -318,7 +318,7 @@ Entry /en/home: image "/uploads/hero.jpg" declares 2 intrinsic dimensions that a
   height — undefined — not a number
 ```
 
-An asset with no usable source is refused first, in a paragraph of its own —
+An asset with no usable source is refused first, in a paragraph of its own:
 with no source there is no image to have dimensions:
 
 ```

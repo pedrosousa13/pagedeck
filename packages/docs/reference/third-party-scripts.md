@@ -17,12 +17,12 @@ loading code. A site that only lists its scripts gets the fastest strategy the
 build can give it without being asked.
 
 There is nothing to turn on. A site that declares no `build.scripts` carries no
-script-layer bytes at all — not an empty loader, not a listener, nothing. Nor
+script-layer bytes at all: not an empty loader, not a listener, nothing. Nor
 does a page you have taken every script off, which is how a site that *does*
 declare a loadout keeps its content pages at zero JavaScript.
 
 The loader is written into the document rather than fetched as a chunk, so it
-never costs a request — but a page that carries it is charged for those bytes
+never costs a request, but a page that carries it is charged for those bytes
 against its [JavaScript budget](./javascript-budgets.md), where what a budget
 counts is written down.
 
@@ -72,14 +72,14 @@ build failure with the fix in it, not a page that quietly loads nothing.
 A script that names no strategy takes `worker`. Listing your loadout and saying
 nothing else is meant to be the good outcome, not the lazy one. The one thing
 that moves a script off `worker` without an override is a consent `category`,
-because the gate cannot be written around a mechanism you supplied — the consent
+because the gate cannot be written around a mechanism you supplied; the consent
 section below is where that is spelled out.
 
 `idle` waits for idle and for nothing else: `requestIdleCallback` where the
 browser has it and a `setTimeout` where it does not. A page that never goes idle
 never loads them. `interaction` listens for `pointerdown`, `keydown` and
 `wheel`, passively, and stops listening on the first of them. `scroll` is not on
-that list — a browser restoring a scroll position fires it with nobody having
+that list: a browser restoring a scroll position fires it with nobody having
 done anything, which would make `interaction` a slower `idle`.
 
 ## Which strategy a page uses
@@ -87,8 +87,8 @@ done anything, which would make `interaction` a slower `idle`.
 Three layers, later winning:
 
 1. the script's own `strategy`, or `worker` where it declares none;
-2. `pageTypes` — an override for a section of the site;
-3. `pages` — an override for one page, over everything above.
+2. `pageTypes`: an override for a section of the site;
+3. `pages`: an override for one page, over everything above.
 
 ```ts
 defineScripts({
@@ -103,7 +103,7 @@ defineScripts({
 
 Both maps are keyed by the page-pattern language
 [budgets](./javascript-budgets.md) and [critical CSS](./critical-css.md) use,
-and each key holds a map of *script names* — so a page type moves one script and
+and each key holds a map of *script names*, so a page type moves one script and
 leaves the rest of the loadout where it was, which is the case this feature
 exists for: an experimentation tool that touches the DOM has to be on the main
 thread on the pages that run it, and the pixel beside it does not.
@@ -133,8 +133,8 @@ defineScripts({
 ```
 
 The terms page loads the CMP and nothing else. A script that resolves to `"off"`
-contributes nothing to its page — no entry in the loader, no facade placeholder,
-no declaration handed to your `runtime` adapter — and `resolveScriptStrategy`
+contributes nothing to its page (no entry in the loader, no facade placeholder,
+no declaration handed to your `runtime` adapter), and `resolveScriptStrategy`
 answers `"off"` for it rather than a strategy. Nothing is deferred, because
 `"off"` is not a strategy: there is no later moment at which the script loads.
 
@@ -142,8 +142,8 @@ answers `"off"` for it rather than a strategy. Nothing is deferred, because
 all.** It is the same document a site with no `build.scripts` would have
 emitted, down to the missing inline loader. That is what the value is for.
 Declaring analytics used to mean putting its consent-gated loader on every page
-of the site — the documentation, the terms, the article nobody has touched in a
-year — so a content page could ship zero JavaScript only at a site that declared
+of the site (the documentation, the terms, the article nobody has touched in a
+year), so a content page could ship zero JavaScript only at a site that declared
 no scripts. Which pages those are is your loadout's statement to make now.
 
 ### Off broadly, on narrowly
@@ -174,7 +174,7 @@ Script settings: declares 1 script field that cannot be loaded from — declare 
 ```
 
 A declaration is the site saying what it loads, and a declaration that loads
-nowhere has nothing behind it — if a script has no page left, delete it. The
+nowhere has nothing behind it: if a script has no page left, delete it. The
 config that would otherwise have wanted a declaration-level `"off"` is the opt-in
 shape above, which is why there is no value for it here.
 
@@ -221,14 +221,14 @@ defineScripts({
 
 The adapter is handed **one page's `worker` loadout** and returns the finished
 HTML elements that load it, which the build writes into that page in the order
-they were returned. Scripts on the other three strategies are not handed over —
+they were returned. Scripts on the other three strategies are not handed over:
 they need no mechanism, and a mechanism should not get an opinion about a script
 you kept on the main thread on purpose. The elements are your bytes and are
 never read, rewritten or escaped.
 
 It is a list per page rather than a URL per script because every plausible
-mechanism needs something emitted once per document — Partytown its snippet, a
-hand-rolled worker its bootstrap — as well as something per script.
+mechanism needs something emitted once per document (Partytown its snippet, a
+hand-rolled worker its bootstrap) as well as something per script.
 
 Core ships no adapter of its own, and that is not an oversight. It ships a
 generic URL-template adapter for [images](./images.md) because every image CDN
@@ -236,7 +236,7 @@ answers the same four parameters at a URL; off-main-thread runtimes have no such
 common shape, and a "generic" one would be one vendor's runtime with a neutral
 name in front of it.
 
-### With no adapter, `worker` becomes `idle` — and the build says so
+### With no adapter, `worker` becomes `idle`, and the build says so
 
 A site whose scripts reach `worker` with no `runtime` configured loads them on
 `idle` instead, and the build prints this once:
@@ -267,20 +267,20 @@ a button, and the vendor's script is fetched the first time somebody presses it.
 ```
 
 The markup is yours and is written into the page as you wrote it. A script that
-can reach `facade` with no `facade` to render is refused when the config loads —
-including one an override pushes there — because the alternative is a page that
+can reach `facade` with no `facade` to render is refused when the config loads,
+including one an override pushes there, because the alternative is a page that
 silently shows nothing and loads nothing.
 
 **The trigger is the placeholder, not the page.** Pressing it, or a keypress
 while focus is inside it, loads the script; a click somewhere else does not.
-That is the whole difference between `facade` and `interaction` — one asks
+That is the whole difference between `facade` and `interaction`: one asks
 whether this visitor wants *this embed*, the other whether the visitor is using
 the page at all.
 
 Three things to know before you choose it:
 
 - **The placeholder is written inside `<main>`**, last in the landmark and after
-  your page's own content, so it must position itself — which is what the embeds
+  your page's own content, so it must position itself, which is what the embeds
   this strategy is for already do. A chat widget is `position: fixed`; the
   vendor's own button would have been appended to the end of the body too. It is
   inside the landmark whether or not you do anything about it: a control outside
@@ -291,10 +291,10 @@ Three things to know before you choose it:
   still cannot decide that: the page's HTML reaches the document writer as one
   rendered string, and the layer that knows where the embed belongs is your
   component tree. So you mark the place in the tree that knows and name it in
-  the declaration — the next section.
+  the declaration (the next section).
 - **The placeholder is removed once the script has loaded**, so that a vendor
   that renders its own launcher does not leave you with two. Your markup must
-  therefore stand alone rather than be the container the vendor mounts into —
+  therefore stand alone rather than be the container the vendor mounts into:
   the element you name as a mount point is that container, and the placeholder
   goes *inside* it and leaves it behind. If the script never loads, the
   placeholder stays: the visitor keeps a button rather than losing one.
@@ -326,7 +326,7 @@ place:
 ```
 
 An `id` rather than a selector, because a document may hold one element with a
-given id and no more — there is no tiebreak rule to learn, and none for this
+given id and no more; there is no tiebreak rule to learn, and none for this
 framework to invent.
 
 Inside that element rather than in place of it, because the placeholder goes
@@ -352,7 +352,7 @@ facade whose element is on your post pages is a script that belongs on your post
 pages, which is the layering "Off broadly, on narrowly" above.
 
 The element is found by reading the page's emitted tags, so it is *your*
-rendered tree that can carry a mount point — not the head, and not anything the
+rendered tree that can carry a mount point, not the head, and not anything the
 build writes around your page. That is also what keeps a mounted placeholder
 inside `<main>`.
 
@@ -361,7 +361,7 @@ inside `<main>`.
 Every facade's markup is wrapped in an element of the framework's, and where the
 script declares a `category` that element also carries `data-pagedeck-consent`, which
 reads `granted` or `denied`. The build writes this page's market default into
-it, and the loader rewrites it whenever consent changes — so it is current
+it, and the loader rewrites it whenever consent changes, so it is current
 before your first stylesheet rule runs, and it stays current when a visitor
 answers your banner without leaving the page.
 
@@ -372,10 +372,10 @@ answers your banner without leaving the page.
 </div>
 ```
 
-The second element there is yours — everything inside the wrapper is the `html`
+The second element there is yours; everything inside the wrapper is the `html`
 you declared. That is the whole of the hook, and it is what a press under a
 denied category otherwise leaves you with nothing to answer. Dim the control,
-explain it, or link to the surface where the visitor can change the answer — all
+explain it, or link to the surface where the visitor can change the answer, all
 of it in CSS, with no JavaScript of your own:
 
 ```css
@@ -404,7 +404,7 @@ Three things it is not:
 
 The name is exported as `CONSENT_ATTRIBUTE` from `@pagedeck/core`, beside
 `CONSENT_GLOBAL` and `CONSENT_EVENT`, and the two words it is valued with are
-exported with it as `CONSENT_GRANTED` and `CONSENT_DENIED` — for wiring that is
+exported with it as `CONSENT_GRANTED` and `CONSENT_DENIED`, for wiring that is
 bundled and would rather not spell any of them twice. The selectors above write
 the word out because a stylesheet has no imports; a script of yours that reads
 the attribute back does not have to.
@@ -443,7 +443,7 @@ of its own, which the next section describes. The prefix is the rule rather
 than a list of forbidden names, so nothing here goes stale as those layers
 grow. A `.js`
 config, which TypeScript never sees, is refused when the config loads instead,
-along with a bare `"data-"` — the type cannot refuse that one, and its `dataset`
+along with a bare `"data-"`: the type cannot refuse that one, and its `dataset`
 key is the empty string, so no vendor reads it.
 
 ```
@@ -679,7 +679,7 @@ are.
 
 `necessary` is a claim you make and the build honours: those scripts load on
 their strategy alone and are never asked about. Your consent banner's own script
-is the case it is for — a banner that waited for consent could never be
+is the case it is for: a banner that waited for consent could never be
 answered.
 
 ### Wiring it to your CMP
@@ -701,13 +701,13 @@ window.dispatchEvent(new Event(CONSENT_EVENT)); // "pagedeck:consent"
 
 One method and one event. The method is read at the moment a script would load,
 never cached; the event tells the page the answer may have moved, so dispatch it
-whenever your CMP says consent changed — a grant, a revocation, or the first
+whenever your CMP says consent changed: a grant, a revocation, or the first
 answer arriving.
 
 There is no build-time half to this, and no module specifier either. A build
 cannot know whether *this* visitor consented, so there is nothing for it to
 hold; and the loader is an inline script no bundler ever sees, so a specifier
-written into it would have to be a URL fetched at runtime — a render-blocking
+written into it would have to be a URL fetched at runtime, a render-blocking
 third-party request to decide whether to make third-party requests. A global and
 an event are what a browser already has.
 
@@ -715,13 +715,13 @@ Two worked adapters follow, for OneTrust and for Cookiebot. They are here as a
 **pair** on purpose: the two report state and signal a change in genuinely
 different shapes, and an interface that absorbs both without either side bending
 is the claim this section makes. Neither is a dependency of this framework and
-no code in it names either — these are recipes you copy into your own site, and
+no code in it names either; these are recipes you copy into your own site, and
 this page is the only place in the repository the two products appear.
 
 Both are written as plain JavaScript with `"pagedeckConsent"` and `"pagedeck:consent"`
 spelled out, because that is what they are: lines pasted into a callback a
 third-party script calls, which no bundler ever transforms. Import
-`CONSENT_GLOBAL` and `CONSENT_EVENT` instead wherever your wiring *is* bundled —
+`CONSENT_GLOBAL` and `CONSENT_EVENT` instead wherever your wiring *is* bundled:
 your site's own entry, or a component. The strings are the same either way, and
 the constants exist so you never have to check that.
 
@@ -775,7 +775,7 @@ interface is absorbing:
   script would load, so parsing then is parsing an answer that is current.
 - **The change signal is a function you define, not an event you subscribe
   to.** That is the opposite direction from a listener, and it makes no
-  difference here — `publishConsent` is called and dispatches, and the
+  difference here: `publishConsent` is called and dispatches, and the
   framework listens on `window` either way. Newer OneTrust builds also expose
   `OneTrust.OnConsentChanged(callback)`; if yours has it, calling
   `OneTrust.OnConsentChanged(publishConsent)` from inside `OptanonWrapper` is a
@@ -820,7 +820,7 @@ And the differences from OneTrust, which are the point of showing both:
 
 - **Three signals rather than one.** Cookiebot separates "the answer arrived"
   from "the visitor accepted" from "the visitor declined". All three mean the
-  same thing to this framework — the answer may have moved — so all three
+  same thing to this framework (the answer may have moved), so all three
   dispatch the same event, and nothing downstream has to know which fired.
 - **A category with no counterpart, each way.** Cookiebot has `preferences`
   and this framework does not, and this framework has `functional` and
@@ -840,7 +840,7 @@ against. Two things in particular are **yours to confirm** before you ship:
 - **Which OneTrust callback fires on a *change*.** `OptanonWrapper` is
   documented to run after the banner initialises, and is widely used as the
   change hook as well. If your build exposes `OneTrust.OnConsentChanged`,
-  prefer it for the change and keep `OptanonWrapper` for the first answer —
+  prefer it for the change and keep `OptanonWrapper` for the first answer:
   that pair is unambiguous, and dispatching `pagedeck:consent` more often than
   necessary costs nothing, because the gate simply re-asks `granted`.
 
@@ -862,7 +862,7 @@ and until they answer, your `consentDefaults` govern. So in an opt-out market,
 a visitor who rejected under such a record has the defaults grant again until
 they answer the banner again.
 
-It is **static HTML plus a small island** — the markup is server-rendered into
+It is **static HTML plus a small island**: the markup is server-rendered into
 the page, so it is on screen at first paint with no request and no layout
 shift, and the island only supplies the pressing. It fetches nothing, embeds no
 vendor, and adds no third-party bytes;
@@ -877,7 +877,7 @@ Two things to know before you use it:
   to the interface above instead.
 - **It installs nothing until the visitor answers.** An island hydrates after
   the page's script loader has run, and a source is the authority once
-  installed — so a banner that installed one on arrival would overwrite your
+  installed, so a banner that installed one on arrival would overwrite your
   market default with "no answer yet". Until there is an answer, your
   `consentDefaults` govern, which is what "What the page assumes before your CMP
   answers" below is about. A visitor who answered on an *earlier* visit has
@@ -913,8 +913,8 @@ build: {
 in [Page head](./page-head.md). It is not part of this layer and it is not a
 fifth strategy: the four strategies say when a *deferred* script runs, and this
 runs at parse, in the head, before the loader exists. The banner's snippet reads
-the same `localStorage` record the banner writes — one key, one shape, one
-module — and installs a `ConsentSource` from it.
+the same `localStorage` record the banner writes (one key, one shape, one
+module) and installs a `ConsentSource` from it.
 
 Two properties are worth stating, because they are what make it safe to declare
 unconditionally:
@@ -926,7 +926,7 @@ unconditionally:
   the same answer, so nothing changes twice.
 
 Wiring a real CMP instead? The same slot is available to you and the same
-argument applies — a CMP that reads a stored answer synchronously can install
+argument applies: a CMP that reads a stored answer synchronously can install
 its source from `prePaint` and be ahead of the loader too.
 
 ### What the page assumes before your CMP answers
@@ -948,7 +948,7 @@ defineScripts({
 That is the multi-market case, and it is why this is a map. In an opt-in market
 the pixel waits for the banner; in an opt-out market it loads on idle and stops
 if the visitor opts out. The keys are the same page-pattern language everything
-else here uses, so a market is a locale scope and a page is a path — and the
+else here uses, so a market is a locale scope and a page is a path, and the
 most specific key that names *that category* wins. `necessary` cannot be given a
 default, because it does not have one to give.
 
@@ -960,7 +960,7 @@ an opt-out market who opted out gets nothing, whatever the default said.
 decision this browser already holds is installed at parse, ahead of the loader
 that reads it. That declaration is what makes it hold, so it is a requirement of
 the promise rather than a tuning of it. Leave it out and the source arrives
-whenever your wiring gets to it — a CMP that answers on a callback installs one
+whenever your wiring gets to it: a CMP that answers on a callback installs one
 when that callback runs, and the reference banner's island installs one when the
 island hydrates, which is after this page's first trigger, so that trigger was
 answered from the defaults above.
@@ -973,7 +973,7 @@ rather than in front of it:
 - a granted `interaction` script still waits for an interaction;
 - a granted `idle` script still waits for idle;
 - a denied `idle` script whose idle moment has passed loads the instant consent
-  arrives — it does not wait for a second idle;
+  arrives; it does not wait for a second idle;
 - a denied `interaction` script the visitor has already interacted for does the
   same: the interaction happened, so the grant is the last condition;
 - a denied `interaction` script the visitor has *not* interacted for is not
@@ -981,15 +981,15 @@ rather than in front of it:
 
 **A facade is the exception, and it is one on purpose.** A press made while the
 category is denied loads nothing, and the grant that follows loads nothing
-either — the placeholder simply stays pressable, and the visitor presses it
+either: the placeholder simply stays pressable, and the visitor presses it
 again. The other two strategies ask whether the page is ready or in use, and
 that stays true; a facade asks whether this visitor wants this embed right now,
 and that does not keep. A chat widget appearing by itself some minutes after a
 banner was answered is the behaviour the strategy exists to avoid.
 
 What the press is not is *silent*: the placeholder carries `data-pagedeck-consent`,
-so the refusal and the grant that follows it are both things your CSS can see —
-"A gated facade says which consent state it is in", above.
+so the refusal and the grant that follows it are both things your CSS can see
+("A gated facade says which consent state it is in", above).
 
 The one thing consent does decide is **which strategy the build can deliver**,
 and that is the last section here.
@@ -1003,14 +1003,14 @@ earlier.
 
 **It does not unload a script that has already loaded.** The `<script>` element
 stays in the document and a vendor that has executed has already installed
-whatever it installs — no framework can take that back. The documented answer is
+whatever it installs; no framework can take that back. The documented answer is
 a page reload, which is what the visitor's next navigation is anyway.
 
 ### A categorized script is never loaded on `worker`
 
 A `worker` script is loaded by the elements your `runtime` adapter returned, and
 this framework never reads those bytes. So the gate the build writes cannot wrap
-them — and rather than load a categorized script with no gate on it, the build
+them, and rather than load a categorized script with no gate on it, the build
 loads it on `idle`, where the gate works. It tells you once:
 
 ```
@@ -1023,8 +1023,8 @@ categorized script you wired a worker runtime for runs on the main thread
 instead, once the browser is idle. The alternative was a script that could run
 without permission, and only one of those two can be undone.
 
-`resolveScriptStrategy` still reports `worker` — your config reads back as you
-wrote it — and only the loaded strategy moves.
+`resolveScriptStrategy` still reports `worker` (your config reads back as you
+wrote it), and only the loaded strategy moves.
 
 If your own runtime applies the gate, **declare no `category`** and gate inside
 the adapter: it is handed whole declarations, so a filter on `scripts` is all it
@@ -1045,13 +1045,13 @@ placeholder, which is markup a visitor sees and goes inside `<main>` with the
 rest of the page's content. Nothing
 this layer writes reaches the `<head>`, which has one writer and one order (see
 [the page head](./page-head.md)). The cost is that a worker runtime cannot boot
-earlier than the document — the point of the feature is that third-party code
+earlier than the document: the point of the feature is that third-party code
 does not get in front of your page.
 
 The pre-paint script above is the other side of that placement and is not an
 exception to it: it is *your* code, declared in `build.prePaint` rather than in
 this layer, and the head writer puts it there. Being in the head is the whole of
-what it buys — every element on this list is behind it.
+what it buys: every element on this list is behind it.
 
 The loading code is inlined rather than emitted as a chunk, and it is
 conditional all the way down. A page with only `idle` scripts carries no

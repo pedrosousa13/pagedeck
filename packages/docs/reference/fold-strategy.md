@@ -8,7 +8,7 @@ description: The build promotes islands near the top of a page to hydrate on loa
 
 A component that carries `"use client"` and nothing else hydrates on `visible`:
 its JavaScript is fetched when it scrolls into view. That is the right default
-for most of a page and the wrong one for the top of it — an interaction a
+for most of a page and the wrong one for the top of it: an interaction a
 visitor can reach without scrolling should already be wired up.
 
 **Fold strategy decides that per instance, per page.** An instance near the top
@@ -39,7 +39,7 @@ build: {
 
 `false` restores exactly the modes the registry and the `"use client"`
 directives ask for. `true` and an absent field are the same thing: on, with the
-default threshold. There are no page patterns — the field declares a policy, and
+default threshold. There are no page patterns. The field declares a policy, and
 deciding page by page is what the feature already does for you.
 
 ## What gets moved, and what never does
@@ -61,7 +61,7 @@ Nothing is ever promoted past `load`, and a static component is never made into
 an island.
 
 Demotion applies to `hydrate: 'load'` because that is the only way a `load` mode
-ever arises — no directive defaults to it — and because moving a below-fold
+ever arises (no directive defaults to it), and because moving a below-fold
 island off first render is a saving, not a reversal of a performance decision.
 If you want an instance eager wherever it sits, `foldStrategy: false` or a
 narrower tree is the answer today.
@@ -69,7 +69,7 @@ narrower tree is the answer today.
 ## What "the fold" means here
 
 **A tree position, not a pixel.** Every node of a page's content tree gets an
-index in a pre-order walk — the order a reader meets the blocks — and the
+index in a pre-order walk (the order a reader meets the blocks), and the
 threshold is the first index that counts as below the fold. The default is `4`,
 so positions 0 through 3 are above it.
 
@@ -105,8 +105,8 @@ One ships bytes nobody uses; the other delays a mount by a frame.
 Four and not three, which is the one part of the choice the asymmetry does not
 make on its own: a threshold that lands inside a section promotes some of a
 block's children and not its others, a split nothing on the page corresponds to.
-Four covers a whole leading section of the common shape — a block with three
-children — and stays at the bottom of the phone estimate.
+Four covers a whole leading section of the common shape (a block with three
+children), and stays at the bottom of the phone estimate.
 
 ### Where it diverges from what a visitor sees
 
@@ -124,7 +124,7 @@ number:
   site shaped that way, or turn the feature off.
 
 Measuring real visual position would need a headless browser at build time,
-which this framework does not run — the same reason
+which this framework does not run, the same reason
 [critical CSS](./critical-css.md) inlines a page's whole reachable set instead
 of guessing what is above the fold.
 
@@ -134,7 +134,7 @@ A page rendered from a template is a **single node**, and a tree of one node is
 never promoted. There is nothing on such a page for its only node to be above:
 position 0 is not a fact about the page, it is the only number the only node
 could have had. Promoting on it would move that page's whole JavaScript payload
-into first render — on a template page the island *is* the page — for no
+into first render (on a template page the island *is* the page) for no
 evidence about where anything sits.
 
 Pin it with `hydrate: 'load'` if you want it eager; the registry always wins.
@@ -142,8 +142,8 @@ Pin it with `hydrate: 'load'` if you want it eager; the registry always wins.
 A page whose tree has a second node is tuned like any other, including a single
 root with children: the count is of nodes, not of top-level blocks.
 
-Components a template renders from its own code are invisible to fold strategy —
-they have no position in a content tree — and keep whatever mode they were
+Components a template renders from its own code are invisible to fold strategy
+(they have no position in a content tree) and keep whatever mode they were
 declared or defaulted to.
 
 ## What the build tells you
@@ -171,7 +171,7 @@ feature off.
 ## Fold strategy and budgets
 
 A promoted island's JavaScript is a first-render transfer, so it **counts
-against that page's [budget](./javascript-budgets.md)** — which is the point of
+against that page's [budget](./javascript-budgets.md)**, which is the point of
 promoting it. A demoted island's does not.
 
 Budgets are re-evaluated on every build, so a content edit that pushes a block
@@ -188,7 +188,7 @@ JavaScript budget: 1 page transfers more JavaScript for first render than its bu
 ```
 
 The same sentences are in `budget-report.json` under each page's `causes`,
-including the demotions — that field says why a page's spend is what it is, not
+including the demotions. That field says why a page's spend is what it is, not
 only why it is too high.
 
 ## What the build refuses
@@ -199,7 +199,7 @@ A `foldStrategy` that is neither a flag nor an object:
 Config "/site/pagedeck.config.ts": "build.foldStrategy" must be true, false, or an object with a threshold — write foldStrategy: false to turn fold-driven hydration off, or foldStrategy: { threshold: 8 } to tune it
 ```
 
-A threshold that is not a count of nodes, with the reason on its own line — a
+A threshold that is not a count of nodes, with the reason on its own line. A
 number in quotes, a fraction and a negative are three different mistakes:
 
 ```

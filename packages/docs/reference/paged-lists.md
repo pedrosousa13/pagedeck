@@ -45,7 +45,7 @@ Every row a list expands into carries a `paging` field, and that is what a
 | Field    | What it holds                                     |
 | -------- | ------------------------------------------------- |
 | `number` | Which page this is, counting the bare path as 1   |
-| `total`  | How many pages the list has — 1 on an empty list  |
+| `total`  | How many pages the list has, 1 on an empty list   |
 | `prev`   | The address of the page before, absent on page 1  |
 | `next`   | The address of the page after, absent on the last |
 
@@ -76,7 +76,7 @@ content: (page, store) => {
 ```
 
 **`paging` is how you tell a list page apart.** No other row carries the field,
-and a paged page is not _of_ an entry — it has no `entry`, no `collection` and
+and a paged page is not _of_ an entry: it has no `entry`, no `collection` and
 no template a collection could name for it.
 
 ## Two shapes, one helper
@@ -104,7 +104,7 @@ paginate({
 ```
 
 The two shapes differ only in which entries are chunked, so there is no tag
-mode to switch on — and a shape nobody has asked for yet, a year archive or one
+mode to switch on, and a shape nobody has asked for yet, a year archive or one
 author's posts, is the same call with a different predicate.
 
 **`lists` is a callback over the store** because the lists are content. Your
@@ -144,7 +144,7 @@ Paged list: pageSize is 0, and a page holds at least one entry — pass a whole
 number of 1 or more
 ```
 
-A list `path` holding a segment that is not one — an empty string, `.`, `..` —
+A list `path` holding a segment that is not one (an empty string, `.`, `..`)
 is reported the way any unusable route is, naming the source and the instance.
 
 ## What is not here

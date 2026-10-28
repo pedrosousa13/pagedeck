@@ -9,7 +9,7 @@ description: Speculation Rules let browsers prefetch or prerender the pages each
 `build.speculation` puts a [Speculation
 Rules](https://developer.mozilla.org/en-US/docs/Web/API/Speculation_Rules_API)
 document in every page's `<head>`, listing the pages that page declares a
-reader may go to next. A browser that supports the API fetches — or renders —
+reader may go to next. A browser that supports the API fetches (or renders)
 them before the reader asks, so the next navigation is a full page load that
 already happened.
 
@@ -23,7 +23,7 @@ build: {
 
 **A site that declares no `speculation` gets exactly the build it got before the
 field existed.** No element is written and no page's bytes move. So does a site
-that declares `speculation` but no `relatesTo` on any page source — see below.
+that declares `speculation` but no `relatesTo` on any page source; see below.
 
 ## Turning it on: `relatesTo`
 
@@ -46,7 +46,7 @@ fromCollection(articles, {
 
 **A source that writes no `relatesTo` emits no rules**, whatever
 `build.speculation` says. That is the default, and no site in this repository
-declares one — the feature is dormant until a site says what its links are.
+declares one. The feature is dormant until a site says what its links are.
 
 ### Why not `dependsOn`
 
@@ -58,7 +58,7 @@ produces wrong rules rather than fewer of them.
 The clearest case is a site that declares `sharedDependsOn` over a whole
 collection so that any change rebuilds every page that lists it. Every one of
 those refs is a page, so every page on the site would speculate the first `max`
-entries in collection order — pages nobody linked to, fetched on every visit.
+entries in collection order: pages nobody linked to, fetched on every visit.
 
 A page may also link somewhere its render never touches, and read something it
 never links to. Neither set contains the other, so they are declared apart.
@@ -82,7 +82,7 @@ otherwise have to configure:
 
 Nothing scans your rendered HTML for `<a href>`, and nothing reads
 `manifest.json`. A page whose relations resolve to no other page carries no
-element at all — not an empty one.
+element at all, not an empty one.
 
 ## `action`: fetch it, or run it
 
@@ -91,7 +91,7 @@ There is no default. The two are different promises:
 | `action`      | What the browser does                                       |
 | ------------- | ----------------------------------------------------------- |
 | `"prefetch"`  | Fetches the document's bytes and stops.                     |
-| `"prerender"` | Renders the page — its scripts, its islands, its analytics. |
+| `"prerender"` | Renders the page: its scripts, its islands, its analytics. |
 
 `"prerender"` is the faster of the two and the one to think about before
 choosing: a page rendered in a hidden tab has already run whatever that page
@@ -104,7 +104,7 @@ they are not, start with `"prefetch"`.
 Also required, and also without a default: it decides how much of your site a
 reader downloads without having asked for it. When a page has more relations
 than the cap allows, the first `max` are kept, in the order your `relatesTo`
-returned them — so the order you declare relations in is the order they are
+returned them, so the order you declare relations in is the order they are
 preferred in.
 
 ## What a page emits
@@ -123,5 +123,5 @@ pages stay zero-JavaScript pages.
 ## Same tree only
 
 A target in another output tree is not listed. A locale with its own `domain`
-is a separate origin, and the API will not prerender across one — see
+is a separate origin, and the API will not prerender across one. See
 [sitemaps](./sitemaps.md) for what an output tree is.

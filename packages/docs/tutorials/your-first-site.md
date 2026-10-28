@@ -28,7 +28,7 @@ and a `package.json` that depends on the Pagedeck packages and React.
 follows.
 
 Pass `--host vercel`, `--host cloudflare-pages` or `--host netlify` to also set
-the site up to deploy there — [Deploy a site](../how-to/deploy-a-site.md) covers
+the site up to deploy there. [Deploy a site](../how-to/deploy-a-site.md) covers
 each host's build settings. This tutorial leaves it at the default,
 `--host none`. On a terminal, leaving out the directory or the host prompts
 for it instead of failing or defaulting silently.

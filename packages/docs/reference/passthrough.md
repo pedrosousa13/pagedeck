@@ -6,8 +6,8 @@ description: Files in a passthrough directory are published at the addresses you
 
 # Passthrough files
 
-`build.passthrough` publishes a directory of files your site owns — a logo, an
-Open Graph image you drew yourself, an SVG icon, a PDF — at the addresses you
+`build.passthrough` publishes a directory of files your site owns (a logo, an
+Open Graph image you drew yourself, an SVG icon, a PDF) at the addresses you
 put them at, in every output tree.
 
 ```ts
@@ -30,7 +30,7 @@ Config "/site/pagedeck.config.ts": "build.passthrough.root" names a directory th
 **A site that declares no `passthrough` gets exactly the build it got before the
 field existed.** No file is written and no manifest row appears.
 
-`contentRoot` is the second key, and it answers a different question — the
+`contentRoot` is the second key, and it answers a different question: the
 images a post points at from beside its own markdown. It has a section of its
 own below. Both keys are optional, so a site whose only files are the ones its
 posts point at declares `contentRoot` alone, and nothing is published whole:
@@ -60,7 +60,7 @@ published, so what a reader can fetch is what you can see on disk.
 ## The bytes are yours
 
 The build writes each file byte for byte. Nothing decodes an image, resizes it
-or converts it — this field is about **emission**, not optimization. Build-time
+or converts it; this field is about **emission**, not optimization. Build-time
 image processing is a separate question and is not answered here.
 
 ## Collisions are refused
@@ -136,7 +136,7 @@ published either.
 
 **A reference that names nothing there refuses the build**, naming the page, what
 it wrote, the address this build went looking at, and the entry the reference is
-written in — which is the file you open to fix it:
+written in, which is the file you open to fix it:
 
 ```
 Passthrough: 1 reference a page makes to a file beside its content resolves to nothing this build can publish — put the file at that path beneath the directory "build.passthrough.contentRoot" names, or point the reference at a file that is already there:
@@ -160,7 +160,7 @@ served at, so it decides what a relative reference resolves to: `./logo.png` on
 `/posts/ferry/logo.png` under `"always"`. The build resolves it the way the
 browser will.
 
-A root-relative reference and an `https:` one are untouched by this key — the
+A root-relative reference and an `https:` one are untouched by this key: the
 first already names an address and `root` is where its file comes from, and the
 second names another origin's file.
 
@@ -168,7 +168,7 @@ second names another origin's file.
 
 A root-relative reference to a published file resolves. A page writing
 `<img src="/assets/logo.png">` builds green where that file is in the directory,
-and is reported as a [broken reference](./link-checking.md) where it is not — so
+and is reported as a [broken reference](./link-checking.md) where it is not, so
 a file removed from `root` while a page still points at it is a failed build
 rather than a broken image in production.
 
@@ -187,11 +187,11 @@ without one; the build composes no URL from a file you own.
 
 Fonts have a field of their own. A face declared in `build.fonts` is subset,
 hashed and linked from a stylesheet the build writes, which is work this field
-does none of — leave your font files out of `root` and declare them there.
+does none of. Leave your font files out of `root` and declare them there.
 
 The same is true of the icon at `/favicon.ico`, the social cards
 `build.socialImages` draws into `/social/` and every build-time document: each
 is a stage with its own field, and this one is for the files that have no stage
 because nothing derives them. An Open Graph image you drew and pointed a page's
-`image` at is not one of those cards — nothing drew it here, so it belongs in
+`image` at is not one of those cards: nothing drew it here, so it belongs in
 `root` with the rest of what you own.

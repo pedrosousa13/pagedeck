@@ -25,6 +25,7 @@ function cataloguedMessages(markdown: string): Message[] {
   let open: { line: number; lines: string[] } | undefined;
   let inFence = false;
   let fenced = false;
+  let indent = "";
   const close = (): void => {
     if (open === undefined) return;
     while (open.lines.length > 0 && (open.lines.at(-1) ?? "").trim() === "") {
@@ -33,14 +34,16 @@ function cataloguedMessages(markdown: string): Message[] {
     messages.push({ line: open.line, text: open.lines.join("\n") });
     open = undefined;
   };
-  markdown.split("\n").forEach((line, index) => {
-    if (/^\s*```/.test(line)) {
+  markdown.split("\n").forEach((fenceLine, index) => {
+    if (/^\s*```/.test(fenceLine)) {
       close();
       inFence = !inFence;
-      fenced = inFence && line.trim() === "```";
+      fenced = inFence && fenceLine.trim() === "```";
+      indent = /^\s*/.exec(fenceLine)?.[0] ?? "";
       return;
     }
     if (!inFence || !fenced) return;
+    const line = fenceLine.startsWith(indent) ? fenceLine.slice(indent.length) : fenceLine;
     if (line.trim() === "") {
       open?.lines.push(line);
       return;
@@ -245,6 +248,10 @@ const UNCHECKED: readonly Unchecked[] = [
   { names: 'Component "Sheeted": declares a stylesheet', because: "assembled" },
   { names: "Entry /en/home: declares a stylesheet", because: "assembled" },
   { names: "Island scan: 2 component modules will", because: "assembled" },
+  {
+    names: 'Config "/site/pagedeck.config.ts": failed to load: Module',
+    because: "assembled",
+  },
   { names: 'Collection "posts": 2 entries have', because: "assembled" },
   { names: 'Edge target "nginx": 2 values cannot', because: "assembled" },
   { names: 'Edge target "nginx": 1 value cannot', because: "assembled" },

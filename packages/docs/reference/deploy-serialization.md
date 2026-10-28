@@ -12,7 +12,7 @@ the first one's prune list deletes files the second one just uploaded and never
 knew about. The site that comes out is a mixture of two builds, and neither
 manifest describes it.
 
-`pagedeck` does not own the upload — no host is named anywhere in core, and the S3,
+`pagedeck` does not own the upload: no host is named anywhere in core, and the S3,
 CloudFront and GitHub Actions recipes are docs rather than code. What it owns is
 the record that makes the race **visible**: every build says which build it was
 based on, every build's manifest is kept for a while, and `pagedeck diff` refuses a
@@ -33,7 +33,7 @@ deploy whose two manifests are not a chain.
 ```
 
 `id` is this build's identity, minted per run. `parent` is the id of the newest
-manifest the retention store held **when this build started** — the build this
+manifest the retention store held **when this build started**, the build this
 one is an increment of. It is absent on the first build of a site, where the
 store was empty and there was nothing to be based on.
 
@@ -66,7 +66,7 @@ site/
 ```
 
 **The store is next to the output tree and never inside it.** The default output
-tree *is* `outDir` — a deploy uploads that directory wholesale — and a store
+tree *is* `outDir` (a deploy uploads that directory wholesale), and a store
 under it would be published with the site to every bucket the deploy touches. It
 is also the one part of the tree that grows with the site's *history* rather
 than with its content, so every CDN would end up serving a growing pile of JSON
@@ -85,7 +85,7 @@ builds.
 
 **On CI, the store has to outlive the run.** A fresh runner has no `.pagedeck/`, so
 the build finds an empty store, records no parent, and `pagedeck diff` refuses the
-deploy for the second reason in the CLI reference — every time, on a pipeline
+deploy for the second reason in the CLI reference, every time, on a pipeline
 with nothing wrong with it. Restore the directory at the start of the job and
 save it at the end, the way you would a build cache, or keep it on the machine
 that deploys. A chain nothing carries between runs is not a chain.
@@ -103,15 +103,15 @@ build: {
 ```
 
 Newest first by `build.createdAt`; everything past the count is deleted when a
-build writes. Twenty is a guess rather than a measurement — it is meant to cover
+build writes. Twenty is a guess rather than a measurement. It is meant to cover
 the rollback a team actually performs, which is to the build before the one that
 broke, with room for a site deploying several times a day to still reach last
 week's. Being wrong high costs a few hundred kilobytes of JSON beside the site;
 being wrong low costs a rollback target that is gone.
 
 `keep: 0` retains nothing, and it turns rollback off. It is a value a site can
-write on purpose — a preview environment nobody rolls back is entitled to say
-so — and it is why the field is a count rather than a count plus a flag. The
+write on purpose (a preview environment nobody rolls back is entitled to say
+so), and it is why the field is a count rather than a count plus a flag. The
 build still writes its document and then prunes it, so lowering the count from
 twenty to zero clears the twenty too.
 
@@ -124,7 +124,7 @@ cannot see from its own config.
 says so on stderr. That is what makes a `pagedeck` upgrade survivable: the store a
 previous version filled is aged out by the first build after the upgrade instead
 of failing it. If you see that line on *every* build, two `pagedeck` versions are
-building one site — a CI image that moved while a developer's did not — and
+building one site (a CI image that moved while a developer's did not), and
 rollback there never reaches further back than the last build.
 
 ## Rolling back
@@ -143,8 +143,8 @@ pagedeck rollback 3c77b1de-52a0-4e77-bb0e-8f0a1c2d3e40 > rollback.json
 ./deploy.sh rollback.json
 ```
 
-`pagedeck rollback` compares the manifest in `outDir` — the build the host is
-serving — against the retained one, so the document names what to add back, what
+`pagedeck rollback` compares the manifest in `outDir` (the build the host is
+serving) against the retained one, so the document names what to add back, what
 to replace and what to prune. It is the document `pagedeck diff` writes, in the same
 order, so a pipeline that already deploys a diff deploys a rollback unchanged.
 
@@ -159,7 +159,7 @@ Two things follow from the direction:
   it still has. Keep the artifact, or re-run `pagedeck build` from the commit the
   retained manifest describes.
 
-The output tree is not what makes the rollback correct — the manifest is. What
+The output tree is not what makes the rollback correct; the manifest is. What
 `pagedeck rollback` gives you is the ordering: uploads before prunes, with
 `--grace-seconds` keeping a pruned file reachable while caches turn over.
 
@@ -169,8 +169,8 @@ One editor pressing publish on eight entries sends eight webhooks. Eight builds
 of the same site is waste; eight *deploys* of the same site is the race above.
 
 **This is your scheduler's job and not `pagedeck`'s.** Folding the webhooks
-together belongs where the trigger is — a CI concurrency group, a queue, a
-cron — because that is the only place that can see a second webhook arrive
+together belongs where the trigger is (a CI concurrency group, a queue, a
+cron), because that is the only place that can see a second webhook arrive
 while the first run is still going. Core would have to hold state between runs
 to do it, and `pagedeck` is a command that starts, builds and exits.
 
@@ -206,7 +206,7 @@ it, and every later deploy would be refused as raced.
 
 **Two runs that overlap produce exactly the deploy `pagedeck diff` refuses.**
 Both read the store before either uploads, so both record the same parent, and
-the second one is a stale deploy — reported, not silently applied. That is the
+the second one is a stale deploy: reported, not silently applied. That is the
 intended failure: the detection is what makes a missing concurrency rule
 visible instead of leaving a mixed site behind.
 

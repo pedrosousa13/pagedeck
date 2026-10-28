@@ -238,8 +238,8 @@ in place of `netlify()`:
 - `vercel()` from `@pagedeck/adapter-vercel` writes `vercel.json`, a tree
   file.
 
-Outside `pagedeck build` — against a manifest from another build, or to try an
-adapter without building — call it directly over a routing document:
+Outside `pagedeck build` (against a manifest from another build, or to try an
+adapter without building), call it directly over a routing document:
 
 ```ts
 import { readFileSync } from "node:fs";

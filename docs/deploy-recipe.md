@@ -90,7 +90,7 @@ is not:
   run in the build test names every out-of-band artifact and writes none of
   them.
 - The **edge artifacts** are asserted as compiled text and never as a live
-  distribution — the standing decision that edge artifacts are emitted, not
+  distribution: the standing decision that edge artifacts are emitted, not
   provisioned. **SeaweedFS is not CloudFront**: the edge function, cache
   behaviours, invalidation and propagation are unproven, and
   `--edge cloudfront-function` compiles text that nothing here executes.
@@ -105,9 +105,9 @@ is not:
   a signing step that holds the credentials, and this repository has none.
 - The **deferred prune** reads the history back off a directory origin by
   listing it, and off a presigned origin through the history index (#659,
-  below). `packages/site/src/deploy.test.ts` pins the arithmetic —
-  three builds, a fresh runner each time, and the third deploy really deleting
-  what the first left behind — and `deploy.build.test.ts` pins that the runnable
+  below). `packages/site/src/deploy.test.ts` pins the arithmetic
+  (three builds, a fresh runner each time, and the third deploy really deleting
+  what the first left behind) and `deploy.build.test.ts` pins that the runnable
   files a real build's own document at the origin and that the retention
   store's reader opens it there. The origin harness runs the prune end to end
   against a real S3 origin, and compares what it deletes with a directory
@@ -119,7 +119,7 @@ is not:
 
 ## The secret
 
-One secret, `PAGEDECK_SNAPSHOT_URL`, and it is **a presigned `https:` URL** — not an
+One secret, `PAGEDECK_SNAPSHOT_URL`, and it is **a presigned `https:` URL**, not an
 AWS access key, not a role to assume, not a credential chain. The transport
 uses no SDK: a presigned S3 URL *is* an HTTPS GET and PUT, so an SDK would buy
 nothing but a dependency and a set of credentials on the runner. Whoever holds
@@ -131,7 +131,7 @@ Two consequences worth knowing before storing one:
   `PAGEDECK_SNAPSHOT_URL` when the command line names no URL, and that is the whole
   protection: an argument is in `/proc/<pid>/cmdline`, which is world-readable on
   a shared runner, and in the `run:` line CI echoes. Writing
-  `pagedeck store pull "$PAGEDECK_SNAPSHOT_URL"` gets no benefit at all — the shell expands
+  `pagedeck store pull "$PAGEDECK_SNAPSHOT_URL"` gets no benefit at all: the shell expands
   it before `pagedeck` starts. Giving both the variable and an argument is refused
   rather than ranked.
 - **A presigned URL carries its credential in the query string.** No message in
@@ -141,11 +141,11 @@ Two consequences worth knowing before storing one:
 Loopback and link-local targets are refused with no override, so a job that runs
 its object store as a service container on `localhost` cannot push.
 
-**In the workflow the secret is declared on three steps and nowhere else** — the
+**In the workflow the secret is declared on three steps and nowhere else**: the
 gate, the snapshot pull and the snapshot push. A job-level `env:` is exported to
 every step of the job, which would have handed a write credential for the
 content store to `actions/checkout`, `pnpm/action-setup`, `actions/setup-node`,
-`actions/upload-artifact` and `pnpm install --frozen-lockfile` — that is, to
+`actions/upload-artifact` and `pnpm install --frozen-lockfile`, that is, to
 every dependency lifecycle script in the workspace. That exposure is what
 `GLOSSARY.md`'s **Third-party actions are pinned to commit SHAs** guards, and
 pinning an action does not help against a package.
@@ -213,7 +213,7 @@ apply publishes `manifest.json` again either way.
 That is what makes the webhook path incremental. `repository_dispatch` carries
 no `inputs`, so while the previous manifest could only arrive as an operator
 input, every run on the trigger content editing actually uses planned a first
-deploy — every file. `--from` is now an override rather than the only source,
+deploy, every file. `--from` is now an override rather than the only source,
 for the cases the origin cannot answer: an origin this process cannot read, or a
 deliberate re-deploy over an older build.
 
@@ -234,7 +234,7 @@ does a rollback plan, because a rollback is out of order by definition.
 **A forced `pagedeck diff` says so on the document it writes.** `pagedeck diff --force`
 prints `"forced": true` as the document's second key, straight after `version`;
 every other `pagedeck diff`, and every `pagedeck rollback`, omits the key rather than
-writing `false`. Nothing else in the document moves — the plan a forced run
+writing `false`. Nothing else in the document moves: the plan a forced run
 prints is the plan the same pair of manifests would have produced anyway, and
 `DIFF_VERSION` stays at 1, so a recipe reading `from`, `to`, `trees` and `stats`
 reads exactly the keys it always did. It is there for the pipeline that archives
@@ -244,7 +244,7 @@ record that the raced-deploy check was skipped rather than passed.
 
 **Reading an archive that predates this release: absence means "unforced *or*
 older than this".** Every diff written before the key existed omits it, forced
-or not, and there is nothing in the document that separates the two — the
+or not, and there is nothing in the document that separates the two; the
 version did not move, for the reason above. So a pipeline that has archived
 diffs across the upgrade should read a missing `forced` as "no override
 recorded" rather than as "no override happened", and date the boundary from the
@@ -254,16 +254,16 @@ release it upgraded on.
 
 Step 2 above writes the site into `./site`, and that directory is what a deploy
 publishes. Two things a build produces are deliberately **not** in it, and both
-are anchored at the site directory — the one holding `pagedeck.config.ts` — rather
+are anchored at the site directory (the one holding `pagedeck.config.ts`) rather
 than at `outDir`:
 
-- **`.pagedeck/manifests/`** — the retention store (#32), read back by `pagedeck rollback`.
+- **`.pagedeck/manifests/`**: the retention store (#32), read back by `pagedeck rollback`.
   Its size grows with `build.retention.keep`. A deploy does **not** publish it:
   what reaches the origin is one document per apply, the manifest of the build
   that apply published, with a one-line file beside it holding the instant it
   was deployed. The origin's copy is bounded by nothing (#287, #403, and
   "The grace period" below).
-- **`.pagedeck/budget-report.json`** — the per-page size report (#21, #336), written
+- **`.pagedeck/budget-report.json`**: the per-page size report (#21, #336), written
   by any build that declares `build.budget` or `build.criticalCss`, including a
   build that fails on a breach.
 
@@ -272,15 +272,15 @@ pipeline above is manifest-driven: `pagedeck diff` and `deploy.bin.js` upload th
 in `Manifest.files`, plus `manifest.json`, a second copy of it under
 `.pagedeck/manifests/` and the instant that copy was deployed, so a file outside
 those lists is never sent no matter where it sits on disk. Nothing reads this
-site's `.pagedeck/` directory to decide what to upload — the second copy is the
-document the deploy already holds, filed under a second key — so the budget
-report beside it is not on the list and cannot be. A directory-sync host —
-Netlify or Vercel with a publish directory, or
-`aws s3 sync site/` — reads no manifest and copies the tree, so for that host
+site's `.pagedeck/` directory to decide what to upload (the second copy is the
+document the deploy already holds, filed under a second key), so the budget
+report beside it is not on the list and cannot be. A directory-sync host
+(Netlify or Vercel with a publish directory, or
+`aws s3 sync site/`) reads no manifest and copies the tree, so for that host
 the filesystem *is* the upload list. The budget report names the build id, the
 build time, every budgeted page's limit and spend, and every emitted chunk's
 path and size; inside `outDir` it answered `GET /budget-report.json` for anyone.
-Under `.pagedeck/` there is nothing for either deploy to exclude — for the layout step
+Under `.pagedeck/` there is nothing for either deploy to exclude, for the layout step
 2 above sets up, and for every site in this repo: `outDir` inside the site
 directory.
 
@@ -288,8 +288,8 @@ That premise is the whole of the guarantee, so it is worth stating rather than
 implying. `build.outDir` is yours to point anywhere; the build checks only that
 it is a string. A site that aims it at the site directory itself, or at an
 ancestor of it, puts `.pagedeck/` back inside the tree a directory-sync host copies.
-Nothing in the framework refuses that layout — a site publishing its own source
-directory is already publishing `pagedeck.config.ts` — so read the placement as what
+Nothing in the framework refuses that layout (a site publishing its own source
+directory is already publishing `pagedeck.config.ts`), so read the placement as what
 it is: the report is outside the directory you publish, not outside every
 directory you could name.
 
@@ -351,19 +351,19 @@ zero.
 **The exit code comes from the class** (`docs/error-messages.md` rule 7). A bad
 command line, an unreadable manifest, an unsupported `--edge` target and a
 refused raced deploy are `ConfigError` and exit **2**, which promises CI that
-retrying will not help. Everything else — an I/O failure reading the build's
-bytes, an HTTP failure from a presigned target — exits **1**, where a retry may.
+retrying will not help. Everything else (an I/O failure reading the build's
+bytes, an HTTP failure from a presigned target) exits **1**, where a retry may.
 `@pagedeck/site` depends on `@pagedeck/core`, so both the class and `EXIT_CODES` are
 imported rather than spelled as numbers.
 
 **The runnable is `node dist/deploy.bin.js` and nothing else.** There is no
 `pnpm deploy`: no `packages/*/package.json` in this workspace carries a
-`scripts` field — the root holds every runnable — and the name would collide
+`scripts` field (the root holds every runnable), and the name would collide
 with pnpm's own `pnpm deploy` besides. The workflow and this recipe invoke the
 file directly.
 
 The plan names every file rather than counting them, because the question it
-answers is "is that the file I changed" — and it leads with the counts and the
+answers is "is that the file I changed", and it leads with the counts and the
 byte totals, so a deploy that is unexpectedly the whole site is visible in the
 first line.
 
@@ -373,8 +373,8 @@ the next section. Giving both is refused rather than ranked, and exits 2.
 
 **What the workflow adds is two locks, not a third mode.**
 `.github/workflows/deploy.yml` guards every writing step on `apply: true` *and*
-on `PAGEDECK_SNAPSHOT_URL` being set. With no secret configured — this repository's
-state — a run pulls nothing, syncs the site's own entries instead, builds, prints
+on `PAGEDECK_SNAPSHOT_URL` being set. With no secret configured (this repository's
+state), a run pulls nothing, syncs the site's own entries instead, builds, prints
 the plan, uploads it as a build artifact and finishes green. A `repository_dispatch`
 run (the CMS webhook) never reaches the writing steps at all, whatever its
 payload says: `inputs` is empty on that event, and the guards test `inputs`.
@@ -526,9 +526,13 @@ PAGEDECK_DEPLOY_URLS=history.json node dist/deploy.bin.js --prune --requests req
 PAGEDECK_DEPLOY_URLS=signed.json  node dist/deploy.bin.js --prune --apply
 ```
 
-The first dry run says `Prune: deletes nothing — the prune reads <n> keys of the
-origin's deploy history that PAGEDECK_DEPLOY_URLS holds no GET URL for …` and
-lists those keys as GETs. The second plans the prune and lists its DELETEs. If
+The first dry run says:
+
+```
+Prune: deletes nothing — the prune reads <n> keys of the origin's deploy history that PAGEDECK_DEPLOY_URLS holds no GET URL for …
+```
+
+It lists those keys as GETs. The second plans the prune and lists its DELETEs. If
 a key's grace runs out between the second dry run and the apply, the apply
 finds no DELETE URL for it and is refused before it sends anything. Run the
 passes again.
@@ -707,14 +711,14 @@ can write**:
 - A run that cannot write joins `deploy-dogfood-site-dry-run` with
   `cancel-in-progress: true`, so a burst of publish events collapses to one run
   of the latest. That is correct for a dry run because of what it is derived
-  from — the store snapshot and the two manifests, both read at the start of a
-  run, neither accumulated across runs — and because it uploaded nothing, so
+  from (the store snapshot and the two manifests, both read at the start of a
+  run, neither accumulated across runs) and because it uploaded nothing, so
   there is nothing half-done to inherit.
 - A run that can write joins `deploy-dogfood-site-apply` and is **never
   cancelled**. "A cancelled run uploaded nothing" is false for an applying run:
-  `applyPlan` walks the plan in spec §11's order — assets, then HTML, then the
+  `applyPlan` walks the plan in spec §11's order (assets, then HTML, then the
   build's manifest, filed once into the origin's deploy history and once as
-  `manifest.json`, with the deploy instant between the two — so a cancel
+  `manifest.json`, with the deploy instant between the two), so a cancel
   landing between two phases leaves pages live pointing at chunks that were
   never uploaded, which is exactly the half-published state the ordering
   exists to prevent. A webhook dry run could have delivered that cancel while
@@ -738,7 +742,7 @@ not a delay, is what folds a burst of webhooks into one more run.
 **A deploy never deletes on its own.** `applyPlan` uploads and stops; the prune
 is a separate call, and it deletes nothing before a deadline. For a hashed
 `js`, `css` or `asset` file, that deadline is the instant a build was deployed
-plus `graceSeconds`, and the default is **604800 seconds — seven days**. For a
+plus `graceSeconds`, and the default is **604800 seconds, seven days**. For a
 page it is that instant with nothing added. *Which* build's is the whole of what #287
 settled, and the answer is further down this section.
 
@@ -786,7 +790,7 @@ delete it was the run that had just replaced the manifest describing it.
 
 **So the deploy files each build it publishes into a history at the origin, and
 the prune reads that history back.** `applyPlan` puts the build's own
-`manifest.json` at `<origin>/.pagedeck/manifests/<build id>.json` as well — the same
+`manifest.json` at `<origin>/.pagedeck/manifests/<build id>.json` as well: the same
 bytes, under the same relative path a site's retention store has, immediately
 before it publishes `manifest.json` itself. Every run reads that directory back
 before it plans, through `listRetainedManifests`, the same door `pagedeck rollback`
@@ -842,7 +846,7 @@ whole of what makes the walk above sound, and it was got wrong the first time:
 the deploy published the *runner's* retention store, which is which builds this
 runner **built**. Two builds made on a developer's machine between two deploys
 then sat in the history having served nothing, and the older of them was blamed
-for a drop that happened a month later — so a chunk the origin was serving that
+for a drop that happened a month later, so a chunk the origin was serving that
 second was deleted with no grace at all. Filing the bytes the apply is already
 publishing removes the question rather than answering it: there is no way to
 enter a build into this history without deploying it.
@@ -850,45 +854,45 @@ enter a build into this history without deploying it.
 Four things about it are worth knowing before changing any of them:
 
 - **The build being deployed is stated, never inferred from the order.** A
-  document can be stamped ahead of what the origin actually serves — a skewed
-  runner, or a build `pagedeck build` retained and never deployed — and by age alone
+  document can be stamped ahead of what the origin actually serves (a skewed
+  runner, or a build `pagedeck build` retained and never deployed), and by age alone
   that document would be the newest, making every file the live site serves read
   as superseded. The runnable passes the manifest it is deploying, and its keys
   come off the answer whatever the history says.
 - **So is the build that was being served, and for a sharper reason: a rollback
   breaks the order.** `createdAt` says when a build was *stamped*, and restoring
-  `b2` over `b3` leaves the clock still calling `b3` the newer — so `b3` reads
+  `b2` over `b3` leaves the clock still calling `b3` the newer, so `b3` reads
   as the build that superseded `b2`, when in truth `b2` outlived it by weeks,
   and every file the restored site serves is attributed to a deadline long past.
   The runnable passes `<origin>/manifest.json` as the build that was live, and a
   key whose newest holder is that build is named as dropped by this deploy, with
-  its window opening at the moment the deploy runs — not at the deployed build's
+  its window opening at the moment the deploy runs, not at the deployed build's
   own clock reading, which is when the artifact was *stamped* and can be a month
   earlier if you are re-deploying an old one. That is the whole grace period
   ahead of it, measured from now. What that cannot fix is the build the
   rollback un-served: nothing anywhere records when a rollback happened, so its
   files are attributed to the next build by clock reading, which is later than
   the truth and therefore the safe side. The cost is one deploy's delay and not
-  a leak — `deploy.test.ts` runs the deploy after and asserts the files then go.
-- **The origin accumulates these documents and nothing bounds it — not
+  a leak: `deploy.test.ts` runs the deploy after and asserts the files then go.
+- **The origin accumulates these documents and nothing bounds it, not
   `build.retention.keep`, which governs only the copy beside the site.** A
   `DeployTarget` has no list operation, and deleting the oldest documents is the
   one edit that would break the prune: a key only those builds held would go
   invisible to it and stay at the origin for ever. Never leaking an asset is
   what the growth buys, and the growth is real rather than negligible.
   **Measured on this repository: one manifest is 6110 B for the four-page
-  dogfood site and 363546 B for the fifty-page docs site** — 6.1 kB and 364 kB,
+  dogfood site and 363546 B for the fifty-page docs site**: 6.1 kB and 364 kB,
   SI units, as every figure in this section is. Two things set the rate and only
   one of them is the document: the size of each scales with the pages and files
   a build emits, and how many of them you accumulate scales with how often you
-  deploy. Multiply the two — a site the size of the docs site, deploying ten
+  deploy. Multiply the two: a site the size of the docs site, deploying ten
   times a day, files about 3.6 MB a day. Budget it against both, and read it as
   the standing cost of a prune that works.
 - **They are kept off the edge, and so is `manifest.json`** (#556). Each
   document names every file its build served, and `build.parent` leads from
   the live manifest to the one before it, so served, the history would hand
-  anyone every address the site has ever had — a post set to draft since
-  included — with the time each build went up. Nothing in a browser reads
+  anyone every address the site has ever had (a post set to draft since
+  included), with the time each build went up. Nothing in a browser reads
   either file: the deploy reads the origin directly, through the file system
   or a signed GET, and never through the edge. So every edge adapter's
   output answers `/manifest.json` and everything under `/.pagedeck/` with the
@@ -928,7 +932,7 @@ both are bounded.**
 rather than this document's.** #32 put the retention store beside the output
 tree and never inside it, and one of its reasons is precisely this: a store
 under `outDir` would mean every CDN bucket accumulates twenty copies of a
-document describing files it is serving. The reasoning holds — a deploy that
+document describing files it is serving. The reasoning holds: a deploy that
 swept `outDir` would
 publish twenty documents on the first apply and twenty again on the next, for a
 store the origin had no use for. #287's ruling decided the origin has a use for
@@ -950,7 +954,7 @@ deadline. The run ends with a `Held 1 file` or `Held <n> files` line naming
 that deadline whenever it deleted some files and not others.
 
 `pagedeck diff` and `pagedeck rollback` take `--grace-seconds <n>` to set it.
-`deploy.bin.js` does not, and plans under the default — so **if you change the
+`deploy.bin.js` does not, and plans under the default, so **if you change the
 window, change it in both places**, or the document a person read and the plan
 that ran will disagree about when a file may go. The workflow passes it to
 neither, which is why the two agree today.
@@ -995,7 +999,7 @@ another build is refused before any request.
 
 1. **The retention store.** `pagedeck build` retains manifests in `.pagedeck/manifests`
    beside the output tree, and a rollback reads the one it is named. A CI job
-   that checked out and built once holds exactly one manifest — its own — so a
+   that checked out and built once holds exactly one manifest (its own), so a
    real rollback needs that store restored into the workspace first.
 2. **The retained build's bytes.** `pagedeck build` retains the *manifest*, not the
    output tree, and a rollback uploads files. Either keep the build artifact or
@@ -1007,11 +1011,11 @@ another build is refused before any request.
 An edge adapter compiles the site's `build.routing` into a host's files, and a deploy
 treats them as two groups because a host does:
 
-- **`tree-file`** — `/_redirects` and `/_headers` on Netlify, for instance.
+- **`tree-file`**: `/_redirects` and `/_headers` on Netlify, for instance.
   Uploaded with the site, into the output tree, **after** every file the build
   emitted for that tree. That order is what makes it impossible for a redirect to
   be live before the page it points at.
-- **everything else** — a CloudFront Function, its config fragment, a KeyValueStore
+- **everything else**: a CloudFront Function, its config fragment, a KeyValueStore
   dataset, an nginx include, a Cloudflare Worker. **Published out of band.** `applyPlan` writes them
   into the `--staging` directory and stops; the workflow uploads that directory
   as a build artifact, and an operator applies it.
@@ -1036,8 +1040,8 @@ would put a file outside the staging directory is refused before anything is
 uploaded.
 
 **Every tree gets edge artifacts, even a tree whose site declares no routing at
-all** (#556). The deny for the reserved deploy keys — `/manifest.json` and
-`/.pagedeck/`, see "The grace period" above — is compiled into every tree, so a site
+all** (#556). The deny for the reserved deploy keys (`/manifest.json` and
+`/.pagedeck/`, see "The grace period" above) is compiled into every tree, so a site
 that wrote nothing still has something to install:
 
 - On `cloudfront-function`, a viewer-request function (`routing.request.js`).
@@ -1053,8 +1057,8 @@ that wrote nothing still has something to install:
   the bucket. It has to be published with the bucket bound to it, and routed in
   front of the site, for the deny to take effect.
 
-A dry run stages nothing at all — it names each artifact in the plan and creates
-no directory — so `--edge` is safe to leave in a workflow that has not been
+A dry run stages nothing at all (it names each artifact in the plan and creates
+no directory), so `--edge` is safe to leave in a workflow that has not been
 authorized to deploy. The workflow's `edge_target` input defaults to
 `cloudfront-function` because that is the target whose artifacts are entirely
 out of band, and so the only one that exercises the staging half; it is a
@@ -1082,7 +1086,7 @@ repository has not observed, and the equivalence check assumes it:
   with a status other than 200, so a reserved deploy key (`/manifest.json`,
   `/.pagedeck/`) is proxied (200, in place) to the tree's 404 page instead,
   and `_headers` is assumed to match the *original* request's path rather than
-  the proxied page's — the opposite assumption from Netlify's and CloudFront's
+  the proxied page's: the opposite assumption from Netlify's and CloudFront's
   above. If Cloudflare matches the proxied page's path instead, a reserved key
   carries the 404 page's own header set rather than whatever (if anything)
   matches the key itself. Whether a redirect response carries `_headers` at
@@ -1108,7 +1112,7 @@ Nothing in this repository applies the second group, and that is the standing
 decision "edge artifacts are emitted, not provisioned" rather than an unfinished
 step: a compiler emits the files a host needs and records what the host must be
 given, and what it emits is inert until somebody installs it. The failure that
-decision is written against is concrete — a CloudFront Function uploaded into the
+decision is written against is concrete: a CloudFront Function uploaded into the
 bucket beside the site's JavaScript succeeds, publishes nothing, fires no
 redirect, and reports green.
 

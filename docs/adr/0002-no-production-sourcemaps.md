@@ -33,7 +33,7 @@ the transform, and whether anything reaches disk is decided elsewhere, by
 **What an emitted map discloses is the original source, in full.** Babel
 includes `sourcesContent` by default when `sourceMaps` is on, Rolldown carries
 it through, and the emitted `.map` holds the complete original text of every
-authored module — comments, dead branches, anything the bundler would otherwise
+authored module: comments, dead branches, anything the bundler would otherwise
 have dropped. This was confirmed by building a fixture whose source carried a
 marker comment and finding that comment in the emitted map. For a site built on
 a private design system, publishing that map publishes the design system.
@@ -80,11 +80,11 @@ A production build config landed with `buildClient`
 `build.sourcemap`, and the check this section asked for is on it:
 `client-build.test.ts` asserts that no emitted file's path ends `.map` and that
 no chunk carries a `sourceMappingURL` comment. The output *directory* is still
-#37's to write — `buildClient` hands its files back rather than placing them —
+#37's to write (`buildClient` hands its files back rather than placing them),
 so the check reads the emitted set instead of a tree on disk, which is the same
 claim about the same bytes.
 
-If the trade is ever reopened, reopen it on the disclosure, not on the paths —
+If the trade is ever reopened, reopen it on the disclosure, not on the paths:
 the paths were the weaker of the two reasons and measurement removed them.
 
 ## Alternatives considered
@@ -95,7 +95,7 @@ alternative, and the one to take if production stack traces become necessary.
 comment, the upload step sends it to the reporter, and the file is deleted from
 the output directory before publish. Not adopted now because it requires a
 release pipeline and an error reporter, neither of which exists yet, and
-because a half-built version of it — maps emitted, upload not wired — publishes
+because a half-built version of it (maps emitted, upload not wired) publishes
 exactly what this ADR refuses. It is a decision for whoever builds the release
 pipeline, made with the pipeline in front of them.
 

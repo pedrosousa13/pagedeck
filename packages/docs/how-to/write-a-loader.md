@@ -83,7 +83,7 @@ cursor that is slightly ahead costs an entry that is never synced again.
 ## Report deletions
 
 `deleted` names the entries your source says are gone. A source that remembers
-its own removals — a delivery API with a removals endpoint — fills it from
+its own removals (a delivery API with a removals endpoint) fills it from
 there. It is a report: call `writer.delete` for each of those entries as well,
 because the store removes only what the writer is told to delete. An entry
 reported in `deleted` and never passed to `writer.delete` stays a page.
@@ -98,15 +98,15 @@ return { changed, deleted: [], authoritative: true, cursor: Date.now() };
 ```
 
 Only from `syncAll`. A `syncSince` reports a delta, so it never mentions the
-entries that did not change — returning `authoritative` from one is refused,
+entries that did not change. Returning `authoritative` from one is refused,
 because pruning against it would delete the unchanged remainder of the
 collection.
 
 ## Entry ids are identifiers, not paths
 
 `EntryId` is `{ locale, path }`, and both fields are identifiers. A sync refuses
-every upsert whose id holds a `..`, a leading `/`, a backslash or a NUL —
-spelled literally or percent-encoded — because a loader is free to build a file
+every upsert whose id holds a `..`, a leading `/`, a backslash or a NUL,
+spelled literally or percent-encoded, because a loader is free to build a file
 path or a URL out of an id, and one that resolves away structure would let
 whoever supplies it read outside your content.
 
@@ -116,8 +116,8 @@ written before this rule existed may hold a row only a delete can remove.
 
 ## Declare a schema
 
-A collection's `schema` field is required. Give it a Standard Schema — any
-implementation — and every entry your loader writes is validated before it is
+A collection's `schema` field is required. Give it a Standard Schema (any
+implementation), and every entry your loader writes is validated before it is
 stored, with failures named by locale, path and field. Give it `false` and
 nothing is checked. There is no way to skip the decision.
 
@@ -125,8 +125,8 @@ The schema's output type and your loader's entry type are two types, and they
 do not have to agree. A collection is `Collection<TOut, TIn>`: `TOut` is the
 entry as it is stored and read, `TIn` is what your loader produces, and `TIn`
 defaults to `TOut` for the loader that already produces what the site reads. So
-a schema may narrow what a loader hands over — turning an open record of
-frontmatter into a closed one — and every page, query and extractor sees the
+a schema may narrow what a loader hands over (turning an open record of
+frontmatter into a closed one), and every page, query and extractor sees the
 narrowed shape. Your loader is written against its own type and never learns
 about the site's.
 

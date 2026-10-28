@@ -2,9 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 
-// By position, one entry per fence. `null` is an example a site might write, which quotes no
-// file in this repository.
-const FONTS_SAMPLES: readonly (readonly string[] | null)[] = [null, ["packages/site/src/site.ts"]];
+// By position, one entry per fence. `null` is a fence that quotes no file in this repository:
+// an example a site might write, or a message the build prints.
+const FONTS_SAMPLES: readonly (readonly string[] | null)[] = [null, null, ["packages/site/src/site.ts"]];
 
 function unsourcedSampleLines(name: string, samples: readonly (readonly string[] | null)[]): string[] {
   const repo = join(import.meta.dirname, "..", "..", "..");
