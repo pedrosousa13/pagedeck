@@ -293,7 +293,7 @@ test("a declared island error reporter adds one import and wraps the resolve, na
 
   expect(
     renderEntryModule(only(plan.entries), {
-      islandErrors: true,
+      islandErrors: "./src/report.ts",
     }),
   ).toBe(
     [
@@ -316,7 +316,7 @@ test("a page with no load island imports the island error reporter on the trigge
 
   expect(
     renderEntryModule(only(plan.entries), {
-      islandErrors: true,
+      islandErrors: "./src/report.ts",
     }),
   ).toBe(
     [

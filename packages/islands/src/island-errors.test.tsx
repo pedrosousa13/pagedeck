@@ -52,9 +52,7 @@ const wiring = vi.hoisted(() => ({
   errors: undefined as IslandErrors | undefined,
 }));
 
-// What the build does for a site that declares `build.islandErrors`: the
-// runtime's `react-dom/client` is the reporting wrapper. A fresh wrapper per
-// test, so each test loads its own reporter module and its own manifest.
+// The build hands the runtime the wrapper as its `react-dom/client`.
 vi.mock("react-dom/client", async (importOriginal) => {
   const original = await importOriginal<typeof import("react-dom/client")>();
   wiring.hydrate = original.hydrateRoot;
@@ -349,6 +347,37 @@ test("a reporter that throws is not called for its own failure, and the next isl
     expect(consoleErrors).toContain(thrown);
   });
   expect(calls).toBe(1);
+  await expectCounterCounts();
+});
+
+test("an async reporter that rejects is logged like one that throws, and the next island still hydrates", async () => {
+  const rejected = new Error("collector refused the report");
+  let calls = 0;
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown): void => {
+    unhandled.push(reason);
+  };
+  process.on("unhandledRejection", onUnhandled);
+  wire(async () => ({
+    default: async () => {
+      calls += 1;
+      throw rejected;
+    },
+  }));
+
+  try {
+    await hydratePage(TWO_ISLANDS, { Broken: Mismatch, Counter });
+    await vi.waitFor(() => {
+      expect(consoleErrors).toContain(rejected);
+    });
+    await new Promise((settle) => setTimeout(settle, 20));
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+
+  expect(calls).toBe(1);
+  expect(consoleErrors.filter((logged) => logged === rejected)).toHaveLength(1);
+  expect(unhandled).toEqual([]);
   await expectCounterCounts();
 });
 

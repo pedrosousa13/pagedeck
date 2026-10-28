@@ -39,7 +39,6 @@ export interface ClientBuildInput {
   plugins?: readonly PluginOption[];
   split?: readonly ManifestChunk[];
   upstreams?: readonly UpstreamRule[];
-  /** The site's reporter module, as `build.islandErrors` names it. */
   islandErrors?: string;
 }
 
@@ -517,12 +516,10 @@ export async function buildClient(
           ? []
           : [refuseUpstreamImports(input.root, input.origin, input.plan, sources)]),
         compiler.plugin,
-        serveEntryModules(
-          input.plan,
-          input.origin,
-          input.globalCss,
-          input.islandErrors !== undefined,
-        ),
+        serveEntryModules(input.plan, input.origin, {
+          globalCss: input.globalCss,
+          islandErrors: input.islandErrors,
+        }),
         ...(input.islandErrors === undefined
           ? []
           : [islandErrorsModule(input.origin, input.islandErrors)]),
@@ -654,10 +651,17 @@ function islandErrorsModule(origin: string, reporter: string): Plugin {
 
     async buildStart() {
       runtime = (await this.resolve(ISLANDS_RUNTIME, origin))?.id;
-      const resolved = await this.resolve(reporter, origin).catch(() => null);
+      let cause: unknown;
+      const resolved = await this.resolve(reporter, origin).catch(
+        (error: unknown) => {
+          cause = error;
+          return null;
+        },
+      );
       if (resolved === null || resolved === undefined) {
         throw new ConfigError(
           `Client build: "build.islandErrors" names ${JSON.stringify(reporter)}, which did not resolve against "${origin}" — correct the path, which is read from the config's directory, or install the package it names`,
+          cause === undefined ? undefined : { cause },
         );
       }
       reporterId = resolved.id;

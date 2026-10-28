@@ -234,6 +234,26 @@ test("a reporter module that does not resolve is refused with the field and its 
   );
 }, 120_000);
 
+test("a reporter specifier the resolver throws on is refused with the resolver's error as its cause", async () => {
+  const pkg = join(FIXTURE_DIR, "node_modules", "reporter-package-7d1c");
+  mkdirSync(pkg, { recursive: true });
+  writeFileSync(
+    join(pkg, "package.json"),
+    JSON.stringify({ name: "reporter-package-7d1c", type: "module", exports: { ".": "./index.js" } }),
+  );
+  writeFileSync(join(pkg, "index.js"), "export default function report() {}\n");
+
+  const failure = await build("reporter-package-7d1c/missing").catch(
+    (error: unknown) => error,
+  );
+
+  expect(failure).toBeInstanceOf(ConfigError);
+  expect((failure as Error).message).toContain(
+    `"build.islandErrors" names "reporter-package-7d1c/missing", which did not resolve`,
+  );
+  expect((failure as Error).cause).toBeInstanceOf(Error);
+}, 120_000);
+
 const TWICE_SITE = join(
   dirname(fileURLToPath(import.meta.url)),
   "../node_modules/.pagedeck-island-errors-twice-test/",
@@ -307,6 +327,8 @@ test("two builds of one site with a reporter declared differ only in the manifes
   await runIn(TWICE_SITE, "sync");
   await runIn(TWICE_SITE, "build");
   cpSync(dist, first, { recursive: true });
+  rmSync(dist, { recursive: true, force: true });
+  rmSync(join(TWICE_SITE, ".pagedeck"), { recursive: true, force: true });
   await runIn(TWICE_SITE, "build");
 
   const stamp = (root: string): string =>

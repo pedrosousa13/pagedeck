@@ -229,6 +229,12 @@ export function runtimeImports(entry: EntryText): readonly string[] {
   );
 }
 
+export interface EntryModuleOptions {
+  hot?: boolean;
+  globalCss?: readonly string[];
+  islandErrors?: string;
+}
+
 /**
  * Every component is imported dynamically. With no eager component, so is
  * everything `runtimeImports` names, on the first island's trigger, and so is
@@ -239,11 +245,7 @@ export function runtimeImports(entry: EntryText): readonly string[] {
  */
 export function renderEntryModule(
   entry: EntryText,
-  options: {
-    hot?: boolean;
-    globalCss?: readonly string[];
-    islandErrors?: boolean;
-  } = {},
+  options: EntryModuleOptions = {},
 ): string {
   const hot = options.hot === true;
   const deferred =
@@ -252,7 +254,8 @@ export function renderEntryModule(
     `import ${binding.names} from ${JSON.stringify(binding.from)};`;
 
   const globalCss = options.globalCss ?? [];
-  const errors = options.islandErrors === true ? [ISLAND_ERRORS_BINDING] : [];
+  const reporting = options.islandErrors !== undefined;
+  const errors = reporting ? [ISLAND_ERRORS_BINDING] : [];
   const lines = deferred
     ? [`import { hydrateOnTrigger } from "${ISLANDS_STARTUP}";`]
     : [
@@ -297,7 +300,7 @@ export function renderEntryModule(
     "hydrateIslands({",
     hot
       ? "  resolve: hot.resolve,"
-      : options.islandErrors === true
+      : reporting
         ? `  resolve: islandErrors.resolve(${load}),`
         : `  resolve: ${load},`,
   );
