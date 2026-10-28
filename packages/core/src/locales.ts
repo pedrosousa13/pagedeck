@@ -8,9 +8,14 @@ export interface LocaleDefinition {
   direction: Direction;
   fallback?: string;
   domain?: string;
+  /**
+   * Keeps `/<code>` on a locale alone in its tree. A locale sharing its tree
+   * is prefixed whatever this says, and `false` there is refused.
+   */
+  prefixed?: boolean;
 }
 
-export interface PlacedLocale extends LocaleDefinition {
+export interface PlacedLocale extends Omit<LocaleDefinition, "prefixed"> {
   /**
    * The set's key, duplicated: a locale handed on alone still says which it is.
    */
@@ -243,6 +248,77 @@ export function localeTree(
   return domainHost(locale.domain) ?? locale.domain;
 }
 
+interface PrefixedFault {
+  code: string;
+  shown: string;
+}
+
+const PREFIXED_FIX =
+  "write prefixed: true to keep the locale's key in its paths, or delete the field";
+
+function prefixedFaultReport(faulted: readonly PrefixedFault[]): string {
+  const count = faulted.length;
+  const headline =
+    count === 1
+      ? "1 locale declares prefixed as something other than true or false"
+      : `${String(count)} locales declare prefixed as something other than true or false`;
+  const detail = faulted
+    .map(({ code, shown }) => `  "${code}": ${shown}`)
+    .join("\n");
+  return `${SUBJECT}${headline} — ${PREFIXED_FIX}:\n${detail}`;
+}
+
+function faultyPrefixed(
+  declared: readonly (readonly [string, LocaleDefinition])[],
+): PrefixedFault[] {
+  return declared.flatMap(([code, locale]) => {
+    const { prefixed } = locale as { prefixed?: unknown };
+    return prefixed === undefined || typeof prefixed === "boolean"
+      ? []
+      : [{ code, shown: quote(prefixed) }];
+  });
+}
+
+interface SharedUnprefixed {
+  code: string;
+  tree: string | undefined;
+  others: readonly string[];
+}
+
+const SHARED_UNPREFIXED_FIX =
+  "delete prefixed: false, or give the locale a domain of its own";
+
+function sharedUnprefixedReport(shared: readonly SharedUnprefixed[]): string {
+  const count = shared.length;
+  const headline =
+    count === 1
+      ? '1 locale declares prefixed: false on a tree it shares with other locales, where every locale is prefixed so that none of them holds "/"'
+      : `${String(count)} locales declare prefixed: false on a tree they share with other locales, where every locale is prefixed so that none of them holds "/"`;
+  const detail = shared
+    .map(({ code, tree, others }) => {
+      const where =
+        tree === undefined ? "the origin's tree" : `the tree "${tree}"`;
+      return `  "${code}" shares ${where} with ${others.map((other) => `"${other}"`).join(", ")}`;
+    })
+    .join("\n");
+  return `${SUBJECT}${headline} — ${SHARED_UNPREFIXED_FIX}:\n${detail}`;
+}
+
+function sharedUnprefixed(
+  declared: readonly (readonly [string, LocaleDefinition])[],
+): SharedUnprefixed[] {
+  const shared: SharedUnprefixed[] = [];
+  for (const [code, locale] of declared) {
+    if (locale.prefixed !== false) continue;
+    const tree = localeTree(locale);
+    const others = declared
+      .filter(([other, held]) => other !== code && localeTree(held) === tree)
+      .map(([other]) => other);
+    if (others.length > 0) shared.push({ code, tree, others });
+  }
+  return shared;
+}
+
 function treeSizes(
   declared: readonly (readonly [string, LocaleDefinition])[],
 ): Map<string | undefined, number> {
@@ -277,6 +353,10 @@ export function defineLocales(
     }
   }
   if (missing.length > 0) sections.push(missingFallbackReport(missing));
+  const faultyPrefix = faultyPrefixed(declared);
+  if (faultyPrefix.length > 0) sections.push(prefixedFaultReport(faultyPrefix));
+  const shared = sharedUnprefixed(declared);
+  if (shared.length > 0) sections.push(sharedUnprefixedReport(shared));
   if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
 
   // A separate throw: a missing target is a hole in the graph, so cycles are
@@ -286,12 +366,15 @@ export function defineLocales(
 
   const sizes = treeSizes(declared);
   return new Map(
-    declared.map(([code, locale]) => [
+    declared.map(([code, { prefixed, ...locale }]) => [
       code,
       {
         ...locale,
         code,
-        prefix: sizes.get(localeTree(locale)) === 1 ? "" : `/${code}`,
+        prefix:
+          prefixed !== true && sizes.get(localeTree(locale)) === 1
+            ? ""
+            : `/${code}`,
       },
     ]),
   );
