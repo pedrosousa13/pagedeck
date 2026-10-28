@@ -664,15 +664,15 @@ test("the focus ring sits on a plate of the page ground, so it clears 3:1 on any
     (match) => match[1] as string,
   );
   const plate = rules
-    .map((body) => /box-shadow:\s*0 0 0 ([\d.]+)px var\(--fw-bg\)/.exec(body)?.[1])
+    .map((body) => /box-shadow:\s*0 0 0 ([\d.]+)px var\(--pagedeck-bg\)/.exec(body)?.[1])
     .find((width) => width !== undefined);
-  expect(plate, "no :focus-visible rule sets a box-shadow plate in var(--fw-bg)").toBeDefined();
+  expect(plate, "no :focus-visible rule sets a box-shadow plate in var(--pagedeck-bg)").toBeDefined();
   const themes = readThemes(BRAND_CSS);
   const px = (token: string): number => Number.parseFloat(themes.light.resolved.get(token) as string);
-  expect(Number(plate)).toBeGreaterThan(px("--fw-ring-offset") + px("--fw-ring-width"));
+  expect(Number(plate)).toBeGreaterThan(px("--pagedeck-ring-offset") + px("--pagedeck-ring-width"));
   for (const theme of [themes.light, themes.dark]) {
     expect(
-      contrastRatio(theme.resolved.get("--fw-ring") as string, theme.resolved.get("--fw-bg") as string),
+      contrastRatio(theme.resolved.get("--pagedeck-ring") as string, theme.resolved.get("--pagedeck-bg") as string),
     ).toBeGreaterThanOrEqual(3);
   }
 });

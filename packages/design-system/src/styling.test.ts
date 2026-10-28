@@ -8,8 +8,8 @@ const themes = readThemes(
   readFileSync(join(import.meta.dirname, "..", "..", "brand", "brand.css"), "utf8"),
 );
 
-const FILL = /^bg-(?:\((--fw-[\w-]+)\)|(transparent))$/;
-const INK = /^text-(?:\((--fw-[\w-]+)\)|(inherit))$/;
+const FILL = /^bg-(?:\((--pagedeck-[\w-]+)\)|(transparent))$/;
+const INK = /^text-(?:\((--pagedeck-[\w-]+)\)|(inherit))$/;
 const OTHER_COLOUR = /^(?:bg|text|border|outline|ring|decoration)-/;
 
 interface Faults {
@@ -27,7 +27,7 @@ function colourFaults(): Faults {
       const ink = names.map((name) => INK.exec(name)).find((match) => match !== null);
       for (const name of names) {
         if (FILL.test(name) || INK.test(name) || !OTHER_COLOUR.test(name)) continue;
-        faults.push(`  ${field} "${value}": ${name} is not a brand token — write it as bg-(--fw-…) or text-(--fw-…)`);
+        faults.push(`  ${field} "${value}": ${name} is not a brand token — write it as bg-(--pagedeck-…) or text-(--pagedeck-…)`);
       }
       const fillToken = fill?.[1];
       const inkToken = ink?.[1];

@@ -20,7 +20,7 @@ const LINKED_SITE = join(SITES, ".pagedeck-css-symlink-linked-test");
 const REAL_SITE = join(SITES, ".pagedeck-css-symlink-real-test");
 const MISSING_SITE = join(SITES, ".pagedeck-css-symlink-missing-test");
 
-const GLOBAL_RULE = ".fw-brand";
+const GLOBAL_RULE = ".pagedeck-brand";
 
 // The layout pnpm gives a workspace package: the sheet's real home, and a
 // `node_modules` link to it.

@@ -21,7 +21,7 @@ const COMPONENTS: Record<string, string> = {
 export default function Hero() {
   return createElement(
     "section",
-    { className: "fw-hero  fw-hero--lead\\nfw-hero__inner" },
+    { className: "pagedeck-hero  pagedeck-hero--lead\\npagedeck-hero__inner" },
     "marker-hero-3c81",
   );
 }
@@ -30,7 +30,7 @@ export default function Hero() {
 export default function Chart() {
   return createElement(
     "div",
-    { className: "fw-chart ${ESCAPED_CLASS}" },
+    { className: "pagedeck-chart ${ESCAPED_CLASS}" },
     "marker-chart-7f24",
   );
 }
@@ -40,10 +40,10 @@ export default function Chart() {
 
 const RENDERED_CLASSES = [
   ESCAPED_CLASS,
-  "fw-chart",
-  "fw-hero",
-  "fw-hero--lead",
-  "fw-hero__inner",
+  "pagedeck-chart",
+  "pagedeck-hero",
+  "pagedeck-hero--lead",
+  "pagedeck-hero__inner",
 ];
 
 function site(root: string): string {
@@ -177,7 +177,7 @@ test("no emitted document holds a class the manifest does not", async () => {
     expect([path, unrecorded]).toEqual([path, []]);
   }
 
-  expect(classesOfHtml(htmlOf.get("/") ?? "")).toContain("fw-hero");
+  expect(classesOfHtml(htmlOf.get("/") ?? "")).toContain("pagedeck-hero");
 }, 60_000);
 
 test("a class React escaped is recorded as the stylesheet spells it", async () => {

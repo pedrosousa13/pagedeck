@@ -19,11 +19,11 @@ const FIXTURES = join(CORE, "..", "..", "fixtures", "src", "index.ts");
 
 const COMPONENTS: Record<string, string> = {
   "Hero.js": `import "./Hero.css";\nexport default function Hero() { return "marker-hero-9c14"; }\n`,
-  "Hero.css": `.fw-hero { color: rgb(1, 2, 3); }\n`,
+  "Hero.css": `.pagedeck-hero { color: rgb(1, 2, 3); }\n`,
   "Panel.js": `import "./Panel.css";\nexport default function Panel() { return "marker-panel-4b71"; }\n`,
-  "Panel.css": `.fw-panel { color: rgb(7, 8, 9); }\n`,
+  "Panel.css": `.pagedeck-panel { color: rgb(7, 8, 9); }\n`,
   "Chart.js": `import "./Chart.css";\nexport default function Chart() { return "marker-chart-2ad8"; }\n`,
-  "Chart.css": `.fw-chart { color: rgb(4, 5, 6); }\n`,
+  "Chart.css": `.pagedeck-chart { color: rgb(4, 5, 6); }\n`,
   "Copy.js": `export default function Copy() { return "marker-copy-2fd8"; }\n`,
 };
 
@@ -37,15 +37,15 @@ const TAILWIND_BYTES = ["--font-sans", "text-size-adjust"];
 const TAILWIND_COMPONENTS: Record<string, string> = {
   "theme.css": `@import "tailwindcss";\n`,
   "Hero.js": `import "./Hero.css";\nexport default function Hero() { return "${UTILITY} marker-hero-8e02"; }\n`,
-  "Hero.css": `.fw-hero { color: rgb(11, 12, 13); }\n`,
+  "Hero.css": `.pagedeck-hero { color: rgb(11, 12, 13); }\n`,
   "Panel.js": `import "./Panel.css";\nexport default function Panel() { return "marker-panel-1c63"; }\n`,
-  "Panel.css": `.fw-panel { color: rgb(17, 18, 19); }\n`,
+  "Panel.css": `.pagedeck-panel { color: rgb(17, 18, 19); }\n`,
   "Chart.js": `import "./Chart.css";\nexport default function Chart() { return "${UTILITY} marker-chart-5f47"; }\n`,
-  "Chart.css": `.fw-chart { color: rgb(14, 15, 16); }\n`,
+  "Chart.css": `.pagedeck-chart { color: rgb(14, 15, 16); }\n`,
   "Copy.js": `export default function Copy() { return "marker-copy-3ba9"; }\n`,
 };
 
-const GLOBAL_RULE = ".fw-global";
+const GLOBAL_RULE = ".pagedeck-global";
 const GLOBAL_COMPONENTS: Record<string, string> = {
   ...COMPONENTS,
   "global.css": `${GLOBAL_RULE} { color: rgb(21, 22, 23); }\n`,
@@ -252,7 +252,7 @@ test("a page whose components are all core-tier links only the core stylesheet",
   const hrefs = hrefsOf(htmlOf.get("/blog") ?? "");
   expect(hrefs).toHaveLength(1);
   expect(hrefs[0]).toMatch(/^\/assets\/pagedeck-core-[\w-]+\.css$/);
-  expect(read(dist, hrefs[0] as string)).toContain(".fw-hero");
+  expect(read(dist, hrefs[0] as string)).toContain(".pagedeck-hero");
 }, 120_000);
 
 test("a page links every tier it reaches, widest cached first", async () => {
@@ -261,9 +261,9 @@ test("a page links every tier it reaches, widest cached first", async () => {
   const hrefs = hrefsOf(htmlOf.get("/") ?? "");
   expect(hrefs).toHaveLength(3);
 
-  expect(read(dist, hrefs[0] as string)).toContain(".fw-hero");
-  expect(read(dist, hrefs[1] as string)).toContain(".fw-panel");
-  expect(read(dist, hrefs[2] as string)).toContain(".fw-chart");
+  expect(read(dist, hrefs[0] as string)).toContain(".pagedeck-hero");
+  expect(read(dist, hrefs[1] as string)).toContain(".pagedeck-panel");
+  expect(read(dist, hrefs[2] as string)).toContain(".pagedeck-chart");
   expect(hrefs[0]).toMatch(/^\/assets\/pagedeck-core-[\w-]+\.css$/);
 }, 120_000);
 
@@ -273,14 +273,14 @@ test("a component's CSS lands in the tier its JS tier implies", async () => {
   const [core, mid, tail] = hrefsOf(htmlOf.get("/") ?? "");
   const coreCss = read(dist, core as string);
 
-  expect(coreCss).toContain(".fw-hero");
-  expect(coreCss).not.toContain(".fw-panel");
-  expect(coreCss).not.toContain(".fw-chart");
+  expect(coreCss).toContain(".pagedeck-hero");
+  expect(coreCss).not.toContain(".pagedeck-panel");
+  expect(coreCss).not.toContain(".pagedeck-chart");
   expect(read(dist, mid as string)).toEqual(
-    expect.stringContaining(".fw-panel"),
+    expect.stringContaining(".pagedeck-panel"),
   );
-  expect(read(dist, tail as string)).not.toContain(".fw-panel");
-  expect(read(dist, tail as string)).toContain(".fw-chart");
+  expect(read(dist, tail as string)).not.toContain(".pagedeck-panel");
+  expect(read(dist, tail as string)).toContain(".pagedeck-chart");
 
   expect(hrefsOf(htmlOf.get("/blog") ?? "")[0]).toBe(core);
   expect(hrefsOf(htmlOf.get("/pricing") ?? "")).toEqual([core, mid]);
@@ -298,10 +298,10 @@ test("a component no page hydrates on load keeps its CSS out of the core sheet",
   );
   expect(core).toBeDefined();
   expect(read(dist, core as string)).toContain(GLOBAL_RULE);
-  expect(read(dist, core as string)).not.toContain(".fw-hero");
+  expect(read(dist, core as string)).not.toContain(".pagedeck-hero");
 
   const carrying = stylesheets(dist).filter((href) =>
-    read(dist, href).includes(".fw-hero"),
+    read(dist, href).includes(".pagedeck-hero"),
   );
   expect(carrying).toHaveLength(1);
   const hero = carrying[0] as string;
@@ -421,11 +421,11 @@ test("a flagged page inlines the stylesheets covering its components, in tier or
   const html = htmlOf.get("/pricing") ?? "";
 
   const blocks = styleBlocks(html);
-  expect(blocks.join("\n")).toContain(".fw-hero");
-  expect(blocks.join("\n")).toContain(".fw-panel");
-  expect(blocks.join("\n")).not.toContain(".fw-chart");
-  expect(blocks.findIndex((css) => css.includes(".fw-hero"))).toBeLessThan(
-    blocks.findIndex((css) => css.includes(".fw-panel")),
+  expect(blocks.join("\n")).toContain(".pagedeck-hero");
+  expect(blocks.join("\n")).toContain(".pagedeck-panel");
+  expect(blocks.join("\n")).not.toContain(".pagedeck-chart");
+  expect(blocks.findIndex((css) => css.includes(".pagedeck-hero"))).toBeLessThan(
+    blocks.findIndex((css) => css.includes(".pagedeck-panel")),
   );
 
   expect(hrefsOf(html)).toEqual([]);

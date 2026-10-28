@@ -12,15 +12,15 @@ export interface ContrastPair {
   minimum: 4.5 | 3;
 }
 
-export const DECORATION: readonly string[] = ["--fw-rule"];
+export const DECORATION: readonly string[] = ["--pagedeck-rule"];
 
 export const NON_COLOUR: readonly RegExp[] = [
-  /^--fw-font-/,
-  /^--fw-text-/,
-  /^--fw-leading-/,
-  /^--fw-space-/,
-  /^--fw-radius-/,
-  /^--fw-ring-(width|offset)$/,
+  /^--pagedeck-font-/,
+  /^--pagedeck-text-/,
+  /^--pagedeck-leading-/,
+  /^--pagedeck-space-/,
+  /^--pagedeck-radius-/,
+  /^--pagedeck-ring-(width|offset)$/,
 ];
 
 const COLOUR_VALUE = /^(#|(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\()/i;
@@ -68,13 +68,13 @@ export function readThemes(css: string): { light: Theme; dark: Theme } {
 
 export function contrastPairs(theme: Theme): ContrastPair[] {
   const names = [...theme.resolved.keys()];
-  const onInks = names.filter((name) => name.startsWith("--fw-fg-on-"));
-  const fills = new Set(onInks.map((ink) => ink.replace("--fw-fg-on-", "--fw-bg-")));
+  const onInks = names.filter((name) => name.startsWith("--pagedeck-fg-on-"));
+  const fills = new Set(onInks.map((ink) => ink.replace("--pagedeck-fg-on-", "--pagedeck-bg-")));
   const texts = names.filter(
-    (name) => /^--fw-fg(-|$)/.test(name) && !onInks.includes(name),
+    (name) => /^--pagedeck-fg(-|$)/.test(name) && !onInks.includes(name),
   );
   const surfaces = names.filter(
-    (name) => /^--fw-bg(-|$)/.test(name) && !fills.has(name),
+    (name) => /^--pagedeck-bg(-|$)/.test(name) && !fills.has(name),
   );
 
   const pair = (fg: string, bg: string, minimum: 4.5 | 3): ContrastPair => ({
@@ -88,16 +88,16 @@ export function contrastPairs(theme: Theme): ContrastPair[] {
   });
   return [
     ...texts.flatMap((fg) => surfaces.map((bg) => pair(fg, bg, 4.5))),
-    ...onInks.map((ink) => pair(ink, ink.replace("--fw-fg-on-", "--fw-bg-"), 4.5)),
-    ...(theme.resolved.has("--fw-ring")
-      ? surfaces.map((bg) => pair("--fw-ring", bg, 3))
+    ...onInks.map((ink) => pair(ink, ink.replace("--pagedeck-fg-on-", "--pagedeck-bg-"), 4.5)),
+    ...(theme.resolved.has("--pagedeck-ring")
+      ? surfaces.map((bg) => pair("--pagedeck-ring", bg, 3))
       : []),
   ];
 }
 
 export function unclassifiedTokens(theme: Theme): string[] {
   return [...theme.resolved].flatMap(([name, value]) => {
-    if (/^--fw-(fg|bg)(-|$)/.test(name) || name === "--fw-ring") return [];
+    if (/^--pagedeck-(fg|bg)(-|$)/.test(name) || name === "--pagedeck-ring") return [];
     if (DECORATION.includes(name)) return [];
     if (NON_COLOUR.some((family) => family.test(name)) && !COLOUR_VALUE.test(value)) {
       return [];
@@ -129,7 +129,7 @@ function resolve(name: string, inEffect: Map<string, string>, seen: string[]): s
 
 function declarations(body: string): Map<string, string> {
   const found = new Map<string, string>();
-  for (const [, name, value] of body.matchAll(/(--fw-[\w-]+)\s*:\s*([^;]+);/g)) {
+  for (const [, name, value] of body.matchAll(/(--pagedeck-[\w-]+)\s*:\s*([^;]+);/g)) {
     found.set(name as string, (value as string).trim());
   }
   return found;

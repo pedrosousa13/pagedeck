@@ -16,7 +16,7 @@ const COMPONENTS: Record<string, string> = {
   // `Hero` imports a stylesheet so the head has a `<link>` to order the metadata
   // against.
   "Hero.js": `import "./Hero.css";\nexport default function Hero() { return "marker-hero-3e91"; }\n`,
-  "Hero.css": `.fw-hero { color: rgb(31, 32, 33); }\n`,
+  "Hero.css": `.pagedeck-hero { color: rgb(31, 32, 33); }\n`,
   "Copy.js": `export default function Copy() { return "marker-copy-6a04"; }\n`,
 };
 

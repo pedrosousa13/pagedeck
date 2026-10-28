@@ -98,14 +98,14 @@ function html(page: Page, revision: string): EmittedFile {
 }
 
 function className(component: string): string {
-  return `fw-${component.toLowerCase()}`;
+  return `pagedeck-${component.toLowerCase()}`;
 }
 
 function stylesheets(
   entries: EntryPlan,
   classes: readonly string[],
 ): EmittedFile[] {
-  const rule = (one: string): string => `.${one}{--fw-marker:1}`;
+  const rule = (one: string): string => `.${one}{--pagedeck-marker:1}`;
   return [
     {
       path: "/assets/core.css",
@@ -322,7 +322,7 @@ test("a content edit reuses the previous manifest's tiers and classes, and re-de
   expect(drifted).not.toEqual(full.manifest.tiers);
   const rederived = await incrementalBuild(full.manifest, edit, ISLANDS, {
     tiers: drifted,
-    classes: ["fw-hero", "fw-chart"],
+    classes: ["pagedeck-hero", "pagedeck-chart"],
   });
   expect(hashes(rederived, "js")).not.toEqual(hashes(full.manifest, "js"));
   expect(hashes(rederived, "css")).not.toEqual(hashes(full.manifest, "css"));

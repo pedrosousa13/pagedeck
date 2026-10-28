@@ -6,10 +6,10 @@ const COLOUR_PROPERTY =
 
 // `#0000` is `transparent` as the toolkit's minifier spells it.
 const ALLOWED =
-  /^(?:var\(--fw-[\w-]+\)|var\(--shiki-dark(?:-bg)?\)|#0000|inherit|currentcolor|transparent|none|0|initial|unset)$/i;
+  /^(?:var\(--pagedeck-[\w-]+\)|var\(--shiki-dark(?:-bg)?\)|#0000|inherit|currentcolor|transparent|none|0|initial|unset)$/i;
 
 const NOT_A_COLOUR =
-  /^(?:[\d.]+(?:px|rem|em)?|solid|dashed|dotted|underline|var\(--fw-(?:ring-width|ring-offset|radius-[a-z]+|space-[\w-]+)\))$/;
+  /^(?:[\d.]+(?:px|rem|em)?|solid|dashed|dotted|underline|var\(--pagedeck-(?:ring-width|ring-offset|radius-[a-z]+|space-[\w-]+)\))$/;
 
 function uncommented(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -36,7 +36,7 @@ export function pairFaults(
   themes: { readonly light: Theme; readonly dark: Theme },
 ): { measured: string[]; faults: string[] } {
   const token = (body: string, property: string): string | undefined =>
-    new RegExp(`(?:^|[;{\\s])${property}\\s*:\\s*var\\((--fw-[\\w-]+)\\)`).exec(body)?.[1];
+    new RegExp(`(?:^|[;{\\s])${property}\\s*:\\s*var\\((--pagedeck-[\\w-]+)\\)`).exec(body)?.[1];
 
   const faults: string[] = [];
   const measured: string[] = [];
