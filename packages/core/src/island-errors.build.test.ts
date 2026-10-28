@@ -20,6 +20,7 @@ import type { Page } from "./pages.js";
 import { planTiers } from "./tiers.js";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_EXPORT_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
@@ -196,6 +197,102 @@ test("a hydration mismatch and a failed island module reach the declared reporte
     const { error: _error, ...context } = report;
     expect(JSON.stringify(context)).not.toContain(SENTINEL);
   }
+}, 120_000);
+
+test("with a reporter declared, a named export hydrates as its island and a failed load of a named export's module is reported under the island's component", async () => {
+  writeFileSync(
+    `${FIXTURE_DIR}src/Layout.js`,
+    `import { useEffect } from "react";
+export function Header() {
+  useEffect(() => { (globalThis.__hydratedExports ??= []).push("Header"); }, []);
+  return "header-5b1e";
+}
+`,
+  );
+  writeFileSync(
+    `${FIXTURE_DIR}src/Promo.js`,
+    `export function Banner() { return "banner-0d4a"; }\n`,
+  );
+  const named = planEntries(
+    [
+      {
+        page: page("/layout"),
+        islands: [
+          { component: "Layout", mode: "load" },
+          { component: "Promo", mode: "load" },
+        ],
+      },
+    ],
+    { modules: { Layout: "./src/Layout.js", Promo: "./src/Promo.js" } },
+  );
+  const built = await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: named,
+    tiers: planTiers({
+      entries: named.entries,
+      ranking: [],
+      policy: { exclude: ["Promo"] },
+    }),
+    islandErrors: "./src/report.js",
+  });
+  const dir = join(FIXTURE_DIR, "site-named");
+  rmSync(dir, { recursive: true, force: true });
+  for (const file of built.files) {
+    const path = join(dir, file.path);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, file.contents);
+  }
+  const promo = built.files.find((file) => file.path.startsWith("/assets/Promo-"));
+  expect(promo).toBeDefined();
+  rmSync(join(dir, promo?.path ?? ""));
+
+  const exported = (component: string, prefix: string, key: string, html: string): string =>
+    `<${ISLAND_TAG} ${ISLAND_PREFIX_ATTRIBUTE}="${prefix}" ${ISLAND_COMPONENT_ATTRIBUTE}="${component}" ${ISLAND_MODE_ATTRIBUTE}="load" ${ISLAND_PROPS_ATTRIBUTE}="{}" ${ISLAND_EXPORT_ATTRIBUTE}="${key}">${html}</${ISLAND_TAG}>`;
+  document.documentElement.lang = "en";
+  history.replaceState(null, "", "/en/layout/");
+  document.body.innerHTML =
+    exported("Layout", "i1", "Header", "header-5b1e") +
+    exported("Promo", "i2", "Banner", "banner-0d4a");
+  const reports: IslandErrorReport[] = [];
+  const hydrated: string[] = [];
+  Object.assign(globalThis, { __islandReports: reports, __hydratedExports: hydrated });
+  vi.stubGlobal("reportError", vi.fn());
+  vi.stubGlobal(
+    "fetch",
+    async () => new Response(JSON.stringify({ build: { id: RELEASE } })),
+  );
+
+  const runner = process.listeners("unhandledRejection");
+  process.removeAllListeners("unhandledRejection");
+  const unhandled: unknown[] = [];
+  process.on("unhandledRejection", (reason) => {
+    unhandled.push(reason);
+  });
+  try {
+    const entry = built.entryScripts.get(named.entries[0]?.name ?? "");
+    await import(/* @vite-ignore */ pathToFileURL(join(dir, entry ?? "")).href);
+    await vi.waitFor(() => {
+      expect(hydrated).toEqual(["Header"]);
+      expect(reports.map((report) => report.kind)).toEqual(["module-load"]);
+      expect(unhandled).toHaveLength(1);
+    });
+    // Settled: an export resolved as `undefined` throws on its first render.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  } finally {
+    process.removeAllListeners("unhandledRejection");
+    for (const listener of runner) process.on("unhandledRejection", listener);
+    vi.unstubAllGlobals();
+  }
+
+  expect(reports).toHaveLength(1);
+  expect(reports[0]).toMatchObject({
+    kind: "module-load",
+    page: { locale: "en", path: "/en/layout/" },
+    component: "Promo",
+    release: RELEASE,
+  });
+  expect(hydrated).toEqual(["Header"]);
 }, 120_000);
 
 test("a build with no reporter declared bundles none of the reporting module", async () => {

@@ -6,6 +6,9 @@ export const ISLAND_PREFIX_ATTRIBUTE = "data-pagedeck-prefix";
 
 export const ISLAND_COMPONENT_ATTRIBUTE = "data-pagedeck-component";
 
+// Absent for a module's default export (#176).
+export const ISLAND_EXPORT_ATTRIBUTE = "data-pagedeck-export";
+
 export const ISLAND_MODE_ATTRIBUTE = "data-pagedeck-mode";
 
 // An attribute, not a JSON `<script>`: React escapes attribute values, so a prop

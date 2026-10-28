@@ -28,8 +28,8 @@ export type IslandErrorReporter = (
 export interface IslandErrors {
   readonly hydrateRoot: typeof hydrateRoot;
   resolve<T>(
-    load: (name: string) => Promise<T>,
-  ): (name: string) => Promise<T>;
+    load: (name: string, exported: string | null) => Promise<T>,
+  ): (name: string, exported: string | null) => Promise<T>;
 }
 
 // Not the `DOM` lib, which would type `document` in node-only packages.
@@ -121,8 +121,8 @@ export function reportIslandErrors(
         },
       });
     },
-    resolve: (load) => (name) =>
-      load(name).catch((error: unknown) => {
+    resolve: (load) => (name, exported) =>
+      load(name, exported).catch((error: unknown) => {
         report("module-load", name, error);
         throw error;
       }),

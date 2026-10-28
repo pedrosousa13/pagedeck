@@ -23,11 +23,13 @@ import type {
 export interface ClientReferenceOptions {
   name: string;
   mode: HydrationMode;
+  export?: string;
 }
 
 export interface ProxyInstance {
   prefix: string;
   name: string;
+  export: string | undefined;
   mode: Exclude<HydrationMode, "none">;
   component: AnyComponent;
   props: Readonly<Record<string, unknown>>;
@@ -120,7 +122,7 @@ export function clientReference<P extends Record<string, unknown>>(
   component: (props: P) => ReactElement | null,
   options: ClientReferenceOptions,
 ): (props: P) => ReactElement | null {
-  const { name, mode } = options;
+  const { name, mode, export: exported } = options;
   const real = component as unknown as AnyComponent;
 
   function ClientReferenceProxy(props: Record<string, unknown>) {
@@ -181,6 +183,7 @@ export function clientReference<P extends Record<string, unknown>>(
     scope.collected.set(prefix, {
       prefix,
       name,
+      export: exported,
       mode,
       component: real,
       props: rest,

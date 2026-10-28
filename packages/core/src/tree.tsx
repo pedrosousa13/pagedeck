@@ -5,6 +5,7 @@ import type { ComponentType, ReactElement, ReactNode } from "react";
 import {
   entryId,
   ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_EXPORT_ATTRIBUTE,
   ISLAND_FACADE_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
@@ -161,6 +162,7 @@ const RESERVED_NAMES = new RegExp(
     `\\s*(?<!${NAME_CHARACTER})(?:${[
       ISLAND_PREFIX_ATTRIBUTE,
       ISLAND_COMPONENT_ATTRIBUTE,
+      ISLAND_EXPORT_ATTRIBUTE,
       ISLAND_MODE_ATTRIBUTE,
       ISLAND_PROPS_ATTRIBUTE,
       ISLAND_SLOT_ATTRIBUTE,
@@ -358,6 +360,8 @@ const NO_DIRECTIVE: ModuleFacts = { useClient: false };
 
 export interface RenderedIsland {
   component: string;
+  /** Absent for the module's default export. */
+  export?: string;
   mode: Exclude<HydrationMode, "none">;
   prefix: string;
   html: string;
@@ -750,6 +754,7 @@ export function islandMarker(
     key,
     [ISLAND_PREFIX_ATTRIBUTE]: island.prefix,
     [ISLAND_COMPONENT_ATTRIBUTE]: island.component,
+    [ISLAND_EXPORT_ATTRIBUTE]: island.export,
     [ISLAND_MODE_ATTRIBUTE]: island.mode,
     [ISLAND_PROPS_ATTRIBUTE]: props,
     role: "presentation",

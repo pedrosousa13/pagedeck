@@ -314,6 +314,14 @@ test("a hydration marker typed into rich text does not reach the page", async ()
   );
 });
 
+test("an export attribute typed into rich text does not reach the page", async () => {
+  const html = await richText(
+    '<span data-pagedeck-export="HeaderIsland">x</span>',
+  );
+
+  expect(html).toBe('<div class="rich"><span>x</span></div>');
+});
+
 test("a slot wrapper typed into rich text does not reach the page either", async () => {
   const html = await richText(
     '<pagedeck-slot data-pagedeck-slot="0.0" role="presentation"><p>decoy</p></pagedeck-slot>' +

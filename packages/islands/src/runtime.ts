@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { hydrateRoot } from "react-dom/client";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_EXPORT_ATTRIBUTE,
   ISLAND_ID_PATTERN,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
@@ -43,7 +44,7 @@ const browser = globalThis as unknown as Browser;
 type AnyComponent = ComponentType<Record<string, unknown>>;
 
 export interface HydrateIslandsOptions {
-  resolve: (name: string) => Promise<ComponentType<never>>;
+  resolve: (name: string, exported: string | null) => Promise<ComponentType<never>>;
   schedule?: Schedule;
   providers?: readonly RootProvider[];
   // A shape only: importing the probe's module would put it in production graphs.
@@ -223,7 +224,10 @@ async function mount(
   slots: ReadonlyMap<string, string> | undefined,
   stashed: ReadonlyMap<string, string> | undefined,
 ): Promise<void> {
-  const component = await options.resolve(island.name);
+  const component = await options.resolve(
+    island.name,
+    marker.getAttribute(ISLAND_EXPORT_ATTRIBUTE),
+  );
   const container =
     stashed !== undefined || marker.querySelector(ISLAND_SLOT_TAG) !== null;
   const children = container

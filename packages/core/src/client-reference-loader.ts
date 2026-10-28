@@ -476,7 +476,6 @@ function exportFaults(faults: readonly Fault[]): ConfigError {
 
 function proxyModule(url: string, module: Proxied): string {
   const original = `${url}?${ORIGINAL_QUERY}`;
-  const options = JSON.stringify({ name: module.name, mode: module.mode });
   const lines = [
     `import * as pagedeckOriginal from ${JSON.stringify(original)};`,
     `const pagedeckFactory = globalThis[Symbol.for(${JSON.stringify(FACTORY.description as string)})];`,
@@ -491,6 +490,11 @@ function proxyModule(url: string, module: Proxied): string {
     }
     const local = `pagedeck${String(at)}`;
     const value = `pagedeckOriginal[${JSON.stringify(entry.key)}]`;
+    const options = JSON.stringify({
+      name: module.name,
+      mode: module.mode,
+      ...(entry.key === "default" ? {} : { export: entry.key }),
+    });
     lines.push(
       `const ${local} = typeof ${value} === "function" ? pagedeckFactory(${value}, ${options}) : ${value};`,
       `export { ${local} as ${exportName(entry.key)} };`,
