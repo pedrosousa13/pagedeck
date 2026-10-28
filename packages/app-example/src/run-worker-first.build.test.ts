@@ -21,8 +21,9 @@ test("the build refuses a wrangler.jsonc whose run_worker_first misses /api/", a
   }
   const wrangler = join(SITE, "wrangler.jsonc");
   const text = readFileSync(wrangler, "utf8");
-  expect(text).toContain('"run_worker_first": ["/api", "/api/*"]');
-  writeFileSync(wrangler, text.replace('"run_worker_first": ["/api", "/api/*"]', '"run_worker_first": ["/api"]'));
+  const listed = '"run_worker_first": ["/api", "/api/*", "/account", "/account/*"]';
+  expect(text).toContain(listed);
+  writeFileSync(wrangler, text.replace(listed, '"run_worker_first": ["/api", "/account", "/account/*"]'));
 
   await run(process.execPath, [BIN, "sync"], { cwd: SITE });
   const failed = await run(process.execPath, [BIN, "build"], { cwd: SITE }).then(
