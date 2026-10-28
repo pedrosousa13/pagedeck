@@ -6,6 +6,7 @@ import {
   diffManifests,
   racedDeployReport,
 } from "./diff.js";
+import { DIAGNOSTIC_MARKER } from "./diagnostic-marker.js";
 import { ConfigError } from "./exit.js";
 import { buildManifest } from "./manifest.js";
 import type {
@@ -294,7 +295,7 @@ test("two builds stamped with one id and different content are refused", () => {
 
 test("a build id that could forge a line reaches the raced-deploy report quoted", () => {
   const forge = (name: string): string =>
-    `${name}"\n\u001B[Kfw: Site build: 0 problems\r`;
+    `${name}"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
   const raced = racedDeployReport(
     diffManifests({
       from: manifestOf(FROM_OUTPUTS, {

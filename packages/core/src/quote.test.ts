@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
+import { DIAGNOSTIC_MARKER } from "./diagnostic-marker.js";
 import { printable } from "./exit.js";
 import { quote, quoteIdentifier } from "./quote.js";
 
@@ -185,11 +186,11 @@ test("an identifier keeps every byte a reader has to match, where the cutting do
 });
 
 test("an identifier cannot forge a line or close its own quotation", () => {
-  const forged = 'b1"\n\u001B[Kfw: Site build: 0 problems\r';
+  const forged = `b1"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
 
   const written = quoteIdentifier(forged);
 
-  expect(written).toBe('"b1\\"\\n\\u001b[Kfw: Site build: 0 problems\\r"');
+  expect(written).toBe(`"b1\\"\\n\\u001b[K${DIAGNOSTIC_MARKER} Site build: 0 problems\\r"`);
   expect(written.split("\n")).toHaveLength(1);
   expect(/[\u0000-\u001F\u007F]/.test(written)).toBe(false);
 });

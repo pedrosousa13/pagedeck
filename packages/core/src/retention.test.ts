@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
+import { DIAGNOSTIC_MARKER } from "./diagnostic-marker.js";
 import { ConfigError, describeError } from "./exit.js";
 import { manifestJson, MANIFEST_VERSION } from "./manifest.js";
 import type { Manifest } from "./manifest.js";
@@ -266,7 +267,7 @@ test("a build id that is empty, dotted or holds either separator is refused, and
 
 test("a planted build id cannot forge a line or erase the marker in the warning", async () => {
   const root = siteRoot();
-  const forged = 'b1"\n\u001B[Kfw: Site build: 0 problems\r';
+  const forged = `b1"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
   const planted = plant(
     root,
     "planted.json",
@@ -292,7 +293,7 @@ test("a build id holding a newline is not refused as a file name", async () => {
 
   const failure: unknown = await readRetainedManifest(
     root,
-    "b1\nfw: Site build: 0 problems",
+    `b1\n${DIAGNOSTIC_MARKER} Site build: 0 problems`,
   ).catch((thrown: unknown) => thrown);
 
   expect((failure as Error).message).not.toContain(
@@ -303,7 +304,7 @@ test("a build id holding a newline is not refused as a file name", async () => {
 
 test("an id refused as a file name cannot close the quotation the refusal puts round it", async () => {
   const root = siteRoot();
-  const forged = '.a"b\n\u001B[Kfw: Site build: 0 problems\r';
+  const forged = `.a"b\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
 
   const failure: unknown = await readRetainedManifest(root, forged).catch(
     (thrown: unknown) => thrown,
@@ -318,7 +319,7 @@ test("an id refused as a file name cannot close the quotation the refusal puts r
 
 test("a rollback target that could forge a line is quoted in the message that refuses it", async () => {
   const root = siteRoot();
-  const forged = 'b1"\n\u001B[Kfw: Site build: 0 problems\r';
+  const forged = `b1"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
 
   const failure: unknown = await readRetainedManifest(root, forged).catch(
     (thrown: unknown) => thrown,
@@ -333,7 +334,7 @@ test("a rollback target that could forge a line is quoted in the message that re
 
 test("a retained file name that could forge a line is quoted in the list of what the store holds", async () => {
   const root = siteRoot();
-  const forged = 'b1"\n\u001B[Kfw: Site build: 0 problems\r';
+  const forged = `b1"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
   plant(
     root,
     `${forged}.json`,

@@ -16,6 +16,7 @@ import { afterAll, expect, test } from "vitest";
 import {
   buildManifest,
   describeError,
+  DIAGNOSTIC_MARKER,
   EXIT_CODES,
   manifestJson,
   planEntries,
@@ -29,7 +30,7 @@ import type { Manifest, Page } from "@pagedeck/core";
 const DEPLOY = join(import.meta.dirname, "..", "dist", "deploy.bin.js");
 const PARITY = join(import.meta.dirname, "..", "dist", "parity.bin.js");
 
-const FORGED_ARG = 'x"\n\u001B[Kfw: Site build: 0 problems\r';
+const FORGED_ARG = `x"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
 
 const CWD = mkdtempSync(join(tmpdir(), "pagedeck-bin-refusals-"));
 
