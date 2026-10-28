@@ -413,10 +413,10 @@ free.
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 53919 B (#89) | `pagedeck-core` chunk 52426 B, `pagedeck-startup` chunk 888 B, entry chunk 238 B, the inline script loader 367 B |
+| `en /pricing` | `60kb` (61440 B) | 53921 B (#176) | `pagedeck-core` chunk 52403 B, `pagedeck-startup` chunk 899 B, entry chunk 252 B, the inline script loader 367 B |
 
-The whole-build ceiling is 61 kB Brotli (62464 B) against 54482 B of `js`
-measured (#89), 14.6% over it, counting the 930 B `slot` chunk and not the inline
+The whole-build ceiling is 61 kB Brotli (62464 B) against 54485 B of `js`
+measured (#176), 14.6% over it, counting the 931 B `slot` chunk and not the inline
 loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):
