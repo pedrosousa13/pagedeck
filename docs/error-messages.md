@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 308 messages fenced
-below, 232 are checked that way and 76 are not**, and that test lists the 76
-one by one with the reason each is out: 74 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 309 messages fenced
+below, 232 are checked that way and 77 are not**, and that test lists the 77
+one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150: it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 232 checked messages pin 35195 of the 98170 fenced characters, and
+below**: the 232 checked messages pin 35195 of the 98358 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -114,9 +114,9 @@ from `listDueEntries`:
 - Without: `Collection "posts": no publishField`
 - With:
 
-```
-Collection "posts": declares no publishField and no unpublishField, so no entry has a publication schedule — declare one to query due entries
-```
+  ```
+  Collection "posts": declares no publishField and no unpublishField, so no entry has a publication schedule — declare one to query due entries
+  ```
 
 Others in the same shape:
 
@@ -500,11 +500,14 @@ Module "/site/components/Typed.jsx": 2 syntax errors, so it does not compile —
 ```
 
 The run prints the cause after the fix, so a config that imports the first
-module fails with one line: `Config "/site/pagedeck.config.ts": failed to load:`,
-then the first message above, then `: column 16: Unterminated regular
-expression`. The second module's
-faults print on that same line, joined by `; `, rather than one per line: its
-error is a cause of the config's, and `describeError` prints a line break in a
+module fails with:
+
+```
+Config "/site/pagedeck.config.ts": failed to load: Module "/site/components/Bad.tsx" line 2: does not compile — fix the syntax at the line named: column 16: Unterminated regular expression
+```
+
+The second module's faults print on that same line, joined by `; `, rather than
+one per line: its error is a cause of the config's, and `describeError` prints a line break in a
 cause as a replacement character. The cause is an `AggregateError` holding
 rolldown's own errors rather than one of them, because their messages are
 coloured, multi-line code frames that would print the same way.
@@ -1677,8 +1680,8 @@ Search index: the "lunr" adapter pruned 2 files the previous build's index does 
 **The previous index is read back off the tree, and a tree that lost part of it
 is refused before anything renders** (`carrySearchIndex` in
 `packages/core/src/build.ts`). This is `carryDocuments`' refusal over the
-index's files (the rows the previous manifest records under the adapter's name
-(`ManifestFile.search`)), and it refuses rather than composes, where a sitemap
+index's files, the rows the previous manifest records under the adapter's name
+(`ManifestFile.search`). It refuses rather than composes, where a sitemap
 composes, because an index is a function of every page's render and an
 incremental build does not hold them:
 
@@ -4100,7 +4103,7 @@ it is the whole diagnosis.
 
 **Three refusals sit under the same field, and none is a warning.** A compiler
 that *throws* stops the pass on the first one, with the throw attached as the
-cause (rule 4) rather than collected: rule 5's own boundary, the one
+cause (rule 4) rather than collected. That is rule 5's own boundary, the one
 `collection.ts` draws over a validator that throws: the remaining pages would be
 measured with a broken instrument. A plain `Error` and exit 1, the class a
 loader's throw takes (rule 7): the wiring is intact, the field is a function and
