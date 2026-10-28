@@ -44,6 +44,14 @@ Each artifact's `role` says where it goes, as
 adapter shares (the refusals, the 404 page's headers, the reserved deploy keys
 and trailing slashes) is documented there too.
 
+`cloudflarePages()` takes `runWorkerFirst`. On Workers Static Assets, where a
+`wrangler.json` or `wrangler.jsonc` sits beside `pagedeck.config.ts`, the build
+holds its `assets.run_worker_first` to `build.routing.upstreams` and refuses
+`true`. `runWorkerFirst: true` says the file sets `true` on purpose, so the app
+runs before every request; the build then refuses anything else, and a site
+with no such file
+([Run an app beside the site](https://page.deck.cool/docs/how-to/run-an-app-beside-the-site/)).
+
 ## Build settings
 
 Cloudflare Pages reads build settings from its dashboard, not from a file in

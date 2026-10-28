@@ -1,4 +1,5 @@
 export { defineAdapter } from "./adapter.js";
+export type { AdapterSite } from "@pagedeck/core";
 export type { AdapterDefinition, EdgeAdapter, UpstreamPolicy } from "./adapter.js";
 export type {
   ArtifactRole,

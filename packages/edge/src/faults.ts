@@ -16,6 +16,8 @@ export type Fault =
       subject: { one: string; many: string };
       fix: string;
       line: string;
+      /** The error behind the line, attached to the refusal rather than quoted in it. */
+      cause?: unknown;
     };
 
 type FaultKind =
@@ -361,5 +363,13 @@ export function throwIfAny(
       ),
     );
   }
-  if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
+  if (sections.length === 0) return;
+  const causes = faults.flatMap((fault) =>
+    fault.kind === "adapter" && fault.cause !== undefined ? [fault.cause] : [],
+  );
+  const message = sections.join("\n\n");
+  if (causes.length === 0) throw new ConfigError(message);
+  throw new ConfigError(message, {
+    cause: causes.length === 1 ? causes[0] : new AggregateError(causes),
+  });
 }

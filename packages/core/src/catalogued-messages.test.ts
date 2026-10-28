@@ -272,6 +272,42 @@ const UNCHECKED: readonly Unchecked[] = [
     because: "assembled",
   },
   {
+    names: 'Edge target "cloudflare-pages": 1 prefix in build.routing',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 pattern in',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file sets',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file\'s',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler.toml cannot',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file is not',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 wrangler file cannot',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not',
+    because: "assembled",
+  },
+  {
+    names: 'Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true has',
+    because: "assembled",
+  },
+  {
     names: '"build.budget" declares 1 limit',
     because: "assembled",
   },

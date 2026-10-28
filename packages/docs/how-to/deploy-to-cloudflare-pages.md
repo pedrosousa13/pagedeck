@@ -182,10 +182,14 @@ sends `/api` and everything under `/api/` to Pages Functions:
 On Cloudflare Pages, deploy the app as
 [Pages Functions](https://developers.cloudflare.com/pages/functions/routing/)
 under the prefix. On Workers Static Assets, the app is the Worker:
-`wrangler.jsonc` names it in `main`, and `assets.run_worker_first` lists one
-pattern per prefix, `["/api/*"]`. The build does not read `wrangler.jsonc`,
-so change `run_worker_first` whenever you add, move or remove a prefix, and
-keep `/_routes.json` in `.assetsignore`, as above.
+`wrangler.jsonc` names it in `main`, and `assets.run_worker_first` lists two
+patterns per prefix, `["/api", "/api/*"]`. The build reads `wrangler.jsonc`
+and fails when `run_worker_first` and `build.routing.upstreams` disagree, so
+change `run_worker_first` whenever you add, move or remove a prefix, and keep
+`/_routes.json` in `.assetsignore`, as above. To run the app before every
+request, set `run_worker_first` to `true` and the adapter to
+`cloudflarePages({ runWorkerFirst: true })`; the build refuses either one
+without the other.
 [Run an app beside the site](./run-an-app-beside-the-site.md) walks through
 the whole Workers Static Assets setup with a working example.
 

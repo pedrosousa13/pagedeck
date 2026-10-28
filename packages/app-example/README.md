@@ -5,7 +5,8 @@ static files. Requests under `/api/` and `/account/` go to a
 [Hono](https://hono.dev) app that runs as the Worker on Cloudflare Workers
 Static Assets. Pagedeck never imports
 or runs the app: `build.routing.upstreams` declares the prefix, which the build
-checks against every path it writes, `wrangler.jsonc` routes it, and the island on
+checks against every path it writes, `wrangler.jsonc` routes it, which the build
+checks against the prefix (#145), and the island on
 `/signup/` calls the app through Hono's typed client, importing only its type.
 
 [Run an app beside the site](../docs/how-to/run-an-app-beside-the-site.md)
@@ -127,8 +128,8 @@ dashboard.
 | --- | --- | --- |
 | a built page, such as `/` or `/signup/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
 | `/signup/thanks/`, `/signup/invalid/`, `/signup/failed/` | Workers Static Assets, from `site/` | `site/_headers`, written by the build |
-| `/api/*` | the app, because `run_worker_first` names it | the app's own middleware |
-| `/account/*` | the app, because `run_worker_first` names it | the app's own middleware |
+| `/api` and `/api/*` | the app, because `run_worker_first` names them | the app's own middleware |
+| `/account` and `/account/*` | the app, because `run_worker_first` names them | the app's own middleware |
 | a path with no file | the app, because `not_found_handling` is `none` | the app's own middleware |
 
 `_headers` never applies to a response the Worker writes

@@ -135,22 +135,49 @@ The site's pages and the app deploy as one Worker. `wrangler.jsonc`:
     "directory": "./site",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none",
-    "run_worker_first": ["/api/*", "/account/*"]
+    "run_worker_first": ["/api", "/api/*", "/account", "/account/*"]
   },
   "kv_namespaces": [{ "binding": "SESSIONS" }]
 }
 ```
 
-`assets.directory` is the build's output. `run_worker_first` sends every
-request under `/api/` and `/account/` to the app before Cloudflare looks for a
-file. Every other request is answered from `site/`, so a built page never runs
-the app.
+`assets.directory` is the build's output. `run_worker_first` sends `/api`,
+`/account` and every request under `/api/` and `/account/` to the app before
+Cloudflare looks for a file. Every other request is answered from `site/`, so a
+built page never runs the app.
 Cloudflare documents the option at
 <https://developers.cloudflare.com/workers/static-assets/binding/>.
 
-`wrangler.jsonc` is yours, and the build does not read it. So when you add,
-move or remove a prefix, change `run_worker_first` with it, one pattern per
-prefix, written as the prefix followed by `*`.
+`wrangler.jsonc` is yours, and the build reads it. With `cloudflarePages()`
+as the adapter, `pagedeck build` reads `wrangler.json` or `wrangler.jsonc`
+beside `pagedeck.config.ts`, comments and all, and fails when
+`run_worker_first`:
+
+- leaves out a prefix. Each prefix needs two patterns: the prefix followed by
+  `*`, such as `/api/*`, and its unslashed path, such as `/api`. Cloudflare's
+  docs do not say whether `/api/*` matches `/api`
+  (<https://developers.cloudflare.com/workers/static-assets/binding/#run_worker_first>),
+  so the build asks for both.
+- is `true`, unless the adapter is `cloudflarePages({ runWorkerFirst: true })`.
+  The app then runs before every request, and each built page costs a Worker
+  invocation, so the build asks you to say so in the config.
+- lists a pattern that is neither of a declared prefix's two patterns.
+- lists a negative pattern, written with a leading `!`, that matches `/api`
+  or any path under `/api/`, such as `!/api/docs/*`, `!/api*` or `!/*`. A
+  request it matches is answered from `site/`, which holds nothing there.
+
+With `cloudflarePages({ runWorkerFirst: true })`, every request reaches the
+app, so the build checks no pattern. It fails instead when `run_worker_first`
+is not `true`, when no `wrangler.json`, `wrangler.jsonc` or `wrangler.toml`
+sits beside the config, and on a Cloudflare Pages project's file: the option
+says what the wrangler file does, and the build holds the file to it.
+
+So when you add, move or remove a prefix, change `run_worker_first` with it,
+and the build tells you when they disagree. It cannot read `wrangler.toml`,
+and fails on one when the config declares upstreams: write it as
+`wrangler.jsonc` instead. Without `runWorkerFirst`, a file with
+`pages_build_output_dir` is a Cloudflare Pages project, which reads
+`_routes.json` instead, and is not checked.
 
 `cloudflarePages()` also writes `site/_routes.json`, which sends the same
 prefixes to Pages Functions on Cloudflare Pages

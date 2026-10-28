@@ -23,3 +23,5 @@ export { planDeployFromManifests } from "./diffing-two-manifests.js";
 export type { DeployPlan } from "./diffing-two-manifests.js";
 export { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
 export type { CompiledEdge } from "./compiling-edge-artifacts.js";
+export { runAppBeforeEveryRequest } from "./running-the-app-before-every-request.js";
+export type { AppBeforeEveryRequest } from "./running-the-app-before-every-request.js";

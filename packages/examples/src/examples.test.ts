@@ -20,6 +20,7 @@ import { islandNestedClientComponent } from "./islanding-a-nested-client-compone
 import { planDeployFromManifests } from "./diffing-two-manifests.js";
 import { renderSiteImages } from "./rendering-images.js";
 import { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
+import { runAppBeforeEveryRequest } from "./running-the-app-before-every-request.js";
 
 const tempDirs: string[] = [];
 const openStores: ContentStoreReader[] = [];
@@ -364,6 +365,17 @@ test("the edge example compiles a routing document into one host's artifacts, ca
       contents: expect.stringContaining("404!"),
     },
   ]);
+});
+
+test("the run_worker_first example compiles with the opt-in and is refused without it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pagedeck-examples-"));
+  tempDirs.push(dir);
+  const { artifacts, refusal } = runAppBeforeEveryRequest(dir);
+
+  expect(artifacts.map((artifact) => artifact.path)).toContain("/_routes.json");
+  expect(refusal).toBe(
+    `Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list the two patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"], or pass cloudflarePages({ runWorkerFirst: true }) to run the app before every request on purpose; true makes each built page cost a Worker invocation:\n  ${JSON.stringify(join(dir, "wrangler.jsonc"))}`,
+  );
 });
 
 // `build.adapter` is core's own structural type (docs/adr/0009); each adapter

@@ -5,6 +5,7 @@ import {
   unusableHeaderValue,
   unwritableHeaderName,
 } from "@pagedeck/core/routing";
+import type { AdapterSite } from "@pagedeck/core";
 import type {
   RoutingManifest,
   RoutingTree,
@@ -20,8 +21,11 @@ import type { CompiledTree } from "./normalize.js";
 export interface EdgeAdapter<A extends EdgeArtifact = EdgeArtifact> {
   /** Quoted in every refusal, as `Edge target "<name>"`, and carried in `EdgeOutput.target`. */
   readonly name: string;
-  /** Throws one `ConfigError` naming every fault the document holds for this host. */
-  compile(routing: RoutingManifest): EdgeOutput<A>;
+  /**
+   * Throws one `ConfigError` naming every fault the document holds for this host. `pagedeck
+   * build` passes `site`.
+   */
+  compile(routing: RoutingManifest, site?: AdapterSite): EdgeOutput<A>;
 }
 
 export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
@@ -36,8 +40,11 @@ export interface AdapterDefinition<A extends EdgeArtifact = EdgeArtifact> {
   unsupportedFix?: string;
   /** Absent, `defineAdapter` refuses every tree that declares an upstream prefix. */
   upstreams?: UpstreamPolicy;
-  /** Pushes the faults no one tree holds, such as an adapter option naming a prefix no tree declares. */
-  checkManifest?(manifest: RoutingManifest, faults: Fault[]): void;
+  /**
+   * Pushes the faults no one tree holds, such as an adapter option naming a prefix no tree
+   * declares, or a host file beside the config that disagrees with the document.
+   */
+  checkManifest?(manifest: RoutingManifest, faults: Fault[], site?: AdapterSite): void;
 }
 
 /**
@@ -139,7 +146,7 @@ export function defineAdapter<A extends EdgeArtifact>(
   const describe = definition.describe ?? describePath;
   return {
     name,
-    compile(manifest) {
+    compile(manifest, site) {
       checkVersion(name, manifest.version);
 
       const faults: Fault[] = [];
@@ -147,7 +154,7 @@ export function defineAdapter<A extends EdgeArtifact>(
         checkHeaders(tree, faults);
         refuseUpstreams(tree, definition.upstreams, faults);
       }
-      definition.checkManifest?.(manifest, faults);
+      definition.checkManifest?.(manifest, faults, site);
       // Folded once here, so no two adapters can derive different normalizing rules.
       const artifacts = manifest.trees.flatMap((tree) =>
         definition.compileTree(

@@ -191,4 +191,52 @@ Edge target "own": 2 values cannot be expressed by this target — change each v
       ),
     );
   });
+
+  it("hands checkManifest the site compile was given", () => {
+    const seen: unknown[] = [];
+    const adapter = defineAdapter({
+      name: "site",
+      limits: {},
+      checkManifest: (_manifest, _faults, site) => seen.push(site),
+      compileTree: () => [],
+    });
+    adapter.compile(FIXTURE, { root: "/site" });
+    adapter.compile(FIXTURE);
+    expect(seen).toEqual([{ root: "/site" }, undefined]);
+  });
+
+  it("attaches a fault's cause, and several causes as one AggregateError", () => {
+    const unread = { one: "file is unread", many: "files are unread" };
+    const first = new Error("first");
+    const second = new Error("second");
+    const one = defineAdapter({
+      name: "one",
+      limits: {},
+      checkManifest: (_manifest, faults) => {
+        faults.push({ kind: "adapter", subject: unread, fix: "read it", line: "a", cause: first });
+      },
+      compileTree: () => [],
+    });
+    const thrown = (adapter: typeof one): ConfigError => {
+      try {
+        adapter.compile({ ...FIXTURE, trees: [] });
+      } catch (error) {
+        return error as ConfigError;
+      }
+      return expect.unreachable("expected a refusal");
+    };
+    expect(thrown(one).cause).toBe(first);
+    const two = defineAdapter({
+      name: "two",
+      limits: {},
+      checkManifest: (_manifest, faults) => {
+        faults.push({ kind: "adapter", subject: unread, fix: "read it", line: "a", cause: first });
+        faults.push({ kind: "adapter", subject: unread, fix: "read it", line: "b", cause: second });
+      },
+      compileTree: () => [],
+    });
+    const cause = thrown(two).cause;
+    expect(cause).toBeInstanceOf(AggregateError);
+    expect((cause as AggregateError).errors).toEqual([first, second]);
+  });
 });

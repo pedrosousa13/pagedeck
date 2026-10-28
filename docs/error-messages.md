@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 125 below, 112 of them
+`x` at/from `path`, outside fenced blocks — there are 126 below, 113 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 297 messages fenced
-below, 230 are checked that way and 67 are not**, and that test lists the 67
-one by one with the reason each is out: 65 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 307 messages fenced
+below, 231 are checked that way and 76 are not**, and that test lists the 76
+one by one with the reason each is out: 74 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 230 checked messages pin 35032 of the 94715 fenced characters, and
+below**: the 231 checked messages pin 35059 of the 98029 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -845,6 +845,66 @@ Edge target "cloudflare-worker": 1 binding in cloudflareWorker({ upstreams }) is
 
 Edge target "cloudflare-worker": 1 prefix names both a url and a service binding — remove url from each in build.routing.upstreams, or remove it from cloudflareWorker({ upstreams }):
   the default tree's prefix "/api/" — url "https://app.example", binding "APP"
+```
+
+On Workers Static Assets the site's own `wrangler.jsonc` sends each prefix to
+the app, so `wranglerCheck`
+(`packages/adapter-cloudflare-pages/src/wrangler.ts`) holds its
+`assets.run_worker_first` to the prefixes the document declares (#145). A
+prefix it leaves out, a pattern no prefix declares and a negative pattern
+under a prefix are three different edits to that file:
+
+```
+Edge target "cloudflare-pages": 1 prefix in build.routing.upstreams does not reach the app through assets.run_worker_first — add each pattern its line names to assets.run_worker_first in the wrangler file, the prefix followed by * and its unslashed path, since Cloudflare does not document that * matches nothing; Workers Static Assets answers a request no pattern matches from the site's files, so it never reaches the app:
+  the default tree's prefix "/hooks/" — "/site/wrangler.jsonc" lists no "/hooks/*" or "/hooks"
+
+Edge target "cloudflare-pages": 1 pattern in assets.run_worker_first names no prefix in build.routing.upstreams — remove each, or declare its prefix in build.routing.upstreams; the app answers every path a pattern matches, and the build checks only a declared prefix against the paths it writes:
+  "/admin/*" in "/site/wrangler.jsonc" — build.routing.upstreams declares "/api/", "/hooks/"
+
+Edge target "cloudflare-pages": 1 negative pattern in assets.run_worker_first keeps part of an upstream prefix from the app — remove each; a request it matches is answered from the site's files, which hold nothing under an upstream prefix:
+  "!/api/docs/*" in "/site/wrangler.jsonc" — it matches a path under "/api/"
+```
+
+A file the check cannot get patterns from stops it, so each of these is the
+only fault the wrangler file contributes. `true` runs the app before every
+request, a `run_worker_first` of another shape is no list of patterns, and
+TOML is a format the build does not parse:
+
+```
+Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list the two patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"], or pass cloudflarePages({ runWorkerFirst: true }) to run the app before every request on purpose; true makes each built page cost a Worker invocation:
+  "/site/wrangler.jsonc"
+Edge target "cloudflare-pages": 1 wrangler file's assets.run_worker_first is neither true, false nor a list of patterns — write a list of patterns, the two for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]:
+  "/site/wrangler.jsonc" — it is ["/api/*",3]
+Edge target "cloudflare-pages": 1 wrangler.toml cannot be checked against build.routing.upstreams — write it as wrangler.jsonc, which wrangler also reads; the build reads JSON and JSONC only, so it cannot check assets.run_worker_first in TOML:
+  "/site/wrangler.toml"
+```
+
+`cloudflarePages({ runWorkerFirst: true })` says the wrangler file sets
+`run_worker_first` to `true`: every request then reaches the app, so no prefix
+can be left out and no pattern can stray, and the check only holds the file to
+the adapter's word. A Workers file that sets anything else breaks it, and the
+fix names both directions, because the build cannot tell which of the two the
+author meant; it names the file the build read, here `wrangler.jsonc`. With no
+wrangler file, or a Cloudflare Pages project's file, there is no
+`run_worker_first` to set, so the only fix is to remove the option:
+
+```
+Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not met by the site's wrangler file — set assets.run_worker_first to true in wrangler.jsonc, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says:
+  "/site/wrangler.jsonc" sets it to ["/api","/api/*"]
+Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true has no Workers Static Assets wrangler file to hold — remove runWorkerFirst from cloudflarePages(); only a wrangler.json or wrangler.jsonc of a Worker with static assets, beside pagedeck.config.ts, has assets.run_worker_first:
+  no wrangler.json, wrangler.jsonc or wrangler.toml in "/site"
+```
+
+A file that will not read or parse carries the error as the refusal's
+`cause`, which the CLI prints after the line (rule 4). Comments and trailing
+commas are blanked to spaces before the parse, so the parser's line and
+column are the file's own:
+
+```
+Edge target "cloudflare-pages": 1 wrangler file is not valid JSON with comments — correct it where the cause says; wrangler refuses the same file when it deploys:
+  "/site/wrangler.jsonc"
+Edge target "cloudflare-pages": 1 wrangler file cannot be read — make it a file this user can read, or remove it; the build reads it to check assets.run_worker_first against build.routing.upstreams:
+  "/site/wrangler.jsonc"
 ```
 
 An unknown target and an unreadable routing version are thrown on the spot
