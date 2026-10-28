@@ -1199,7 +1199,10 @@ reads the config and its `ETag` with `GetDistributionConfig`, and merges
   read, and the API reference's order where there is none.
 - A Pagedeck item counts as unchanged when the config holds every field the
   fragment sets, in any order. A field the service filled in with its default
-  is not a change.
+  is not a change. So a field a later Pagedeck release stops setting stays on
+  the distribution, and the item reads as unchanged. The next change to the
+  item writes only the fragment's fields, so the old field goes with no diff
+  line. To clear it at once, remove the item and deploy.
 
 An error response has no `Id`, so it is Pagedeck's by its `ErrorCode`. An
 operator's own response for a code the site declares, such as `404`, is
