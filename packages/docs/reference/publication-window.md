@@ -24,7 +24,7 @@ defineCollection({
 
 **A collection that declares neither field is untouched.** It is unscheduled,
 every entry of it is a page, and it collects exactly as it did before either
-field existed — no query changes, no bytes move, and nothing about the feature
+field existed: no query changes, no bytes move, and nothing about the feature
 is paid for. That is the whole of the opt-in: there is no site-level switch to
 turn on beside it.
 
@@ -58,7 +58,7 @@ neither, and they are all pages.
 
 The field is a name and not a callback because the selection happens in SQL: an
 entry outside its window is never loaded, let alone routed and then dropped.
-Scheduling costs no extra column, no extra table and no migration — the
+Scheduling costs no extra column, no extra table and no migration; the
 timestamps are read out of the JSON your loader already stored.
 
 ## The window is half-open
@@ -79,7 +79,7 @@ which neither is:
 ]
 ```
 
-Write the two ends the other way round — closed at both — and the changeover is
+Write the two ends the other way round (closed at both), and the changeover is
 either a duplicate or a gap depending on which side you rounded.
 
 ## The build's instant
@@ -93,7 +93,7 @@ all. The dev server passes the moment the request arrived instead, which is the
 instant a preview is asking about.
 
 A scheduled collection collected with **no** instant is refused rather than
-published wholesale — the message names the collection and the field it is
+published wholesale. The message names the collection and the field it is
 scheduled by. Publishing everything would be a site shipping drafts because a
 caller forgot an argument.
 
@@ -102,7 +102,7 @@ caller forgot an argument.
 **The exclusion, and that is all of it.** A build collects the entries inside
 their window and leaves the rest out. Deciding _when_ to run a build so that an
 entry appears at the hour you scheduled it for is your scheduler's concern, not
-the framework's — nothing here polls, wakes up, or triggers anything.
+the framework's: nothing here polls, wakes up, or triggers anything.
 
 In practice that means an entry becomes a page on the first build that starts
 after its `publishAt`, and stops being one on the first build that starts at or

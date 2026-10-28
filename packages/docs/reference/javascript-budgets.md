@@ -67,7 +67,7 @@ Seven consequences are worth stating outright:
   of source. Uncompressed source is roughly four times larger and moves with
   formatting rather than with content.
 - **A page with no islands costs 0 in chunks**, and that is its whole spend
-  unless the build inlined a `<script>` into it — the last bullet below. It is
+  unless the build inlined a `<script>` into it (the last bullet below). It is
   reported as 0 rather than skipped, so a page that stops being free shows up as
   a change in the report.
 - **This is not the page's whole payload.** A page whose below-the-fold chart is
@@ -79,7 +79,7 @@ Seven consequences are worth stating outright:
   [script layer](./third-party-scripts.md)'s consent loader, and the
   [web-vitals beacon](./web-vitals-beacon.md). A page carrying either runs
   those bytes on every visit, so they are in its spend and can fail a build on
-  their own — a page with no islands at all can breach. They are reported
+  their own: a page with no islands at all can breach. They are reported
   separately as `jsInlined`, because there is no chunk path to name them by.
 
 ## Tier chunks
@@ -166,8 +166,8 @@ is a limit on what the page runs.
 
 The line is drawn at the element: a `<script>` with no attributes on it is
 inline code and is counted, and everything else is not. A `<script src>` is a
-chunk, already counted by its path; a typed one — `application/ld+json`,
-`speculationrules` — is data. That rule applies to strings your own site puts in
+chunk, already counted by its path; a typed one (`application/ld+json`,
+`speculationrules`) is data. That rule applies to strings your own site puts in
 a document too, so a `ScriptRuntimeAdapter`'s snippet or a facade's placeholder
 counts exactly when what it writes is an inline script.
 
@@ -179,27 +179,27 @@ build. A `budget:` key is a limit on JavaScript, and it stays one.
 
 `cssInlined` and `jsInlined` are therefore not a matched pair, despite their
 names: the first is reported and can never fail a build, the second is part of
-the spend and can. The difference is not inlining but what the bytes are — one
+the spend and can. The difference is not inlining but what the bytes are: one
 is a stylesheet, and the other is JavaScript, which is the thing a budget
 counts.
 
 The three figures below are Brotli bytes, the same unit as the JavaScript
 figure, so the numbers can be read across:
 
-- **`css`** — every stylesheet the page's document links, each counted once.
+- **`css`**: every stylesheet the page's document links, each counted once.
   That is the site's global sheets from `build.css` and the page's own, exactly
   the set in its `<link>` tags. Stylesheets other pages link are not on this
   page's bill.
-- **`cssInlined`** — the stylesheets the page inlined into its own HTML instead
+- **`cssInlined`**: the stylesheets the page inlined into its own HTML instead
   of linking, if [critical CSS](./critical-css.md) is on for it. It is 0 on
   every page of a site that has not declared `build.criticalCss`, and a flagged
   page's `css` is 0 instead. Those bytes are inside `html` as well, so the
   figures are not meant to be added up. The two other things a build can inline
-  as CSS — the [view-transition](./view-transitions.md) rule and a drift
-  supplement — are framework-emitted rules rather than sheets your site wrote,
+  as CSS (the [view-transition](./view-transitions.md) rule and a drift
+  supplement) are framework-emitted rules rather than sheets your site wrote,
   and are not in this column; they are inside `html` like the rest of the
   document.
-- **`html`** — the page's own emitted document, and no other's.
+- **`html`**: the page's own emitted document, and no other's.
 
 They are reported for every budgeted page, passing ones included. A page whose
 JavaScript held steady while its stylesheet tripled is invisible to a check that
@@ -286,7 +286,7 @@ not metacharacters, and adding one later would change what an existing key
 means.
 
 A budget may name a locale the site has not declared. Such a key matches no
-page, which is not an error — locales are declared and checked in
+page, which is not an error: locales are declared and checked in
 `defineLocales`.
 
 ## Which pattern wins
@@ -311,7 +311,7 @@ Config "/site/pagedeck.config.ts": "build.budget" holds 1 pair of patterns no pa
   "/a/*" and "/*/b" — equally specific, and both match "/a/b"
 ```
 
-Fix it by making one key more specific, or by giving both the same limit — two
+Fix it by making one key more specific, or by giving both the same limit: two
 keys that agree on a limit have nothing to disagree about and are accepted.
 
 The tie is decided against the patterns themselves, not against the pages a
@@ -327,15 +327,15 @@ valid. Anything else is refused when the config loads.
 ## The report
 
 Every build with a budget writes `.pagedeck/budget-report.json` in the site directory
-— the one that holds `pagedeck.config.ts`, beside the retention store `pagedeck rollback`
-reads — including builds that fail on a breach, which are the ones most worth
+(the one that holds `pagedeck.config.ts`, beside the retention store `pagedeck rollback`
+reads), including builds that fail on a breach, which are the ones most worth
 reading.
 
 **Outside `outDir`, and that is the point.** The report is a CI artifact rather
 than site content: it names the build id, the build time, every budgeted page
 with its limit and spend, and every emitted chunk's path and size. A
-manifest-driven deploy would never have uploaded it — `pagedeck diff` uploads the rows
-in the manifest plus `manifest.json`, and the report is in neither — but a
+manifest-driven deploy would never have uploaded it (`pagedeck diff` uploads the rows
+in the manifest plus `manifest.json`, and the report is in neither), but a
 directory-sync host publishes the output tree and reads no manifest, so a report
 inside `outDir` shipped. Putting it under `.pagedeck/` is the placement that holds
 under both, and `.pagedeck/` is already the directory a site's `.gitignore` names for
@@ -344,7 +344,7 @@ the retention store.
 It holds because `outDir` sits inside the site directory, which is the ordinary
 layout and the one every site in this repo uses. That is a premise, not a check:
 `build.outDir` is yours to set and the config only requires it to be a string,
-so `outDir: "."` — the site directory itself, or any directory above it — puts
+so `outDir: "."` (the site directory itself, or any directory above it) puts
 `.pagedeck/budget-report.json` back inside what a directory-sync host publishes. The
 framework does not refuse that layout, and a site whose output tree is its own
 source directory is publishing `pagedeck.config.ts` with it.
@@ -395,7 +395,7 @@ island over the limit, gets no report.
 Every budgeted page appears, breaching or not, in route-table order, with its
 chunks largest first, and every critical-CSS page beside them. `actual` is the
 sum of `chunks` plus `jsInlined`, and `chunks` is the first-render set described
-above — a chunk this page fetches only when an `idle` or `visible` island
+above; a chunk this page fetches only when an `idle` or `visible` island
 hydrates is in neither. `css`, `cssInlined` and `html` sit beside `actual` and
 are in no part of it, and `breach` is `actual > limit` and nothing else.
 `largestIslandProps` is the page's largest island props in bytes, 0 on a page
@@ -420,8 +420,8 @@ means. Adding a field does not change it, so `islandPropsLimit`,
 can say. Today that is [fold strategy](./fold-strategy.md) and nothing else: it
 is the one stage that moves an island onto or off a page's first render for a
 reason that is not an edit somebody made, so a page's figure can move on a copy
-change with nothing in the page's own declarations touched. Every other reason —
-a component added, a directive added, a limit lowered — is legible from the diff
+change with nothing in the page's own declarations touched. Every other reason
+(a component added, a directive added, a limit lowered) is legible from the diff
 that caused it and gets no sentence here.
 
 Demotions appear as well as promotions: the field answers why the spend is what
@@ -452,7 +452,7 @@ a reason for it, and there is no such thing as the three most important reasons.
 Inlined bytes get a line between the two, on the pages that have any, and the
 page's own line says which figure is which so the sum adds up to the lines under
 it. The inlined line names a phrase rather than a path, because there is no file
-to go and open — and on a page whose whole spend is inline it is the only
+to go and open, and on a page whose whole spend is inline it is the only
 contributor line there is:
 
 ```

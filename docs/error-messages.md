@@ -15,14 +15,14 @@ names filled in.
 The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
-a name with a repo source path — the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks — there are 126 below, 113 of them
+a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
+`x` at/from `path`, outside fenced blocks), there are 126 below, 113 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
 sweep (#344) read `a`, and `b` (`path`) as two citations and counted 74, where
 the test reads one. Both totals are asserted by that test, so they are
-reproducible rather than remembered — which is what a sweep by hand was not:
+reproducible rather than remembered, which is what a sweep by hand was not:
 #344 corrected 4 citations here and 3 in code comments, and this test's first
 run found 5 more it had not reached, none of them in this document.
 
@@ -30,19 +30,19 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 307 messages fenced
-below, 231 are checked that way and 76 are not**, and that test lists the 76
+literal interpolates left as holes it cannot read. **Of the 308 messages fenced
+below, 232 are checked that way and 76 are not**, and that test lists the 76
 one by one with the reason each is out: 74 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
-repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
+repo. `beacon.test.ts` is the stronger arrangement over four of the 150: it
 calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 231 checked messages pin 35059 of the 98029 fenced characters, and
+below**: the 232 checked messages pin 35195 of the 98170 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
-like any other — the two stale field lists #440 corrected were exactly that,
+like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
 
 Two holes in those tests matter to a reader of this catalogue.
@@ -99,7 +99,7 @@ character for character in `packages/examples/src/examples.test.ts`. The text
 after the field name comes from the validator, so it is whatever zod, valibot
 or arktype said; everything before it is `validateEntry` and `schemaFailure` in
 `packages/content/src/collection.ts`. Both paths that write a loader's entries
-share them — sync, and the `fetchOne` write-back in `getEntryCached` — so one
+share them (sync, and the `fetchOne` write-back in `getEntryCached`), so one
 entry failing a cached fetch reads exactly the way one entry failing a sync
 reads.
 
@@ -112,8 +112,11 @@ The message ends with what to do, not just what happened. Before and after,
 from `listDueEntries`:
 
 - Without: `Collection "posts": no publishField`
-- With: `Collection "posts": declares no publishField and no unpublishField, so
-  no entry has a publication schedule — declare one to query due entries`
+- With:
+
+```
+Collection "posts": declares no publishField and no unpublishField, so no entry has a publication schedule — declare one to query due entries
+```
 
 Others in the same shape:
 
@@ -161,7 +164,7 @@ Dev server: 1 import from island code reaches the source of an upstream app, so 
   "./src/cart.js" imports "../app/index.ts" — build.routing.upstreams[0] source "app/"
 ```
 
-Where the fix needs a reason, give the reason — the redirect failure in
+Where the fix needs a reason, give the reason: the redirect failure in
 `packages/core/src/snapshot.ts` explains that redirects are not followed
 because they can move the transfer off `https:`, then says to point the target
 at the final location.
@@ -178,7 +181,7 @@ Snapshot target "https://169.254.169.254/site.db": host "169.254.169.254" is a l
 
 One message serves both verbs, because `parseTarget` is what refuses and both
 `pagedeck store pull` and `pagedeck store push` go through it. So the reason is written as a
-standing fact about a push rather than as a report of what this run did — a
+standing fact about a push rather than as a report of what this run did. A
 reader who typed `pull` is told why the check exists, not what their push
 supposedly sent. `packages/core/src/snapshot.test.ts` asserts the sentence above
 character for character, so this quote cannot drift out of date in silence.
@@ -193,7 +196,7 @@ The same file refuses a pull whose body has no end it can recognise (#313). A
 snapshot is the site's whole content store, and a transfer that stops half way
 through one used to be renamed over the store and surface much later as SQLite
 corruption, so the refusal says what is missing, what the two acceptable
-framings are, and — where a store already existed — that it is still there:
+framings are, and (where a store already existed) that it is still there:
 
 ```
 Snapshot pull from "https://cdn.example/store.db" failed: the host declared neither a content-length nor a chunked transfer-encoding, so the body ends wherever the connection does and a cut transfer ends it as quietly as a complete one — whatever arrived would be renamed over the store; serve the snapshot with a content-length (a presigned S3 GET does) or chunked
@@ -202,8 +205,8 @@ Snapshot pull from "https://cdn.example/store.db" failed: the host declared a co
 Snapshot pull from "https://cdn.example/store.db" failed: the host sent the body with content-encoding: gzip, and fetch decodes it before it is written, so the declared length counts other bytes than the ones that would reach the store — serve the snapshot unencoded, or chunked, which needs no length
 ```
 
-All four are the one sentence `pullFailed` writes — "Snapshot pull from X
-failed" — with a detail after the colon, because a reader grepping a CI log for
+All four are the one sentence `pullFailed` writes, "Snapshot pull from X
+failed", with a detail after the colon, because a reader grepping a CI log for
 a failed pull should meet the same opening whether it failed at the request, at
 the framing, or part way through the body (rule 1).
 
@@ -215,7 +218,7 @@ named in it for one reason: the reader's next question after a failed pull is
 whether the store survived, and the answer is worth more than the inference.
 
 The last two are refusals of things that work elsewhere, so each ends with the
-framing that does work rather than with the rule alone — a host serving
+framing that does work rather than with the rule alone: a host serving
 snapshots gzipped is not doing anything wrong on the open web, it is doing
 something this transport cannot check a length against.
 
@@ -232,16 +235,16 @@ Component "Sheeted": declares a stylesheet with React's precedence prop, and ent
 The `<head>` this build emits is written entirely by the build, and having one
 writer for it is what makes the CSS tiers order deterministically at all. A
 build-time render prerenders a *fragment*, so React hoists the sheet into
-`<body>`, where it beats a `<head>` tier sheet at equal specificity — silently,
+`<body>`, where it beats a `<head>` tier sheet at equal specificity, silently,
 in every direction
 `docs/research/2026-08-29-react-19-stylesheets-under-island-roots.md` measured.
 So the refusal is stated as that ownership and not as a rule about one React
 feature, which is also what makes it read correctly the next time React grows a
 resource the build has to place.
 
-A sheet React hoisted outside every island marker has no component to name — a
+A sheet React hoisted outside every island marker has no component to name (a
 static component's sheet goes to the front of the *page's* fragment, and nothing
-in the bytes says which component wrote it — so that one names the entry
+in the bytes says which component wrote it), so that one names the entry
 instead, and is refused all the same:
 
 ```
@@ -334,7 +337,7 @@ and chose the one core owns.
 **The same rule reaches the tree at `outDir` by a second door, and there it is a
 `ConfigError`.** An incremental build reuses a page it did not render by reading
 the document back off that tree, so those bytes never pass through the composer
-above — and a tree written before this refusal existed holds documents it would
+above, and a tree written before this refusal existed holds documents it would
 have refused. `carryDocuments` in `packages/core/src/build.ts` counts them on
 the way in, which is what makes "one landmark per document" true of every page
 of every build rather than of the pages a run happened to re-render:
@@ -370,9 +373,9 @@ in one config object.
 
 The fix names both ways out, and the second is what the message is for. A
 site-wide chat widget whose mount point exists only on post pages is a script
-that should have been scoped to post pages — the "Off broadly, on narrowly"
+that should have been scoped to post pages (the "Off broadly, on narrowly"
 layering in
-`packages/docs/reference/third-party-scripts.md` — and the alternative
+`packages/docs/reference/third-party-scripts.md`), and the alternative
 reading, that every page now owes the site an empty element, is the one a
 message naming only the first fix would leave. There is no fallback to the
 default placement: a facade emitted somewhere other than where the site put it
@@ -458,7 +461,7 @@ causes cannot both be *the* cause. So `readManifests`
 (`packages/core/src/cli.ts`) flattens a pair of manifest failures into one
 report rather than carrying either as a cause, and rethrows a lone one whole so
 the common case keeps its chain. What this rule forbids is
-losing the inner text, and a quoted line does not lose it — it keeps it for
+losing the inner text, and a quoted line does not lose it: it keeps it for
 every failure rather than for one. §2's schema failure is the shape: the
 validator's text goes on the failing entry's line.
 
@@ -497,9 +500,9 @@ Module "/site/components/Typed.jsx": 2 syntax errors, so it does not compile —
 ```
 
 The run prints the cause after the fix, so a config that imports the first
-module fails with `Config "/site/pagedeck.config.ts": failed to load: Module
-"/site/components/Bad.tsx" line 2: does not compile — fix the syntax at the
-line named: column 16: Unterminated regular expression`. The second module's
+module fails with one line: `Config "/site/pagedeck.config.ts": failed to load:`,
+then the first message above, then `: column 16: Unterminated regular
+expression`. The second module's
 faults print on that same line, joined by `; `, rather than one per line: its
 error is a cause of the config's, and `describeError` prints a line break in a
 cause as a replacement character. The cause is an `AggregateError` holding
@@ -526,7 +529,7 @@ collection does not stop the others, and every failure is reported at the end.
 The alternative is a build loop that reveals one broken field per run.
 
 `listDueEntries` in `packages/content/src/collection.ts` collects the same way
-over a collection's **publication windows** (#283) — an entry whose unpublish
+over a collection's **publication windows** (#283): an entry whose unpublish
 instant is at or before its publish instant is due at no instant at all, so it
 emitted no page and said nothing:
 
@@ -582,8 +585,8 @@ Entry /en/home: 3 components have no default export — export each component as
 ```
 
 **Those are two throws, and they stay two throws because they are two
-classes.** An unregistered name is the site's wiring — `RegistryError`, exit 2.
-A module missing its default export is a page that will not render —
+classes.** An unregistered name is the site's wiring: `RegistryError`, exit 2.
+A module missing its default export is a page that will not render:
 `RenderError`, exit 1 (rule 7). One combined report would have to pick one
 exit code for both, which means dropping a classification to save a header. A
 page with both faults reports the wiring one first: a name the registry does
@@ -593,16 +596,16 @@ modules while the registry naming them is still wrong.
 
 `renderPage` is the second place a run splits for that reason.
 `throwContradictedHydration` (`packages/core/src/client-reference.tsx`) reports
-a `"use client"` module registered `hydrate: "none"` — the registry's wiring,
-`RegistryError`, exit 2 — and `throwProxyFaults` reports every other proxy fault
+a `"use client"` module registered `hydrate: "none"` (the registry's wiring,
+`RegistryError`, exit 2), and `throwProxyFaults` reports every other proxy fault
 on the same page as a `RenderError`, exit 1. The order is argued differently
 there: a contradicted instance renders nothing, so the render report below it
 was collected over a page with that component's subtree missing from it, and the
 report that is incomplete is not the one to put first.
 
 Collecting is also what decides where the collection lives. `resolveComponent`
-answers about one name, and it is called one name at a time — by
-`resolveHydrationMode`, and by `loadComponents` itself — so it keeps the
+answers about one name, and it is called one name at a time (by
+`resolveHydrationMode`, and by `loadComponents` itself), so it keeps the
 single-name sentence; `loadComponents` is what walks a whole tree and holds the
 results, so it is the only place that knows what "every failure on this page"
 means. Put a collection at the level that can see the whole set, not at the
@@ -655,7 +658,7 @@ Config "/site/pagedeck.config.ts": 2 components declare a module that does not r
 ```
 
 The boundary is the *kind* of failure. Content that fails its schema is one of
-possibly many, so it is collected. A validator that **throws** is not — it is a
+possibly many, so it is collected. A validator that **throws** is not: it is a
 wiring failure, the rest of the pass would be measured with a broken
 instrument, and `collection.ts` rethrows on the first one
 (`Collection "…": schema threw validating entry "…"`, with the thrown error as
@@ -949,8 +952,8 @@ site's wiring, so rule 7 classifies them the same way and there is no exit code
 to drop. A build section is written as one object literal, so a field the site
 has not declared yet and a budget key it spelled without a leading slash are one
 edit session, and revealing them one run at a time is the build loop rule 5
-exists to prevent. They still cannot share a headline — a missing field and an
-unusable pattern have different fixes — which is why the throw is paragraphs
+exists to prevent. They still cannot share a headline (a missing field and an
+unusable pattern have different fixes), which is why the throw is paragraphs
 joined rather than a report merged. The missing-field report names each field
 with the shape it takes, and `pages` takes two:
 
@@ -984,7 +987,7 @@ Page /en/notes: names no layout, and the build section declares no content callb
 Three more paragraphs join the same throw, from the same file and for the same
 reason. `cssFaultReport` collects every `build.css` entry that is not a
 stylesheet path, and every line says why it is not one, because an index and an
-empty quote diagnose nothing — least of all the whitespace-only entry, whose
+empty quote diagnose nothing, least of all the whitespace-only entry, whose
 quote is invisible:
 
 ```
@@ -1010,7 +1013,7 @@ and it is `budgetFaultReport`'s shape *by construction* rather than by
 resemblance (#23): both fields are maps keyed by page pattern, so the key half,
 the collection and the ambiguous-pair refusal are one implementation in
 `packages/core/src/page-patterns.ts`, and each field supplies only what its own
-values mean — that a budget's is a size, that this one's is a flag. A key legal
+values mean: that a budget's is a size, that this one's is a flag. A key legal
 in one field and refused in the other, or refused with a different sentence, is
 the drift that placement prevents.
 
@@ -1025,13 +1028,13 @@ Config "/site/pagedeck.config.ts": "build.criticalCss" holds 1 pair of patterns 
 The value is quoted with `JSON.stringify` rather than interpolated, so `"yes"`
 and `yes` are two different lines: a string that looks like a flag is the
 mistake this paragraph is most often read for. The fix names the flag in this
-field's own word for rule 3's sake — "the same value" would make a reader
+field's own word for rule 3's sake: "the same value" would make a reader
 translate the advice back into the field they are looking at, which is why
 `PatternValueRule.ambiguousFix` is supplied per field rather than written once
 in the shared module.
 
 `foldStrategyFaultReport` (`packages/core/src/fold.ts`) is the fourth, and it
-is the one field of the four that is neither a pattern map nor a list — so
+is the one field of the four that is neither a pattern map nor a list, so
 nothing in `page-patterns.ts` applies to it and both of its messages are its
 own. It joins the same throw for `assertBuildSection`'s reason: a threshold
 somebody typed in quotes and a field the site has not declared yet are one
@@ -1044,13 +1047,13 @@ Config "/site/pagedeck.config.ts": "build.foldStrategy" declares a threshold tha
 
 There is exactly one value inside the field, so the collected shape here is not
 about counting: it is about where the reason goes. `"8"`, `8.5` and `-1` are
-three different mistakes — a number in quotes, a pixel measurement written where
+three different mistakes (a number in quotes, a pixel measurement written where
 a node count belongs, and a negative that would put a whole page below the fold
-by arithmetic rather than by intent — and a headline can carry only the fix they
+by arithmetic rather than by intent), and a headline can carry only the fix they
 share. The value is quoted with `JSON.stringify` on `criticalCssFaultReport`'s
 argument, and it is load-bearing in a numeric field: an interpolated `8` would
 be indistinguishable from the `8` that would have worked. The `8` in both fixes
-is deliberately not the default — a fix an author can copy without changing
+is deliberately not the default: a fix an author can copy without changing
 anything is not a fix (rule 3).
 
 A key the field does not take is a fault of its own, with a fix of its own, so
@@ -1062,7 +1065,7 @@ Config "/site/pagedeck.config.ts": "build.foldStrategy" declares 1 field this bu
 ```
 
 This is the quietest failure the field has: `{ treshold: 4 }` is an object with
-nothing wrong in it that does none of what the site asked for — the build takes
+nothing wrong in it that does none of what the site asked for. The build takes
 the default and no artifact anywhere records that a threshold was written. It is
 the same argument the value check is made on, one level up. The reason is in the
 headline rather than on each line, because every key in the list has the same
@@ -1079,12 +1082,12 @@ Config "/site/pagedeck.config.ts": "build.foldStrategy" must be true, false, or 
 
 **A `head` that is not a function is the fifth paragraph, and it is reported
 alone for a reason the four above do not have** (issue #41). The others are
-values — a map, a list, an object — and a value is reported alone when there is
+values (a map, a list, an object), and a value is reported alone when there is
 no collection inside it to enumerate. This field is a *callback*, so there is
 nothing inside it to enumerate even in principle: a function is not a container,
 and the only thing that can be wrong with one at config load is that it is not a
 function. It joins `assertBuildSection`'s throw all the same, on that function's
-standing argument — a site wiring up a head and a budget writes one object
+standing argument: a site wiring up a head and a budget writes one object
 literal, and learning about them one run apart is the build loop rule 5 exists
 to prevent.
 
@@ -1093,7 +1096,7 @@ Config "/site/pagedeck.config.ts": "build.head" must be a function returning one
 ```
 
 The fix carries the signature rather than naming the type, because the mistake
-it catches is `head: { title: "…" }` — a site that wrote the head fields where
+it catches is `head: { title: "…" }`, a site that wrote the head fields where
 the function belongs. That reads perfectly well, type-checks nowhere in a `.js`
 config, and would otherwise surface partway through a build as a call on a
 non-function, naming a page and not the field.
@@ -1123,7 +1126,7 @@ Config "/site/pagedeck.config.ts": "build.origin" is not a site origin — write
 origin is a URL, and both places a URL hides a credential are cut out of it
 before it reaches a log: the query at its delimiter, the way `unusableReason`
 cuts a route, and the userinfo at the `@` that ends it. So the two faults that
-would otherwise print a token name it instead — one report each, since each is
+would otherwise print a token name it instead, one report each, since each is
 a different origin:
 
 ```
@@ -1137,7 +1140,7 @@ Config "/site/pagedeck.config.ts": "build.origin" is not a site origin — write
 ```
 
 The cut is made on the string rather than on a parsed URL, because the value
-that most needs it is the one that did not parse — and a value that did not
+that most needs it is the one that did not parse, and a value that did not
 parse is reported as that, since every other verdict about it would be measured
 on a URL nobody has:
 
@@ -1154,7 +1157,7 @@ locale code can be wrong in a build section. The first is the fault
 `missingFallbackReport` (`packages/core/src/locales.ts`) reports about a locale
 map, mirrored rather than shared: a field pointing at a locale the map does not
 hold. It names the declared locales rather than describing them, for the reason
-the edge target does — prose listing a site's languages is prose that drifts
+the edge target does: prose listing a site's languages is prose that drifts
 from the map it is about.
 
 ```
@@ -1180,7 +1183,7 @@ the only one with **two doors** (#46). A site normally writes its script layer
 through `defineScripts`, which refuses at construction for `urlTemplate`'s
 reason; the value also lands on `build.scripts`, which a `.js` config may build
 by hand, so `assertBuildSection` calls the same function and joins the same
-paragraphs. One predicate, two doors, one set of words — ADR-0004's arrangement
+paragraphs. One predicate, two doors, one set of words: ADR-0004's arrangement
 over a different field.
 
 The two doors differ in one thing, and it is `where` and the field name. At
@@ -1201,8 +1204,8 @@ The override maps are `patternMapFaultReport`'s by construction, the way
 `criticalCssFaultReport` is: `build.budget`, `build.criticalCss` and these two
 are read by one author in one object literal, so the key half, the specificity
 order and the ambiguous-pair refusal are one implementation. What this field
-supplies is what a value means — a map of script name to strategy, or to `"off"`
-to take the script off those pages — and every fault of one key's map is on that
+supplies is what a value means (a map of script name to strategy, or to `"off"`
+to take the script off those pages), and every fault of one key's map is on that
 key's line, joined with `; `, because they are one edit to one entry:
 
 ```
@@ -1219,13 +1222,13 @@ An unknown script name is checked only when the declarations gave a set to check
 against, which is `xDefaultFaultReport`'s silence over a locale set that is not
 a `Map`: a `scripts` that is not a list has already been reported, and a
 membership verdict measured against a set nobody has is a guess printed as a
-fact. A set the declarations left **empty** is that same set — an empty
-`scripts`, or one whose every name was refused above — and it is silent for a
+fact. A set the declarations left **empty** is that same set (an empty
+`scripts`, or one whose every name was refused above), and it is silent for a
 second reason on top: the line it would print ends `the declared scripts are `
 with nothing after it, which is the empty list rule 3 refuses.
 
 The declarations themselves report in `defineImages`' shape, and the fix is on
-each line for its reason — a name, a source, a strategy and a facade are fixed
+each line for its reason: a name, a source, a strategy and a facade are fixed
 four different ways, so a headline carrying one would carry the wrong one three
 times out of four:
 
@@ -1257,7 +1260,7 @@ Script settings: declares 1 script field this build does not read — delete the
 
 Two paragraphs are about names rather than types. An override addresses a script
 **by name**, so two scripts sharing one leaves an override with nothing to say
-which it meant — refused rather than resolved, because a pick by declaration
+which it meant, refused rather than resolved, because a pick by declaration
 order would be a guess the author never made:
 
 ```
@@ -1280,7 +1283,7 @@ Script settings: 2 scripts can resolve to the facade strategy with no facade to 
 The last paragraph is about the field that backs the `worker` strategy. A
 `runtime` this build cannot call is refused rather than ignored, because
 ignoring it lands the site on the `idle` fallback below with a warning saying it
-configured no runtime — a message that would be true and unfindable, since the
+configured no runtime, a message that would be true and unfindable, since the
 author is looking at the field it says is not there.
 
 ```
@@ -1298,7 +1301,7 @@ Script settings: declares 1 script field that cannot be loaded from — declare 
 
 `consentDefaults` is `patternMapFaultReport`'s by construction, the way the two
 override maps are, and every fault of one key's map is on that key's line joined
-with `; ` for their reason — one market is one edit to one entry:
+with `; ` for their reason: one market is one edit to one entry:
 
 ```
 Script settings: "consentDefaults" declares 1 default no category can take — write a map of consent category to granted or denied, such as { "de:/**": { analytics: "denied" } }:
@@ -1316,7 +1319,7 @@ the script and no build can know that.
 
 Unlike the override maps, no line here is checked against the declared scripts.
 A key is a market and a value is a category, and a category the site has
-declared no script in yet is a default waiting for one — a `marketing` pixel
+declared no script in yet is a default waiting for one: a `marketing` pixel
 added next week should not have needed its market default in the same commit.
 
 Four more lines are about the attribute map a vendor is configured through
@@ -1340,7 +1343,7 @@ and rule 5 asks for every failure, not for one failure twice. A key that fails
 both key rules is reported on the prefix alone, for the same reason.
 
 The second line refuses what the `ScriptAttributes` type refuses and nothing
-further — the prefix, and at least one character under it. `data-Domain`,
+further: the prefix, and at least one character under it. `data-Domain`,
 `data-foo_bar`, `data-1` and `data-x.y` are all accepted: each reaches
 `setAttribute` without a throw and lands on `dataset` as `domain`, `foo_bar`,
 `1` and `x.y`, and each is a spelling some vendor documents. A door refusing one
@@ -1351,8 +1354,8 @@ string, so the attribute configures nothing and reports nothing.
 
 **The third line is the one refusal that is not the type read back, and the
 distinction it turns on is whose rule is being enforced.** A `data-` key may
-still fail XML's `Name` production — a space in it, a trailing space, an angle
-bracket, a tab — and `setAttribute` throws `InvalidCharacterError` on every one
+still fail XML's `Name` production (a space in it, a trailing space, an angle
+bracket, a tab), and `setAttribute` throws `InvalidCharacterError` on every one
 of those. The throw happens inside the loader, which sets every declared
 attribute as it runs, so the site does not lose one attribute: it loses every
 script on every page that carries the declaration, with no message anywhere. A trailing space is an ordinary
@@ -1363,8 +1366,8 @@ refused names *the browser accepts* and was rejected for it. This refuses only
 names *the browser rejects*. The door is not adding an opinion about spelling;
 it is reporting at config load what would otherwise be a runtime crash with
 nothing to read. The character is printed with its code point because the
-reachable form of the mistake is invisible without it — `"data-domain "` quoted
-back is a key whose trailing space nobody reading a CI log will see — and every
+reachable form of the mistake is invisible without it (`"data-domain "` quoted
+back is a key whose trailing space nobody reading a CI log will see), and every
 character of the name that failed is named, in the order it appears, so one edit
 fixes the key.
 
@@ -1396,12 +1399,12 @@ Accepting a spelling some browser ignores is the silent unchecked load again.
 Refusing a spelling some browser would accept is loud, and it carries its fix
 in the same line.
 
-Three faults are reported alone, on the non-object budget's argument — settings
+Three faults are reported alone, on the non-object budget's argument: settings
 that are not an object, a `scripts` that is not a list, and a `scripts` that is
 an empty one. The last is the right *type*, so it cannot sit under a headline
 about types, and it is refused rather than accepted because it would otherwise
 make "the site declared no scripts" and "the site declared none of them"
-indistinguishable — the first is the case that must ship zero script-layer
+indistinguishable. The first is the case that must ship zero script-layer
 bytes.
 
 ```
@@ -1415,8 +1418,8 @@ Script settings: declares an empty list of scripts, so the script layer would do
 Every value is quoted through `quote` (`packages/core/src/quote.ts`), the same
 function `defineImages` quotes through, and it redacts for rule 6's reason: a
 script source is a URL, and a URL is where a credential hides. The cut never
-fires on the values most of these paragraphs quote — a non-string, an empty
-string, whitespace — and is the guard for the next check that quotes a value
+fires on the values most of these paragraphs quote (a non-string, an empty
+string, whitespace) and is the guard for the next check that quotes a value
 that did parse. `runtime` is that next check: it is the first field of either
 caller that plausibly holds an *object* of URLs, so the cut reaches **every
 string at every depth** rather than the top-level one alone, and
@@ -1428,7 +1431,7 @@ string at every depth** rather than the top-level one alone, and
 the provider stack twice over: `stack`, the values the build-time render wraps
 the page in, and `module`, the specifier the generated island entry imports the
 same stack from in the browser. A site that declared one half and not the other
-type-checks nowhere in a `.js` config and builds green — and then every island
+type-checks nowhere in a `.js` config and builds green, and then every island
 on the site is a hydration mismatch at its first node, reported by React in a
 browser as a page defect, naming no config field. So a half-declaration is a
 refusal at config load, one paragraph per half, joined with everything else the
@@ -1444,8 +1447,8 @@ Config "/site/pagedeck.config.ts": "build.rootProviders" names no module for an 
 A `stack` that is present but is not a list at all is the other single-line
 paragraph, and it is one line for the reason the absent half is: there are no
 indices to walk, so there is nothing under it to enumerate. It names the kind
-the field takes rather than the kind the site wrote — `{ stack: 7 }` and
-`{ stack: { hero: … } }` are the same edit — and it never quotes, for the
+the field takes rather than the kind the site wrote (`{ stack: 7 }` and
+`{ stack: { hero: … } }` are the same edit), and it never quotes, for the
 reason the whole stack half never quotes:
 
 ```
@@ -1466,7 +1469,7 @@ Config "/site/pagedeck.config.ts": "build.rootProviders" declares a stack this b
 `component` is refused only where it is neither a function nor an object, which
 is narrower than it looks: `memo`, `forwardRef` and `lazy` all return objects,
 and a check for a function would refuse provider components React itself
-produced. What is left is the mistake the line is read for — a renamed import
+produced. What is left is the mistake the line is read for: a renamed import
 that is now `undefined`, whose own failure is a `createElement(undefined)`
 thrown from inside a page render, naming a page.
 
@@ -1486,7 +1489,7 @@ it is refused with the shorter spelling as the fix rather than quietly rewritten
 into it.
 
 **The other half has its own paragraph, and it is the only one that quotes.**
-`moduleFault` is where a `module` that is present and unusable is refused — not
+`moduleFault` is where a `module` that is present and unusable is refused: not
 a string at all, or a string with nothing in it:
 
 ```
@@ -1495,8 +1498,8 @@ Config "/site/pagedeck.config.ts": "build.rootProviders" declares a module no is
 ```
 
 Empty and whitespace-only are said apart, `cssFaultReport`'s reason: they are
-two different typos — an interpolation that produced nothing, and a path
-somebody half-deleted — and a quote alone shows neither, because a reader
+two different typos (an interpolation that produced nothing, and a path
+somebody half-deleted), and a quote alone shows neither, because a reader
 cannot see the difference between `""` and `"   "` by looking at them:
 
 ```
@@ -1507,7 +1510,7 @@ Config "/site/pagedeck.config.ts": "build.rootProviders" declares a module no is
 The value is quoted here and nowhere else in this field's report, which is rule
 6 read the right way round rather than an exception to it: a specifier is a path
 the site wrote and the build is about to hand the bundler, so it is the one
-thing here that is not a provider prop. What the stack holds *is* site config —
+thing here that is not a provider prop. What the stack holds *is* site config,
 which is why `stackFaultLines` names a kind and never a value, and why the
 browser's half of the same declaration hashes every prop it reports.
 
@@ -1529,7 +1532,7 @@ is `foldStrategyFaultReport`'s threshold paragraph over spec §9's other
 threshold (#29). One value, so the collected shape is again about where the
 reason goes rather than about counting: `"5"`, `5.5` and `-1` are a number
 somebody typed in quotes, a fraction of a page, and a count below the lowest one
-a build can reach. It joins the same throw for that field's reason — two
+a build can reach. It joins the same throw for that field's reason: two
 thresholds a site tunes are two lines of one object literal.
 
 ```
@@ -1540,14 +1543,14 @@ Config "/site/pagedeck.config.ts": "build.driftThreshold" is not a count of drif
 The value is quoted with `JSON.stringify` for the reason `foldStrategy`'s is,
 and it is load-bearing in the same way: a `.js` config is never typechecked, so
 a threshold in quotes reaches the comparison and is *coerced* rather than
-refused — `6 > "5"` is `true` and `6 > "50"` is `false`, and nothing anywhere
+refused: `6 > "5"` is `true` and `6 > "50"` is `false`, and nothing anywhere
 would say a threshold had been misread. The `3` in the fix is deliberately not
 the default (rule 3).
 
 `driftSupplementFaultReport` (`packages/core/src/supplement.ts`) is the
 twelfth, and it is `build.head`'s paragraph over #29's other field. It is a
-*callback*, so there is nothing inside it to enumerate even in principle — a
-function is not a container — and the only thing that can be wrong with one at
+*callback*, so there is nothing inside it to enumerate even in principle (a
+function is not a container), and the only thing that can be wrong with one at
 config load is that it is not a function. It joins the same throw as the
 threshold beside it, because two lines of one object literal are one edit
 session.
@@ -1566,9 +1569,9 @@ wrote.
 
 `searchFaultReport` (`packages/core/src/search.ts`) is the thirteenth, and it is
 `defineImages`' second paragraph over #62's field. Two things can be wrong with
-a search adapter and no two of them are fixed the same way — a name is what
+a search adapter and no two of them are fixed the same way (a name is what
 every later report calls the adapter, an `index` is the function this build
-hands its rendered pages to — so the fix is on each line and the headline
+hands its rendered pages to), so the fix is on each line and the headline
 carries only what they share. It joins the same throw as everything above,
 because a site wiring up an indexer writes it in the same object literal.
 
@@ -1581,7 +1584,7 @@ Config "/site/pagedeck.config.ts": "build.search" declares 2 fields this build c
 **A key the interface does not name is not a fault here**, which is where this
 field departs from `foldStrategy`, `rootProviders` and the script layer. Those
 are settings the build reads, so a key it does not read is a line that silently
-does nothing — the argument the unknown-key paragraphs are all made on. This
+does nothing, the argument the unknown-key paragraphs are all made on. This
 value is an adapter the *site* implements, and its options, its state and its
 own methods are none of this build's business; refusing them would refuse a
 class instance for having a class's fields. A `search` that is not an object is
@@ -1594,7 +1597,7 @@ Config "/site/pagedeck.config.ts": "build.search" must be an object with a name 
 **Two more refusals are about what that adapter answers with**, and they are the
 build's rather than the config's: `searchFiles` (same file) is on the far side
 of the call, holding files a site's own code has just returned. Both name the
-adapter, which is what `SearchAdapter.name` exists for — a message about a
+adapter, which is what `SearchAdapter.name` exists for: a message about a
 returned file that could not say which library produced it would leave a reader
 looking at a path and nothing else. Both are a `ConfigError` and exit 2 on
 `compileSupplements`' criterion: a declared adapter that returns this file
@@ -1611,10 +1614,10 @@ Search index: the "lunr" adapter returned 1 file at a deploy key this build alre
   "/index.html" — the build already emitted an html file there
 ```
 
-The second is a file that sets `page` or `name`. Those two fields are claims —
+The second is a file that sets `page` or `name`. Those two fields are claims:
 `EmittedFile.page` says a file is one page's own HTML, `EmittedFile.name` says
 which chunk of the client build it is, and the manifest answers a column of the
-document from each — so a derived file carrying either answers for a page it is
+document from each, so a derived file carrying either answers for a page it is
 not. `misclaimReason` covers two of the four ways to write it and this is why
 that is not enough: a `page` naming a route this build did not emit claims a key
 nothing reads, and a `name` no page entry joins to is never looked up. A refusal
@@ -1641,8 +1644,8 @@ Search index: the "lunr" adapter threw while indexing 2 documents — "build.sea
 **An adapter's optional `patch` is held to the same rules, and adds one of its
 own** (#307). At config load, `searchFaultReport` refuses a `patch` that is
 present and not a function, on its own line and with two fixes, because an
-absent `patch` is a declaration — an adapter that cannot patch, whose
-incremental builds render every page — and so removing the field is as good an
+absent `patch` is a declaration (an adapter that cannot patch, whose
+incremental builds render every page), and so removing the field is as good an
 answer as writing the function:
 
 ```
@@ -1651,7 +1654,7 @@ Config "/site/pagedeck.config.ts": "build.search" declares 1 field this build ca
 ```
 
 On an incremental build, `searchPatchFiles` (same file) holds the files a patch
-writes to both refusals above, with the same words — a patch's answer is refused
+writes to both refusals above, with the same words: a patch's answer is refused
 exactly as `index`'s is. A patch that throws is wrapped the same way, and says
 what it was handed:
 
@@ -1674,8 +1677,8 @@ Search index: the "lunr" adapter pruned 2 files the previous build's index does 
 **The previous index is read back off the tree, and a tree that lost part of it
 is refused before anything renders** (`carrySearchIndex` in
 `packages/core/src/build.ts`). This is `carryDocuments`' refusal over the
-index's files — the rows the previous manifest records under the adapter's name
-(`ManifestFile.search`) — and it refuses rather than composes, where a sitemap
+index's files (the rows the previous manifest records under the adapter's name
+(`ManifestFile.search`)), and it refuses rather than composes, where a sitemap
 composes, because an index is a function of every page's render and an
 incremental build does not hold them:
 
@@ -1685,7 +1688,7 @@ Output "/site/dist": 1 file of the "lunr" search index cannot be carried from th
 ```
 
 A file that is there and cannot be opened says so rather than reading as
-missing — "the tree holds it and it could not be read" — and every read that
+missing ("the tree holds it and it could not be read"), and every read that
 threw rides as the refusal's cause (rule 4): the one error itself, or an
 `AggregateError` of all of them, so an `EACCES` reaches the log instead of
 sending a reader to rebuild a tree that is whole. A file whose bytes no longer
@@ -1696,7 +1699,7 @@ the previous build recorded", and has no cause because nothing threw.
 only ones `@pagedeck/search` has of its own. The first is `localeFaultReport`
 (`packages/search/src/shards.ts`). That indexer writes each locale's files under
 `/search/<locale>/`, so a locale that is not a path segment writes them
-somewhere the query will not look — or, for a dot segment, out of the search
+somewhere the query will not look, or, for a dot segment, out of the search
 directory altogether. A `ConfigError` and exit 2 on rule 7's criterion: the
 locale set is the site's own declaration and fails identically on every run. The
 class is `@pagedeck/core`'s rather than a local one, because a local class would have
@@ -1712,13 +1715,13 @@ Search index: 3 locales are not path segments, and each locale's shards are writ
 Every offending locale and not the first (rule 5), because a site that spelled
 one locale as a path usually spelled its neighbours the same way. Sorted by the
 locale rather than by the order the documents arrived in, so two builds of one
-site report identically (spec §11) — a message that reorders between runs is a
+site report identically (spec §11): a message that reorders between runs is a
 message a reader cannot diff. Each line carries its own reason rather than
 sharing one, because the three are three different edits.
 
 The second is `refuseUnreadable`'s (same file, #307): a previous index its
 patch cannot read back. `patchDocuments` rebuilds a directory out of the
-previous files, so before it reads any it checks every directory — its `format`,
+previous files, so before it reads any it checks every directory: its `format`,
 moved or not, because a directory left alone at another format would be carried
 beside directories written at this one, and that it holds every file its
 `index.json` names. Every such fault is one line (rule 5), each naming its
@@ -1759,7 +1762,7 @@ Config "/site/pagedeck.config.ts": "build.retention" must be an object with a ke
 
 The value is quoted with `JSON.stringify` for `driftThreshold`'s reason, and it
 is load-bearing in the same way: a `.js` config is never typechecked, so a count
-in quotes reaches the prune as a string — `slice(0, "2")` keeps nothing, and
+in quotes reaches the prune as a string: `slice(0, "2")` keeps nothing, and
 every retained manifest of a site that asked to keep two is deleted by the next
 build with nothing anywhere saying the count was misread. The `10` in both fixes
 is deliberately not the default (rule 3).
@@ -1777,7 +1780,7 @@ The **family** is refused rather than the spellings that can be listed, and the
 reason is that a list is wrong on a host it was not written for. `join` is the
 platform's: `..\..\victim` is on Windows exactly what `../../victim` is here,
 and `""` names the store's directory rather than a document in it. Every leading
-dot goes with the two dot segments for the same reason — a name in that family
+dot goes with the two dot segments for the same reason: a name in that family
 is a hidden file at best. Nothing this framework mints has one, and neither do
 the ids a CI wrapper mints from a branch name, a short sha or a run number,
 which `retention.test.ts` asserts beside the refusals so that a widened guard
@@ -1793,8 +1796,8 @@ The second is a rollback naming a build the store does not hold. It names what
 the store *does* hold rather than describing it, which is the edge target's
 reason: prose saying "roll back to a retained build" sends a reader to list a
 directory the message has already listed. An empty store gets a sentence of its
-own, because the first would otherwise end with nothing after the dash — the
-empty list rule 3 refuses — and because "nothing has been retained yet" and "the
+own, because the first would otherwise end with nothing after the dash (the
+empty list rule 3 refuses), and because "nothing has been retained yet" and "the
 build you asked for was pruned" are two different things to do next.
 
 ```
@@ -1808,14 +1811,14 @@ when #387 closed the symlink this door still followed.
 `readRetainedManifest` opens through the same `O_RDONLY | O_NOFOLLOW` the
 store's listing uses, so a link planted at `<store>/<id>.json` fails the open
 instead of being followed into a file whose first bytes V8's parse error would
-quote back onto stderr — rule 6, out of a directory a site owner does not think
+quote back onto stderr (rule 6), out of a directory a site owner does not think
 of as sensitive.
 
 **The refusal is keyed on a listed set of errnos, and what is not in the set is
 rethrown as it arrived.** `UNREADABLE_DOCUMENT_CODES`
 (`packages/core/src/retention.ts`) holds the codes that are a fact about the
-path — the two spellings of a refused link, the two permission codes, a
-directory or a non-directory in the way, a name the file system will not take —
+path (the two spellings of a refused link, the two permission codes, a
+directory or a non-directory in the way, a name the file system will not take),
 because each is what rule 7 asks for: no retry changes any of them. `EMFILE`,
 `EIO` and `EBUSY` are deliberately absent. They are open failures a retry
 fixes, and exit 2 is a promise that it will not, so classifying them would tell
@@ -1829,7 +1832,7 @@ mode that forbids the read" among four faults rather than a claim about a
 symlink they did not plant. That is the same rule the declared/carried byte
 counts above are written under. The `O_NOFOLLOW` clause stands behind the
 enumeration rather than in front of it, and is phrased as a standing fact about
-how the store opens rather than as a finding about this run — a refusal of
+how the store opens rather than as a finding about this run: a refusal of
 something that works everywhere else still needs its reason. The path is in the
 sentence rather than left to the cause, because one member does not supply it:
 `EISDIR` reaches a log as `illegal operation on a directory, read`, naming no
@@ -1848,13 +1851,13 @@ declaring redirects writes them in the same object literal as the rest of its
 build section.
 
 **What it checks and what it leaves to `planRouting` is the whole design of it.**
-Every refusal `planRouting` already makes — an off-site target, a rule starting
+Every refusal `planRouting` already makes (an off-site target, a rule starting
 at a path this build serves, a target that is no page, two rules on one path, a
-404 page nothing routes, a loop — is a verdict against the *route table*, which
+404 page nothing routes, a loop) is a verdict against the *route table*, which
 does not exist when a config is loaded. This door answers only what needs no
 route table and what a `.js` config makes real: whether each field is the type
 the pass will read it as. That is `isConfiguredCollection`'s reason with a
-measured failure behind it — `draft` calls `rule.set.forEach`, so a header rule
+measured failure behind it: `draft` calls `rule.set.forEach`, so a header rule
 written without a `set` reaches the build as a `TypeError` naming neither the
 config, the field nor the rule, a minute in, after every page has rendered.
 
@@ -1869,7 +1872,7 @@ Config "/site/pagedeck.config.ts": "build.routing" declares 4 rule fields this b
 The fix is on each line and not in the headline, `defineImages`' second
 paragraph: a path, a status and a header list are fixed three different ways, so
 a headline carrying one would carry the wrong one most of the time. The value is
-quoted through `quote` — rule 6, and it is load-bearing twice over.
+quoted through `quote` (rule 6), and it is load-bearing twice over.
 Either end of a redirect can be a whole URL with a query string on it, and
 `status: "301"` and `status: 301` are one line to an interpolation and two
 different mistakes, of which only the first is invisible in a config nobody
@@ -1879,7 +1882,7 @@ value set is `planRouting`'s and has to be, because `RoutingInput.removals`
 reaches that pass without passing this door at all.
 
 A field that is a string and holds nothing is refused on the same line, and it
-says which of the two typos it is — an empty value and a whitespace-only one are
+says which of the two typos it is: an empty value and a whitespace-only one are
 different mistakes, and a quote of two spaces diagnoses neither on its own. Each
 names **its own field's noun** rather than "the value", which is
 `canonicalizePath`'s wording one door along and `defineImages`' at the third:
@@ -1906,12 +1909,12 @@ Config "/site/pagedeck.config.ts": "build.routing" declares 2 rule fields this b
 **A member the rule leaves `undefined` is a member the rule left out**, for
 `domain` and `status` alike, and neither is reported. This repo sets
 `exactOptionalPropertyTypes` nowhere, so `{ from, to, domain: undefined }` is a
-`RedirectRule` a typechecked site can write — a spread of a partial rule
-composes one without anybody typing the word — and a door refusing what its own
+`RedirectRule` a typechecked site can write (a spread of a partial rule
+composes one without anybody typing the word), and a door refusing what its own
 published types accept is a door no site can get past.
 
 The other three paragraphs are the three other shapes a routing config can be
-wrong in, and they are separate for rule 3's reason — a value that is not an
+wrong in, and they are separate for rule 3's reason: a value that is not an
 object, a key this build never reads, a member that is not a list and an entry
 that is not a rule are four edits with four fixes.
 
@@ -1930,8 +1933,8 @@ The unknown-key paragraph is the quietest failure this field has, which is
 `foldStrategyFaultReport`'s argument one level up: `{ redirect: [...] }` is an
 object with nothing visibly wrong in it that puts no rule in the document and
 records nowhere that any were written. A `routing` that is not an object at all
-— an array included, since `RoutingConfig` is the object holding the four lists
-and not one of them — is reported alone, on the non-object budget's argument.
+(an array included, since `RoutingConfig` is the object holding the four lists
+and not one of them) is reported alone, on the non-object budget's argument.
 
 ```
 Config "/site/pagedeck.config.ts": "build.routing" must be an object of redirects, 404 pages, header rules, experiments and upstreams — routing: { redirects: [{ from: "/old", to: "/pricing" }] }
@@ -1966,7 +1969,7 @@ Config "/site/pagedeck.config.ts": "build.routing" declares 3 upstream fields th
 **`planRouting`'s own reports name the same field on the line rather than in the
 headline**, and that asymmetry is #270's, not an oversight. Those are thrown
 from inside a build, where the only thing the first words can honestly name is
-the document — the same pass also reports over `removals`, which comes off the
+the document: the same pass also reports over `removals`, which comes off the
 previous manifest through `planIncremental` and no config holds. So the config
 path travels on the locator, and rule 1 is met at rule 2's level:
 
@@ -1996,7 +1999,7 @@ The locator still names the rule, so the author can find it.
 A bare `redirects[0]` is where #270 found the locator: a real site tripping
 that refusal was told a position in a list nothing named. The same pass reports
 over deletion records, which no config holds, and those are named by a phrase
-rather than by a fourth path — `a redirect for a page this build deleted`. That is
+rather than by a fourth path: `a redirect for a page this build deleted`. That is
 rule 2's shape for a claimant with no authored name, and it is what keeps a
 report carrying both kinds honest: the paragraphs are collected, so a
 `removals[0]` printed beside `build.routing.redirects[0]` would read as a
@@ -2039,7 +2042,7 @@ refusals were all unit-tested and none of them could fire.
 two paragraphs are `xDefaultFaultReport`'s two shapes over spec §7's sitemaps
 (#40). The first is the field's one value read as a type: `pattern` is a choice
 between two spellings, so the line quotes what the site wrote and the fix names
-both of them rather than describing them — a message telling an author their
+both of them rather than describing them: a message telling an author their
 pattern is invalid without saying what a valid one looks like sends them to the
 source.
 
@@ -2068,8 +2071,8 @@ Config "/site/pagedeck.config.ts": "build.sitemap" must be an object naming the 
 collision one emitter over: `sitemapFiles` (same file) refuses a sitemap at a
 deploy key the build has already written, which is what a site whose route table
 puts a page at `/sitemap.xml` gets. A `ConfigError` and exit 2 on the same
-criterion — a route table that collides today collides on every run until
-somebody edits it — and every colliding key is reported rather than the first
+criterion (a route table that collides today collides on every run until
+somebody edits it), and every colliding key is reported rather than the first
 (rule 5), because a pattern that collides in one tree usually collides in all of
 them. The fix offers the other pattern beside the edit, since changing where the
 sitemaps go is as whole an answer as moving the page.
@@ -2151,11 +2154,11 @@ rather than a set and takes the line alone. What stays with each emitter is the
 headline and the fix clause, and those clauses are five rather than seven: the
 icon, the robots.txt and the feed each have one address and one fix, and write
 it in the same words, "move the page off that address". Rule 3 is what keeps
-even that one out of the shared line — a fix names what the author writes, and a
+even that one out of the shared line: a fix names what the author writes, and a
 sitemap pattern, an adapter's return value, a `build.preview.path` and a
 passthrough directory are not corrected by one sentence. That is
 `criticalCssFaultReport`'s placement argument reaching a line rather than a
-field — seven copies of the sentence were seven chances for one emitter's
+field: seven copies of the sentence were seven chances for one emitter's
 refusal to drift from the one beside it.
 
 The passthrough stage publishes from both `build.passthrough.root` and
@@ -2171,8 +2174,8 @@ no tree already holds, or to have every tree emit a file at that address.
 
 **The passthrough stage refuses two more, and both name the directory a reader
 wrote rather than the field it sits in** (#439, #474). `build.passthrough` holds
-two directories now — `root`, published whole, and `contentRoot`, the content
-tree a page's content-relative references resolve into — so the field is
+two directories now (`root`, published whole, and `contentRoot`, the content
+tree a page's content-relative references resolve into), so the field is
 interpolated into `passthroughDirectory`'s pair of refusals
 (`packages/core/src/build.ts`) rather than written out: "build.passthrough"
 alone would send the reader of a two-key setting to check the wrong one. Both
@@ -2207,8 +2210,8 @@ and nothing in the build looked at it, so the page shipped a dead `<img>` on a
 green build; the refusal is what closes that, and it ships with the emission
 that gives such a reference somewhere to resolve to, because a gate with no fix
 available behind it turns a passing build into a failing one. Collected over
-every reference rather than thrown at the first (rule 5) — a post that lost its
-images lost all of them at once — and each line carries the four things a reader
+every reference rather than thrown at the first (rule 5), since a post that lost its
+images lost all of them at once, and each line carries the four things a reader
 acts on: the page the dead image shows up on, what it wrote, the address this
 build went looking at, and the content entry the reference is written in.
 
@@ -2217,8 +2220,8 @@ about where the page landed and a reader who has only that has to map it back to
 a markdown file themselves; the entry is `refKey`'s spelling of the file the
 reference sits in, which is the column `driftWarnings`' report spells "own
 entry" further down this document. A
-page no stored entry backs — a source composing its instances from a literal
-list, a JSON file or a build-time fetch (#87) — ends its line
+page no stored entry backs (a source composing its instances from a literal
+list, a JSON file or a build-time fetch, #87) ends its line
 `no content entry: no stored entry backs this page, so the reference is in whatever composed it`
 instead, which is §2's `(whole entry)` read at a page rather than at a field:
 
@@ -2231,8 +2234,8 @@ Passthrough: 2 references a page makes to a file beside its content resolve to n
 `speculationFaultReport` (`packages/core/src/speculation.ts`) is the seventeenth,
 and it is `searchFaultReport`'s shape over spec §13's Speculation Rules (#42).
 Two fields, each read as the type its own line names, both of them collected
-into one paragraph (rule 5) with the count interpolated rather than written out
-— the drift `sitemapFaultReport` is written against, one field along.
+into one paragraph (rule 5) with the count interpolated rather than written out:
+the drift `sitemapFaultReport` is written against, one field along.
 
 ```
 Config "/site/pagedeck.config.ts": "build.speculation" declares 2 fields this build cannot emit speculation rules from — declare each as the type its own line names:
@@ -2247,7 +2250,7 @@ refused rather than read as "emit nothing", because a site that declared the
 feature and got no element would have set a field and watched it do nothing.
 
 A `speculation` that is not an object is reported alone, on
-`searchFaultReport`'s argument about a non-object adapter — the same one
+`searchFaultReport`'s argument about a non-object adapter, the same one
 `sitemapFaultReport` reports on: there is nothing inside it to enumerate, so the
 collection the paragraph above is a collection *of* does not exist.
 
@@ -2256,7 +2259,7 @@ Config "/site/pagedeck.config.ts": "build.speculation" must be an object naming 
 ```
 
 `viewTransitionsFaultReport` (`packages/core/src/view-transitions.ts`) is the
-eighteenth, and it is the same issue's other door — **one line and no
+eighteenth, and it is the same issue's other door: **one line and no
 collection**, because the field is a boolean and there is nothing inside it to
 enumerate, which is `build.head`'s argument about a function. It is checked at
 all because `viewTransitions: "auto"` is the spelling the CSS at-rule itself
@@ -2269,7 +2272,7 @@ Config "/site/pagedeck.config.ts": "build.viewTransitions" must be true or false
 ```
 
 `safelistFaultReport` (`packages/core/src/drift.ts`) is the nineteenth, and it
-is the threshold's field one line along — spec §9's *other* declaration, every
+is the threshold's field one line along: spec §9's *other* declaration, every
 class a site's code states (#260, #261). It collects for `budgetFaultReport`'s
 reason and counts in the headline for the same one: a key written as a string, a
 key holding a whole `className` unsplit and a key holding a number are three
@@ -2280,7 +2283,7 @@ is a usable declaration with an edit to make.
 
 *Key* rather than *field*, because #261 gave the declaration a second key shape.
 A key is a CMS styling field, `"hero.theme"`, or a component whose own source
-states the class, `"hero"` — spec §9's two clauses, one each — so a report
+states the class, `"hero"` (spec §9's two clauses, one each), so a report
 calling either a field would send half its readers looking for a CMS field that
 does not exist. The fix carries both spellings for the same reason.
 
@@ -2293,8 +2296,8 @@ Config "/site/pagedeck.config.ts": "build.safelist" declares 3 keys that enumera
 
 **The second line is the fault this field is checked for at all**, and it is a
 failure of silence rather than of the build. `"bg-indigo-600 text-white"` is the
-shape a design system's styling table holds a value in — one `className` per
-CMS option — so writing the table's values straight into the safelist reads
+shape a design system's styling table holds a value in (one `className` per
+CMS option), so writing the table's values straight into the safelist reads
 correctly and declares nothing: no rendered class ever equals that string, so
 the site gets exactly the build of a site that declared no safelist, and drifts
 on every option it believed it had sanctioned. Nothing downstream could tell the
@@ -2304,7 +2307,7 @@ The class is quoted with `JSON.stringify` and the key with its own quotes, on
 `criticalCssFaultReport`'s argument: the whole diagnosis is that this value is
 one string where two class names belong, and an interpolated one would look like
 the two that would have worked. A safelist that is not an object is reported
-alone, on the argument the non-object budget makes — there is no collection
+alone, on the argument the non-object budget makes: there is no collection
 inside it to enumerate:
 
 ```
@@ -2314,8 +2317,8 @@ Config "/site/pagedeck.config.ts": "build.safelist" must be an object keyed by w
 `beaconFaultReport` (`packages/core/src/beacon.ts`) is the twentieth, and it is
 the same rule over a field with **one door** (#48). There is no `defineBeacon`
 to refuse it at construction, because there is nothing here for a site to
-construct — `build.beacon` is one string in an object literal, the shape
-`build.origin` has — so the config load is the only place these faults can be
+construct (`build.beacon` is one string in an object literal, the shape
+`build.origin` has), so the config load is the only place these faults can be
 found, and every one of them is found in one pass:
 
 ```
@@ -2333,7 +2336,7 @@ there is no field inside it for the other lines to be about.
 document where rule 6's cut is not enough on its own. This endpoint is written
 into the HTML of every page of the site, so a credential in it has already been
 published by the time anything can complain; redacting it in the message would
-have shipped it anyway. So it is refused — and every line of this report quotes
+have shipped it anyway. So it is refused, and every line of this report quotes
 the endpoint through `quoteAddress` (`packages/core/src/quote.ts`), because the
 line that names a password must not be the line that prints it:
 
@@ -2345,12 +2348,12 @@ Config "/site/pagedeck.config.ts": "build.beacon" cannot be used as declared —
 **That cut is structural rather than a pattern, and the difference is a bug this
 document briefly promised was impossible.** The first version matched the
 userinfo with a regular expression, which has to decide where a credential
-*ends* — and nothing in the string says: a password holding a `/` was printed
+*ends*, and nothing in the string says: a password holding a `/` was printed
 whole and one holding a `@` was printed in part. Parsing does not settle it
 either, since `user:p/w@collector.example/rum` parses as the scheme `user:` with
 the credential in its path. So the end of the credential is the value's last
 `@`, found with `lastIndexOf`, and the scheme is what is kept in front of the
-marker — which is what lets the scheme still be named in the line above. The cut
+marker, which is what lets the scheme still be named in the line above. The cut
 belongs to `redactSource` (`packages/core/src/quote.ts`) rather than to this
 field, and `quoteAddress` is a name for the field it is reached through: rule 6
 below states the rule once, with the spans it takes for a credential, the one it
@@ -2364,7 +2367,7 @@ Config "/site/pagedeck.config.ts": "build.beacon" cannot be used as declared —
 **Two more belong to the deploy rather than to the store**, and they are the
 same issue's serialization half read at the verb. `racedDeployReport`
 (`packages/core/src/diff.ts`) refuses a `pagedeck diff` whose target build was not
-based on the build it is deploying over — spec §11's last-write-wins detection,
+based on the build it is deploying over: spec §11's last-write-wins detection,
 which is a comparison of `BuildStamp.parent` against the other document's
 `build.id`, made only of a plan that has files to upload or prune. Both name the two builds, because only the reader knows which of the
 two deploys is the one that should not have happened, and both end in the flag
@@ -2379,7 +2382,7 @@ Manifest diff: build "b3" was built on "b9" and is being deployed over build "b2
 A build that records no parent at all gets its own sentence, on the argument the
 empty store above gets one: it is a different fact with a different thing to do
 about it. The build recorded no base, so nothing in it says it followed the
-build being deployed over — which is not evidence of a race, it is the absence
+build being deployed over, which is not evidence of a race, it is the absence
 of the evidence that would rule one out. It is refused all the same, because the
 feature is deploy safety and failing toward asking is the direction that keeps a
 site's bytes.
@@ -2392,7 +2395,7 @@ Manifest diff: build "b1" records no parent, so nothing in it says it was built 
 applying rather than a hole in it. A build cannot race itself: the document is
 empty by construction, the deploy writes nothing, and there is no ordering for
 the refusal to protect. A false positive costs more here than the case it
-catches is worth — an author who meets `--force` on a no-op deploy learns that
+catches is worth: an author who meets `--force` on a no-op deploy learns that
 `--force` is what you pass to make `pagedeck diff` work, and passes it next on the
 deploy that is racing. A refusal is worth having only while it fires rarely and
 means something every time it does.
@@ -2400,7 +2403,7 @@ means something every time it does.
 **`pagedeck rollback` refuses neither**, and that is the design rather than an
 omission: a rollback deploys a build that came before what is live, so it is out
 of order by definition. That the refusal is at the verb and not inside
-`diffManifests` is what buys it — one document shape, one ordering, one code
+`diffManifests` is what buys it: one document shape, one ordering, one code
 path, and no direction flag (`packages/core/src/diff.ts`).
 
 What that verb collects instead is rule 5 over the two halves of one command
@@ -2431,7 +2434,7 @@ them joins that throw either**, because the routing config is not a build field:
 it is compiled into its own document, so its faults arrive under that document's
 name rather than under a config path (rule 1). They are spec §12's build-time
 experiments (#34), and all eight are a `ConfigError` and exit 2 on rule 7's
-criterion — a split an author declared fails identically on every run until the
+criterion: a split an author declared fails identically on every run until the
 config or a route is edited.
 
 Five of them are the shape of a declaration, collected in one pass and reported
@@ -2464,20 +2467,20 @@ rather than describing the value, `localeFaultReport`'s argument over the other
 two values this repo turns into path segments: a reader looking at `pagedeck pricing`
 cannot see which of its characters the message is about. The weight is quoted
 with `JSON.stringify` for `driftThreshold`'s reason and it is load-bearing in
-the same way — a `.js` config is never typechecked, so `"50"` reaches the edge
+the same way: a `.js` config is never typechecked, so `"50"` reaches the edge
 and divides into a share as `NaN`, and an interpolated `50` in the report would
 be indistinguishable from the one that would have worked.
 
 **The variant name is quoted whole and the cookie key is not, and that split is
 rule 6 applied rather than an inconsistency in one pass.** The rule redacts what
 *could* be a credential, so the question is what each value is. A cookie key is
-a name a browser carries — it goes out in a `Set-Cookie` and comes back on every
+a name a browser carries: it goes out in a `Set-Cookie` and comes back on every
 request, so it is the kind of value a site spells out of a token, and
 `pagedeck_${sessionId}` is a plausible line of config. A variant name is an authored
 label written into a public URL as a path segment (`/_v/<name>/`), served and
 crawled: a name holding a secret would have leaked it to every visitor long
 before any build printed this report, so quoting it discloses nothing the site
-is not already publishing. Each message then gives up what that costs it — the
+is not already publishing. Each message then gives up what that costs it: the
 cookie line can only name a character, which is why the check walks the key
 character by character, while the variant line can show the whole name, which is
 what lets an author with three near-identical names see which one it is about.
@@ -2486,8 +2489,8 @@ way the route table spells it, so the line reads as a lookup the author can make
 rather than as a value being reported back at them.
 
 The three below are the same declaration checked against the route table, which
-is `NotFoundRule`'s precedent one shape along. A page identity is answerable —
-`collectPages` enumerates every one of them — so a misspelled one is a build
+is `NotFoundRule`'s precedent one shape along. A page identity is answerable
+(`collectPages` enumerates every one of them), so a misspelled one is a build
 failure that names it rather than a split that silently never runs, and the only
 other evidence of that would be a flat line in an analytics tool weeks later.
 
@@ -2512,7 +2515,7 @@ Routing manifest: 1 page is written under "/_v/", the segment this build reserve
 **It fires only in a tree that declares a split**, and that is the segment being
 reserved where it is claimed rather than everywhere. A site that declares no
 experiment writes nothing under `/_v/`, so refusing its page there would be this
-build failing a site over a feature it does not use — issue #34's fourth
+build failing a site over a feature it does not use: issue #34's fourth
 acceptance criterion, "zero output difference for builds with no declared
 variants", read at the refusal rather than at the document.
 
@@ -2573,8 +2576,8 @@ Routing manifest: 2 header rules sit under an upstream prefix — set those head
 
 **The image contract is checked at construction rather than at config load, so
 none of its refusals joins that throw** (#43). Spec §10's image settings are
-read by the site's own component and by nothing in the pipeline — the framework
-never wraps what a component rendered, so there is nothing to consume them — and
+read by the site's own component and by nothing in the pipeline (the framework
+never wraps what a component rendered, so there is nothing to consume them), and
 a `build` field nothing reads would have been a check bought with a drift
 nobody can see: a site could declare one setting on the config and hand
 `imageAttributes` a different object. `defineImages` and `urlTemplate` refuse
@@ -2602,8 +2605,8 @@ Image settings: declares 1 width that is not a pixel width — write each as a w
 The second paragraph is the one place in this document where the *fix* is on
 each line rather than in the headline, and it is not a softening of rule 3. Four
 different fields can be wrong at once and no two of them are fixed the same way
-— an adapter is a function, a quality is a number on the CDN's own scale, a
-format is that CDN's own token — so a headline carrying one fix would be
+(an adapter is a function, a quality is a number on the CDN's own scale, a
+format is that CDN's own token), so a headline carrying one fix would be
 carrying the wrong one three times out of four. What the headline states is the
 only thing the four share: which field, and that each line names the type it
 needed. The alternative, a paragraph per field, is four headlines for what is
@@ -2626,13 +2629,13 @@ it that does none of what the site asked for.
 **Every value on those lines is cut at its `?` or `#` before it is quoted**, and
 that is rule 6 reaching further than it looks. The line most often read is
 `quality`, a numeric field, and the mistake that produces it is a paste into the
-wrong place — a signed CDN template typed where a number belongs is exactly the
+wrong place: a signed CDN template typed where a number belongs is exactly the
 string that carries an account token, and it would otherwise be echoed whole
 into a CI log by a message about a number. Cutting costs a well-formed value
 nothing, because none of these fields holds either character.
 
-The cut is **one implementation** — `packages/core/src/quote.ts`, which this
-module and the script layer both quote through — and not a copy in each file
+The cut is **one implementation** (`packages/core/src/quote.ts`, which this
+module and the script layer both quote through), and not a copy in each file
 (#46). That is `criticalCssFaultReport`'s placement argument reaching a rule
 rather than a field: rule 6 is not about images or about scripts, neither caller
 supplies anything of its own to the quoting, and two copies under one sentence
@@ -2654,16 +2657,16 @@ Image URL template: holds 1 placeholder this adapter cannot fill — correct eac
 **No message here quotes the template, and that is rule 6 rather than
 concision.** An image CDN's URL is exactly the kind that carries a signing key,
 and these refusals are read in CI logs where nothing masks a string the site
-composed. So a fault is stated by placeholder name — what the author typed, and
-not a secret — and the fix carries an example template of the framework's own
+composed. So a fault is stated by placeholder name (what the author typed, and
+not a secret), and the fix carries an example template of the framework's own
 instead of the site's. No message this module can produce ever quotes a *built*
 URL either: every refusal happens before the adapter is called.
 
 `imageAttributes` is the last, and it is the CLS guard #43's third criterion
 asks for: an `<img>` with no `width` and `height` reserves no space, so
 everything under it jumps as the bytes arrive. It is a `RenderError` and exit
-`1` under rule 7 — the site's wiring is intact and what is missing is a field of
-one asset — and it is squarely "will only render wrong", since the page builds,
+`1` under rule 7 (the site's wiring is intact and what is missing is a field of
+one asset), and it is squarely "will only render wrong", since the page builds,
 ships, and reflows.
 
 ```
@@ -2675,7 +2678,7 @@ Entry /en/home: image "/uploads/hero.jpg?…" declares 2 intrinsic dimensions th
 The source is cut the same way, `unusableReason`'s cut and for its reason: an
 image source is as often a path as a URL, and a signed one carries its
 credential in the query. An unusable source is a second paragraph of its own and
-comes first, on `loadComponents`' argument — an image with no usable source has
+comes first, on `loadComponents`' argument: an image with no usable source has
 no image to have dimensions, so its dimension verdict is about nothing:
 
 ```
@@ -2685,17 +2688,17 @@ Entry /en/home: image source is not usable, so no URL can be built for it — pa
 
 That report collects every fault of *one* image and no more, and the level is
 the argument rather than a shortcut. A page's images are computed one call at a
-time by the site's own code — there is no pass that holds them all — which is
+time by the site's own code (there is no pass that holds them all), which is
 the position `resolveComponent` is in when it keeps the single-name sentence.
 
 **`renderPage`'s byte scan joins its two reports the same way** (issue #22). The
 scan reads one page's emitted HTML once and finds three things in it, two of
 which are faults: a hydration marker the parser will defeat, and a stylesheet
 React hoisted. The third is document metadata React hoisted, which the same walk
-takes out of the page for the `<head>` to hold and reports nothing about (#239)
-— so the join below is still over two reports. Both
+takes out of the page for the `<head>` to hold and reports nothing about (#239),
+so the join below is still over two reports. Both
 are a `RenderError` and exit 1 (rule 7), so unlike `loadComponents` there is no
-classification a split would preserve — and a page holding both would otherwise
+classification a split would preserve, and a page holding both would otherwise
 cost two builds. They cannot share a headline either: a defeated marker is where
 the content put a component, a hoisted sheet is what a component's own source
 declared, and the two fixes are two files. So the marker paragraphs come first,
@@ -2722,17 +2725,17 @@ failures a run can enumerate, and each page is one of those; a chunk is not a
 failure but evidence about one, and a page over budget by a hundred chunks of
 2 kB is diagnosed by three lines exactly as well as by a hundred. The page's own
 line carries the total count and says `the 3 largest` whenever it is quoting
-only some of them, and `budget-report.json` — written immediately before this
-throw, so it is on disk by the time the message is read — holds every chunk.
+only some of them, and `budget-report.json` (written immediately before this
+throw, so it is on disk by the time the message is read) holds every chunk.
 
 **Inlined JavaScript is evidence of that second kind, not a fourth** (#346),
 and it is cut at nothing because there is only ever one line of it. A budget
 counts what the page runs, and two emitters write an executable `<script>`
-straight into the document rather than into a chunk — the script layer's consent
+straight into the document rather than into a chunk: the script layer's consent
 loader and the RUM beacon. Those bytes are in the headline figure, so a message
 printing only chunk lines would name a smaller number than the one it failed on
 and send the reader hunting for a chunk that does not exist. The line carries a
-phrase where a chunk's carries a path, because there is no file to open — and
+phrase where a chunk's carries a path, because there is no file to open, and
 the page's own line splits the sum rather than attributing all of it to a chunk
 list that may be empty:
 
@@ -2742,15 +2745,15 @@ JavaScript budget: 1 page transfers more JavaScript for first render than its bu
     inlined into the document — 300 B
 ```
 
-That page has no entry chunk at all — a `0b` budget and a consent loader in its
-document — which is the shape #346 was filed on. A page carrying both halves
-names both — `the page transfers 2100 B, 1500 B of it over 3 chunks and 600 B
-inlined into its document` — and a page that inlines nothing keeps the sentence
+That page has no entry chunk at all (a `0b` budget and a consent loader in its
+document), which is the shape #346 was filed on. A page carrying both halves
+names both (`the page transfers 2100 B, 1500 B of it over 3 chunks and 600 B
+inlined into its document`), and a page that inlines nothing keeps the sentence
 above and gets no such line, reading exactly as it did before.
 
 A cause is the third kind and is cut at nothing. Fold-driven hydration (#24) can
 change what a page transfers with nothing in the page's own declarations changed
-— a copy edit that pushes a block above the threshold — which is spec §9's
+(a copy edit that pushes a block above the threshold), which is spec §9's
 "promoted by fold score after content edit", and a reason for a failure is what
 rule 5 is about rather than evidence about one: there is no such thing as the
 three most important reasons. There are never many either, since a page has as
@@ -2788,7 +2791,7 @@ different edits.
 flagged page and throws once, as two paragraphs, on `assertBuildSection`'s
 argument for joining and `loadComponents`' argument for not merging: both are
 `ConfigError` and exit 2, so a split would preserve no classification, and the
-two fixes are two files — a spelling drift in this repo, and a byte in the
+two fixes are two files: a spelling drift in this repo, and a byte in the
 site's own stylesheet.
 
 The first is coverage this feature would otherwise lose. `checkSiteLinks` reads
@@ -2803,7 +2806,7 @@ Critical CSS: 1 inlined stylesheet was never emitted, so the page it is on would
 ```
 
 The second refuses a stylesheet holding `</style`, which an HTML parser reads
-as the end of the element — putting the rest of the sheet into the page as
+as the end of the element, putting the rest of the sheet into the page as
 markup. Escaping it is not on the table: this build promises never to edit a
 stylesheet's bytes.
 
@@ -2821,7 +2824,7 @@ match would put a site's own bytes in a CI log to say what two numbers say
 exactly. Line *and* column, because a bundled sheet is one very long line where
 the column is the whole answer, and a hand-written one is the other way round.
 That is rule 6's "name the position instead of the value" used where rule 5
-asks for a reason — the two rules agree here rather than trading off.
+asks for a reason: the two rules agree here rather than trading off.
 
 Both messages are asserted character for character in
 `packages/core/src/critical-css.test.ts`, which is what `inlineStyleElements`
@@ -2850,7 +2853,7 @@ tail component is in no tier group, so the grouped headline is not true of it,
 and it arrives by a different door: the entry importing it is an unresolvable
 import, so the bundler refuses the invocation before the report above is
 reached. That refusal is a plain `Error` at exit 1 whose advice is to add the
-specifier to `build.rolldownOptions.external` — the one thing spec §11 and
+specifier to `build.rolldownOptions.external`, the one thing spec §11 and
 `docs/adr/0007-islands-are-built-in-one-module-graph.md` refuse, since an
 externalized island module is loaded by the browser on its own and the singleton
 guarantee stops at the invocation boundary. So it is caught, the component and
@@ -2867,7 +2870,7 @@ like.** What that rule carves out is several failures competing to be *the*
 cause, and this invocation stopped once: there is one thrown object, so there is
 no choice to make about which error caused this one, and the lines are read out
 of the build's resolver record rather than out of errors. The bundler's error is
-an aggregate, but it stops at the first import it cannot place — two
+an aggregate, but it stops at the first import it cannot place: two
 unresolvable component specifiers still arrive as one "Build failed with 1
 error" naming one of them. So there is no second message to quote on the second
 line, and the one there is carries what the record cannot: the module the
@@ -2879,7 +2882,7 @@ plain `Error`s, with no code, no kind and no field naming the specifier, so the
 only thing in it that says "unresolved import" is prose a bundler release is
 free to reword. `resolveModuleIds` answers in `buildStart`, before a module is
 loaded, with the same resolver and the same origin the invocation itself uses,
-so its record is complete whatever the invocation went on to fail at — and a
+so its record is complete whatever the invocation went on to fail at, and a
 failure it does not account for is rethrown exactly as it arrived, which is the
 line `island-facts.ts` draws in the same shape: a `ConfigError` around every
 bundler rejection would call a crash in Rolldown the site's wiring.
@@ -2887,7 +2890,7 @@ bundler rejection would call a crash in Rolldown the site's wiring.
 `scanIslandFacts` resolves the same map earlier in a full `pagedeck build` and refuses
 an uninstalled package there first, in `unresolvedReport`'s own words. What
 reaches this one end to end is a specifier that resolves for the scan's SSR
-invocation and not for the browser build — a package exported under the `node`
+invocation and not for the browser build: a package exported under the `node`
 condition alone. #235 measured that case on a spawned `pagedeck build`;
 `client-build.test.ts` pins the report directly rather than spawning one.
 
@@ -2908,7 +2911,7 @@ map is written at, and both halves of this rule land in the one function. A
 `domain` that is not a bare host (#319) and a `fallback` naming a locale the map
 does not declare are two paragraphs of one throw, on `assertBuildSection`'s
 argument: a locale map is one object literal, both faults are the site's own
-wiring at exit 2, and neither report is measured on what the other reads — so
+wiring at exit 2, and neither report is measured on what the other reads, so
 they join, and they keep separate headlines because a host and a locale code are
 fixed differently. One `domain` can carry several faults, so `evil.com/#` gets a
 line each for the path and the fragment, and every line repeats the value for
@@ -3001,14 +3004,14 @@ So `pagedeck store` reads its target from `PAGEDECK_SNAPSHOT_URL` when the comma
 names none (#117). What does the work is that the target is never named on the
 command line: the process reads the variable rather than being handed its value,
 so nothing lands in `cmdline` and nothing is echoed. A workflow written as
-`pagedeck store pull "$PAGEDECK_SNAPSHOT_URL"` gets none of that — the shell expands the
-variable before `pagedeck` starts — and it is the argument-less form that is worth
+`pagedeck store pull "$PAGEDECK_SNAPSHOT_URL"` gets none of that (the shell expands the
+variable before `pagedeck` starts), and it is the argument-less form that is worth
 documenting. Even that is a smaller exposure rather than none: a workflow that
 echoes the variable puts the credential back in the log, and no framework code
 can stop it. What the framework can do is stop being the reason it is there.
 
 Both sources given at once is refused rather than ranked, and the refusal quotes
-both through `redactTarget` like every other message — a refusal that printed the
+both through `redactTarget` like every other message: a refusal that printed the
 URL whole would be this rule's own failure.
 
 **A deploy through presigned URLs quotes keys, never URLs** (#652).
@@ -3126,15 +3129,15 @@ The first is followed by the usage text. Every one exits 2.
 **A redactor is written for an input set, and a new door widens it.** Reading a
 target from a variable rather than an argument changed what `redactTarget` has to
 survive, and the four shapes it gained are worth naming because the next
-credential-bearing input will arrive the same way. A URL with no authority —
-`data:`, `mailto:` — keeps its whole payload in `pathname`, so "scheme, host and
+credential-bearing input will arrive the same way. A URL with no authority
+(`data:`, `mailto:`) keeps its whole payload in `pathname`, so "scheme, host and
 path" was the entire string; one of those is now cut to its scheme, `file:`
 excepted, whose path is its address. A fragment is cut like a query, at the
 delimiter and keeping it, which is `unusableReason`'s spelling above rather than
 a second one. And a value holding a newline could forge a line into a report, so
-control characters are replaced with `U+FFFD` — the same thing an unprintable
+control characters are replaced with `U+FFFD`, the same thing an unprintable
 code unit already reaches a log as. The fourth arrived later through the same
-door (#320): an interpolation that lost its scheme — `//AKIAX:SECRET@bucket…` —
+door (#320): an interpolation that lost its scheme (`//AKIAX:SECRET@bucket…`)
 is not a URL at all, so it never reaches the parsed branch. Nothing on that
 branch *strips* userinfo either. It composes its quote out of `URL.protocol`,
 `URL.host` and `URL.pathname`, and userinfo is absent from it because `host`
@@ -3150,8 +3153,8 @@ target's query, whether or not the URL grammar would call that span userinfo, so
 an identifying prefix is spent whenever an `@` appears anywhere before the
 query: `/reports?notify=someone@example.com` is quoted `…@example.com`, the mail
 host kept and the path that said which report was meant gone. That is the
-deliberate direction. A narrower rule bounded to the authority — where RFC 3986
-ends userinfo — was tried first and returned
+deliberate direction. A narrower rule bounded to the authority (where RFC 3986
+ends userinfo) was tried first and returned
 `https//AKIA:SECRET@bucket.example/store.db` whole, one dropped colon being
 enough to put the credential past the bound; a value reaches the fallback by
 failing to parse, so reading it with the grammar is reading a string already
@@ -3165,7 +3168,7 @@ process table.
 **One rule, at every door that quotes a value a site wrote.** Three functions
 made this cut and only one of them made it whole, which is the shape of #378
 and #383. `redactOrigin` bounded its span to the authority and a slash in front
-of the `@` — a dropped colon, a stray `/`, a password holding one — walked past
+of the `@` (a dropped colon, a stray `/`, a password holding one) walked past
 the bound; `redactSource` (`packages/core/src/quote.ts`, and its copy in
 `colors.ts`) dropped no userinfo at all, so an image source or a script source
 behind basic auth printed its credential whole, and printed it whole even when
@@ -3190,15 +3193,15 @@ in front of the `@`. Every other `@` is one a path wrote, and the value is kept
 whole with its host and its file name: `/hero@2x.png`,
 `https://cdn.example.com/photos/hero@2x.jpg`, `https://mastodon.social/@pedro`,
 `./components/@ui/Button.tsx`. What breadth is left is paid by a span with no
-path in front of it, which is where a scoped specifier sits — `@pagedeck/islands` is
-quoted `…@pagedeck/islands` — and that is the same trade every paragraph above makes.
+path in front of it, which is where a scoped specifier sits (`@pagedeck/islands` is
+quoted `…@pagedeck/islands`), and that is the same trade every paragraph above makes.
 
 **The rule's residual is written down rather than hidden.** A credential holding
 a `/` and carrying no `:`, standing alone in front of a single `@`, is not
 redacted: `https://b64/tok==@host/x` is printed whole, which is a
 standard-base64 key written as bare userinfo. It is accepted rather than missed.
-Basic auth — the shape that puts a credential in front of a host in the first
-place — always carries the `:` the second clause reads, and the token forms
+Basic auth (the shape that puts a credential in front of a host in the first
+place) always carries the `:` the second clause reads, and the token forms
 written bare hold no `/`: `ghp_`, `glpat-`, a JWT and a hex digest are all
 slash-free. A span that does not say what it is cannot give a narrower residual
 than that, and the wider rule is the one this replaced. `quote.test.ts` pins
@@ -3239,7 +3242,7 @@ directly, and tests the delimiter first for this rule's sake:
 nothing past the delimiter. The order is a fixed precedence, not a search for
 the leftmost fault: a path is cut at the match of the first test it fails,
 wherever that lands, so `/a<U+D800>%2` is cut at its `%`, to the right of the
-surrogate. What that buys is the rule above — append a test at the end and it
+surrogate. What that buys is the rule above: append a test at the end and it
 cannot change the cut for any path an earlier test already matched, so the
 delimiter's cut stays first however many refusals there are.
 
@@ -3248,9 +3251,9 @@ URL and would leave a fragment whole on a string that is not one.
 
 Where there is no prefix worth keeping, name the position instead of the value.
 A route returned as segments is refused when one of them is `.`, `..`, empty, or
-holds a lone surrogate — the first three survive percent-encoding and then
+holds a lone surrogate (the first three survive percent-encoding and then
 resolve away path structure, the last is the one value `encodeURIComponent`
-cannot spell — and each offending segment is named by index, never quoted:
+cannot spell), and each offending segment is named by index, never quoted:
 
 ```
 Route table: 1 route is not a usable path — return a path like "/pricing", or undefined to emit no page:
@@ -3277,19 +3280,19 @@ store's three refusals and its misfiled-document warning
 (`packages/core/src/cli.ts`) all name build ids, and an id is not the
 framework's: `runBuildVerb` mints a uuid, but `readManifest` checks only that
 an id is a string, and `unusableId` answers only whether an id can be a
-*path* — a newline, a `"` and an erase-line escape are none of the shapes it
+*path*: a newline, a `"` and an erase-line escape are none of the shapes it
 refuses. So an id read back off disk, or composed by a CI wrapper out of a
 branch name, is arbitrary bytes arriving in a report that `bin.ts` marks per
 line. Every one of those messages calls `quoteIdentifier`
 (`packages/core/src/quote.ts`), and the quotation marks around each id come
-from `JSON.stringify` inside it rather than from the sentence around it — a
+from `JSON.stringify` inside it rather than from the sentence around it: a
 value that supplied its own `"` would otherwise close a hand-written quotation
 and write the rest of the line.
 
 **One of them now quotes a path through the same door, and that is a second
 kind of value at it rather than an oversight.** The store's third refusal names
 the file it could not open, and a retained document's file name *is* the build
-id with `.json` after it — so the bytes that make an id dangerous here are in
+id with `.json` after it, so the bytes that make an id dangerous here are in
 the path too, and quoting the path by hand while quoting the id through the
 door would leave the newline in the half that was not escaped. `misfiledWarning`
 had already brought a `readdir` name through it for the same reason. What the
@@ -3297,14 +3300,14 @@ path must not meet is the *other* rule's cut, and both of its halves reach a
 path. The delimiter half fires on a `#` or a `?`, which `unusableId` permits:
 `/site/.pagedeck/manifests/run#7.json` is quoted `"/site/.pagedeck/manifests/run#…"`, the
 file name gone. The userinfo half fires whenever the span in front of the id's
-last `@` also carries a `:` or a second `@` — `credentialEnd`'s second and
+last `@` also carries a `:` or a second `@`: `credentialEnd`'s second and
 third clauses, which a store path cannot escape through the first, that one
 asking whether the span holds no `/`. It is the worse cut, because it replaces
 everything in front of the `@`: `/site/.pagedeck/manifests/main:v1@sha.json` is
 quoted `"…@sha.json"` and `/site/.pagedeck/manifests/a@b@c.json` is quoted
 `"…@c.json"`, the store's own directory gone from a sentence whose job is to
 say which file to open. An id carrying a single `@` and no `:` in front of it
-is kept whole — `main@sha`, and `@pagedeck` and `hero@2x` alike.
+is kept whole: `main@sha`, and `@pagedeck` and `hero@2x` alike.
 Either half alone makes `quote` the wrong door here.
 
 **It is not `quote`, and the difference is this rule having two halves rather
@@ -3314,7 +3317,7 @@ permits `@`, `#` and `?`, so `<branch>@<sha>` is an id a CI wrapper mints
 without being asked to, and `quote` renders `main@9e1f4a02` as `…@9e1f4a02`.
 That is the raced-deploy line naming the racing build with the half that
 identifies it gone, and the store's refusal listing, as the builds to roll back
-to, ids that are not the ids on disk — rule 2 lost in one message and rule 3 in
+to, ids that are not the ids on disk: rule 2 lost in one message and rule 3 in
 the other. So the identifier door escapes and cuts nowhere, and what that costs
 is written down at the function rather than left implicit: an id a wrapper
 minted out of a credentialed URL prints whole.
@@ -3348,7 +3351,7 @@ unchanged.
 **A cause walks past every one of these doors, so the chain is neutralised
 where it is flattened.** The store's missing-target refusal attaches its ENOENT
 as a cause under rule 4, and Node's own text re-prints the id inside
-`open '<path>'` with nothing done to it — so a message whose own line was
+`open '<path>'` with nothing done to it, so a message whose own line was
 closed still reached stderr as two, the second wearing `pagedeck: ` and then erasing
 it. What `runCli` writes is `describeError` (`packages/core/src/exit.ts`), and
 that is where every message *but the first* goes through `printable`. The first
@@ -3437,21 +3440,21 @@ source it failed on.
 **Validator text is the one exception, and it is deliberate.** §2's schema
 failure interpolates `issue.message` from zod, valibot or arktype verbatim
 apart from its control characters, which `printable` replaces (#730), and
-several validators quote the value they received — zod's enum mismatch renders
+several validators quote the value they received: zod's enum mismatch renders
 `… received '<value>'`. So a CMS field value can reach a CI log. That is the
 trade §2 makes on purpose: a schema failure that named the field but not what
 was in it sends the reader back to the CMS to find out what the message could
 have told them. The boundary is what the value *is*. A content value is
 content, and the log it lands in is the log the site's own content is built
-from. A credential is not content, and nothing that could hold one — a URL, a
-target, a header — is exempt: those go through `redactTarget`, whatever the
+from. A credential is not content, and nothing that could hold one (a URL, a
+target, a header) is exempt: those go through `redactTarget`, whatever the
 message is about.
 
 **A message that quotes values of both kinds decides per value, not per
 message.** `quotedValue` (`packages/core/src/head.ts`) is the case: a head
 claim's value is a title or a description on one page and an `og:image` URL on
 the next, and the same line prints either. So an absolute URL goes through
-`redactTarget`; a path-shaped value — one beginning `/` or `.` — is cut at its
+`redactTarget`; a path-shaped value (one beginning `/` or `.`) is cut at its
 first `?` or `#` with the delimiter kept, `unusableReason`'s cut rather than
 `redactTarget`'s, for the reason that function is not reused above; and anything
 else is quoted whole, because it is content and the report's job is to let a
@@ -3464,7 +3467,7 @@ every value at its `?` would redact the first to protect against the second.
 The exit code comes from the class, not from the prose, so CI can branch
 without parsing text (`packages/core/src/exit.ts`).
 
-Throw `ConfigError` — exit `2` — when the fault is in how the site is wired and
+Throw `ConfigError` (exit `2`) when the fault is in how the site is wired and
 will fail identically on every retry until a human edits something: a missing
 or malformed config, an unsupported snapshot URL scheme or a snapshot target on
 a loopback or link-local host (`packages/core/src/snapshot.ts`), a command line
@@ -3482,10 +3485,10 @@ resolved, so however many classes there are, CI sees one exit code.
 
 Four exist today:
 
-- `ConfigError` (`packages/core/src/exit.ts`) — the config and the command
+- `ConfigError` (`packages/core/src/exit.ts`): the config and the command
   line, as above. Also a `route` callback that returns something no page can be
-  built from — a query, a fragment, a malformed percent-escape, or a lone
-  surrogate — and an entry in a locale the site never declared
+  built from (a query, a fragment, a malformed percent-escape, or a lone
+  surrogate), and an entry in a locale the site never declared
   (`packages/core/src/pages.ts`). A path handed straight to `canonicalizePath`
   carrying any of the four is the same fault reaching the same class by a
   different door.
@@ -3494,33 +3497,33 @@ Four exist today:
   `URIError` is a class this rule does not name: the run exited by an
   unclassified path with the message "URI malformed", which names no collection,
   no entry and no fix. Refusing it in the wiring pass is what gives it a class,
-  and it is refused only because the encoder cannot take it — not as a
+  and it is refused only because the encoder cannot take it, not as a
   well-formedness policy over Unicode. A route returned as *segments* is
   encoded by `encodeURIComponent` instead, before the wiring pass reads
   anything, so that form is refused a step earlier by
-  `unusableSegmentReason` — same predicate, same class, same report.
-- `RegistryError` (`packages/islands/src/registry.ts`) — a component registry
+  `unusableSegmentReason`: same predicate, same class, same report.
+- `RegistryError` (`packages/islands/src/registry.ts`): a component registry
   that is malformed, a reference to a component nobody registered, a
   `"use client"` directive contradicted by `hydrate: "none"`.
-- `StoreError` (`packages/islands/src/store-stamp.ts`) — a provider in the root
+- `StoreError` (`packages/islands/src/store-stamp.ts`): a provider in the root
   provider stack delivering a store the framework did not mint (#252). Named for
   the store rather than for the provider that carried it, because what is wrong
   is the instance: a site that calls `createStore()` of its own gets a page in
   which every component works and no state crosses an island. It reaches a build
   through `renderPage`, which checks the stack before it renders a page through
   it, and it fails there identically on every run until the module that minted
-  the store is edited — which is what puts it here and not on exit `1`. A
+  the store is edited, which is what puts it here and not on exit `1`. A
   preview entry and a dev server's page entry throw it too, where there is no
   exit code to pick and the class is only what says which fault it is; a shipped
   page reports instead (rule 8). It is declared in `store-stamp.ts` rather than
   in `store.ts` so that `cli.ts` can name it without pulling a state library
   onto the CLI's graph for one `instanceof`.
-- `CollectionError` (`packages/content/src/collection.ts`) — a template an
+- `CollectionError` (`packages/content/src/collection.ts`): a template an
   entry names that the collection's `byTemplate` declares no component usage
   for, and a collection that declares no `schema` at all (the field is
   required: a Standard Schema, or `false` to store what the loader hands over
   unchecked). Also a loader that reports an authoritative sync from
-  `syncSince`, where only a full sync can have observed the whole source — the
+  `syncSince`, where only a full sync can have observed the whole source: the
   loader is code the site wired in, and it makes that claim on every run until
   somebody edits it. And a collection that declares neither `publishField` nor
   `unpublishField`, queried for the entries inside a publication window
@@ -3529,7 +3532,7 @@ Four exist today:
   that declares no schema, one field along. A collection that declares *both*
   ends, on entries whose `unpublishField` instant is at or before their
   `publishField` instant, is the same argument one field further still
-  (`listDueEntries`, #283) — `listDue` ANDs `publishField <= now` with
+  (`listDueEntries`, #283): `listDue` ANDs `publishField <= now` with
   `unpublishField > now`, so such an entry is due at no instant at all and
   emitted no page while saying nothing. Collected across the collection under
   rule 5 rather than thrown on the first offender, because an author who
@@ -3548,7 +3551,7 @@ respect it. The exit code arrives anyway, by a different door: a loader such as
 `defineExampleCmsLoader` (`packages/cms-example/src/loader.ts`) validates its
 options when it is *called*, and it is called while `pagedeck.config.ts` is
 being evaluated, so `loadConfig` catches the throw out of its dynamic import
-and rewraps it as a `ConfigError` — exit `2`,
+and rewraps it as a `ConfigError`, exit `2`,
 with the loader's own sentence on the cause chain. A fault only a request can
 discover stays exit `1`, correctly: that is the network and not the wiring.
 `@pagedeck/search` reaches the same place by the other route, throwing
@@ -3569,7 +3572,7 @@ let them throw over the framework.
 So a wrapper that needs to preserve a classification carries the class itself.
 `runSync` in `packages/content/src/collection.ts` wraps a replay failure to
 name the entry it happened on, and rewraps a `CollectionError` as a
-`CollectionError` — everything else it wraps is a store or loader failure and
+`CollectionError`; everything else it wraps is a store or loader failure and
 stays a plain `Error`. Wrap this way whenever a wiring fault can reach the
 wrapper: the wrapper adds a place to look, and it must not erase whose fault it
 is.
@@ -3578,12 +3581,12 @@ The `sync` verb reads the same predicate over the failures rule 5 collected,
 since a run that reports its failures instead of throwing them still has to be
 classified.
 
-Throw `RenderError` — exit `1` — when a page will not render, or will only
+Throw `RenderError` (exit `1`) when a page will not render, or will only
 render wrong: a component threw, its module has no default export, it suspended
 on data the framework did not resolve, an island's props will not go into its
-marker — because they do not serialize to JSON, because they use a prop name the
+marker (because they do not serialize to JSON, because they use a prop name the
 framework refuses such as `dangerouslySetInnerHTML` or `__proto__`, or because
-they are not plain JSON data — the document composed around the render holds a
+they are not plain JSON data), the document composed around the render holds a
 second `main` landmark (`landmarkReport` in `packages/core/src/build.ts`) or a
 `main` landmark in the site's chrome (`chromeLandmarkReport` in
 `packages/core/src/build.ts`), or
@@ -3604,7 +3607,7 @@ the build stays green while the reader gets a right-to-left English page. That
 is a render fault as squarely as an exception is, because what the class means
 is that the output of this render cannot be shipped. A run that produces the
 wrong page has failed to produce the page, and it fails the same way on every
-retry until the call site is fixed — but not by editing `pagedeck.config.ts`, which
+retry until the call site is fixed, but not by editing `pagedeck.config.ts`, which
 is what `ConfigError` would send the reader to do. The locale set is intact;
 the pairing of locale and page at the call is what is wrong.
 
@@ -3629,22 +3632,22 @@ build's exit code, the fault #114 ruled on. A layout name is different: the
 config writes it, so an unregistered layout is a `ConfigError` at load.
 
 Exit `1`
-rather than `2` because the registry and the config are intact — they resolved
+rather than `2` because the registry and the config are intact: they resolved
 the component, which is what the wiring is for. What failed is the component's
 own code or the content the entry gave it, the same class of fault as a loader
-throwing. So `isWiringFault` in `packages/core/src/cli.ts` does not name it —
+throwing. So `isWiringFault` in `packages/core/src/cli.ts` does not name it,
 and because that function does not walk causes, the wiring-fault class a
 component threw and a `RenderError` carries as its cause cannot promote the
 run to exit `2`.
 
 **A bundler hook is the one place this classification used to be lost, and it
 is no longer.** Rolldown flattens anything thrown out of a build hook into a
-plain `Error` — the class gone, the `cause` dropped — so a `ConfigError` raised
+plain `Error` (the class gone, the `cause` dropped), so a `ConfigError` raised
 there arrived at `isWiringFault` as something it could not name, and a site
 wiring fault exited `1` (#94). Every bundler invocation a verb runs now goes
 through `runBundle` (`packages/core/src/bundler.ts`), which guards each of the
 framework's own hooks, records what one raised, and rethrows it once `build()`
-has settled — unchanged, so the class this rule branches on and the cause rule 4
+has settled, unchanged, so the class this rule branches on and the cause rule 4
 attaches both reach the CLI.
 `packages/core/src/bundler-invocations.test.ts` is what keeps that the only
 door: it refuses a second *non-suite* module importing `build` from `vite`, so a
@@ -3655,13 +3658,13 @@ reporting to a reader; that test enumerates the exclusions, and they scope this
 paragraph too.
 
 The wrapper reports the first fault it recorded and only that one, which is this
-rule winning a direct conflict with rule 5 — several errors of different classes
+rule winning a direct conflict with rule 5: several errors of different classes
 cannot be reported as one without flattening them, which is the fault being
 fixed. A plugin that wants rule 5's collection collects in its own closure and
 reports after the build, the way the island scan reports every unparseable
 module in a run.
 
-Everything else exits `1`, which means "the run did not finish" — a loader
+Everything else exits `1`, which means "the run did not finish": a loader
 threw, content failed its schema, a snapshot host refused, or the framework
 itself has a bug. It is deliberately not a promise that a retry will help; it
 only says the fault is not the site's wiring.
@@ -3679,7 +3682,7 @@ every build printed this note from Babel, which compiled the islands until #164:
 ```
 
 So "did this build cleanly?" cannot be answered by asking whether stderr is
-empty — a fully successful build's stderr need not be empty, and the set of tools
+empty: a fully successful build's stderr need not be empty, and the set of tools
 loaded is not something this repo controls. Issue #184 ruled that the promise
 to keep is "nothing of *mine*", and rejected suppressing other people's
 advisories: enumerating their prefixes is a treadmill, and they are worth
@@ -3691,7 +3694,7 @@ Two halves follow, and new code has to hold both.
 **One channel.** Every diagnostic the framework produces **in a build process**
 goes to the run's `io.err` (`CliIo` in `packages/core/src/cli.ts`). Nothing else
 in these packages writes to `console.warn`, `console.error` or
-`process.stderr` — `packages/core/src/bin.ts` is the single place the channel
+`process.stderr`: `packages/core/src/bin.ts` is the single place the channel
 becomes a stream. A message written past either is a message that keeps its
 text and loses its provenance.
 
@@ -3699,13 +3702,13 @@ text and loses its provenance.
 `reportBrowserFault` (`packages/islands/src/browser-report.ts`) is a channel in
 its own right: the browser has no `io.err` to write to, and this rule's closing
 section argues why that is this rule rather than an exception to it. It has three
-callers and one write — `reportRootProviderFault` delegates to it, the shared
+callers and one write: `reportRootProviderFault` delegates to it, the shared
 store module calls it directly (#252), and `@pagedeck/search`'s island reports a query
-it could not answer through it (#62) — which is the shape this half asks for,
+it could not answer through it (#62), which is the shape this half asks for,
 and it is on its own rather than inside any of them because a site with no
 provider stack must not carry the stack digest's machinery for the sake of one
 line (#66 criterion 6), and a package outside `@pagedeck/islands` must be able to
-reach it without importing a hydration runtime. The other write is a *fallback* — `mergeComponents` in
+reach it without importing a hydration runtime. The other write is a *fallback*: `mergeComponents` in
 `packages/islands/src/registry.ts` ends `options.warn ?? installedWarn ??
 console.warn`, and the third arm is reached only by a merge under no run and no
 installed sink at all. Neither is a build diagnostic taking the short way out,
@@ -3716,14 +3719,14 @@ The one call that cannot take the channel as an argument is that collision
 warning in `mergeComponents`: it is written in the *site's* `pagedeck.config.ts`,
 which the run imports and passes nothing to. `installRegistryWarnings`
 (`packages/islands/src/registry.ts`) is how it reaches `io.err` anyway, and
-`runCli` is its only caller — so under a run the `console.warn` arm above is
+`runCli` is its only caller, so under a run the `console.warn` arm above is
 never taken, and what is left on it is a design system merging registries in a
 process the CLI never started. Reach for the same shape only when there is
-genuinely no argument to thread — a library warning from inside code the site
-wrote — and restore it in a `finally`.
+genuinely no argument to thread (a library warning from inside code the site
+wrote), and restore it in a `finally`.
 
 **A marker per line.** `bin.ts` prefixes every line it writes with
-`DIAGNOSTIC_MARKER` — `pagedeck:`, exported from `@pagedeck/core`. Per line and not per
+`DIAGNOSTIC_MARKER`: `pagedeck:`, exported from `@pagedeck/core`. Per line and not per
 call, because rule 5's collected report is a headline plus one indented line
 per failure written through one `io.err`: marking the headline alone would make
 a four-fault report read as one, with the rest looking like somebody else's
@@ -3759,15 +3762,15 @@ this is the rule that has to say so, because it is the rule about the channel.
 The twenty-fifth is reachable too, by the same shape through the other verb:
 `syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
 is described after the twenty-four below, and kept out of their count because
-`pagedeck sync` is what writes it and no build ever does. Twenty —
-`resourcePlacerWarning`, `unlinkedStylesheetWarning`,
+`pagedeck sync` is what writes it and no build ever does. Twenty
+(`resourcePlacerWarning`, `unlinkedStylesheetWarning`,
 `unregisteredClientWarning`, `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
 `undeclaredContentRootWarning`, `unprunedTreeWarning`, `absentFaviconWarning`,
 `relativeCardWarning`, `checkSiteLinks`' two, `probeExternalLinks`' three, `retainManifest`'s two and
-`compileIslands`' two — are collected into `SiteBuild.warnings` by `buildSite`
+`compileIslands`' two) are collected into `SiteBuild.warnings` by `buildSite`
 and written by `runBuildVerb`. All twenty are reachable; one of them was not
-until #270, and its own section below records what closed it — a site's
+until #270, and its own section below records what closed it: a site's
 redirects now reach `planRouting` through `build.routing`. The last two travel
 one stage further to get there, and #242 is that stage: a bundler plugin has no
 `io.err` to write to, so `compileIslands` records them and `buildClient` hands
@@ -3779,7 +3782,7 @@ waiting on: `buildSite` (`packages/core/src/build.ts`) runs `checkDrift` and
 `compileSupplements` on a run given `incremental: true`, and puts both sets of
 warnings into the same `warnings` list the twenty above go into. So all
 twenty-four are reachable, and the four reach a reader through
-`pagedeck build --incremental` and through nothing else — a full build cannot drift by
+`pagedeck build --incremental` and through nothing else: a full build cannot drift by
 construction, since the class manifest it would check against is the one it is
 writing, so it makes no plan, takes no check and produces none of these four.
 That is the protocol rather than a gap.
@@ -3795,7 +3798,7 @@ rule 3:
 in a `"use client"` closure that imports `preinit` or `preinitModule` from
 `react-dom`. `preinit` places a stylesheet from *code*, so a call made from an
 effect leaves nothing in the emitted HTML for the byte scan to refuse, and the
-import specifier is the only anchor a build has — one a re-export or an alias
+import specifier is the only anchor a build has, one a re-export or an alias
 defeats. The message states that limit rather than reading like a rule the build
 can hold, because a reader who trusted it as one would be trusting a promise the
 build cannot keep:
@@ -3808,7 +3811,7 @@ Island scan: 1 module in a "use client" closure imports preinit or preinitModule
 It reaches `io.err` the same way every refusal does, and by the same route as
 every other answer the island scan gives: `scanIslandFacts` returns it as data
 on `IslandFacts.warnings`, `buildSite` passes it out on `SiteBuild.warnings`,
-and `runBuildVerb` writes it — before the success line, so a reader meets the
+and `runBuildVerb` writes it, before the success line, so a reader meets the
 caveat above the summary. `buildSite` takes no `CliIo` on purpose, so the verb
 is where a diagnostic becomes a line.
 
@@ -3817,8 +3820,8 @@ same channel and by the same route (#46). It is a warning for the opposite
 reason to the one above, and later warnings lean on its argument: not because
 the build cannot see the fault, but because it can see it exactly and the
 output is still correct, and refusing would fail a build nobody can fault.
-Core defines the `worker` strategy and deliberately ships no mechanism to move a script off the main thread — the mechanism is
-`build.scripts.runtime`, an adapter the site supplies — so a site that declared
+Core defines the `worker` strategy and deliberately ships no mechanism to move a script off the main thread (the mechanism is
+`build.scripts.runtime`, an adapter the site supplies), so a site that declared
 `worker` and configured none loads those scripts on `idle` instead, which is the
 fallback spec §12 states.
 
@@ -3829,7 +3832,7 @@ Script runtime: 2 scripts can resolve to the worker strategy and this site confi
 ```
 
 Not a refusal, because the config is well formed and the fallback may be exactly
-what the site wanted — `worker` is the default a site gets for saying nothing,
+what the site wanted: `worker` is the default a site gets for saying nothing,
 so refusing would fail every build that never thought about the field. Not
 silence either, which the ruling on #46 named specifically: a site that
 configured a strategy and quietly did not get it has no way to find out.
@@ -3837,7 +3840,7 @@ configured a strategy and quietly did not get it has no way to find out.
 **Once per build, and the scope is the reason it can be.** `runtime` is one
 field on one config, so the question the message answers is asked once; a line
 per script per page would be the same sentence repeated down a route table.
-That costs a precision the wording is careful about — it says a script *can*
+That costs a precision the wording is careful about: it says a script *can*
 resolve to `worker`, which is decided from the settings alone, rather than that
 one did on some page, which would need the route table and still produce one
 message. Each line says which door the script reaches `worker` through, and a
@@ -3847,7 +3850,7 @@ is the field rule 6 would have to reach.
 The third is `workerConsentWarning` (`packages/core/src/scripts.ts`), the same
 argument one issue later and over a second reason the same fallback applies
 (#47). A script that declares a consent category is gated by the loader this
-build writes, and a `worker` script is not loaded by that loader at all — it is
+build writes, and a `worker` script is not loaded by that loader at all: it is
 loaded by the elements `build.scripts.runtime` returned, which core owns nothing
 about by construction. Loading it there would be loading it with no gate, so the
 build does not: the script takes `idle`, and this says so.
@@ -3859,18 +3862,18 @@ Script consent: 2 scripts declare a consent category and can resolve to the work
 ```
 
 Not a refusal, because the config is well formed and `idle` is a documented
-fallback that serves the site correctly — refusing would fail a build this
+fallback that serves the site correctly: refusing would fail a build this
 framework knows how to make right, which is `workerFallbackWarning`'s position.
 Not silence either: the site declared a strategy and did not get it, which is
 the one thing rule 8 will not let a build keep to itself. Both fixes are in the
-sentence, because which is right depends on something no build can know — a site
+sentence, because which is right depends on something no build can know: a site
 whose own adapter gates for it drops the category and keeps `worker`, and a site
 that wanted core's gate writes the strategy it now has.
 
 **It is mutually exclusive with the warning above, and that is the point rather
 than a coincidence.** A site with no `runtime` has *every* `worker` script fall
 back to `idle` already, and the warning above has named these same scripts for
-that reason — saying it twice about one script would be two paragraphs for one
+that reason: saying it twice about one script would be two paragraphs for one
 edit. Only a site that configured a runtime hears this one. The scope, the
 ordering of the doors and the name-once rule are `workerReachingScripts`' and
 are shared with it in code, so the two cannot come to describe the same config
@@ -3891,7 +3894,7 @@ Script reach: 2 scripts resolve to "off" on every page this site builds, so no p
 Not a refusal, on the two warnings above's argument: every field is well formed,
 this build knows exactly what to do with the config, and a site mid-migration may
 have taken a script off every page on purpose for one release. Not silence
-either, and here the silence would be total — the declaration reads like a
+either, and here the silence would be total: the declaration reads like a
 script that loads, the override reads like a narrowing, and what the emitted
 documents show is an *absence*, so a mistyped script name in an override and a
 key that covers more pages than its author thought both look exactly like a
@@ -3904,7 +3907,7 @@ about the pages, so a site whose only `"off"` key is `"/blog/**"` has dead confi
 exactly when every page it built is under `/blog/`, and no reading of the map
 alone tells those two sites apart. It is still one message per build rather than
 one per page, for the reason the two above give. A site that builds no pages
-names no script at all — every declaration would resolve to `"off"` vacuously,
+names no script at all: every declaration would resolve to `"off"` vacuously,
 and the edit that fixes an empty route table is in neither `scripts` nor the
 override maps.
 
@@ -3916,14 +3919,14 @@ false on exactly the build that renders fewest.
 
 `pagedeck dev` reports the two above and not this one, and that is the protocol rather
 than a gap: it renders one page per request, so the widest question it could ask
-is whether *this* page loads the script — which is not this question, and a page
+is whether *this* page loads the script, which is not this question, and a page
 carrying no scripts is the ordinary outcome the feature exists to produce.
 
 Rule 5 lists every script and puts the overrides on the line, because the name
 alone sends a reader back through two layers by hand; a script taken off page by
 page names every key that did it, since dropping one of several is half an edit.
 The lines are sorted and so are the keys on each of them, so two builds of one
-site write one stderr (spec §11) — `checkSiteLinks`' reason above, over an order
+site write one stderr (spec §11): `checkSiteLinks`' reason above, over an order
 that would otherwise come from the config and from the route table. No `src` is
 quoted, which is the field rule 6 would have to reach.
 
@@ -3932,7 +3935,7 @@ last of the ones decided from the config alone and the only one whose subject is
 an *absence in the emitted output* rather than a downgrade inside it (#318).
 `build.routing.headers` is wholly author-written and core supplies no default,
 so a site that declares no rule gets no `_headers` file, no nginx `add_header`
-block and no CloudFront viewer-response function at all — and a generated site
+block and no CloudFront viewer-response function at all, and a generated site
 has no server of its own to add one later, which makes that field the whole
 surface.
 
@@ -3949,8 +3952,8 @@ nothing at all to fix. **Not a default either, and that is the half this one has
 to state**: emitting the headers anyway is the fix that suggests itself, and it
 would hand that same site each header twice, from two places, one of which its
 config does not show. So the framework takes a posture and the site opts into
-it — `SECURITY_HEADERS` is data next to `HeaderRule`, inert until a `set`
-spreads it — which is what makes the fix one line without making it automatic.
+it (`SECURITY_HEADERS` is data next to `HeaderRule`, inert until a `set`
+spreads it), which is what makes the fix one line without making it automatic.
 Not silence either, and the silence here would be total for rule 8's own reason:
 the absence produces no artifact, so there is nothing a reader can open that
 distinguishes "never asked" from "answered one layer out".
@@ -3958,8 +3961,8 @@ distinguishes "never asked" from "answered one layer out".
 **Any rule at all ends it, whatever that rule carries.** A site whose only
 header is a `Cache-Control` on `/assets/` gets silence. Grading a declared set
 against a list of names the framework would have preferred is the silent default
-arriving by another door — it would make the build the judge of a posture the
-site already took — and no reading of a header table says whether the missing
+arriving by another door (it would make the build the judge of a posture the
+site already took), and no reading of a header table says whether the missing
 half is set by the host. The question asked is the one that can be answered:
 did anybody take the question.
 
@@ -3968,14 +3971,14 @@ constant *is* the edit. The three indented lines are the offer and not a
 collected report, which is the one place a message in this document departs from
 rule 5's shape: there is exactly one fault and the headline states it, and what
 the lines carry is what the author would be spreading, so the decision can be
-made without opening the source. Rule 6 reaches none of it — three fixed names
+made without opening the source. Rule 6 reaches none of it: three fixed names
 and three fixed values, none of them the site's.
 
 Two headers are deliberately not in that constant, and the reference page at
 `packages/docs/reference/routing.md` carries both arguments in full.
 `Strict-Transport-Security` is left out because a browser told once to refuse
-plain HTTP keeps refusing, so a site not yet fully on HTTPS — or one sharing a
-domain — can lock itself and its siblings out, and none of that is knowable from
+plain HTTP keeps refusing, so a site not yet fully on HTTPS (or one sharing a
+domain) can lock itself and its siblings out, and none of that is knowable from
 anything a build reads; a value spread unread may not be able to do that.
 `Content-Security-Policy` is left out because a page whose script layer this
 build composes has no policy correct by default. #315 settled the other half of
@@ -3983,20 +3986,20 @@ that story without a header: each page's manifest row records the inline script
 loader's CSP hash, and the site writes the policy that uses it.
 
 `pagedeck dev` does not report it, and unlike the fourth's case that is not a question
-it could ask badly — it is a question with no subject there at all. That server
+it could ask badly: it is a question with no subject there at all. That server
 answers requests itself and emits none of #33's three artifacts, so a site with
 no header set is missing nothing yet.
 
 The sixth and seventh are `driftWarnings`' (`packages/core/src/drift.ts`), and
-they are the two paragraphs of one report — spec §9's drift protocol, #29. An
+they are the two paragraphs of one report: spec §9's drift protocol, #29. An
 incremental build extracts the classes of the pages it re-rendered and checks
 them against the class manifest the last full build recorded and against the
 safelist the site declared; a class neither set holds is a class no stylesheet
 covers, which spec §9 says "is always a safelist gap or content-hygiene bug".
 
 The declaration is why the report names two causes and not one. `build.safelist`
-carries every place spec §9 says a class may come from — a CMS-exposed styling
-option, and a class a component states in its own source (#260, #261) — so a
+carries every place spec §9 says a class may come from (a CMS-exposed styling
+option, and a class a component states in its own source, #260, #261), so a
 class outside both it and the manifest is either a place the site forgot to
 declare or the invariant broken outright. Naming both is rule 3's: the two have
 different edits.
@@ -4022,15 +4025,15 @@ re-rendered for a *structural* reason has no entry to name and says so, which is
 
 A class name is quoted whole, and it is rule 6 read at what the value is. The
 case this report exists for is a component writing a class out of a content
-value, so the class *is* content by construction — §2's boundary, where a
-content value goes into the log the site's own content is built from — and it is
+value, so the class *is* content by construction (§2's boundary, where a
+content value goes into the log the site's own content is built from), and it is
 the whole diagnosis besides: naming a position instead would send a reader to
 search a page for a class the message declined to spell.
 
 Not a refusal, on `workerFallbackWarning`'s argument: spec §9 inlines a
 supplement into each drifted page, so the emitted pages are correct and
 `core.css` is byte-identical, and refusing would fail a build whose output
-nobody can fault. Not silence either — drift is a bug every time, and the report
+nobody can fault. Not silence either: drift is a bug every time, and the report
 is the only thing that says a safelist has stopped covering the site.
 
 The seventh is the threshold breach, a second paragraph rather than a line under
@@ -4045,12 +4048,12 @@ Once per build, and the scope is `workerFallbackWarning`'s reason: the
 threshold is one field on one config compared against one count, so the question
 is asked once however many pages drifted. The message names the field, both
 numbers and the manifest column, because the thing it is reporting is a *record*
-this build wrote — `Manifest.fullRebuild`, which carries why a rebuild is needed
+this build wrote: `Manifest.fullRebuild`, which carries why a rebuild is needed
 and not merely that one is, so a deploy stack holding the manifest alone can act
 on it.
 
 The eighth and ninth are `compileSupplements`' (`packages/core/src/supplement.ts`),
-and they are the other half of the same protocol — spec §9's step 1, the
+and they are the other half of the same protocol: spec §9's step 1, the
 supplement inlined into each drifted page. The framework compiles nothing: no
 source of it names a CSS toolkit (`GLOSSARY.md`), so `build.driftSupplement` is
 the site's compiler, handed one page's missing classes and returning a
@@ -4072,11 +4075,11 @@ Class drift: 2 drifted pages have no supplement, because this site declares no s
 Not a refusal, on `workerFallbackWarning`'s argument plus one this field has
 of its own: a site whose CSS is hand-written has no compiler to declare and never
 will, so refusing would turn every content-hygiene bug on such a site into a
-failed build with a fix its author cannot take — and the pages the build emitted
+failed build with a fix its author cannot take, and the pages the build emitted
 are the pages it would have emitted anyway. Not silence either, because an
 unstyled element is the one defect a reader cannot see from a green build. Both
 fixes are in the sentence for `workerConsentWarning`'s reason: which is right
-depends on something no build can know — a site with a toolkit wires the seam,
+depends on something no build can know: a site with a toolkit wires the seam,
 and a site without one fixes the class.
 
 The ninth is the seam declared and answering with nothing. A second paragraph
@@ -4092,12 +4095,12 @@ Class drift: 1 supplement compiled to no rules, so each page below ships the cla
 A stylesheet of whitespace is the same answer as an empty one and is reported on
 the same line: it covers no class, and an element holding it would be bytes on
 the page for the compiler having had nothing to say. Every class is quoted whole
-on both, `driftWarnings`' reason — the class is content by construction here, and
+on both, `driftWarnings`' reason: the class is content by construction here, and
 it is the whole diagnosis.
 
 **Three refusals sit under the same field, and none is a warning.** A compiler
 that *throws* stops the pass on the first one, with the throw attached as the
-cause (rule 4) rather than collected — rule 5's own boundary, the one
+cause (rule 4) rather than collected: rule 5's own boundary, the one
 `collection.ts` draws over a validator that throws: the remaining pages would be
 measured with a broken instrument. A plain `Error` and exit 1, the class a
 loader's throw takes (rule 7): the wiring is intact, the field is a function and
@@ -4110,14 +4113,14 @@ Class drift: the supplement compiler threw on en /pricing — "build.driftSupple
 The second is a compiler that answers with something that is not a stylesheet,
 refused on the spot because a `.js` config is never typechecked and the value is
 checked where it is used. The kind is named and the value never quoted (rule 6):
-a compiler's output is the site's own CSS, and the kind is the whole diagnosis —
+a compiler's output is the site's own CSS, and the kind is the whole diagnosis:
 the mistake it catches is a compiler that forgot to return, whose own failure is
 a `TypeError` on `undefined` naming no page and no field. A `ConfigError` and
 exit 2, and **not** the exit 1 the throw above takes: rule 7's criterion is
 whether the fault comes right on a retry, and a declared function that returns a
 number returns one on every run until somebody edits it. The throw is the other
-side of that line — a compiler that failed once failed while *running*, which is
-what a loader's throw is — so the two sit apart by the criterion rather than by
+side of that line (a compiler that failed once failed while *running*, which is
+what a loader's throw is), so the two sit apart by the criterion rather than by
 which line of this function noticed them.
 
 ```
@@ -4144,7 +4147,7 @@ The tenth is the broken half, and it is a warning **only** where the site asked
 for one. `build.links` defaults to `broken: "error"`, which is the refusal the
 build already made over a `<script src>` naming a file nothing emitted (#56), so
 the paragraph below is what a site declaring `broken: "warn"` gets instead of
-that throw — same sentence, same lines, with the reason it is not a refusal
+that throw: same sentence, same lines, with the reason it is not a refusal
 appended. The setting is named in the text, because a reader meeting a warning
 about a page that points at nothing should be able to see why the build went on:
 
@@ -4156,7 +4159,7 @@ Site build: 2 references name nothing this build emitted — check each against 
 
 One paragraph over both kinds of reference, and the fix carries both edits: an
 href that resolves to no page and a URL that resolves to no file are one
-question to a reader — "what does this point at" — and the document does not say
+question to a reader ("what does this point at"), and the document does not say
 which of the two an author meant. The page comes first on each line and the
 lines are sorted, so one page's references sit together and two builds of one
 site write one stderr (spec §11).
@@ -4164,8 +4167,8 @@ site write one stderr (spec §11).
 The eleventh is the redirected half, and it is a warning **at either setting**,
 which is issue #31's second acceptance criterion in as many words: a link that
 resolves through a redirect works, so there is nothing for a refusal to be right
-about. What it costs is the hop, so the line carries the direct target — the
-whole of what a reader does about it — beside the page and the href:
+about. What it costs is the hop, so the line carries the direct target (the
+whole of what a reader does about it) beside the page and the href:
 
 ```
 Site build: 1 reference resolves through a redirect — point it at the target on the line below, so a visitor's first request is the page rather than a hop. This is a warning and not a refusal because the redirect works and the page it lands on is one this build emitted:
@@ -4175,14 +4178,14 @@ Site build: 1 reference resolves through a redirect — point it at the target o
 **No build produced that paragraph until #270, and the reason was wiring rather
 than absence.** `buildSite` called `planRouting` with no `config` and no field
 of `BuildSection` carried one, so the routing document a real build handed the
-check held no redirects at all — the warning was implemented, unit-tested and
+check held no redirects at all: the warning was implemented, unit-tested and
 unable to fire on any site in the world. `build.routing` is the field that
 closed it, and the day it landed this paragraph started appearing with no change
 to the wording above. It is asserted in two places for two reasons:
 `packages/core/src/links.test.ts` composes the report, which is what keeps the
 text above text this repo produces, and
 `packages/core/src/routing.build.test.ts` builds a site that declares a redirect
-and links its `from`, and reads this line off a spawned `pagedeck build`'s stderr —
+and links its `from`, and reads this line off a spawned `pagedeck build`'s stderr,
 beside the same corpus with the rule removed, which is refused as a broken
 reference instead. Both paragraphs are skipped whole, along with the walk that
 would produce them, by a site declaring `links: { broken: false }`.
@@ -4194,7 +4197,7 @@ time through a probe the site declared (`build.links.external`, spec §13).
 
 **None of the three is ever a refusal, and that is this door's decision rather
 than a gap.** What they measure is a host nobody in the build controls, and
-rule 7's question — does the fault come right on a retry — answers *yes* for
+rule 7's question (does the fault come right on a retry) answers *yes* for
 every one of them: a 503, a timeout, a runner behind a firewall. A build that
 failed on those would fail on a Sunday for a reason no reader can act on and
 whose fix is to run it again. The `broken` setting governs references into this
@@ -4212,7 +4215,7 @@ The thirteenth is a URL the probe *threw* on, and it is a separate paragraph
 because it has a separate fix: a timeout, a DNS failure and a proxy refusing the
 request are how a network says nothing, and none of them says the link is
 broken. The thrown value is quoted on the line rather than attached as a cause,
-rule 4's own boundary for a report that collects — several hosts can fail in one
+rule 4's own boundary for a report that collects: several hosts can fail in one
 run, and two causes cannot both be the cause.
 
 ```
@@ -4223,7 +4226,7 @@ Site build: 1 external reference could not be checked, because the external link
 The fourteenth is what the build did not ask about. Requests are sequential,
 paced by `build.links.external.intervalMs`, and bounded in number by
 `build.links.external.limit`, so a site with more URLs than the limit gets an
-answer about some of them — and silence about the rest would read exactly like a
+answer about some of them, and silence about the rest would read exactly like a
 pass:
 
 ```
@@ -4232,7 +4235,7 @@ Site build: 1 external reference was not checked, because this build reached the
 ```
 
 Every URL on these three lines is quoted through `quote`
-(`packages/core/src/quote.ts`) and so is cut at its `?` or `#` — rule 6, and
+(`packages/core/src/quote.ts`) and so is cut at its `?` or `#` (rule 6), and
 this is a field where it bites: an outbound link in a CMS field is exactly the
 string that carries somebody's tracking token or a signed asset URL. The one
 string this build does not compose is cut too: a probe's thrown message is the
@@ -4243,7 +4246,7 @@ every `http(s)` run inside it is cut the same way before the line is written
 **One refusal sits under this field and it is the site's own function**, on the
 bargain GLOSSARY.md records for `build.driftSupplement`. A probe answering with
 something that is not an HTTP status is a declared function returning the wrong
-kind on every run until somebody edits it, so it is a `ConfigError` and exit 2 —
+kind on every run until somebody edits it, so it is a `ConfigError` and exit 2,
 while a probe that *throws* is the warning above rather than a stopped pass,
 because a throw here is the network and not the code.
 
@@ -4267,7 +4270,7 @@ and it is about a directory rather than about the site, as the twentieth
 below is too: a document in the retention store that this `pagedeck` cannot read, removed rather than kept.
 `listRetainedManifests` skips such a file instead of throwing over it, because
 its two callers want the newest id and the deletion list and neither needs to
-understand an old document — throwing would make the first build after a
+understand an old document: throwing would make the first build after a
 `MANIFEST_VERSION` bump refuse, so a `pagedeck` upgrade would brick every build of
 the site and the only fix would be deleting a directory the site was never told
 exists. `readRetainedManifest` keeps the refusal, because rolling back *to* a
@@ -4280,8 +4283,8 @@ Retention store: 1 retained manifest could not be read and has been pruned — a
 
 **The case that makes it a diagnostic rather than silence is not the upgrade.**
 An upgrade clears the store once, and a reader told nothing loses little. Two
-`pagedeck` versions building one site — a CI image that moved while a developer's did
-not, one workflow pinning a version and another taking the release — clears it
+`pagedeck` versions building one site (a CI image that moved while a developer's did
+not, one workflow pinning a version and another taking the release) clears it
 on every run for ever, and the symptom is a store that is always one build deep
 and a rollback that never reaches past yesterday. Nothing else in the run says
 so: the build writes a correct site and exits `0`.
@@ -4289,7 +4292,7 @@ so: the build writes a correct site and exits `0`.
 Rule 5 lists every file rather than a count of them, because a store carried
 across an upgrade holds one per retained build. Each line is the read's own
 failure message, which is `readManifests`' shape in `cli.ts` and is what tells
-the two failures apart — a document an older `pagedeck` wrote and a file that is not
+the two failures apart: a document an older `pagedeck` wrote and a file that is not
 JSON at all send a reader to different places. It is appended after everything
 `stageSite` collected, last in the list: the store is written after the tree, so
 the fault is not known until every warning about the site itself already is.
@@ -4298,13 +4301,13 @@ The sixteenth is `misfiledWarning`'s (`packages/core/src/retention.ts`, #312),
 and it is the other thing a run can find in that same directory: a document
 whose file name and whose `build.id` disagree. Only `retainManifest` writes the
 store and it writes each document to `fileOf(root, id)`, so the two agree in
-every file a `pagedeck build` produced — a pair that disagrees was written by hand.
+every file a `pagedeck build` produced: a pair that disagrees was written by hand.
 
 It is counted as its own warning on this rule's convention rather than as a
 second paragraph of the fifteenth, which is the same convention `driftWarnings`'
 two and `compileSupplements`' two are counted on: what is numbered here is a
-message a reader can meet — its own subject, its own fix, its own reason for
-being a warning — and not the value it travels in. `retainManifest` returns the
+message a reader can meet (its own subject, its own fix, its own reason for
+being a warning) and not the value it travels in. `retainManifest` returns the
 two joined by a blank line, so they reach `SiteBuild.warnings` as one entry and
 `runBuildVerb` writes them in one call. That is why the collected count above
 says `retainManifest`'s **two**.
@@ -4323,7 +4326,7 @@ Retention store: 2 retained manifests are filed under names that are not their b
 **It is a warning rather than the refusal issue #312 asked for**, and the reason
 is what the fix did to the fault. The prune used to compose a path from the id
 inside each document, so a planted `"../../../victim"` deleted a file outside
-the store — and deleted it again on every build, because the planted document
+the store, and deleted it again on every build, because the planted document
 was never the file that prune unlinked. The prune now unlinks the name `readdir`
 gave it, so no id read off disk reaches a path and there is no traversal left to
 refuse. A refusal would fail the build *before* the prune, which leaves the
@@ -4340,7 +4343,7 @@ rollback can reach. Both the file and the id are named (rule 2), because the
 whole fault is that they disagree and neither of them alone says so.
 
 **Each line says whether the file is still there**, which the fifteenth settles
-in its headline instead — it prunes every document it reports, so "and has been
+in its headline instead: it prunes every document it reports, so "and has been
 pruned" is true of all of them. Here it is true of some: a misfiled document
 past the keep count went with this build's prune and one inside the window is
 on disk, both are reported, and a single headline could only be right about one
@@ -4350,9 +4353,9 @@ already unlinked is a fix that cannot be carried out.
 
 **The fix is a rename and not a new id**, which is where this message parts from
 the refusal in rule 7 that shares its store. That one answers "this id cannot be
-a path", so a new id is the whole of it. Here the id is usually fine — a
+a path", so a new id is the whole of it. Here the id is usually fine (a
 document called `backup.json` whose `build.id` is `9e1f4a02` needs the file
-renamed to `9e1f4a02.json` and nothing minted — so the rename leads, and minting
+renamed to `9e1f4a02.json` and nothing minted), so the rename leads, and minting
 is kept for the subset where the id genuinely cannot be a file name, which is
 the only case where renaming the file to it would not work. The clause is
 written in a singular and a plural form (`MISFILED_FIX.one` and `.many`, on
@@ -4362,7 +4365,7 @@ documents followed by "rename the file" tells a reader to fix one of them.
 **Both interpolated values pass through `printable`** (`packages/core/src/exit.ts`),
 and so does every line of the fifteenth. Neither value is the site's: the file
 name is what `readdir` answered with and the id is bytes out of a document
-`readManifest` checks for types and not for content — the same document this
+`readManifest` checks for types and not for content: the same document this
 message exists to say was written by hand. `bin.ts` marks per line, so a
 `build.id` holding a newline would forge a line carrying `pagedeck:` and a carriage
 return with an erase-line escape would take that marker off the line already
@@ -4375,8 +4378,8 @@ The seventeenth and eighteenth are `bailoutWarning`'s and `crashWarning`'s
 (`packages/core/src/react-compiler.ts`, #106), and they are the two things React
 Compiler can say about a module the client build compiled: it refused a
 component over a rule, or its process fell over on the module. Both leave the
-same output — the component the author wrote, rendering correctly and memoizing
-nothing — so a reader who is not told cannot tell either event from a component
+same output (the component the author wrote, rendering correctly and memoizing
+nothing), so a reader who is not told cannot tell either event from a component
 there was nothing to do for, and the two need opposite responses.
 
 The seventeenth is the bailout. The compiler's own `message` names the rule and
@@ -4402,7 +4405,7 @@ line below is `packages/core/src/react-compiler.test.ts`', off a process that te
 kills with SIGSEGV. The real crash, a module that segfaults the compiler
 (oxc-project/oxc#27995), sits in a window
 `packages/core/src/react-compiler.harness.ts` measures under
-`pnpm test:compiler-crash-harness` rather than under `pnpm test` — `AGENTS.md`
+`pnpm test:compiler-crash-harness` rather than under `pnpm test`: `AGENTS.md`
 gives the placement and the trigger to re-measure on.
 
 ```
@@ -4416,7 +4419,7 @@ output nobody can fault. A module the compiler cannot parse is the one
 exception: it produces no code at all, so `fatalError` in the same file throws a
 `ConfigError` naming the module and quoting each diagnostic at its line, and the
 build stops. Not silence either, which is the whole reason these
-exist — a bailout is invisible from a green build and from the emitted bytes
+exist: a bailout is invisible from a green build and from the emitted bytes
 alike. A bailout inside a dependency *is* silent, and that is the one narrowing:
 the author cannot edit the component, so the line would be noise. A crash is not
 narrowed, because reporting a compiler bug needs the module named rather than
@@ -4446,8 +4449,8 @@ module compiles, which every warning on this route already pays. The other
 belongs here, because it is about this channel: a
 build that *fails* after a bailout now says nothing about it, since
 `SiteBuild.warnings` is written by a run that finished and `this.warn` printed
-as it went. That is rule 5's boundary rather than a gap — a stopped run's later
-readings were taken with a broken instrument — and the bailout is still there on
+as it went. That is rule 5's boundary rather than a gap (a stopped run's later
+readings were taken with a broken instrument), and the bailout is still there on
 the next green build. `packages/core/src/bin.test.ts` is where the marked line
 is read off a spawned `pagedeck build`, over a site whose one component the compiler
 refuses for a different rule than the one quoted above: the line is marked, the
@@ -4658,7 +4661,7 @@ write and is not warned either.
 **The twenty-fifth is not a build's at all, and it is `colorFailureWarning`**
 (`packages/content/src/colors.ts`, #44): the image sources a sync could not
 fetch a dominant color for. It is written by `pagedeck sync` and reaches `io.err`
-through `runSyncVerb`, which writes `SyncReport.warnings` before the failures —
+through `runSyncVerb`, which writes `SyncReport.warnings` before the failures:
 a caveat about a collection that did sync belongs above the collections that did
 not.
 
@@ -4672,7 +4675,7 @@ A warning for `probeExternalLinks`' reason, and it is that entry's argument
 about a host this site does not control, applied to a fetch whose whole product
 is a background color: a sync that failed on an image host's uptime would fail
 on a Sunday for a reason no reader can act on, and what a reader loses by it
-finishing is decoration. Not silence either — the sources named here are the
+finishing is decoration. Not silence either: the sources named here are the
 ones that will be asked about again on every sync until somebody looks, which is
 the visible cost of the ruling `GLOSSARY.md` records against caching the failure.
 
@@ -4682,7 +4685,7 @@ credential is in the query string when the URL is signed and in front of the
 host when the CDN is behind basic auth, and both go. The cut is `quote`'s
 (`packages/core/src/quote.ts`) and is made again in `colors.ts` rather than
 imported, because `@pagedeck/core` consumes `@pagedeck/content` and the import would invert
-the dependency — the constraint that put `CollectionError` in that package in
+the dependency, the constraint that put `CollectionError` in that package in
 the first place. The copy is checked rather than promised: `quote.test.ts` reads
 both files off disk and refuses a difference, because the claim that the two are
 one rule was true for as long as nobody edited either (#383).
@@ -4691,7 +4694,7 @@ one rule was true for as long as nobody edited either (#383).
 which is `build.links.external.probe`'s bargain one door along. A color probe
 answering with something that is not a string is a declared function returning
 the wrong kind on every run until somebody edits it, so it is a
-`CollectionError` and exit 2 — while a probe that *throws* is the warning above,
+`CollectionError` and exit 2, while a probe that *throws* is the warning above,
 because a throw is the host and not the code. It is collected and thrown after
 the pass, before anything is cached (rule 5): a probe that answers wrongly for
 one source answers wrongly for all of them.
@@ -4702,14 +4705,14 @@ Collection "pages": the image color probe answered 1 source with something that 
 ```
 
 The value is quoted through `quoteValue`, which is `quote`'s replacer and not a
-bare `JSON.stringify` — a probe answering with the CDN's response object carries
+bare `JSON.stringify`: a probe answering with the CDN's response object carries
 the signed URL it just asked for, so the cut has to reach a *nested* string
 (rule 6). It is the same cut `quoteSource` above makes, deliberately at the same
 depth, because two copies cutting at different depths is a drift no reader
 of either message can see (#46).
 
 A declared `imageColors.concurrency` that is not a whole number of probes above
-zero is refused beside it, before any request is made, rather than repaired —
+zero is refused beside it, before any request is made, rather than repaired:
 `budgetFaultReport`'s treatment of every other site-declared number:
 
 ```
@@ -4719,7 +4722,7 @@ Collection "pages": "imageColors.concurrency" is not a number of probes — writ
 
 **The channel is threaded rather than declared**, which is this rule's first
 half taken seriously at a seam a site fills. The color probe is site-supplied,
-so the obvious place for a sink is beside it in the collection — and that is
+so the obvious place for a sink is beside it in the collection, and that is
 exactly the `console.warn` in a `pagedeck.config.ts` that this rule forbids. So
 `ImageColorsSetting` carries no sink, `CollectionSyncOptions.onWarning` carries
 the run's, and the site declares only the thing that has to be its:
@@ -4729,8 +4732,8 @@ thread.
 **A message a browser produces goes through the console, and that is this rule
 rather than an exception to it.** Issue #66's last two criteria are both about
 the root provider stack, and issue #252's two are both about the shared store;
-all four are answered where the thing they are about is used — in a page, at
-hydration — so there is no `CliIo` to write them to and no argument to thread
+all four are answered where the thing they are about is used (in a page, at
+hydration), so there is no `CliIo` to write them to and no argument to thread
 one through: the page was loaded by a reader, not run by a caller. So the
 channel is `console.error`, and `reportBrowserFault`
 (`packages/islands/src/browser-report.ts`) is the single place these packages
@@ -4741,7 +4744,7 @@ no run installed a sink and is argued at the top of this rule. A browser
 diagnostic added later goes through `reportBrowserFault`, for the same reason
 every build diagnostic goes through `io.err`. One has: `@pagedeck/search`'s island
 reports a query the runtime could not answer, and it reaches the channel through
-`@pagedeck/islands/browser-report` rather than writing a `console.error` of its own —
+`@pagedeck/islands/browser-report` rather than writing a `console.error` of its own,
 which is what keeps the count at two console writes rather than three.
 
 `console.error` for all of them, the warning included, because a browser's
@@ -4752,8 +4755,8 @@ build's stderr is shared with the bundler and a site's plugins, and a console
 line the framework wrote is already attributed by the stack frame beside it.
 
 The divergence report is the first (criterion 5). `build.rootProviders` is two
-halves of one declaration — the `stack` the build renders with and the `module`
-the entry imports — and a site whose halves stopped agreeing builds green and
+halves of one declaration (the `stack` the build renders with and the `module`
+the entry imports), and a site whose halves stopped agreeing builds green and
 ships a page whose every island root wraps in providers the markup was not
 rendered with. The build writes its half into the entry as a digest and the
 browser recomputes its own:
@@ -4769,8 +4772,8 @@ Root providers: the stack this page was built with and the stack the browser imp
 **Every prop value in it is hashed and none is quoted**, which is rule 6 applied
 where it bites hardest: a provider prop is site config, site config is where a
 token lives, and the digest is written into the entry module of *every* page. A
-provider is named by index rather than by component name for a different reason
-— the browser's half is computed from a minified bundle where every function has
+provider is named by index rather than by component name for a different reason:
+the browser's half is computed from a minified bundle where every function has
 been renamed, so a digest that read a name would report a divergence on every
 correctly wired site. What the reader is left with is the index, the prop name,
 the kind of the value and the fact that it moved, which is rule 2's field.
@@ -4779,7 +4782,7 @@ A prop that is a plain object, a null-prototype object or an array carries the
 hash of its shape one level down (`store=object#7ee4f3ca`), so a `config` read
 from the environment on one side and not the other names itself rather than
 reading as `object` on both (#255). Any other non-primitive keeps the bare
-word, and the missing suffix is the report saying the value was not read into —
+word, and the missing suffix is the report saying the value was not read into:
 a class instance, a function, a `Map`, a `Set`, a `Date`, a `URL`, a typed
 array, a boxed primitive, an `Array` subclass. A divergence inside one of those
 is therefore silent, which is the price of the walk stopping where it does: the
@@ -4788,13 +4791,13 @@ of this digest is computed from a minified bundle where every class has been
 renamed, and a digest that read a name would report every correctly wired site.
 
 **Which store shapes are safe, plainly, and why each is.** A store holding its
-state in a class is not read into at all — its prototype is not
+state in a class is not read into at all: its prototype is not
 `Object.prototype`, so it keeps the bare word. A store holding its state in a
 closure *is* read into: it is a plain object of methods, and the
 `store=object#7ee4f3ca` above is one. It digests alike on both sides because
 every field it has is a function and a function is tagged by the bare word
-`function`, so two instances — one per environment, which is what the design
-asks for — hash the same text. A store that is a plain object carrying a
+`function`, so two instances (one per environment, which is what the design
+asks for) hash the same text. A store that is a plain object carrying a
 primitive on it is read into too, and there the two instances part: a counter
 that moved while the build rendered the page will report a divergence the site
 does not have. That is a real cost and not an argued-away one; the 2026-09-06
@@ -4816,7 +4819,7 @@ symbol-keyed or non-enumerable field at that depth is invisible to the digest.
 The second is a warning, and it is the ninth warning in this document
 (criterion 4). A provider that creates its own state inside its component body
 hands every island
-root a different object, so two islands appear to share state and do not — the
+root a different object, so two islands appear to share state and do not, the
 failure that otherwise surfaces only in production. It cannot be decided
 statically, so it is decided by watching: `rootProviderProbe`
 (`packages/islands/src/root-provider-probe.ts`) reads each root's context value
@@ -4827,7 +4830,7 @@ Root provider "OwnStoreProvider": delivers a different value to each island root
 ```
 
 A warning for both of the reasons the two above are warnings at once. The output
-is correct HTML, as `workerFallbackWarning`'s is — the page renders, and
+is correct HTML, as `workerFallbackWarning`'s is: the page renders, and
 only its behaviour is wrong, so a dev server that refused would take away the
 page an author needs in order to see the fault. And the instrument cannot be
 complete, as `resourcePlacerWarning`'s cannot: a class, a `memo` and a provider
@@ -4839,14 +4842,14 @@ is minified, so the name in the message is the name in the source.
 
 **A third message shares the channel, and it is the boundary underneath the
 other two.** `rootProvidersFaultReport` validates the *specifier* in
-`build.rootProviders.module` and never what the module evaluates to — no config
-load ever sees that value — so the browser is where a default export that is not
+`build.rootProviders.module` and never what the module evaluates to (no config
+load ever sees that value), so the browser is where a default export that is not
 a provider stack arrives. It is reported here rather than thrown, because this
 runs at the top of the generated entry, above `hydrateIslands`: a throw would
 stop every island on the page from hydrating over one malformed export, which is
 a worse page than the one the check exists to describe. The digest comparison is
-skipped rather than attempted, on `loadComponents`' argument — a stack nobody
-has cannot have a prop that moved — so one fault produces one report:
+skipped rather than attempted, on `loadComponents`' argument (a stack nobody
+has cannot have a prop that moved), so one fault produces one report:
 
 ```
 Root providers: the module "build.rootProviders.module" default-exports is not a stack this page can apply, so nothing here can check it against the stack this page was built with — default-export the same array of { component, props } that "build.rootProviders.stack" holds, outermost first:
@@ -4867,7 +4870,7 @@ Root providers: the module "build.rootProviders.module" default-exports is not a
 A value is named by its kind and never quoted (rule 6): the thing being
 described is a provider stack, a provider's props are site config, and a module
 that exported a config object where the stack belongs would otherwise put what
-that object holds into a browser console. The kind is the diagnosis anyway — a
+that object holds into a browser console. The kind is the diagnosis anyway: a
 reader told the default export is a function knows they exported the provider
 instead of the stack.
 
@@ -4880,9 +4883,9 @@ and simply stops sharing state.
 
 The first is the duplicate instance, and it is **the one message in this
 document whose class depends on which caller reached it**. The stack is checked
-where a store is handed in — `renderPage` for the build's half,
+where a store is handed in (`renderPage` for the build's half,
 the generated island entry above `hydrateIslands`, and the generated preview
-entry above `mountPreview` — and each caller states its own verdict rather than
+entry above `mountPreview`), and each caller states its own verdict rather than
 sniffing one. A build and a preview app refuse: nothing has shipped, and in a
 build the refusal is a `StoreError` and exit `2` (rule 7). A page entry passes
 `import.meta.env.PROD`, which Vite folds to `false` on the dev server and `true`
@@ -4901,7 +4904,7 @@ Shared store: 2 providers deliver a store this framework did not mint, so two is
 Every offending prop and never the first (rule 5), located the way the
 divergence report above locates a provider: by index into the stack and then by
 prop name, which is rule 2's field and is what the site edits. **No value is
-quoted** — a store is closures over whatever state the site put in it, and there
+quoted**: a store is closures over whatever state the site put in it, and there
 is no reading of one a message could promise holds no credential (rule 6). The
 prop path is the whole diagnosis anyway.
 
@@ -4914,7 +4917,7 @@ Jotai's SSR documentation states that atoms hydrate once per store, and
 `visible` and `idle` strategies island hydration order is the reader's scroll
 and the browser's idle callback, so two islands hydrating one atom is a race
 whose loser disappears. Refusing would cost every island that had not hydrated
-yet — the page taken away from the author who needs it to see what happened — so
+yet (the page taken away from the author who needs it to see what happened), so
 the first value is kept, which is what Jotai would have done, and the report is
 the whole of what changes. Rule 5's shape, one line per atom:
 
@@ -4928,7 +4931,7 @@ The third is the other half of "hydrated once, **before any root mounts**", and
 it is reported alone with nothing enumerated under it. That is the non-object
 budget's argument rather than a shortcut: every atom in the call has the same
 fault, the same cause and the same fix, and the fault is not about an atom at
-all — it is about when the call was made. `markRootsMounting`, written into the
+all: it is about when the call was made. `markRootsMounting`, written into the
 generated entry immediately above `hydrateIslands`, is what gives this message a
 fact to report; without it a first hydration arriving after two roots had
 rendered was accepted in silence, because every atom in it was new.
@@ -4938,8 +4941,8 @@ Shared store: hydrateStore was called after island roots began mounting, so ever
 ```
 
 **No hydrated value reaches either report, and this is the message rule 6 is
-written for.** A hydration payload is whatever the site put on the page — a CMS
-field, a session, a signed URL — so a line that echoed one would put arbitrary
+written for.** A hydration payload is whatever the site put on the page (a CMS
+field, a session, a signed URL), so a line that echoed one would put arbitrary
 site data into a console anybody who opens the page can read, and unlike §2's
 validator text there is no schema failure here that the value would explain. An
 atom is named by its `debugLabel` where it has one and by its position in the
@@ -4963,7 +4966,7 @@ Search index "/search/en/terms-0001.json": the request failed with status 404, s
 ```
 
 The second and third are the format check, and **they are two messages because
-they are two fixes** — `@pagedeck/edge`'s `checkVersion` split over a routing manifest,
+they are two fixes**: `@pagedeck/edge`'s `checkVersion` split over a routing manifest,
 and the same shape here. Both halves of a search index come from one package, so
 the version says which half the deployment is carrying from another build: an
 index ahead of the page means the page is stale, and an index behind it means the
@@ -4979,7 +4982,7 @@ A fourth message the same module carries is not a browser's at all, and is named
 here because it is written beside them: `createSearchClient` falls back to
 `globalThis.fetch` where a caller supplied none, and every browser this framework
 targets has one. So the reader of this message is running the query runtime
-somewhere else — a test, or an old runtime — and the fix is the option rather
+somewhere else (a test, or an old runtime), and the fix is the option rather
 than the environment.
 
 ```
@@ -4988,7 +4991,7 @@ Search query runtime: this environment has no global fetch, so no index file can
 
 Nothing else changes. A third-party advisory passes through unmarked and
 unedited, and an in-process caller of `runCli` supplies its own `err` and
-receives the message exactly as the CLI composed it — which is why every
+receives the message exactly as the CLI composed it, which is why every
 assertion in this document quotes unmarked text.
 
 A caller asserts about a spawned run by selecting the marked lines in, never by

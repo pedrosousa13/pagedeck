@@ -17,7 +17,7 @@ until real-user data says which pages are actually slow, for actual visitors, on
 actual devices.
 
 **There is nothing to turn on and nothing to turn off.** A site that declares no
-`build.beacon` carries no beacon bytes at all — not a runtime that checks a
+`build.beacon` carries no beacon bytes at all: not a runtime that checks a
 flag, not an empty configuration object. The element is not in the document.
 
 ## Declaring it
@@ -42,8 +42,8 @@ be an absolute `https:` URL, or a path on your own site:
 beacon: { endpoint: "/rum" },
 ```
 
-A path is the cheaper of the two for the visitor — same origin, no second
-connection, no preflight — if you can terminate it at your CDN.
+A path is the cheaper of the two for the visitor (same origin, no second
+connection, no preflight), if you can terminate it at your CDN.
 
 ## What arrives at your endpoint
 
@@ -53,12 +53,12 @@ One `POST` per page visit, with a JSON body:
 { "lcp": 1842, "cls": 0.03, "path": "/pricing", "locale": "de" }
 ```
 
-- `lcp` — Largest Contentful Paint, whole milliseconds.
-- `cls` — Cumulative Layout Shift, the worst session window, to four decimal
+- `lcp`: Largest Contentful Paint, whole milliseconds.
+- `cls`: Cumulative Layout Shift, the worst session window, to four decimal
   places.
-- `inp` — Interaction to Next Paint, whole milliseconds: the worst interaction
+- `inp`: Interaction to Next Paint, whole milliseconds, the worst interaction
   of the visit.
-- `locale` and `path` — the page, as the framework identifies it. This is the
+- `locale` and `path`: the page, as the framework identifies it. This is the
   same `(locale, path)` pair your page patterns are written against, so a report
   groups by market and by section with nothing to join on.
 
@@ -78,7 +78,7 @@ no opinion about what receives it, stores it or draws it.
 
 The beacon is analytics, so it reports only for a visitor who has consented to
 that category. It reads the same [consent source](./third-party-scripts.md)
-your third-party scripts do — your own object at `window.pagedeckConsent` — and it
+your third-party scripts do (your own object at `window.pagedeckConsent`), and it
 reads it at the moment it would report, not earlier. A visitor who accepts halfway through a visit is reported;
 one who withdraws consent is not.
 
@@ -142,8 +142,8 @@ the beacon is charged for those bytes against its
 [JavaScript budget](./javascript-budgets.md), where what a budget counts is
 written down.
 
-The measuring starts when the browser goes idle. Nothing is lost by waiting —
-every observer asks for the entries the browser recorded before it existed —
+The measuring starts when the browser goes idle. Nothing is lost by waiting:
+every observer asks for the entries the browser recorded before it existed,
 with one bounded exception, below.
 
 Two things about `inp` are worth knowing before you read a report:

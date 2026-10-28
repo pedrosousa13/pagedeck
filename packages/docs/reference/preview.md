@@ -87,7 +87,7 @@ you control.
 
 ## Everything it emits is under one path
 
-The document and every chunk live under the `path` you declared — nothing of the
+The document and every chunk live under the `path` you declared; nothing of the
 app is mixed into your site's own `/assets/`. So the prefix you put a login in
 front of is the prefix the app is at, and a diff of two output trees shows the
 app arriving as one subtree.
@@ -101,7 +101,7 @@ a byte of it.
 A site whose locales sit on [domains of their own](./canonicals-and-hreflang.md)
 gets the whole app in each of those trees. The document loads its app with a
 root-relative URL, which a browser resolves against the host that served the
-document — so one copy in one tree would be a broken page on every other host.
+document, so one copy in one tree would be a broken page on every other host.
 Point each market's editor at that market's host.
 
 ## The bridge
@@ -164,5 +164,5 @@ an editor loads.
 The path is not a route. No `definePages()` declares it, no page carries it, and
 your sitemaps and feeds never mention it. If a page of yours would be published
 under the same address, the build refuses the collision rather than overwrite one
-file with the other, and names every key it collided at — move the page, or
+file with the other, and names every key it collided at. Move the page, or
 declare a different `path`.

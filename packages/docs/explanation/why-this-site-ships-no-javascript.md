@@ -42,8 +42,8 @@ The syntax highlighting you see in the code samples is not an exception to any
 of this. It happened while the site was being built: the loader that read each
 markdown file also tokenised its code fences and wrote the colours into the
 markup as inline `style` attributes. Nothing about it runs in your browser, and
-it needs no stylesheet either. This site does link one — declared as
-`build.css`, and it carries the layout — but block it and the code samples are
+it needs no stylesheet either. This site does link one (declared as
+`build.css`, and it carries the layout), but block it and the code samples are
 still in colour, because the colours were never in it.
 
 This site has a dark theme, and it keeps the same arrangement for its light
@@ -68,7 +68,7 @@ something is JavaScript.
 It could have gone on every page as a box in the header. It did not, and the
 reason is the promise above: a search box in the header is a bundle on every
 page, paid for by every reader, including the ones who followed a link and never
-searched. So the control lives on one page — `/search` — which is the only page
+searched. So the control lives on one page, `/search`, which is the only page
 of this site that ships a script. It loads when the browser is idle, and it asks
 for nothing at all until you focus the box or type into it.
 

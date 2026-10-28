@@ -38,7 +38,7 @@ field existed.** The document is still written, with no rules in it.
 
 `from` and `to` are paths on your own site, written the way you would type
 them. The build spells both the way it spells its own routes, so `/pricing/` and
-`/pricing` are the same address whichever your `trailingSlash` policy is —
+`/pricing` are the same address whichever your `trailingSlash` policy is;
 declaring a rule under the wrong spelling is the mistake this framework exists
 to stop being silent.
 
@@ -75,7 +75,7 @@ returns once, so an unflattened chain would be a different number of round
 trips per host.
 
 **A link on your own pages that resolves through a redirect is reported**, with
-the direct target on the line, so you can point it at the page instead — see
+the direct target on the line, so you can point it at the page instead. See
 [Link checking](./link-checking.md).
 
 ## The 404 page
@@ -97,7 +97,7 @@ One per output tree. A site with locales on their own hosts declares one per
 `404.html`.** `site/404.html` for the default tree, `site/en/404.html` for a
 tree mounted at `domain: "en"`: most static hosts, Cloudflare Pages among them,
 walk up from a missing path looking for `404.html` and serve the nearest one.
-The bytes are the same document — the page still renders, and still answers,
+The bytes are the same document: the page still renders, and still answers,
 at its own address too.
 
 **The page a rule names is not indexable.** A host serves it at every missing
@@ -141,7 +141,7 @@ routing: {
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | already what a current browser does with no policy at all |
 
 That last value is not a preference. It is the modern browser default, so
-sending it changes nothing for most of your visitors — what it buys is the older
+sending it changes nothing for most of your visitors. What it buys is the older
 browser that still sends a full URL cross-origin, and a posture stated in your
 own document rather than inherited from whatever browsers settle on next. A
 value that tightened *past* the default would be a behaviour change you would
@@ -149,10 +149,10 @@ have to consent to, and this is a constant people spread without reading.
 
 **A build that declares no header set at all says so on stderr**, once, and
 still succeeds. Every page it emitted is correct, and a site whose CDN already
-sets these has nothing to fix — but with the field absent there is no `_headers`
+sets these has nothing to fix, but with the field absent there is no `_headers`
 file, no nginx `add_header` block and no CloudFront viewer-response function,
-and that absence looks exactly like a feature you are not using. Declare a set —
-the spread above, or your own — and the message stops.
+and that absence looks exactly like a feature you are not using. Declare a set
+(the spread above, or your own) and the message stops.
 
 ### Two headers this framework will not decide for you
 
@@ -186,7 +186,7 @@ than a gap.** A CSP is a claim about what a page may load, and this framework
 composes a page's script layer per page: the island entry chunk, the consent
 gate, and whatever you declared in
 [`build.scripts`](./third-party-scripts.md). No single policy is correct
-for all of them, and a wrong CSP is worse than none — it breaks the page in
+for all of them, and a wrong CSP is worse than none: it breaks the page in
 production, silently, on the first request that violates it. The framework's own
 inline script loader is the sharpest case. Its text differs from page to page,
 so its hash does too, and the build records each page's hash in
@@ -215,7 +215,7 @@ routing: {
 ```
 
 Leave it out for the default tree. The trees are the hosts your pages are routed
-to and nothing else, so a rule naming a `domain` no page occupies is refused — a
+to and nothing else, so a rule naming a `domain` no page occupies is refused: a
 tree no page occupies serves nothing, and the rule would compile into a table no
 request reaches.
 
@@ -265,7 +265,7 @@ Config "/site/pagedeck.config.ts": "build.routing" declares 1 rule field this bu
 ```
 
 **After every page has rendered and before a byte is written**, each rule is
-checked against the route table — which is the earliest point that table exists.
+checked against the route table, which is the earliest point that table exists.
 Every fault of the same kind is in one report, and each line names the rule by
 its position in the field you wrote:
 

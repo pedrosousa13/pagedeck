@@ -17,7 +17,7 @@ on any later loader-facing write surface.
 ## Context
 
 An `EntryId` is a key, not a path. A loader is free to build a file path or a
-URL out of its `locale` and `path` — that is what `fetchOne` is for — so an id
+URL out of its `locale` and `path` (that is what `fetchOne` is for), so an id
 holding a `..`, a leading `/`, a backslash or a NUL is one that resolves away
 structure and reads outside the loader's own content. #112 refused such an id at
 `getEntryCached`, before the store is read, because that is the call that hands
@@ -37,7 +37,7 @@ see.
 **An entry id is refused where it enters the store, not where it is read
 back.** `runSync` reads every buffered upsert's id before the replay
 transaction opens, and a sync that carries an unusable one writes nothing.
-The buffer it reads is closed first — `runSync` takes the rows out of the array
+The buffer it reads is closed first: `runSync` takes the rows out of the array
 `CollectionWriter.upsert` appends to as soon as the loader returns. A loader
 that kept the writer past its own return would otherwise grow that array while
 the schema awaits, and the replay would apply a row the id pass never saw: the
@@ -51,7 +51,7 @@ no check and gain none.
 **One predicate, `unusableIdReason` in `packages/content/src/collection.ts`.**
 It answers why an id is not an identifier, or undefined when it is. Both doors
 read it and neither restates it, so they cannot drift about what "usable"
-means — the same sharing ADR-0003 records for `MALFORMED_ESCAPE`, and the same
+means, the same sharing ADR-0003 records for `MALFORMED_ESCAPE`, and the same
 reason: a fault detected by one reading and admitted by another is a fault with
 no report anywhere.
 
@@ -71,7 +71,7 @@ Collection "pages": 2 entries do not have a usable entry id — an entry id name
 **One bad id fails the whole sync.** Not the bad rows alone. A sync commits its
 entries and its cursor in one transaction so that a failed run leaves no
 collection half-written, and storing the well-keyed rows would advance the
-cursor past the refused ones — the loader would never offer them again, and the
+cursor past the refused ones: the loader would never offer them again, and the
 collection would be quietly short of entries nobody was told about. `SyncResult`
 therefore gains no per-row error channel: a sync that returns has applied
 everything it buffered, which is what `changed` already claims.
@@ -89,7 +89,7 @@ Refusing one would strand it.
 **`getEntryCached` keeps its own check, and it is not redundant.** The two doors
 read different ids. The write pass reads the id a *loader reports back*, on its
 way into the store. `getEntryCached` reads the id a *caller hands in*, on its
-way out to `fetchOne` — an id that was never in the store and that no write
+way out to `fetchOne`: an id that was never in the store and that no write
 pass has seen, because the call is what happens when the store does not hold
 it. Deleting either check reopens the hole the other cannot see: without the
 write pass, a loader files an unusable key and every read serves it; without
@@ -117,7 +117,7 @@ The test that stores `/en/../secret` through `store.upsertEntry` and watches
 `getEntryCached` refuse it stays, and it is not about the asymmetry. It is the
 only thing pinning that the refusal comes *before* the store read: a store hit
 returns early, so a check moved after it would exempt exactly the ids a store
-written before this contract already holds — the rows the delete ruling above
+written before this contract already holds, the rows the delete ruling above
 says exist. Both tests are needed, because they cover the two sides of the store
 read.
 
@@ -125,27 +125,27 @@ A loader that keys entries the way a filesystem does now fails its sync rather
 than filling a store. That is the intended cost, and it surfaces at the first
 sync rather than at whichever read happened to go through `getEntryCached`.
 
-#141 added the percent-encoded spellings — `%2E%2E` and the rest — to
+#141 added the percent-encoded spellings (`%2E%2E` and the rest) to
 `refusedFieldReasons`, the one function `unusableIdReason` is built from. Both
 doors took them without being touched, which is what the sharing above is for.
 A field is read in every spelling, because no reading covers another: a loader
 that builds a URL decodes before it joins, one that does not is handed the
 literal `%2e%2e` to open a file by, and the URL parser drops characters out of
-either before it resolves anything — every ASCII tab, LF and CR wherever they
+either before it resolves anything: every ASCII tab, LF and CR wherever they
 sit, and the leading and trailing C0 controls and spaces. So `.%09./secret`
 holds a `..` for a URL-building loader and `%09/etc/passwd` a leading `/`,
 neither of which the raw or decoded spelling can see; `urlParserReading` is that
 third spelling, and it is a spelling rather than a trait because a tab is not
-what a reader has to fix — the path that climbs is.
+what a reader has to fix; the path that climbs is.
 
 **A `%` that no two hex digits follow is not a fault.** It was one briefly, and
-that refused every id named with a literal percent — `sale-50%-off`,
-`50%-off.md` — which a loader keying entries by slug or by filename hands over
+that refused every id named with a literal percent (`sale-50%-off`,
+`50%-off.md`), which a loader keying entries by slug or by filename hands over
 as a matter of course, and which never decodes for it at all. Decoding is
 escape by escape, so an escape that will not decode is left as written and the
 field around it is still read: the traversals are refused with none of the
 collateral, and no id is required to be valid percent-encoding. `URIError` is
-still not let out of this depth — nothing throws it any more.
+still not let out of this depth: nothing throws it any more.
 
 The store's own methods (`packages/content/src/store.ts`) still take bare
 strings and check nothing. The contract is stated at the collection API, which
@@ -155,7 +155,7 @@ below the contract on purpose.
 
 ## Alternatives considered
 
-**Validate on every read** — `getEntry` and `listEntries` refuse an id too.
+**Validate on every read**: `getEntry` and `listEntries` refuse an id too.
 Rejected. It leaves rows in the store that nothing can read: the id is already
 filed, the sync that filed it reported success, and every read now fails on a
 row no operation can remove or correct. It also puts the check on the hot path,
@@ -163,13 +163,13 @@ once per read, to re-derive a fact one pass on the way in establishes for good.
 
 **Keep the asymmetry and document it.** Rejected. Documenting a contract that
 disagrees with itself by call site does not make it one contract; it writes down
-which door a reader has to guess at. The failure it produces — an entry present
-to one read and absent from another — is not one a docblock rescues anybody
+which door a reader has to guess at. The failure it produces (an entry present
+to one read and absent from another) is not one a docblock rescues anybody
 from at 2am.
 
 **Refuse per row and store the rest.** Rejected, above: the cursor advances past
 what was dropped, so the loss is silent and permanent.
 
 **Throw from `CollectionWriter.upsert`.** Rejected. It is the level that sees
-one row, so it reports one fault per run — rule 5's "put the collection at the
+one row, so it reports one fault per run, against rule 5's "put the collection at the
 level that can see the whole set".

@@ -6,8 +6,8 @@ description: The build writes canonical and hreflang links for every page from t
 
 # Canonicals and hreflang
 
-A multi-locale site publishes the same page several times — once per language,
-sometimes on several domains — and a search engine has to be told that those
+A multi-locale site publishes the same page several times (once per language,
+sometimes on several domains), and a search engine has to be told that those
 URLs are one page in different languages rather than duplicates of each other.
 Two link types do it: `rel="canonical"`, which says which URL a document is at,
 and `rel="alternate" hreflang="…"`, which says which other URLs are the same
@@ -27,7 +27,7 @@ build: {
 }
 ```
 
-`origin` is the scheme and host of the default output tree, and nothing else —
+`origin` is the scheme and host of the default output tree, and nothing else:
 no path, no trailing slash, no query, no fragment. A locale with its own
 `domain` still uses that domain; the origin supplies the scheme, and the port if
 it has one. The same origin makes the `og:image` of a card the build draws an
@@ -48,8 +48,8 @@ Take a site with `en` and `fr` on the default tree and `de` on `example.de`:
 <link rel="alternate" hreflang="fr" href="https://example.com/fr/pricing">
 ```
 
-The set includes the page's own locale. That is what `hreflang` asks for — a set
-that omits the page carrying it is ignored rather than reported — and it is what
+The set includes the page's own locale. That is what `hreflang` asks for (a set
+that omits the page carrying it is ignored rather than reported), and it is what
 makes the relation symmetric: every one of these documents lists the same four
 URLs, so if one names another, the other names it back.
 
@@ -59,7 +59,7 @@ and the address it is served at cannot disagree.
 
 ## x-default
 
-`x-default` names the version an unmatched reader should get — someone whose
+`x-default` names the version an unmatched reader should get: someone whose
 language is none of yours.
 
 ```ts
@@ -88,18 +88,18 @@ it alone and the build refuses the config rather than doing nothing quietly.
 
 **A locale that has no page at a path is not listed.** No alternate ever points
 at a URL this build did not write. If your German site has an `/impressum` and
-nobody else does, its English alternate does not exist, so it is not named — and
+nobody else does, its English alternate does not exist, so it is not named, and
 neither is its `x-default`, even when `xDefault: "en"`.
 
 **A page with no other version gets a canonical and nothing else.** An `hreflang`
-set of one states no relationship, so a single-locale site — and a page a
-multi-locale site translated into one language only — carries the canonical
+set of one states no relationship, so a single-locale site (and a page a
+multi-locale site translated into one language only) carries the canonical
 alone.
 
 **A page filled in by a locale's fallback chain is a version like any other.**
 If `fr` has no `/pricing` and falls back to `en`, French readers get
 that content at `https://example.com/fr/pricing`, and that is the URL the page
-canonicalizes to — its own, not the English one. Sending a French reader to the
+canonicalizes to: its own, not the English one. Sending a French reader to the
 English page is not deduplication; it is the wrong page. The two are related as
 alternates instead, which is exactly what they are.
 
@@ -117,8 +117,8 @@ page. It keeps its canonical, and the 404 pages are not in its `hreflang` set.
 
 ## One limit worth knowing
 
-Pages are matched **by path**. If you translate your slugs — `/pricing` in
-English, `/preise` in German — the build sees two different pages and neither
+Pages are matched **by path**. If you translate your slugs (`/pricing` in
+English, `/preise` in German), the build sees two different pages and neither
 lists the other. Nothing in the framework relates the two paths; the only thing
 that knows they are one page is the `route` callback that wrote them both.
 

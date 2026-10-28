@@ -141,3 +141,22 @@ test("the only HTML a page holds is a demo marker, on a line of its own", () => 
   }
   expect(faults).toEqual([]);
 });
+
+test("no page writes an em dash outside a fenced code block", () => {
+  const faults: string[] = [];
+  for (const page of pages()) {
+    let fence: string | undefined;
+    read(page)
+      .split("\n")
+      .forEach((line, index) => {
+        const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+        if (fence === undefined && marker !== undefined) fence = marker;
+        else if (fence !== undefined && marker?.startsWith(fence) === true && line.trim() === marker) {
+          fence = undefined;
+        } else if (fence === undefined && line.includes("—")) {
+          faults.push(`${page}:${index + 1}: an em dash; write a full stop, a comma, a colon or parentheses instead`);
+        }
+      });
+  }
+  expect(faults).toEqual([]);
+});

@@ -10,7 +10,7 @@ Date: 2026-08-29
 ## Status
 
 Accepted. Decided on #109 and shipped in PR #122, which put the defence at the
-content boundary — `unescapedHtml`'s reserved-name strip — rather than at the
+content boundary (`unescapedHtml`'s reserved-name strip) rather than at the
 read path. No code change is attached to this file: it records a decision
 already implemented. Binding on the wire format and on `unescapedHtml`'s
 contract. Raised by #137.
@@ -36,7 +36,7 @@ only to write one down. There is no secret in it to check.
 
 **The one identifier here that is derived has the same property.** A marker's
 `useId` prefix (`ISLAND_PREFIX_ATTRIBUTE`) is `render.tsx`'s `islandPrefix`:
-`i` — an id must not start with a digit — and twelve hex digits of
+`i` (an id must not start with a digit) and twelve hex digits of
 `sha256(locale \0 path \0 position)`. All three inputs are public to anyone who
 can read the page, so the digest is reproducible by anyone who can read the
 page.
@@ -46,14 +46,14 @@ Validating `data-fw-prefix` against the `i` + 12-hex shape passes that issue's
 own payload, `ideadbeef0000`, which is `i` followed by exactly twelve hex
 characters. Recomputing the prefix at the read path is not available either:
 the runtime has document order from `querySelectorAll`, which diverges from
-entry-tree position as soon as islands nest — and it would not help if it were,
+entry-tree position as soon as islands nest, and it would not help if it were,
 because the inputs are public.
 
 **So the only real proposal was a per-build random value, and it collides with
 a live invariant.** A nonce in the markup makes two builds of one unchanged
 site differ, which is what `render.test.tsx`'s "rendering the same page twice
 returns byte-identical HTML" pins for a render and what #20 pins for a whole
-output tree — landed in PR #179 as `determinism.ts`, compared over two real
+output tree, landed in PR #179 as `determinism.ts`, compared over two real
 pipeline runs by `build.test.ts`, with the manifest's build stamp as the single
 excused field. That test alone is narrower than the invariant it stands for, and
 PR #179 said so itself: both of its runs are one process, with Rolldown, React
@@ -63,7 +63,7 @@ toolchain*. **#220 closed that gap and it needed no new comparison**:
 `pnpm check:build-twice` spawns two `fw build` processes over one unchanged
 site and hands the two trees to the same `diffOutputTrees`, and CI runs it on
 every push. So the invariant is now certified as it reads, over a site that
-islands both ways — a registry override and a module's own `"use client"` — with
+islands both ways (a registry override and a module's own `"use client"`) with
 the toolchain evaluated twice and the build stamp still the one excused field.
 None of this changes the collision here: a per-build nonce differs between two
 builds however they are isolated, so it fails both pins.
@@ -85,7 +85,7 @@ answer it with.
 
 **The defence is the door.** `unescapedHtml` is the single sanctioned entry for
 content-authored HTML, and since PR #122 it strips the framework's reserved
-vocabulary — `<fw-island>` and `<fw-slot>` in either tag form, and a named
+vocabulary: `<fw-island>` and `<fw-slot>` in either tag form, and a named
 list of attributes with each one's value in all three forms HTML allows. The
 list is the six island attributes (`data-fw-prefix`, `-component`, `-mode`,
 `-props`, `-slot`, `-template`), since #394 `data-fw-facade`, and since #566
@@ -107,7 +107,7 @@ mechanism instead of an argument.
 
 **The residual is stated rather than closed.** `unescapedHtml` is a convention.
 A site that calls `dangerouslySetInnerHTML` itself, or hands the exported
-`SlotContent` a string of its own, is past the boundary — and `SlotContent`
+`SlotContent` a string of its own, is past the boundary, and `SlotContent`
 cannot be made to strip, because what it legitimately carries is the build's
 own nested markers. That is the boundary the framework claims and no more.
 
@@ -171,22 +171,22 @@ ever considered finds this file, which is why #137 filed it.
 
 **Validate `data-fw-prefix` against the `i` + 12-hex shape.** Rejected on
 measurement, and it was #109's cheap proposal. The payload that issue measured
-is `ideadbeef0000` — `i` followed by exactly twelve hex characters. The check
+is `ideadbeef0000`: `i` followed by exactly twelve hex characters. The check
 passes the attack it was proposed to stop.
 
 **Recompute the prefix at the read path, or sign the ids deterministically.**
 Rejected twice over. The runtime does not have the inputs: `islandPrefix`
 hashes the entry-tree position, and `querySelectorAll` gives document order,
 which diverges from it once islands nest. And it would authenticate nothing if
-it did — `locale`, `path` and position are all public, so any value derived
+it did: `locale`, `path` and position are all public, so any value derived
 deterministically from them is reproducible by whoever is authoring the
 forgery. A slot id is worse still: it *is* the position, with no digest in
 front of it.
 
 **A per-build random nonce stamped on every marker.** Rejected on the
 determinism invariant, and it is the strongest of the three. It genuinely buys
-the distinction — an unguessable value is exactly what a deterministic one
-cannot be — and the price is the property the framework will not trade: two
+the distinction (an unguessable value is exactly what a deterministic one
+cannot be), and the price is the property the framework will not trade: two
 builds of one unchanged site emitting the same bytes, which #20 pins over the
 output tree and `render.test.tsx` pins per render. Cache stability and
 incremental correctness both rest on it. If this trade is ever reopened, it is

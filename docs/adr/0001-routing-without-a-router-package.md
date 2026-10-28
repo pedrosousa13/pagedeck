@@ -41,7 +41,7 @@ Exhaustive enumeration lets us skip route precedence entirely. Routers with patt
 
 Filling params into a template introduces an injection path that `unusableReason` cannot catch, because it checks the finished route rather than the inputs. A slug containing `/` would invent a path segment and one containing `?` would smuggle in a query. Param values are percent-encoded per segment before interpolation. This intersects the open question in #85 about canonicalizing percent-encoding in emitted routes.
 
-#87 landed that as the segment form, ahead of any template: a `route` callback returns `string | readonly string[]`, core percent-encodes each element and joins them with `/`, and `canonicalizePath` — since ratified and shipped by #85 — decides the final spelling of the result. So the safe path is the default rather than a discipline, and #88's templates lower onto the same segment list instead of introducing an encoder of their own.
+#87 landed that as the segment form, ahead of any template: a `route` callback returns `string | readonly string[]`, core percent-encodes each element and joins them with `/`, and `canonicalizePath` (since ratified and shipped by #85) decides the final spelling of the result. So the safe path is the default rather than a discipline, and #88's templates lower onto the same segment list instead of introducing an encoder of their own.
 
 Catch-all params (`[...rest]`) cannot be enumerated from a template, so the provider supplies the segments and the param type is `string[]`. #88 either implements this or rules it out in the module docs.
 

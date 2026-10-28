@@ -20,7 +20,7 @@ build: {
 }
 ```
 
-**A site that declares nothing — or declares `false` — gets exactly the build it
+**A site that declares nothing (or declares `false`) gets exactly the build it
 got before the field existed.** No element is written and no page's bytes move.
 
 ## What it emits
@@ -32,14 +32,14 @@ One element, first in the `<head>`'s stylesheet block, on every page:
 ```
 
 That is the whole of what the framework writes. `@view-transition` is a CSS
-at-rule, so this adds no JavaScript, no chunk and no event listener — the
+at-rule, so this adds no JavaScript, no chunk and no event listener: the
 transition is run by the browser.
 
 **Both documents need it**, which is why it is on every page rather than on the
 pages you name: a cross-document transition is an agreement between the page
 being left and the page being entered, and a navigation where only one side
 carries the rule is a navigation that does not animate. It is written inline
-rather than linked for the same reason — a page that links no stylesheet at all
+rather than linked for the same reason: a page that links no stylesheet at all
 still gets it.
 
 ## Reduced motion

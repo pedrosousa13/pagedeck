@@ -25,8 +25,8 @@ field existed.** No file is written and no manifest row appears.
 
 ## `origin` is required
 
-Every `<loc>` in a sitemap is an absolute URL — the protocol has no relative
-form — so `sitemap` without `origin` is refused when the config loads rather
+Every `<loc>` in a sitemap is an absolute URL (the protocol has no relative
+form), so `sitemap` without `origin` is refused when the config loads rather
 than quietly writing nothing. The same rule `xDefault` follows, for the same
 reason: a field the build can never read is a field you can set and watch do
 nothing.
@@ -61,7 +61,7 @@ A locale that declares `prefixed: true` keeps `/de/about` on such a tree (see
 
 A locale with a `domain` emits into that domain's own tree; locales without one
 share the default tree. Each tree gets its own index, and an index names only
-the sitemaps in its own tree — the default tree's index never mentions a URL on
+the sitemaps in its own tree: the default tree's index never mentions a URL on
 another host.
 
 Every locale you declare gets a sitemap, including one that has no page yet.
@@ -79,7 +79,7 @@ Its file is an empty `<urlset>`, which is valid and says what is true.
 ```
 
 The `<loc>` is the page's canonical and the `xhtml:link` set is the page's
-`hreflang` set — the same values, from the same call, as the `<link>` tags in
+`hreflang` set: the same values, from the same call, as the `<link>` tags in
 that page's `<head>`. They cannot disagree, so there is nothing to keep in step:
 declare `xDefault` and it appears in both, translate a page into a fourth locale
 and both grow the entry.
@@ -101,7 +101,7 @@ alternate. See [Routing](./routing.md#the-404-page).
 No `<lastmod>`, `<changefreq>` or `<priority>`.
 
 `<lastmod>` states when the *page* last changed, and the only instant a build
-has is when the build ran — so a redeploy that changed nothing would tell every
+has is when the build ran, so a redeploy that changed nothing would tell every
 crawler that everything had changed. `<changefreq>` and `<priority>` are values
 the build would have to invent about your content, and the search engines that
 once read them have said they do not.
@@ -111,10 +111,10 @@ once read them have said they do not.
 `pagedeck build --incremental` regenerates a locale's sitemap only when a page moved:
 one added, one removed, one served from a new address, or one that became the
 404 page or stopped being it. That counts pages in
-the locale itself, and pages in any other locale at a path this one also routes
-— the sitemap names those in the path's `hreflang` set, so they move it too. An
+the locale itself, and pages in any other locale at a path this one also routes:
+the sitemap names those in the path's `hreflang` set, so they move it too. An
 edit to a page's content moves neither a URL nor an `hreflang` set, so the file
-is left exactly as it was — the same bytes, not rewritten with the bytes it
+is left exactly as it was: the same bytes, not rewritten with the bytes it
 already held.
 
 A sitemap the run keeps is read back off the output tree and checked against the
@@ -124,7 +124,7 @@ from the route table, so there is nothing lost that the build cannot make again.
 
 **Each tree's index is written on every run.** Its bytes depend on your locale
 set and on nothing a page can change, and the build compares no config between
-runs — so it composes the index rather than trust that you did not add a locale.
+runs, so it composes the index rather than trust that you did not add a locale.
 
 **Change `origin` or `xDefault` and run a full build.** Both go into every
 `<loc>` and every `hreflang` link, and an incremental build has no way to see

@@ -31,7 +31,7 @@ link.
 
 The items are the **pages** of that collection, not the entries of it. An entry
 the build routed no page for has no address to point a reader at, so it is not
-an item — which is what makes three things true for free:
+an item, which is what makes three things true for free:
 
 - An entry outside its
   [publication window](./publication-window.md) is absent, because it is not a
@@ -54,7 +54,7 @@ over a collection only one locale publishes.
 
 Items are newest first, by the field `item.pubDate` names. A collection that
 declares no date field gets a feed ordered by URL, which is deterministic and of
-no use to a reader — declare the date.
+no use to a reader. Declare the date.
 
 ## The mapping
 
@@ -66,7 +66,7 @@ no use to a reader — declare the date.
 | `description` | the field holding its summary. Optional. |
 | `pubDate` | the field holding its publication instant. Optional. |
 
-Store the instant as ISO-8601 in UTC (`2026-06-01T09:00:00Z`) — the same format
+Store the instant as ISO-8601 in UTC (`2026-06-01T09:00:00Z`), the same format
 a publication window wants. The build converts it to the RFC-822 form RSS asks
 for.
 
@@ -85,8 +85,8 @@ the entry.
 
 ## `origin` is required
 
-Every `<link>` and `<guid>` in a feed is an absolute URL — RSS has no relative
-form, and a reader has no base to resolve one against — so `feed` without
+Every `<link>` and `<guid>` in a feed is an absolute URL (RSS has no relative
+form, and a reader has no base to resolve one against), so `feed` without
 `origin` is refused when the config loads rather than quietly writing a file
 nobody can follow. The same rule `sitemap` and `xDefault` follow, for the same
 reason.
@@ -110,7 +110,7 @@ or per output tree. The link every page carries is absolute, so a locale served
 from its own domain points at the same file and a reader subscribing from either
 tree gets the same feed.
 
-The one file is written into the output tree that serves your `origin` — the
+The one file is written into the output tree that serves your `origin`: the
 locale whose `domain` is the origin's host, or the default tree when no locale
 claims it. So on a site whose locales all sit on domains of their own, the feed
 is inside the origin's tree and not beside them.
@@ -127,4 +127,4 @@ feeds. One format and one feed is the whole of what this field does.
 `pagedeck build --incremental` composes and writes the feed on every run, unlike a
 [sitemap](./sitemaps.md), which a partial build can keep. The file is a pure
 function of the collection's pages and their entries, so a rewritten one holds
-the bytes it already held — it costs one small write and never goes stale.
+the bytes it already held; it costs one small write and never goes stale.

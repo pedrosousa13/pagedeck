@@ -36,7 +36,7 @@ A site whose [passthrough files](./passthrough.md) already include a
 
 A browser asks for `/favicon.ico` on its own, on the first page of a session,
 whether or not anything on the page mentions it. A site that answers with a 404
-logs a console error on that page — which is a real entry in a user's console
+logs a console error on that page, which is a real entry in a user's console
 and a failed `errors-in-console` audit in Lighthouse's best-practices category.
 This is the field that answers.
 

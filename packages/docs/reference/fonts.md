@@ -175,7 +175,11 @@ existed, with the same names and bytes.
 
 A pattern that matches no page fails the build before any page renders. The
 message says the patterns match no page of this build, and lists each one with
-its face, such as `faces[0] ("Fira Sans") — "/featurs"`.
+its face, such as:
+
+```
+faces[0] ("Fira Sans") — "/featurs"
+```
 
 An empty `pages` list also fails, because it would link the face on no page.
 Leave `pages` out to link the face on every page.

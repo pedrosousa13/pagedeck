@@ -8,7 +8,7 @@ description: Write each page's title, description, social cards and structured d
 
 Every document `pagedeck build` emits has a `<head>` the framework writes. By default
 it holds a character encoding and the page's stylesheets, and nothing that
-describes the page — a title, a description or an Open Graph image would be
+describes the page: a title, a description or an Open Graph image would be
 content, and the build never invents content a site did not write.
 
 The `<body>`'s one landmark is written the same way: see [Page body](./page-body.md).
@@ -45,7 +45,7 @@ rather than declared separately, so a page's tab and its share card cannot
 disagree about what the page is called.
 
 `image` is a URL, and the build does nothing with it but write it: it is not
-resolved, not fetched and not checked — bring the URL your CMS already holds.
+resolved, not fetched and not checked. Bring the URL your CMS already holds.
 
 ## Cards the build draws
 
@@ -53,7 +53,7 @@ A build can draw the image instead of being handed one. `build.socialImages`
 takes a renderer and a per-page `inputs` callback; the build content-hashes what
 the renderer draws into `/social/`, and the URL arrives in this same `image`
 field, followed by `og:image:width`, `og:image:height` and `twitter:card`
-written from the size the renderer reported. Core ships no renderer —
+written from the size the renderer reported. Core ships no renderer;
 `@pagedeck/social-image` is the reference one. Return `undefined` from `inputs` for a
 page that gets no card.
 
@@ -99,7 +99,7 @@ once: two social images for one page is a contradiction only you can settle, and
 picking one would either discard the URL you wrote down or write a card nobody
 sees.
 
-Watch for this where the site declares a **fallback** — a `head` callback that
+Watch for this where the site declares a **fallback**: a `head` callback that
 returns the same `image` on every page, with `socialImages` asked for on the
 posts. That site is refused whole. Return `undefined` from `inputs` for the
 pages that keep the fallback, or stop returning `image` for the pages that get a
@@ -126,7 +126,7 @@ head: (page, store) => ({
 writes it as one `<script type="application/ld+json">` element. An empty array
 writes no element.
 
-The framework does not check your vocabulary — which terms schema.org defines
+The framework does not check your vocabulary: which terms schema.org defines
 is your decision, exactly as the shape of an entry is. What it guarantees is the
 encoding.
 
@@ -141,20 +141,20 @@ it, and the guarantees are worth stating exactly:
   encoded, so no value can close the attribute.
 - A **JSON-LD payload** is serialized with `JSON.stringify` and then has
   **every** `<` replaced with the JSON escape `\u003c`. Not the `</script`
-  sequence — every `<`, with no pattern involved. That is what makes a payload
+  sequence: every `<`, with no pattern involved. That is what makes a payload
   containing `</script><script>alert(1)</script>` inert by construction rather
   than by a filter being written correctly: with no `<` in the block, there is
   no input that can end it early.
 
-`\u003c` is ordinary JSON string escaping, so every consumer — including
-Google's parser — reads back the identical string. Nothing you publish is
+`\u003c` is ordinary JSON string escaping, so every consumer, including
+Google's parser, reads back the identical string. Nothing you publish is
 altered; it is spelled differently in the file.
 
 ## Metadata a component renders
 
 A component may render `<title>` and `<meta>` itself, and the icon links below. React hoists them out of
 where you wrote them, and because each island is rendered as its own fragment
-they would land in `<body>` — where a crawler reading head metadata does not look
+they would land in `<body>`, where a crawler reading head metadata does not look
 and where two islands leave two `<title>` elements. The build takes them out of
 the body and writes them into the `<head>` instead, after the fields
 `build.head` declared.
@@ -170,7 +170,7 @@ Entry /en/home: 2 claims on <title> disagree — a document holds one <title>, a
 
 A document holds one title, and there is no honest way to pick: whichever won
 would be decided by which island hydrated first, which depends on where the
-reader scrolled. Claims that **agree** are not a conflict — a shared component
+reader scrolled. Claims that **agree** are not a conflict: a shared component
 that sets a title can be on a page twice, and the head gets one element.
 
 What collides is the thing claimed, not the tag. A `<meta>` is claimed by the
@@ -186,13 +186,13 @@ first of these it carries:
 So two `og:image` elements are ordinary and two `og:title` elements are not, and
 a `<meta>` carrying none of the four is written as often as you rendered it.
 `charset` and `http-equiv` are in the list because they speak for the whole
-document too — a second charset restarts the parser, a second `refresh` decides
+document too: a second charset restarts the parser, a second `refresh` decides
 where the page goes.
 
 `build.head` is a claimant too: a component that sets a title on a page whose
 `head` callback also set one is the same conflict, and so is a component that
 contradicts the `<meta charset>` the build writes. A `<meta itemprop>` is
-microdata rather than document metadata — React leaves it where you wrote it,
+microdata rather than document metadata. React leaves it where you wrote it,
 and so does the build.
 
 A stylesheet is the one thing this does not extend to. A component that declares
@@ -225,7 +225,7 @@ Every other `<link>` stays where you rendered it.
 ## What the head carries besides this
 
 `<link rel="canonical">` and `<link rel="alternate" hreflang="…">` are written
-from your locale map rather than from this callback — you declare an origin
+from your locale map rather than from this callback: you declare an origin
 once and the build derives every page's links. See
 [Canonicals and hreflang](./canonicals-and-hreflang.md).
 
@@ -259,14 +259,14 @@ build: {
 }
 ```
 
-Each entry is **the JavaScript to run**, not an element — the head has one
+Each entry is **the JavaScript to run**, not an element. The head has one
 writer, and it writes the `<script>` around what you declare.
 
 It exists for state a page has to read before a visitor sees anything. A theme
 kept in `localStorage` is the plain case: set it in an island and the page shows
 the other theme first and then corrects itself. A returning visitor's consent
 decision is the same shape and matters more, because the script it holds back
-is somebody else's — see
+is somebody else's. See
 [Third-party scripts](./third-party-scripts.md).
 
 Four things are worth knowing before you use it:
@@ -286,7 +286,7 @@ Four things are worth knowing before you use it:
   policy that strict needs either a hash of these exact bytes or a nonce on the
   element. The build writes your entry unchanged, so the hash is one you can
   compute from your own source. What the framework does not do is either half
-  of the wiring: it mints no nonce and emits no policy — a CSP is yours to
+  of the wiring: it mints no nonce and emits no policy. A CSP is yours to
   write, for the reason [Routing](./routing.md) gives. The build records the
   hash of each of these scripts on every page's row in `manifest.json`, beside
   the hashes of the framework's other inline scripts, and

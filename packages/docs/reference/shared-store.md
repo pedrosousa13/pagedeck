@@ -11,7 +11,7 @@ them. State two islands share lives outside React, in one module, and the
 framework ships that module: `@pagedeck/islands/store`.
 
 Everything a site needs to use it comes from the same place, including Jotai's
-own `atom` and hooks. Do not add `jotai` to the site's own dependencies — a
+own `atom` and hooks. Do not add `jotai` to the site's own dependencies: a
 second copy of the library is a second `atom` factory, and atoms are compared by
 object identity.
 
@@ -85,7 +85,7 @@ hydrateStore([[cartCount, initialCount]]);
 ```
 
 Not from a hook inside a component. An atom hydrates once per store, and island
-hydration order is not controlled under the `visible` and `idle` strategies — so
+hydration order is not controlled under the `visible` and `idle` strategies, so
 a value handed over by the second island to hydrate would be dropped, and which
 island that is depends on where the reader scrolled. Hydrating from the page
 takes the question away. A second hydration of an atom keeps the first value and
@@ -111,7 +111,7 @@ function AddToCart({ sku }: { sku: string }) {
 ```
 
 **Nothing else from `jotai/utils` is re-exported, and that is deliberate rather
-than an oversight.** `useHydrateAtoms` is the one this framework replaces —
+than an oversight.** `useHydrateAtoms` is the one this framework replaces;
 `hydrateStore` above exists because a hook cannot hydrate before roots mount.
 The rest of that module builds atoms rather than reaching stores
 (`selectAtom`, `atomFamily`, `atomWithStorage`), so nothing about them would
@@ -122,7 +122,7 @@ door stays shut rather than being left half open.
 
 ## What happens if there are two stores
 
-Two stores share nothing — every component still renders, and state simply stops
+Two stores share nothing: every component still renders, and state simply stops
 crossing islands. Nothing in Jotai reports this: its own duplicate-instance
 warning lives inside `getDefaultStore()`, which this design never calls.
 
@@ -133,10 +133,10 @@ Three things stand between a site and that page:
   fault can still be fixed.
 - The store module stamps `globalThis`, so a second copy of the module adopts the
   first copy's store instead of minting one. A module evaluated twice therefore
-  yields one store, which is why a linked monorepo package under `pagedeck dev` — which
-  Vite legitimately evaluates twice — costs nothing.
-- What is left — a store the framework did not mint, delivered by the `Provider`
-  above — is checked wherever the stack is applied. `pagedeck build`, `pagedeck dev` and a
+  yields one store, which is why a linked monorepo package under `pagedeck dev` (which
+  Vite legitimately evaluates twice) costs nothing.
+- What is left (a store the framework did not mint, delivered by the `Provider`
+  above) is checked wherever the stack is applied. `pagedeck build`, `pagedeck dev` and a
   preview app all refuse it; only a shipped page reports it and carries on,
   because a canary should not take a visitor's page away.
 

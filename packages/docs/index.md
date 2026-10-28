@@ -26,7 +26,7 @@ is trying to do rather than by which part of the software it is about.
   and what was decided against.
 
 The navigation on every page lists every document in all four, under a fifth
-group — Overview — that holds this page. Diátaxis has nothing to say about a
+group, Overview, that holds this page. Diátaxis has nothing to say about a
 front page, and every site has one.
 
 ## What is here today
@@ -36,7 +36,7 @@ Two kinds of document are published here:
 
 - Pages written for this site, which are the tutorials, how-to guides and
   reference below.
-- Some of the repository's own working documents — the architecture decision
+- Some of the repository's own working documents: the architecture decision
   records, the error-message standard and the deploy recipe. They were written
   for the people building Pagedeck, and they read that way. They are
   published because they are the most accurate description of the system that

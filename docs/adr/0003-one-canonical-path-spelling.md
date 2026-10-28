@@ -13,9 +13,9 @@ Accepted. Implemented by #85 for the route table, and by #30 for the redirect
 and headers manifest, which normalizes every authored path through the same
 function rather than minting a second spelling. The three this was written as
 binding on have all since landed, and all three are bound by it: #37 (output
-trees), #40 (per-locale sitemaps — `sitemap.ts` consumes `Page.output` and calls
+trees), #40 (per-locale sitemaps: `sitemap.ts` consumes `Page.output` and calls
 the function for the one path it composes itself, its file's own) and #88
-(`href` — templates lower onto #87's segment list rather than encoding of their
+(`href`: templates lower onto #87's segment list rather than encoding of their
 own). Binding on any later emitter that writes a path.
 
 This section states the decision's reach and is maintained as work lands, the
@@ -51,7 +51,7 @@ duplicate-content pairs above intact.
 
 The spelling is not a local question. It has to agree across the route table,
 the links a page emits, its canonical tag, the per-locale sitemaps, the redirect
-and headers manifest, the edge config, and the S3 object key — `café.html` and
+and headers manifest, the edge config, and the S3 object key. `café.html` and
 `caf%C3%A9.html` are different keys to S3, and CloudFront forwards the encoded
 path. Any emitter that re-spells a path locally is free to disagree with all the
 others, and the failure it produces is a page that ships at an address nothing
@@ -61,8 +61,8 @@ route table it disagrees with is a different file.
 ## Decision
 
 **A path is spelled by `canonicalizePath` (`packages/core/src/pages.ts`) and
-nowhere else.** Every emitter that writes a path — an output tree, a sitemap
-entry, a manifest key, a rendered `href` — calls it, or consumes a `Page` whose
+nowhere else.** Every emitter that writes a path (an output tree, a sitemap
+entry, a manifest key, a rendered `href`) calls it, or consumes a `Page` whose
 `path` and `output` already went through it. No emitter percent-encodes,
 decodes, cases, or re-joins a path of its own.
 
@@ -72,26 +72,26 @@ uppercase, and an escape of an unreserved character (`ALPHA / DIGIT / "-" / "."
 / "_" / "~"`) decodes back to the character.
 
 **Only unreserved characters decode.** `/` is reserved, so `%2F` stays escaped
-and `/a%2Fb` remains one segment. This is not a detail of the encoder — it is
+and `/a%2Fb` remains one segment. This is not a detail of the encoder; it is
 what keeps the function from inventing or destroying a path segment.
 
 **The function normalizes spelling, not structure.** It does not resolve dot
 segments: called directly, `canonicalizePath("/a/%2E%2E/b")` gives `/a/../b`,
 because `%2E` is an escape of an unreserved character and decoding it is step
 three. A caller assembling a path by hand therefore resolves dot segments before
-calling it. Inside `normalizeRoute` that is already true — `removeDotSegments`
-runs first and reads the escaped spellings itself — which is why the route table
+calling it. Inside `normalizeRoute` that is already true: `removeDotSegments`
+runs first and reads the escaped spellings itself, which is why the route table
 never sees a `/a/../b`.
 
 **A path that is not a path is refused, as a `ConfigError`.** A malformed escape
 (`/a%2`, `/a%zz`) is not an address two clients agree on; a query or a
-fragment (`/a?b`, `/a#b`) is not part of a path at all — `?` and `#` are no
+fragment (`/a?b`, `/a#b`) is not part of a path at all (`?` and `#` are no
 `pchar`, and `encodeURI` passes both through, so refusing them is what stops a
 caller getting a query back from the function that is supposed to have settled
-the spelling; and a lone surrogate (`/a<U+D800>`) is no character at all, so
+the spelling); and a lone surrogate (`/a<U+D800>`) is no character at all, so
 `encodeURI` throws `URIError` on one rather than spelling it (#131). None of
 the four can reach a path except from a `route` callback, which makes it wiring
-rather than content — exit 2 under rule 7 of `docs/error-messages.md`. The
+rather than content: exit 2 under rule 7 of `docs/error-messages.md`. The
 tested order is the delimiter, then the escape, then the surrogate, in
 `unusableReason`'s order: `/x?token=…%2` cut at its `%` would quote the token
 (rule 6).
@@ -110,12 +110,12 @@ instead of shipping as two pages.
 header rule's `prefix` (#30) is a matcher, not an address: `/docs/` scopes a
 rule to what is under `/docs`, and `/docs` also matches `/docsearch`. Running
 the trailing-slash policy over one does not canonicalize it, it changes what it
-matches — under `"never"` the slash is stripped and the rule silently widens
+matches: under `"never"` the slash is stripped and the rule silently widens
 onto a sibling the author scoped out, in all three of #33's compile targets at
 once, since a prefix is precisely the matcher they agree on. So
 `normalizeOutputPrefix` shares every step of the spelling with
-`normalizeOutputPath` — the leading slash, dot segments, slash runs, and
-`canonicalizePath` itself — and stops before the policy. That is one
+`normalizeOutputPath` (the leading slash, dot segments, slash runs, and
+`canonicalizePath` itself) and stops before the policy. That is one
 normalizer with two endings, not the second normalizer this decision rejects:
 the alternative is a caller applying the policy and then patching the slash
 back on, which is a second opinion about the spelling in the place this
@@ -136,7 +136,7 @@ every unusable route in a run (rule 5) and classifies it (rule 7). The throw
 inside `canonicalizePath` is the guarantee an emitter calling it directly gets.
 
 The function is idempotent, which is what lets a path be canonicalized again
-without a caller having to track whether it already was — `collectPages`
+without a caller having to track whether it already was: `collectPages`
 normalizes `output` a second time after prefixing a locale, and that stays a
 no-op on the spelling.
 
@@ -148,7 +148,7 @@ it is what stops a slug containing `/` from inventing a segment, which
 `unusableSegmentReason` is the third reader of `LONE_SURROGATE`, and the only
 reader of that one predicate alone: `encodeURIComponent` throws on a lone
 surrogate too, so the segment form needs its own guard, taken before anything
-is encoded. The other two predicates do not apply to it — a delimiter or a
+is encoded. The other two predicates do not apply to it: a delimiter or a
 malformed escape in a segment is encoded, not refused. Templates are #88's, and
 they lower onto the same segment list, so nothing gains a second place where a
 path is spelled.
@@ -164,7 +164,7 @@ one of the three normalizations and passes malformed escapes through, so it
 leaves the pairs this decision is about unmerged.
 
 **Refuse non-ASCII paths and require transliteration.** Rejected as the
-framework overreaching on a content decision, and unnecessary — step one spells
+framework overreaching on a content decision, and unnecessary: step one spells
 them unambiguously.
 
 **Normalize per emitter, at emission.** Rejected. It is the failure mode in the
