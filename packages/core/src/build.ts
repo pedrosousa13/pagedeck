@@ -114,6 +114,7 @@ import type { PageIdentity } from "./page-patterns.js";
 import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
 import { quote, quoteIdentifier } from "./quote.js";
+import { realPath } from "./real-path.js";
 import { RenderError, renderPage } from "./render.js";
 import { DEFAULT_RETENTION_POLICY, retainManifest } from "./retention.js";
 import type { AbsorbedMetadata, ChromeMarkup, SocialCard } from "./render.js";
@@ -831,8 +832,9 @@ async function stageSite(input: {
   const foldStrategy = resolveFoldStrategy(section.foldStrategy);
 
   // Before the renders: the client build is downstream of them (#167).
+  // Rolldown names a module by its real path (#135).
   const globalCss = (section.css ?? []).map((path) =>
-    resolve(dirname(config.configPath), path),
+    realPath(resolve(dirname(config.configPath), path)),
   );
   const { facts, clientComponents, warnings } = await scanIslandFacts({
     root: dirname(config.configPath),
