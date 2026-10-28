@@ -21,6 +21,8 @@ import {
   unsignedPuts,
 } from "./deploy-urls.js";
 import type { DeployUrls } from "./deploy-urls.js";
+import { distributionTargets, updateDistributions } from "./deploy-distribution.js";
+import type { Distributions } from "./deploy-distribution.js";
 
 export const APPLY_FLAG = "--apply";
 
@@ -48,6 +50,8 @@ export interface DeployRun {
     reads: readonly string[];
     requests?: string;
   };
+  // Updated before any upload, so an upstream's routes exist before a page links to them.
+  distributions?: Distributions;
   // Read before the apply, which is not a race: the apply adds only `live`.
   retention?: {
     live: Manifest;
@@ -118,6 +122,8 @@ export async function executePlan(
   run: DeployRun,
   out: Out,
 ): Promise<number> {
+  const distributions =
+    run.distributions === undefined ? [] : distributionTargets(run.distributions, plan.edge);
   for (const line of describePlan(plan)) out(line);
 
   // Before the write, and with the plan's own grace period, so the window printed is
@@ -173,6 +179,9 @@ export async function executePlan(
     if (run.pruneAfterUpload === true && run.pruneWithheld !== undefined) {
       out(`Prune: deletes nothing — ${run.pruneWithheld}.`);
     }
+    if (run.distributions !== undefined) {
+      await updateDistributions(distributions, run.distributions, false, out);
+    }
     out(`DRY RUN: nothing was uploaded. Pass ${APPLY_FLAG} to deploy this plan.`);
     return EXIT_CODES.success;
   }
@@ -192,6 +201,9 @@ export async function executePlan(
       unsignedDeletes(run.presigned.urls, deletes);
     if (unsigned !== undefined) throw unsigned;
     target = signedUrlTarget(run.presigned.urls);
+  }
+  if (run.distributions !== undefined) {
+    await updateDistributions(distributions, run.distributions, true, out);
   }
   const report = await applyPlan(plan, {
     source: run.source,
