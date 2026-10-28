@@ -288,12 +288,12 @@ test("a global stylesheet is imported at startup beside a load island, and on th
   );
 });
 
-test("a declared island error reporter adds one import and wraps the resolve in the release", () => {
+test("a declared island error reporter adds one import and wraps the resolve, naming no release", () => {
   const plan = planEntries([TWO_ISLANDS], { modules: MODULES });
 
   expect(
     renderEntryModule(only(plan.entries), {
-      islandErrors: { release: "7c0d-release" },
+      islandErrors: true,
     }),
   ).toBe(
     [
@@ -304,7 +304,7 @@ test("a declared island error reporter adds one import and wraps the resolve in 
       `  "NewsletterSignup": () => import("@ds/newsletter-signup"),`,
       `};`,
       `hydrateIslands({`,
-      `  resolve: islandErrors.resolve("7c0d-release", (name) => modules[name]().then((module) => module.default)),`,
+      `  resolve: islandErrors.resolve((name) => modules[name]().then((module) => module.default)),`,
       `});`,
       "",
     ].join("\n"),
@@ -316,7 +316,7 @@ test("a page with no load island imports the island error reporter on the trigge
 
   expect(
     renderEntryModule(only(plan.entries), {
-      islandErrors: { release: "7c0d-release" },
+      islandErrors: true,
     }),
   ).toBe(
     [
@@ -331,7 +331,7 @@ test("a page with no load island imports the island error reporter on the trigge
       `    import("pagedeck:island-errors"),`,
       `  ]);`,
       `  hydrateIslands({`,
-      `    resolve: islandErrors.resolve("7c0d-release", (name) => modules[name]().then((module) => module.default)),`,
+      `    resolve: islandErrors.resolve((name) => modules[name]().then((module) => module.default)),`,
       `    schedule,`,
       `  });`,
       `});`,

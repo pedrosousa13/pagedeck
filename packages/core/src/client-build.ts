@@ -39,7 +39,8 @@ export interface ClientBuildInput {
   plugins?: readonly PluginOption[];
   split?: readonly ManifestChunk[];
   upstreams?: readonly UpstreamRule[];
-  islandErrors?: { module: string; release: string };
+  /** The site's reporter module, as `build.islandErrors` names it. */
+  islandErrors?: string;
 }
 
 export interface ClientBuild {
@@ -520,13 +521,11 @@ export async function buildClient(
           input.plan,
           input.origin,
           input.globalCss,
-          input.islandErrors === undefined
-            ? undefined
-            : { release: input.islandErrors.release },
+          input.islandErrors !== undefined,
         ),
         ...(input.islandErrors === undefined
           ? []
-          : [islandErrorsModule(input.origin, input.islandErrors.module)]),
+          : [islandErrorsModule(input.origin, input.islandErrors)]),
         resolver.plugin,
       ],
       // Site plugins go last on purpose: ahead of these they could claim the
@@ -688,8 +687,7 @@ function islandErrorsModule(origin: string, reporter: string): Plugin {
       return [
         `import { hydrateRoot as hydrate } from "react-dom/client";`,
         `import { reportIslandErrors } from "@pagedeck/islands/island-errors";`,
-        `import reporter from ${JSON.stringify(reporterId)};`,
-        "export const islandErrors = reportIslandErrors(hydrate, reporter);",
+        `export const islandErrors = reportIslandErrors(hydrate, () => import(${JSON.stringify(reporterId)}));`,
         "export const hydrateRoot = islandErrors.hydrateRoot;",
         "",
       ].join("\n");

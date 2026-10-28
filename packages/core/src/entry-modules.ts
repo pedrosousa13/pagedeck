@@ -8,16 +8,13 @@ export function serveEntryModules(
   plan: EntryPlan,
   origin: string,
   globalCss: readonly string[] = [],
-  islandErrors?: { release: string },
+  islandErrors = false,
 ): Plugin {
   return serveGeneratedEntries(
     new Map(
       plan.entries.map((entry) => [
         entry.id,
-        renderEntryModule(entry, {
-          globalCss,
-          ...(islandErrors === undefined ? {} : { islandErrors }),
-        }),
+        renderEntryModule(entry, { globalCss, islandErrors }),
       ]),
     ),
     origin,

@@ -242,7 +242,7 @@ export function renderEntryModule(
   options: {
     hot?: boolean;
     globalCss?: readonly string[];
-    islandErrors?: { release: string };
+    islandErrors?: boolean;
   } = {},
 ): string {
   const hot = options.hot === true;
@@ -252,8 +252,7 @@ export function renderEntryModule(
     `import ${binding.names} from ${JSON.stringify(binding.from)};`;
 
   const globalCss = options.globalCss ?? [];
-  const errors =
-    options.islandErrors === undefined ? [] : [ISLAND_ERRORS_BINDING];
+  const errors = options.islandErrors === true ? [ISLAND_ERRORS_BINDING] : [];
   const lines = deferred
     ? [`import { hydrateOnTrigger } from "${ISLANDS_STARTUP}";`]
     : [
@@ -298,9 +297,9 @@ export function renderEntryModule(
     "hydrateIslands({",
     hot
       ? "  resolve: hot.resolve,"
-      : options.islandErrors === undefined
-        ? `  resolve: ${load},`
-        : `  resolve: islandErrors.resolve(${JSON.stringify(options.islandErrors.release)}, ${load}),`,
+      : options.islandErrors === true
+        ? `  resolve: islandErrors.resolve(${load}),`
+        : `  resolve: ${load},`,
   );
   if (deferred) hydrate.push("  schedule,");
   if (entry.providers !== undefined) hydrate.push("  providers,");

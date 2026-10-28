@@ -2,7 +2,12 @@
 import { act, Component, createElement, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { IslandErrorReport, IslandErrors } from "./island-errors.js";
+import { reportIslandErrors } from "./island-errors.js";
+import type {
+  IslandErrorReport,
+  IslandErrorReporter,
+  IslandErrors,
+} from "./island-errors.js";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
@@ -43,19 +48,21 @@ const globalReports: unknown[] = vi.hoisted(() => {
 });
 
 const wiring = vi.hoisted(() => ({
-  reporter: (_report: IslandErrorReport): void => {},
+  hydrate: undefined as typeof import("react-dom/client").hydrateRoot | undefined,
   errors: undefined as IslandErrors | undefined,
 }));
 
 // What the build does for a site that declares `build.islandErrors`: the
-// runtime's `react-dom/client` is the reporting wrapper.
+// runtime's `react-dom/client` is the reporting wrapper. A fresh wrapper per
+// test, so each test loads its own reporter module and its own manifest.
 vi.mock("react-dom/client", async (importOriginal) => {
   const original = await importOriginal<typeof import("react-dom/client")>();
-  const { reportIslandErrors } = await import("./island-errors.js");
-  wiring.errors = reportIslandErrors(original.hydrateRoot, (report) => {
-    wiring.reporter(report);
-  });
-  return { ...original, hydrateRoot: wiring.errors.hydrateRoot };
+  wiring.hydrate = original.hydrateRoot;
+  return {
+    ...original,
+    hydrateRoot: ((...args) =>
+      errors().hydrateRoot(...args)) as typeof original.hydrateRoot,
+  };
 });
 
 const RELEASE = "0f6c1d2e-release";
@@ -63,6 +70,19 @@ const SENTINEL = "sentinel-prop-5b1e";
 
 let reports: IslandErrorReport[];
 let consoleErrors: unknown[];
+let fetched: string[];
+let manifest: () => Promise<Response>;
+
+function wire(
+  load: () => Promise<{ default: IslandErrorReporter }> = async () => ({
+    default: (report) => {
+      reports.push(report);
+    },
+  }),
+): void {
+  if (wiring.hydrate === undefined) throw new Error("react-dom/client not mocked");
+  wiring.errors = reportIslandErrors(wiring.hydrate, load);
+}
 
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -70,19 +90,25 @@ beforeEach(() => {
   history.replaceState(null, "", "/en/pricing/");
   reports = [];
   consoleErrors = [];
+  fetched = [];
   globalReports.length = 0;
-  wiring.reporter = (report) => {
-    reports.push(report);
-  };
+  manifest = async () =>
+    new Response(JSON.stringify({ version: 11, build: { id: RELEASE } }));
+  vi.stubGlobal("fetch", async (url: string) => {
+    fetched.push(url);
+    return manifest();
+  });
   vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
     consoleErrors.push(args[0]);
   });
+  wire();
 });
 
 afterEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = undefined;
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 interface Fixture {
@@ -103,8 +129,14 @@ function marker(fixture: Fixture): string {
 }
 
 function errors(): IslandErrors {
-  if (wiring.errors === undefined) throw new Error("react-dom/client not mocked");
+  if (wiring.errors === undefined) throw new Error("no wrapper wired");
   return wiring.errors;
+}
+
+async function reported(count: number): Promise<void> {
+  await vi.waitFor(() => {
+    expect(reports).toHaveLength(count);
+  });
 }
 
 async function hydratePage(
@@ -114,7 +146,7 @@ async function hydratePage(
   document.body.innerHTML = fixtures.map(marker).join("");
   await act(async () => {
     hydrateIslands({
-      resolve: errors().resolve(RELEASE, async (name) => {
+      resolve: errors().resolve(async (name) => {
         const found = components[name];
         if (found === undefined) throw new Error(`no ${name}`);
         return found;
@@ -154,13 +186,32 @@ function Guarded() {
   return createElement(Boundary, null, createElement(Throws));
 }
 
-test("a hydration mismatch reaches the reporter as recoverable, with page, component and release", async () => {
+const TWO_ISLANDS: readonly Fixture[] = [
+  { component: "Broken", prefix: "i1", serverHtml: "<p>server text</p>" },
+  {
+    component: "Counter",
+    prefix: "i2",
+    serverHtml: '<button type="button">count:<!-- -->0</button>',
+  },
+];
+
+async function expectCounterCounts(): Promise<void> {
+  const counter = document.body.querySelector(
+    `${ISLAND_TAG}[${ISLAND_COMPONENT_ATTRIBUTE}="Counter"]`,
+  );
+  await act(async () => {
+    counter?.querySelector("button")?.click();
+  });
+  expect(counter?.textContent).toBe("count:1");
+}
+
+test("a hydration mismatch reaches the reporter as recoverable, with page, component and the release manifest.json names", async () => {
   await hydratePage(
     [{ component: "PricingTable", prefix: "i1", serverHtml: "<p>server text</p>" }],
     { PricingTable: Mismatch },
   );
 
-  expect(reports).toHaveLength(1);
+  await reported(1);
   expect(reports[0]).toMatchObject({
     kind: "recoverable",
     page: { locale: "en", path: "/en/pricing/" },
@@ -169,6 +220,7 @@ test("a hydration mismatch reaches the reporter as recoverable, with page, compo
   });
   expect(reports[0]?.error).toBeInstanceOf(Error);
   expect(globalReports).toContain(reports[0]?.error);
+  expect(fetched).toEqual(["/manifest.json"]);
 });
 
 test("an error a boundary catches is reported as caught, and still logged", async () => {
@@ -177,10 +229,13 @@ test("an error a boundary catches is reported as caught, and still logged", asyn
     { Guarded },
   );
 
-  const caught = reports.filter((report) => report.kind === "caught");
-  expect(caught).toHaveLength(1);
-  expect(caught[0]).toMatchObject({ component: "Guarded", release: RELEASE });
-  expect(consoleErrors).toContain(caught[0]?.error);
+  await reported(1);
+  expect(reports[0]).toMatchObject({
+    kind: "caught",
+    component: "Guarded",
+    release: RELEASE,
+  });
+  expect(consoleErrors).toContain(reports[0]?.error);
 });
 
 test("an error no boundary catches is reported as uncaught, and still reaches reportError", async () => {
@@ -193,23 +248,24 @@ test("an error no boundary catches is reported as uncaught, and still reaches re
     serverHtml: "<p>server</p>",
   });
   hydrateIslands({
-    resolve: errors().resolve(RELEASE, async () => Throws as ComponentType<never>),
-  });
-  await vi.waitFor(() => {
-    expect(reports.some((report) => report.kind === "uncaught")).toBe(true);
+    resolve: errors().resolve(async () => Throws as ComponentType<never>),
   });
 
-  const uncaught = reports.filter((report) => report.kind === "uncaught");
-  expect(uncaught).toHaveLength(1);
-  expect(uncaught[0]).toMatchObject({ component: "Throws", release: RELEASE });
-  expect(globalReports).toContain(uncaught[0]?.error);
+  await reported(1);
+  expect(reports[0]).toMatchObject({
+    kind: "uncaught",
+    component: "Throws",
+    release: RELEASE,
+  });
+  expect(globalReports).toContain(reports[0]?.error);
 });
 
 test("a rejected island module is reported as module-load and still rejects", async () => {
   const failure = new TypeError("Failed to fetch dynamically imported module");
-  const resolve = errors().resolve(RELEASE, () => Promise.reject(failure));
+  const resolve = errors().resolve(() => Promise.reject(failure));
 
   await expect(resolve("Newsletter")).rejects.toBe(failure);
+  await reported(1);
   expect(reports).toEqual([
     {
       kind: "module-load",
@@ -221,29 +277,93 @@ test("a rejected island module is reported as module-load and still rejects", as
   ]);
 });
 
+test("a page with no error never asks for manifest.json, nor calls the reporter", async () => {
+  await hydratePage([TWO_ISLANDS[1] as Fixture], { Counter });
+  await expectCounterCounts();
+
+  expect(fetched).toEqual([]);
+  expect(reports).toEqual([]);
+});
+
+test("two errors at once share one manifest.json request", async () => {
+  const failure = new TypeError("Failed to fetch dynamically imported module");
+  const resolve = errors().resolve(() => Promise.reject(failure));
+
+  await Promise.allSettled([resolve("Newsletter"), resolve("Search")]);
+  await hydratePage(
+    [{ component: "PricingTable", prefix: "i1", serverHtml: "<p>server text</p>" }],
+    { PricingTable: Mismatch },
+  );
+
+  await reported(3);
+  expect(fetched).toEqual(["/manifest.json"]);
+  expect(reports.map((report) => report.release)).toEqual([
+    RELEASE,
+    RELEASE,
+    RELEASE,
+  ]);
+});
+
+test.each([
+  ["the request fails", () => Promise.reject(new TypeError("Failed to fetch"))],
+  ["the host answers 404", async () => new Response("not found", { status: 404 })],
+  [
+    "the host answers its 404 page with a 200",
+    async () => new Response("<!doctype html><title>Not found</title>"),
+  ],
+  [
+    "the document names no build",
+    async () => new Response(JSON.stringify({ version: 11 })),
+  ],
+])("a report carries no release when %s", async (_case, answer) => {
+  manifest = answer;
+  const failure = new TypeError("Failed to fetch dynamically imported module");
+
+  await expect(
+    errors().resolve(() => Promise.reject(failure))("Newsletter"),
+  ).rejects.toBe(failure);
+
+  await reported(1);
+  expect(reports[0]).toEqual({
+    kind: "module-load",
+    page: { locale: "en", path: "/en/pricing/" },
+    component: "Newsletter",
+    error: failure,
+  });
+  expect("release" in (reports[0] ?? {})).toBe(false);
+});
+
 test("a reporter that throws is not called for its own failure, and the next island still hydrates", async () => {
   const thrown = new Error("reporter is down");
   let calls = 0;
-  wiring.reporter = () => {
-    calls += 1;
-    throw thrown;
-  };
+  wire(async () => ({
+    default: () => {
+      calls += 1;
+      throw thrown;
+    },
+  }));
 
-  await hydratePage(
-    [
-      { component: "Broken", prefix: "i1", serverHtml: "<p>server text</p>" },
-      { component: "Counter", prefix: "i2", serverHtml: '<button type="button">count:<!-- -->0</button>' },
-    ],
-    { Broken: Mismatch, Counter },
-  );
+  await hydratePage(TWO_ISLANDS, { Broken: Mismatch, Counter });
 
-  expect(calls).toBe(1);
-  expect(consoleErrors).toContain(thrown);
-  const counter = [...document.body.querySelectorAll(ISLAND_TAG)][1];
-  await act(async () => {
-    counter?.querySelector("button")?.click();
+  await vi.waitFor(() => {
+    expect(consoleErrors).toContain(thrown);
   });
-  expect(counter?.textContent).toBe("count:1");
+  expect(calls).toBe(1);
+  await expectCounterCounts();
+});
+
+test("a reporter module that throws while it loads stops no island, and is logged once", async () => {
+  const thrown = new Error("reporter module failed to evaluate");
+  wire(() => Promise.reject(thrown));
+
+  await hydratePage(TWO_ISLANDS, { Broken: Mismatch, Counter });
+
+  await vi.waitFor(() => {
+    expect(consoleErrors).toContain(thrown);
+  });
+  await expectCounterCounts();
+  expect(consoleErrors.filter((logged) => logged === thrown)).toHaveLength(1);
+  expect(fetched).toEqual([]);
 });
 
 test("a report carries no props, entry or page data beyond its five fields", async () => {
@@ -259,7 +379,7 @@ test("a report carries no props, entry or page data beyond its five fields", asy
     { PricingTable: Mismatch },
   );
 
-  expect(reports).toHaveLength(1);
+  await reported(1);
   const [report] = reports;
   expect(Object.keys(report ?? {}).sort()).toEqual([
     "component",

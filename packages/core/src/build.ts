@@ -978,12 +978,7 @@ async function stageSite(input: {
       : { upstreams: section.routing.upstreams }),
     ...(section.islandErrors === undefined
       ? {}
-      : {
-          islandErrors: {
-            module: section.islandErrors,
-            release: input.stamp.id,
-          },
-        }),
+      : { islandErrors: section.islandErrors }),
   });
 
   const previewBundle =

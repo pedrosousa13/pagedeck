@@ -13,8 +13,11 @@ export interface IslandErrorReport {
   readonly page: { readonly locale: string; readonly path: string };
   /** The name the island is registered under in `build.components`. */
   readonly component: string;
-  /** The build id: the `build.id` in this build's `manifest.json`. */
-  readonly release: string;
+  /**
+   * `build.id` of the `/manifest.json` the host serves when the error is
+   * reported. Absent when the host serves no readable one.
+   */
+  readonly release?: string;
   readonly error: unknown;
 }
 
@@ -22,9 +25,7 @@ export type IslandErrorReporter = (report: IslandErrorReport) => void;
 
 export interface IslandErrors {
   readonly hydrateRoot: typeof hydrateRoot;
-  /** Also fixes the release every later report names. */
   resolve<T>(
-    release: string,
     load: (name: string) => Promise<T>,
   ): (name: string) => Promise<T>;
 }
@@ -34,6 +35,7 @@ interface Browser {
   document: { documentElement: { lang: string } };
   location: { pathname: string };
   reportError?: (error: unknown) => void;
+  fetch(url: string): Promise<{ ok: boolean; json(): Promise<unknown> }>;
 }
 const browser = globalThis as unknown as Browser;
 
@@ -43,35 +45,56 @@ function reportGlobally(error: unknown): void {
   else console.error(error);
 }
 
+const MANIFEST_PATH = "/manifest.json";
+
+function readRelease(): Promise<string | undefined> {
+  return browser
+    .fetch(MANIFEST_PATH)
+    .then((response) => (response.ok ? response.json() : undefined))
+    .then((manifest) => {
+      const id = (manifest as { build?: { id?: unknown } } | null | undefined)
+        ?.build?.id;
+      return typeof id === "string" ? id : undefined;
+    })
+    .catch(() => undefined);
+}
+
 export function reportIslandErrors(
   hydrate: typeof hydrateRoot,
-  reporter: IslandErrorReporter,
+  loadReporter: () => Promise<{ default: IslandErrorReporter }>,
 ): IslandErrors {
-  let release = "";
-  let reporting = false;
+  const reporter = loadReporter().then(
+    (module) => module.default,
+    (failure: unknown) => {
+      console.error(failure);
+      return undefined;
+    },
+  );
+  let release: Promise<string | undefined> | undefined;
   const report = (
     kind: IslandErrorKind,
     component: string,
     error: unknown,
   ): void => {
-    if (reporting) return;
-    reporting = true;
-    try {
-      reporter({
-        kind,
-        page: {
-          locale: browser.document.documentElement.lang,
-          path: browser.location.pathname,
-        },
-        component,
-        release,
-        error,
-      });
-    } catch (failure) {
-      console.error(failure);
-    } finally {
-      reporting = false;
-    }
+    const page = {
+      locale: browser.document.documentElement.lang,
+      path: browser.location.pathname,
+    };
+    void reporter.then(async (send) => {
+      if (send === undefined) return;
+      const id = await (release ??= readRelease());
+      try {
+        send({
+          kind,
+          page,
+          component,
+          ...(id === undefined ? {} : { release: id }),
+          error,
+        });
+      } catch (failure) {
+        console.error(failure);
+      }
+    });
   };
 
   return {
@@ -96,13 +119,10 @@ export function reportIslandErrors(
         },
       });
     },
-    resolve: (id, load) => {
-      release = id;
-      return (name) =>
-        load(name).catch((error: unknown) => {
-          report("module-load", name, error);
-          throw error;
-        });
-    },
+    resolve: (load) => (name) =>
+      load(name).catch((error: unknown) => {
+        report("module-load", name, error);
+        throw error;
+      }),
   };
 }

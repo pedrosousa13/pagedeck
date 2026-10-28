@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
@@ -7,9 +14,17 @@ import { buildClient } from "./client-build.js";
 import type { ClientBuild } from "./client-build.js";
 import { planEntries } from "./entries.js";
 import type { EntryPlan } from "./entries.js";
-import { ConfigError } from "./exit.js";
+import { diffOutputTrees } from "./determinism.js";
+import { ConfigError, EXIT_CODES } from "./exit.js";
 import type { Page } from "./pages.js";
 import { planTiers } from "./tiers.js";
+import {
+  ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_MODE_ATTRIBUTE,
+  ISLAND_PREFIX_ATTRIBUTE,
+  ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_TAG,
+} from "@pagedeck/islands";
 import type { IslandErrorReport } from "@pagedeck/islands";
 
 declare const document: {
@@ -79,10 +94,7 @@ function plan(): EntryPlan {
   );
 }
 
-async function build(
-  islandErrors?: string,
-  release = RELEASE,
-): Promise<ClientBuild> {
+async function build(islandErrors?: string): Promise<ClientBuild> {
   const entries = plan();
   return buildClient({
     root: FIXTURE_DIR,
@@ -94,9 +106,7 @@ async function build(
       ranking: [],
       policy: { exclude: ["Newsletter"] },
     }),
-    ...(islandErrors === undefined
-      ? {}
-      : { islandErrors: { module: islandErrors, release } }),
+    ...(islandErrors === undefined ? {} : { islandErrors }),
   });
 }
 
@@ -109,7 +119,7 @@ function javascript(built: ClientBuild): string {
 
 function marker(component: string, prefix: string, html: string): string {
   const props = JSON.stringify({ secret: SENTINEL }).replaceAll('"', "&quot;");
-  return `<fw-island data-fw-prefix="${prefix}" data-fw-component="${component}" data-fw-mode="load" data-fw-props="${props}">${html}</fw-island>`;
+  return `<${ISLAND_TAG} ${ISLAND_PREFIX_ATTRIBUTE}="${prefix}" ${ISLAND_COMPONENT_ATTRIBUTE}="${component}" ${ISLAND_MODE_ATTRIBUTE}="load" ${ISLAND_PROPS_ATTRIBUTE}="${props}">${html}</${ISLAND_TAG}>`;
 }
 
 test("a hydration mismatch and a failed island module reach the declared reporter with page, component and release", async () => {
@@ -136,6 +146,11 @@ test("a hydration mismatch and a failed island module reach the declared reporte
   (globalThis as Reports).__islandReports = reports;
   const reportError = vi.fn();
   vi.stubGlobal("reportError", reportError);
+  const fetched: string[] = [];
+  vi.stubGlobal("fetch", async (url: string) => {
+    fetched.push(url);
+    return new Response(JSON.stringify({ build: { id: RELEASE } }));
+  });
 
   // The runtime leaves a failed load's rejection unhandled, as a browser logs
   // it; the runner would fail the file on it.
@@ -175,6 +190,7 @@ test("a hydration mismatch and a failed island module reach the declared reporte
     release: RELEASE,
   });
   expect(unhandled[0]).toBe(byKind.get("module-load")?.error);
+  expect(fetched).toEqual(["/manifest.json"]);
   expect(reportError).toHaveBeenCalledWith(byKind.get("recoverable")?.error);
   for (const report of reports) {
     const { error: _error, ...context } = report;
@@ -187,29 +203,24 @@ test("a build with no reporter declared bundles none of the reporting module", a
   const declared = javascript(await build("./src/report.js"));
 
   expect(declared).toContain("__islandReports");
-  expect(declared).toContain(RELEASE);
+  expect(declared).toContain("/manifest.json");
   expect(without).not.toContain("__islandReports");
   expect(without).not.toContain("module-load");
-  expect(without).not.toContain(RELEASE);
+  expect(without).not.toContain("/manifest.json");
 }, 120_000);
 
-test("a new release renames only the page entry chunks, so the shared chunks stay cached", async () => {
-  const first = await build("./src/report.js", "release-one");
-  const second = await build("./src/report.js", "release-two");
-  const entries = new Set([
-    ...first.entryScripts.values(),
-    ...second.entryScripts.values(),
-  ]);
-  const shared = (built: ClientBuild): string[] =>
-    built.files
-      .filter((file) => !entries.has(file.path))
-      .map((file) => file.path)
-      .sort();
+test("the reporter is a chunk of its own, which the entry loads with a dynamic import", async () => {
+  const built = await build("./src/report.js");
+  const holding = built.files.filter(
+    (file) => file.kind === "js" && String(file.contents).includes("__islandReports"),
+  );
 
-  expect(shared(second)).toEqual(shared(first));
-  expect([...second.entryScripts.values()]).not.toEqual([
-    ...first.entryScripts.values(),
-  ]);
+  expect(holding).toHaveLength(1);
+  expect([...built.entryScripts.values()]).not.toContain(holding[0]?.path);
+  const name = holding[0]?.path.slice(holding[0].path.lastIndexOf("/") + 1);
+  expect(javascript(built)).toMatch(
+    new RegExp(`import\\(["'\`][^"'\`]*${name?.replaceAll(".", "\\.")}["'\`]\\)`),
+  );
 }, 120_000);
 
 test("a reporter module that does not resolve is refused with the field and its path", async () => {
@@ -221,4 +232,99 @@ test("a reporter module that does not resolve is refused with the field and its 
   expect((failure as Error).message).toBe(
     `Client build: "build.islandErrors" names "./src/missing-report.js", which did not resolve against "${ORIGIN}" — correct the path, which is read from the config's directory, or install the package it names`,
   );
+}, 120_000);
+
+const TWICE_SITE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../node_modules/.pagedeck-island-errors-twice-test/",
+);
+const CORE = import.meta.dirname;
+const FIXTURES = join(CORE, "..", "..", "fixtures", "src", "index.ts");
+
+function writeTwiceSite(): void {
+  rmSync(TWICE_SITE, { recursive: true, force: true });
+  mkdirSync(join(TWICE_SITE, "components"), { recursive: true });
+  mkdirSync(join(TWICE_SITE, "content", "en"), { recursive: true });
+  writeFileSync(
+    join(TWICE_SITE, "components", "Counter.js"),
+    `"use client";\nexport default function Counter() { return "marker-counter-1f7a"; }\n`,
+  );
+  writeFileSync(
+    join(TWICE_SITE, "report.js"),
+    `export default function report(report) { (globalThis.__islandReports ??= []).push(report); }\n`,
+  );
+  writeFileSync(
+    join(TWICE_SITE, "content", "en", "index.json"),
+    `${JSON.stringify({ rev: 1, data: { title: "Home" } })}\n`,
+  );
+  writeFileSync(
+    join(TWICE_SITE, "pagedeck.config.ts"),
+    `
+import { defineConfig } from ${JSON.stringify(join(CORE, "config.ts"))};
+import { fromCollection } from ${JSON.stringify(join(CORE, "pages.ts"))};
+import { createFixtureLoader } from ${JSON.stringify(FIXTURES)};
+
+const pages = {
+  name: "pages",
+  loader: createFixtureLoader(${JSON.stringify(join(TWICE_SITE, "content"))}),
+  schema: false,
+};
+
+export default defineConfig({
+  collections: [pages],
+  build: {
+    outDir: "./dist",
+    pages: [fromCollection(pages)],
+    components: { Counter: "./components/Counter.js" },
+    islandErrors: "./report.js",
+    content: () => ({ tree: [{ component: "Counter" }] }),
+  },
+});
+`,
+  );
+}
+
+async function runIn(cwd: string, verb: string): Promise<void> {
+  const { runCli } = await import("./cli.js");
+  const err: string[] = [];
+  const code = await runCli([verb], {
+    cwd,
+    env: {},
+    out: () => undefined,
+    err: (line) => err.push(line),
+  });
+  if (code !== EXIT_CODES.success) throw new Error(err.join("\n"));
+}
+
+afterAll(() => {
+  rmSync(TWICE_SITE, { recursive: true, force: true });
+});
+
+test("two builds of one site with a reporter declared differ only in the manifest's build stamp", async () => {
+  writeTwiceSite();
+  const dist = join(TWICE_SITE, "dist");
+  const first = join(TWICE_SITE, "first");
+  await runIn(TWICE_SITE, "sync");
+  await runIn(TWICE_SITE, "build");
+  cpSync(dist, first, { recursive: true });
+  await runIn(TWICE_SITE, "build");
+
+  const stamp = (root: string): string =>
+    (
+      JSON.parse(readFileSync(join(root, "manifest.json"), "utf8")) as {
+        build: { id: string };
+      }
+    ).build.id;
+  expect(stamp(dist)).not.toBe(stamp(first));
+  expect(diffOutputTrees(first, dist)).toEqual([]);
+
+  const index = readFileSync(join(dist, "index.html"), "utf8");
+  expect(index).toContain(`<${ISLAND_TAG}`);
+  expect(index).not.toContain(stamp(dist));
+  expect(index).not.toContain(stamp(first));
+  const assets = readdirSync(join(dist, "assets")).map((file) =>
+    readFileSync(join(dist, "assets", file), "utf8"),
+  );
+  expect(assets.some((chunk) => chunk.includes("__islandReports"))).toBe(true);
+  expect(assets.some((chunk) => chunk.includes("/manifest.json"))).toBe(true);
 }, 120_000);
