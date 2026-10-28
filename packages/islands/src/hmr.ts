@@ -15,7 +15,7 @@ export interface HotContext {
 
 export interface HotIslands {
   readonly hydrated: boolean;
-  resolve(name: string, exported?: string | null): Promise<ComponentType<never>>;
+  resolve(name: string, exported: string | null): Promise<ComponentType<never>>;
 }
 
 interface Swap {
@@ -25,7 +25,7 @@ interface Swap {
 
 interface HotName {
   readonly name: string;
-  readonly exported: string;
+  readonly key: string;
   readonly swap: Swap;
   readonly component: ComponentType<never>;
 }
@@ -59,7 +59,7 @@ async function resolve(
   mounted: Map<string, HotName>,
   modules: IslandModules,
   name: string,
-  exported: string | null | undefined,
+  exported: string | null,
 ): Promise<ComponentType<never>> {
   const key = exported ?? "default";
   const module = await modules[name]();
@@ -73,7 +73,7 @@ async function resolve(
   const swap: Swap = { current, roots: new Set() };
   const fresh = {
     name,
-    exported: key,
+    key,
     swap,
     component: hotComponent(swap) as ComponentType<never>,
   };
@@ -86,7 +86,7 @@ async function resolve(
 async function swap(modules: IslandModules, known: HotName): Promise<void> {
   const swap_ = known.swap;
   const module = await modules[known.name]();
-  const next = module[known.exported] as AnyComponent;
+  const next = module[known.key] as AnyComponent;
   if (next === swap_.current) return;
   swap_.current = next;
   for (const root of swap_.roots) root(next);

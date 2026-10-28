@@ -98,8 +98,8 @@ test("an update swaps the edited island and costs only that island's state", asy
   );
   expect(first.hydrated).toBe(false);
 
-  const counterIsland = await mount(await first.resolve("counter"));
-  const sidebarIsland = await mount(await first.resolve("sidebar"));
+  const counterIsland = await mount(await first.resolve("counter", null));
+  const sidebarIsland = await mount(await first.resolve("sidebar", null));
   await click(counterIsland);
   await click(sidebarIsland);
   await click(sidebarIsland);
@@ -138,7 +138,7 @@ test("the swap wrapper leaves the ids React generates unchanged", async () => {
 
   const hot = { data: {} };
   const hydrate = hotIslands(hot, modulesOf({ labelled: Labelled }));
-  const component = await hydrate.resolve("labelled");
+  const component = await hydrate.resolve("labelled", null);
   await act(async () => {
     hydrateRoot(container, createElement(component), {
       identifierPrefix: "p0",
