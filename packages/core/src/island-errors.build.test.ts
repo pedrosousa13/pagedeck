@@ -21,6 +21,7 @@ import { planTiers } from "./tiers.js";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
   ISLAND_EXPORT_ATTRIBUTE,
+  ISLAND_HYDRATED_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
@@ -29,7 +30,12 @@ import {
 import type { IslandErrorReport } from "@pagedeck/islands";
 
 declare const document: {
-  body: { innerHTML: string };
+  body: {
+    innerHTML: string;
+    querySelectorAll(
+      selectors: string,
+    ): ArrayLike<{ hasAttribute(name: string): boolean }>;
+  };
   documentElement: { lang: string };
 };
 declare const history: {
@@ -293,6 +299,11 @@ export function Header() {
     release: RELEASE,
   });
   expect(hydrated).toEqual(["Header"]);
+  expect(
+    Array.from(document.body.querySelectorAll(ISLAND_TAG), (marker) =>
+      marker.hasAttribute(ISLAND_HYDRATED_ATTRIBUTE),
+    ),
+  ).toEqual([true, false]);
 }, 120_000);
 
 test("a build with no reporter declared bundles none of the reporting module", async () => {
