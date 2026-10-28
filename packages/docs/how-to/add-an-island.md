@@ -54,6 +54,11 @@ components: {
 },
 ```
 
+A registered module can also hold its islands as named exports. A component
+that imports `{ Header, Footer }` from one and renders both puts two islands on
+the page, and each hydrates as its own export. A name in a page's `components`
+list stands for the module's default export.
+
 ## 2. Put it on one page
 
 A page names its components in its frontmatter. Save this as `content/greet.md`:
