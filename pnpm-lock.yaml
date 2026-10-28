@@ -359,6 +359,9 @@ importers:
 
   packages/examples:
     dependencies:
+      '@pagedeck/adapter-cloudflare-pages':
+        specifier: workspace:*
+        version: link:../adapter-cloudflare-pages
       '@pagedeck/adapter-cloudflare-worker':
         specifier: workspace:*
         version: link:../adapter-cloudflare-worker
