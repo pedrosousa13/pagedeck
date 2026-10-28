@@ -318,7 +318,7 @@ test.each([
   const failure = new TypeError("Failed to fetch dynamically imported module");
 
   await expect(
-    errors().resolve(() => Promise.reject(failure))("Newsletter"),
+    errors().resolve(() => Promise.reject(failure))("Newsletter", null),
   ).rejects.toBe(failure);
 
   await reported(1);
