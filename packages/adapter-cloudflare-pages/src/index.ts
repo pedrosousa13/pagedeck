@@ -10,13 +10,21 @@ const UPSTREAM_URL_FIX =
 const UNSUPPORTED_FIX =
   "drop the experiment, or compile cloudfront-function, the only target that compiles a split";
 
-export function cloudflarePages(): EdgeAdapter {
+export interface CloudflarePagesOptions {
+  /** Says the site's wrangler file sets `assets.run_worker_first` to `true`, so the app runs before every request; the build refuses `true` without it. */
+  runWorkerFirst?: boolean;
+}
+
+export function cloudflarePages(options: CloudflarePagesOptions = {}): EdgeAdapter {
+  const runWorkerFirst = options.runWorkerFirst ?? false;
   return defineAdapter({
     name: "cloudflare-pages",
     limits: {},
     compileTree: compileCloudflarePages,
     unsupportedFix: UNSUPPORTED_FIX,
     upstreams: { url: "refused", fix: UPSTREAM_URL_FIX },
-    checkManifest: checkWrangler,
+    checkManifest: (manifest, faults, site) => {
+      checkWrangler(manifest, faults, site, runWorkerFirst);
+    },
   });
 }

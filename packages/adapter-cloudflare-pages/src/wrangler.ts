@@ -45,7 +45,15 @@ const EVERY_REQUEST = {
     one: "wrangler file sets assets.run_worker_first to true",
     many: "wrangler files set assets.run_worker_first to true",
   },
-  fix: 'list the patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"]; true runs the app before every request, so each built page costs a Worker invocation',
+  fix: 'list the two patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"], or pass cloudflarePages({ runWorkerFirst: true }) to run the app before every request on purpose; true makes each built page cost a Worker invocation',
+};
+
+const UNMET = {
+  subject: {
+    one: "opt-in to run_worker_first: true is not met by the site's wrangler file",
+    many: "opt-ins to run_worker_first: true are not met by the site's wrangler files",
+  },
+  fix: 'set assets.run_worker_first to true in wrangler.jsonc beside pagedeck.config.ts, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says',
 };
 
 const UNROUTED = {
@@ -231,26 +239,48 @@ export function checkWrangler(
   manifest: RoutingManifest,
   faults: Fault[],
   site: AdapterSite | undefined,
+  runWorkerFirst: boolean,
 ): void {
   if (site === undefined) return;
+  const unmet = (line: string): void => {
+    if (runWorkerFirst) faults.push({ kind: "adapter", ...UNMET, line });
+  };
+  if (!NAMES.some((name) => existsSync(join(site.root, name)))) {
+    unmet(`no wrangler.json or wrangler.jsonc in ${JSON.stringify(site.root)}`);
+    return;
+  }
   const read = readWrangler(site.root, faults);
   if (read === undefined) return;
   const { file, text } = read;
+  const pagesProject = `${JSON.stringify(file)} is a Cloudflare Pages project, which has no run_worker_first`;
   const upstreams = manifest.trees.flatMap((tree) =>
     (tree.upstreams ?? []).map(({ prefix }) => ({ domain: tree.domain, prefix })),
   );
 
   if (file.endsWith(".toml")) {
-    if (upstreams.length > 0 && !isTomlPagesProject(text)) {
+    if (isTomlPagesProject(text)) unmet(pagesProject);
+    else if (upstreams.length > 0 || runWorkerFirst) {
       faults.push({ kind: "adapter", ...TOML, line: JSON.stringify(file) });
     }
     return;
   }
 
   const config = parseWrangler(file, text, faults);
-  if (config === undefined || config.pages_build_output_dir !== undefined) return;
+  if (config === undefined) return;
+  if (config.pages_build_output_dir !== undefined) {
+    unmet(pagesProject);
+    return;
+  }
 
-  const setting = config.assets?.run_worker_first ?? false;
+  const raw = config.assets?.run_worker_first;
+  if (runWorkerFirst) {
+    if (raw !== true) {
+      const sets = raw === undefined ? "sets none" : `sets it to ${JSON.stringify(raw)}`;
+      unmet(`${JSON.stringify(file)} ${sets}`);
+    }
+    return;
+  }
+  const setting = raw ?? false;
   if (setting === true) {
     faults.push({ kind: "adapter", ...EVERY_REQUEST, line: JSON.stringify(file) });
     return;

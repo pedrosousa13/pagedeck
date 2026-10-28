@@ -30,9 +30,9 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 305 messages fenced
-below, 231 are checked that way and 74 are not**, and that test lists the 74
-one by one with the reason each is out: 72 because the producer assembles the
+literal interpolates left as holes it cannot read. **Of the 306 messages fenced
+below, 231 are checked that way and 75 are not**, and that test lists the 75
+one by one with the reason each is out: 73 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
 repo. `beacon.test.ts` is the stronger arrangement over four of the 150 — it
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 230 checked messages pin 35032 of the 94715 fenced characters, and
+below**: the 231 checked messages pin 35059 of the 97700 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other — the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -871,12 +871,24 @@ request, a `run_worker_first` of another shape is no list of patterns, and
 TOML is a format the build does not parse:
 
 ```
-Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list the patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"]; true runs the app before every request, so each built page costs a Worker invocation:
+Edge target "cloudflare-pages": 1 wrangler file sets assets.run_worker_first to true — list the two patterns for each prefix in build.routing.upstreams instead, such as ["/api", "/api/*"], or pass cloudflarePages({ runWorkerFirst: true }) to run the app before every request on purpose; true makes each built page cost a Worker invocation:
   "/site/wrangler.jsonc"
 Edge target "cloudflare-pages": 1 wrangler file's assets.run_worker_first is neither true, false nor a list of patterns — write a list of patterns, the two for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]:
   "/site/wrangler.jsonc" — it is ["/api/*",3]
 Edge target "cloudflare-pages": 1 wrangler.toml cannot be checked against build.routing.upstreams — write it as wrangler.jsonc, which wrangler also reads; the build reads JSON and JSONC only, so it cannot check assets.run_worker_first in TOML:
   "/site/wrangler.toml"
+```
+
+`cloudflarePages({ runWorkerFirst: true })` says the wrangler file sets
+`run_worker_first` to `true`: every request then reaches the app, so no prefix
+can be left out and no pattern can stray, and the check only holds the file to
+the adapter's word. A file that sets anything else, no wrangler file, and a
+Cloudflare Pages project's file each break it. The fix names both directions,
+because the build cannot tell which of the two the author meant:
+
+```
+Edge target "cloudflare-pages": 1 opt-in to run_worker_first: true is not met by the site's wrangler file — set assets.run_worker_first to true in wrangler.jsonc beside pagedeck.config.ts, or remove runWorkerFirst from cloudflarePages() and list the two patterns for each prefix in build.routing.upstreams, such as ["/api", "/api/*"]; the build holds the wrangler file to what the adapter says:
+  "/site/wrangler.jsonc" sets it to ["/api","/api/*"]
 ```
 
 A file that will not read or parse carries the error as the refusal's

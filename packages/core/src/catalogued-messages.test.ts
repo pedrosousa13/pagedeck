@@ -300,6 +300,10 @@ const UNCHECKED: readonly Unchecked[] = [
     because: "assembled",
   },
   {
+    names: 'Edge target "cloudflare-pages": 1 opt-in to',
+    because: "assembled",
+  },
+  {
     names: '"build.budget" declares 1 limit',
     because: "assembled",
   },
