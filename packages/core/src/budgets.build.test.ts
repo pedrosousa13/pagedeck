@@ -24,7 +24,7 @@ const FIXTURES = join(CORE, "..", "..", "fixtures", "src", "index.ts");
 const COMPONENTS: Record<string, string> = {
   "Hero.js": `export default function Hero() { return "marker-hero-9c14"; }\n`,
   "Widget.js": `import "./Widget.css";\nexport default function Widget() { return "marker-widget-5ab7"; }\n`,
-  "Widget.css": `.fw-widget { color: rgb(1, 2, 3); }\n`,
+  "Widget.css": `.pagedeck-widget { color: rgb(1, 2, 3); }\n`,
   "Copy.js": `export default function Copy() { return "marker-copy-2fd8"; }\n`,
   "Tabs.js": `import { Children, createElement } from "react";\nexport default function Tabs({ children }) { return createElement("div", null, Children.toArray(children)[1]); }\n`,
 };
@@ -33,7 +33,7 @@ const COMPONENTS: Record<string, string> = {
 // Each declaration is distinct because Brotli collapses a repeated rule.
 const GLOBAL_CSS = Array.from(
   { length: 400 },
-  (_, index) => `.fw-pad-${String(index)} { margin: ${String(index)}px; }`,
+  (_, index) => `.pagedeck-pad-${String(index)} { margin: ${String(index)}px; }`,
 ).join("\n");
 
 let siteCount = 0;

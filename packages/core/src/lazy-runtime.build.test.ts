@@ -28,7 +28,7 @@ beforeAll(() => {
     `${FIXTURE_DIR}src/Nav.js`,
     `export default function Nav() { return "marker-nav-8d02"; }\n`,
   );
-  writeFileSync(`${FIXTURE_DIR}src/global.css`, ".fw-global { color: red; }\n");
+  writeFileSync(`${FIXTURE_DIR}src/global.css`, ".pagedeck-global { color: red; }\n");
   writeFileSync(ORIGIN, "export default {};\n");
 });
 

@@ -22,24 +22,24 @@ import "./Hero.css";
 export default function Hero({ title }) {
   return createElement(
     "section",
-    { className: "fw-hero" },
+    { className: "pagedeck-hero" },
     "marker-hero-6d31 " + title,
   );
 }
 `,
-  "Hero.css": `.fw-hero { color: rgb(31, 32, 33); }\n`,
+  "Hero.css": `.pagedeck-hero { color: rgb(31, 32, 33); }\n`,
   "Badge.js": `import { createElement } from "react";
 import "./Badge.css";
 export default function Badge({ tone }) {
   return createElement(
     "span",
-    { className: "fw-badge badge-" + tone },
+    { className: "pagedeck-badge badge-" + tone },
     "marker-badge-2f71",
   );
 }
 `,
-  "Badge.css": `.fw-badge { color: rgb(41, 42, 43); }\n`,
-  "global.css": `.fw-global { color: rgb(51, 52, 53); }\n`,
+  "Badge.css": `.pagedeck-badge { color: rgb(41, 42, 43); }\n`,
+  "global.css": `.pagedeck-global { color: rgb(51, 52, 53); }\n`,
 };
 
 const FULL_SITE = join(SITES, ".pagedeck-supplement-full-test");
@@ -210,7 +210,7 @@ function driftOf(pinned: Manifest, next: Built): DriftReport {
 }
 
 function fakeCompiler(classes: readonly string[]): string {
-  return classes.map((name) => `.${name}{--fw-supplement:1}`).join("");
+  return classes.map((name) => `.${name}{--pagedeck-supplement:1}`).join("");
 }
 
 function linkedStyles(html: string): string[] {
@@ -266,7 +266,7 @@ test("the drifted page inlines a supplement holding only its own missing rules",
 
   expect([...result.styles.keys()]).toEqual(["en /pricing"]);
   expect(result.styles.get("en /pricing")).toBe(
-    "<style>.badge-rogue{--fw-supplement:1}</style>",
+    "<style>.badge-rogue{--pagedeck-supplement:1}</style>",
   );
   expect(result.warnings).toEqual([]);
 }, 60_000);
@@ -284,9 +284,9 @@ test("a drifted build's stylesheets are the undrifted build's, byte for byte", a
   const page = second.htmlOf.get("en /pricing") ?? "";
   expect(
     headWithSupplement(page, result.styles.get("en /pricing")).join(""),
-  ).toContain("--fw-supplement");
+  ).toContain("--pagedeck-supplement");
   for (const css of second.cssOf.values()) {
-    expect(css).not.toContain("--fw-supplement");
+    expect(css).not.toContain("--pagedeck-supplement");
   }
 }, 60_000);
 

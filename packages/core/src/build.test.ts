@@ -209,7 +209,7 @@ export default function Wrap() {
     );
   }
   if (options.globalCss === true || options.staticCss === true) {
-    writeFileSync(join(ROOT, "global.css"), `.fw-global { color: red; }\n`);
+    writeFileSync(join(ROOT, "global.css"), `.pagedeck-global { color: red; }\n`);
   }
   if (options.staticCss === true) {
     writeFileSync(
@@ -961,7 +961,7 @@ test("a site with no islands compiles and links its global stylesheet, and ships
       expect.stringMatching(/^\/assets\/[^/]+\.css$/),
     ]);
     const href = (links[0] as RegExpMatchArray)[1] as string;
-    expect(readFileSync(join(dist, href), "utf8")).toContain(".fw-global");
+    expect(readFileSync(join(dist, href), "utf8")).toContain(".pagedeck-global");
     expect(html).not.toContain("<script");
   }
   const manifest = readManifest(
@@ -1033,7 +1033,7 @@ test("a site that hydrates one component compiles its global stylesheet", async 
   ).filter((url) => url.endsWith(".css"));
   expect(sheets).toHaveLength(1);
   const sheet = readFileSync(join(dir, "dist", sheets[0] as string), "utf8");
-  expect(sheet).toContain(".fw-global");
+  expect(sheet).toContain(".pagedeck-global");
 }, 120_000);
 
 function eagerJoin(input: {

@@ -88,7 +88,7 @@ import { SEARCH_ATTRIBUTE } from "@pagedeck/core/tree";
 
 export const UNINDEXED = { [SEARCH_ATTRIBUTE]: "ignore" } as const;
 
-<nav className="fw-docnav" aria-label="Documentation" {...UNINDEXED}>
+<nav className="pagedeck-docnav" aria-label="Documentation" {...UNINDEXED}>
 ```
 
 Only the value `"ignore"` has this effect. An empty value or any other value is

@@ -487,9 +487,12 @@ after the `@layer` statement in its `styles/global.css`, relative because a
 @import "../../brand/brand.css";
 ```
 
+Every token is a `--pagedeck-*` custom property: the `fg`, `bg`, `ring` and
+`rule` colours, and the `font`, `text`, `leading`, `space`, `radius` and
+`ring-width`/`ring-offset` families (#125).
 `packages/brand/src/brand.test.ts` holds every text/surface pair to WCAG AA in
-both themes, picking pairs by token name, so a new `--fw-fg-*` or `--fw-bg-*`
-is checked the day it lands. A site checks its own sheet with `colourFaults`
+both themes, picking pairs by token name, so a new `--pagedeck-fg-*` or
+`--pagedeck-bg-*` is checked the day it lands. A site checks its own sheet with `colourFaults`
 and `pairFaults`.
 
 ## The documentation

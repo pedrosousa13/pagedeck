@@ -25,28 +25,28 @@ import "./Hero.css";
 export default function Hero({ title }) {
   return createElement(
     "section",
-    { className: "fw-hero" },
+    { className: "pagedeck-hero" },
     "marker-hero-8c40 " + title,
   );
 }
 `,
-  "Hero.css": `.fw-hero { color: rgb(31, 32, 33); }\n`,
+  "Hero.css": `.pagedeck-hero { color: rgb(31, 32, 33); }\n`,
   "Badge.js": `import { createElement } from "react";
 import "./Badge.css";
 export default function Badge({ tone }) {
   return createElement(
     "span",
-    { className: "fw-badge badge-" + tone },
+    { className: "pagedeck-badge badge-" + tone },
     "marker-badge-8c40",
   );
 }
 `,
-  "Badge.css": `.fw-badge { color: rgb(41, 42, 43); }\n`,
-  "global.css": `.fw-global { color: rgb(51, 52, 53); }\n`,
+  "Badge.css": `.pagedeck-badge { color: rgb(41, 42, 43); }\n`,
+  "global.css": `.pagedeck-global { color: rgb(51, 52, 53); }\n`,
 };
 
 const FAKE_COMPILER =
-  'driftSupplement: (classes) => classes.map((name) => "." + name + "{--fw-supplement:1}").join(""),';
+  'driftSupplement: (classes) => classes.map((name) => "." + name + "{--pagedeck-supplement:1}").join(""),';
 
 const roots: string[] = [];
 
@@ -216,7 +216,7 @@ test("a rogue class in a re-rendered page inlines a supplement on that page alon
 
   const pricing = readFileSync(join(second, "pricing", "index.html"), "utf8");
   expect(pricing).toContain("badge-rogue");
-  expect(pricing).toContain("<style>.badge-rogue{--fw-supplement:1}</style>");
+  expect(pricing).toContain("<style>.badge-rogue{--pagedeck-supplement:1}</style>");
 
   expect(readFileSync(join(second, "index.html"), "utf8")).not.toMatch(
     /<style[\s>]/,
@@ -230,7 +230,7 @@ test("a drifted build's stylesheets are the undrifted build's, byte for byte", a
   expect(sheets.size).toBeGreaterThan(1);
   expect(sheets).toEqual(stylesheets(before));
   for (const css of sheets.values())
-    expect(css).not.toContain("--fw-supplement");
+    expect(css).not.toContain("--pagedeck-supplement");
 }, 360_000);
 
 test("a drifted build within the threshold records no full rebuild request", async () => {

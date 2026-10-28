@@ -12,15 +12,15 @@ export const STYLING_OPTIONS: Readonly<Record<string, StylingField>> = {
   "hero.theme": {
     fallback: "light",
     values: {
-      light: "bg-(--fw-bg-raised) text-(--fw-fg)",
-      dark: "bg-(--fw-fg) text-(--fw-bg)",
+      light: "bg-(--pagedeck-bg-raised) text-(--pagedeck-fg)",
+      dark: "bg-(--pagedeck-fg) text-(--pagedeck-bg)",
     },
   },
   "button.variant": {
     fallback: "primary",
     values: {
-      primary: "bg-(--fw-bg-accent) text-(--fw-fg-on-accent)",
-      secondary: "bg-(--fw-bg-subtle) text-(--fw-fg)",
+      primary: "bg-(--pagedeck-bg-accent) text-(--pagedeck-fg-on-accent)",
+      secondary: "bg-(--pagedeck-bg-subtle) text-(--pagedeck-fg)",
       ghost: "bg-transparent text-inherit underline",
     },
   },

@@ -659,7 +659,7 @@ test("a page criticalCss flags inlines its font stylesheets ahead of its other s
     join(dir, "components", "Hero.js"),
     `import "./Hero.css";\n${COMPONENT}`,
   );
-  writeFileSync(join(dir, "components", "Hero.css"), `.fw-hero { color: rgb(6, 1, 1); }\n`);
+  writeFileSync(join(dir, "components", "Hero.css"), `.pagedeck-hero { color: rgb(6, 1, 1); }\n`);
   await ok(dir, "sync");
   await ok(dir, "build");
   const dist = join(dir, "dist");
@@ -681,7 +681,7 @@ test("a page criticalCss flags inlines its font stylesheets ahead of its other s
     readFileSync(join(dist, scoped.slice(1)), "utf8"),
   ]);
   expect(styles).toHaveLength(3);
-  expect(styles[2]).toContain(".fw-hero");
+  expect(styles[2]).toContain(".pagedeck-hero");
 }, 120_000);
 
 test("a face's page pattern that matches no page fails the build, naming the face and the pattern", async () => {

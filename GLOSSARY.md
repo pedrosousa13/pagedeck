@@ -2984,8 +2984,8 @@ collide with another library, and the bytes it would save vanish under Brotli.
 
 No old spelling is accepted, aliased or named in a message: there are no users
 and no deployed page to keep hydrating. ADRs, research notes and specs keep the
-old names as a record. The shared brand's `--fw-*` custom properties and the
-sites' `fw-` class names are private, and #125 renames them. Ruled on #89.
+old names as a record. The shared brand's custom properties, private to this
+repository, took the same prefix in #125: `--pagedeck-*`. Ruled on #89.
 
 ### An example runs in process, and a contract it cannot show is listed
 

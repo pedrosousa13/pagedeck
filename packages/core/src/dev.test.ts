@@ -112,7 +112,7 @@ function writeSite(): void {
   mkdirSync(SOURCE, { recursive: true });
   mkdirSync(dirname(GLOBAL_CSS), { recursive: true });
   mkdirSync(join(CONTENT, "en"), { recursive: true });
-  writeFileSync(GLOBAL_CSS, `.fw-global-3b91 { color: rgb(1, 2, 3); }\n`);
+  writeFileSync(GLOBAL_CSS, `.pagedeck-global-3b91 { color: rgb(1, 2, 3); }\n`);
   writeFileSync(COUNTER, counterSource("counter-before-1f4c"));
   writeFileSync(
     join(SOURCE, "Prose.js"),
@@ -669,7 +669,7 @@ test("a page links the site's declared global stylesheet, and it serves", async 
   });
   expect(sheet.status).toBe(200);
   expect(sheet.headers.get("content-type")).toContain("text/css");
-  expect(await sheet.text()).toContain(".fw-global-3b91");
+  expect(await sheet.text()).toContain(".pagedeck-global-3b91");
 }, 60_000);
 
 test("a page carries the third-party script layer the site declared", async () => {

@@ -42,9 +42,9 @@ test("a criticalCss value that is not a flag is quoted as the author typed it", 
 });
 
 const CSS = new Map([
-  ["/assets/core.css", ".fw-hero{color:red}"],
-  ["/assets/page.css", ".fw-panel{color:blue}"],
-  ["/assets/other.css", ".fw-chart{color:green}"],
+  ["/assets/core.css", ".pagedeck-hero{color:red}"],
+  ["/assets/page.css", ".pagedeck-panel{color:blue}"],
+  ["/assets/other.css", ".pagedeck-chart{color:green}"],
 ]);
 
 test("a flagged page's sheets become style elements in link order, byte for byte", () => {
@@ -57,8 +57,8 @@ test("a flagged page's sheets become style elements in link order, byte for byte
   );
 
   expect(tags.get("en /landing")).toEqual([
-    "<style>.fw-hero{color:red}</style>",
-    "<style>.fw-panel{color:blue}</style>",
+    "<style>.pagedeck-hero{color:red}</style>",
+    "<style>.pagedeck-panel{color:blue}</style>",
   ]);
   expect(tags.has("en /pricing")).toBe(false);
 });

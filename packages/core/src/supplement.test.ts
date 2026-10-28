@@ -24,7 +24,7 @@ function page(locale: string, path: `/${string}`, entry: string): Page {
 const PRICING = page("en", "/pricing", "pricing");
 const HOME = page("en", "/", "home");
 
-const PINNED = ["fw-hero", "fw-nav"];
+const PINNED = ["pagedeck-hero", "pagedeck-nav"];
 
 function ownEntry(one: Page): AffectedReason {
   return {
@@ -48,7 +48,7 @@ function report(pages: readonly [Page, string][]): DriftReport {
 }
 
 function fakeCompiler(classes: readonly string[]): string {
-  return classes.map((name) => `.${name}{--fw-supplement:1}`).join("");
+  return classes.map((name) => `.${name}{--pagedeck-supplement:1}`).join("");
 }
 
 test("a build with nothing drifted compiles nothing and asks the compiler nothing", async () => {
@@ -56,8 +56,8 @@ test("a build with nothing drifted compiles nothing and asks the compiler nothin
 
   const result = await compileSupplements({
     report: report([
-      [PRICING, '<div class="fw-hero"></div>'],
-      [HOME, '<div class="fw-nav"></div>'],
+      [PRICING, '<div class="pagedeck-hero"></div>'],
+      [HOME, '<div class="pagedeck-nav"></div>'],
     ]),
     compile,
   });
@@ -72,15 +72,15 @@ test("a drifted page inlines a supplement holding only its own missing classes",
 
   const result = await compileSupplements({
     report: report([
-      [PRICING, '<div class="fw-hero badge-rogue"></div>'],
-      [HOME, '<div class="fw-nav"></div>'],
+      [PRICING, '<div class="pagedeck-hero badge-rogue"></div>'],
+      [HOME, '<div class="pagedeck-nav"></div>'],
     ]),
     compile,
   });
 
   expect(compile.mock.calls).toEqual([[["badge-rogue"]]]);
   expect([...result.styles]).toEqual([
-    ["en /pricing", "<style>.badge-rogue{--fw-supplement:1}</style>"],
+    ["en /pricing", "<style>.badge-rogue{--pagedeck-supplement:1}</style>"],
   ]);
   expect(result.warnings).toEqual([]);
 });
@@ -92,7 +92,7 @@ test("an async compiler is awaited", async () => {
   });
 
   expect(result.styles.get("en /pricing")).toBe(
-    "<style>.badge-rogue{--fw-supplement:1}</style>",
+    "<style>.badge-rogue{--pagedeck-supplement:1}</style>",
   );
 });
 
@@ -117,7 +117,7 @@ test("a supplement is written into the head after the sheets the page links", as
     '<meta property="og:title" content="Pricing">',
     '<link rel="stylesheet" href="/assets/core.css">',
     '<link rel="stylesheet" href="/assets/pricing.css">',
-    "<style>.badge-rogue{--fw-supplement:1}</style>",
+    "<style>.badge-rogue{--pagedeck-supplement:1}</style>",
   ]);
 });
 
