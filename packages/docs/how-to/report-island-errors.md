@@ -48,9 +48,9 @@ build: {
 }
 ```
 
-The module runs in the browser, bundled with the islands runtime. If it sends
-reports to another origin, add that origin to the `connect-src` of your
-`Content-Security-Policy`.
+The module runs in the browser, as a chunk of its own that the islands runtime
+imports when it loads. If it sends reports to another origin, add that origin
+to the `connect-src` of your `Content-Security-Policy`.
 
 `pagedeck build` wires the reporter in. `pagedeck dev` does not: there, React's
 own development messages are in the console.
@@ -63,7 +63,7 @@ own development messages are in the console.
 | `page.locale` | the page's locale, as its `<html lang>` carries it |
 | `page.path` | the URL path the browser loaded, such as `/en/pricing/` |
 | `component` | the island's name in `build.components` |
-| `release` | the build id of the build that wrote the page |
+| `release` | the `build.id` in the `/manifest.json` the host serves when the error is reported, or absent (see [The release](#the-release)) |
 | `error` | the value that was thrown or rejected, as React or the browser handed it over |
 
 A report holds no props, no content entry, no cookie and no storage. The
@@ -90,32 +90,66 @@ another island from hydrating.
   `setTimeout` callback or a rejected promise inside an island, because React
   does not see those errors. The browser reports them to `window`'s `error`
   and `unhandledrejection` events.
-- **Failures before the runtime loads.** The reporter loads with the islands
-  runtime. If the page's entry chunk, the runtime chunk or the reporter itself
-  fails to load, no reporter exists to call. For a page whose islands are all
-  `idle` or `visible`, the runtime loads on the first trigger, so the same is
-  true before that trigger fires.
+- **Failures before the runtime loads.** The reporter loads when the islands
+  runtime loads. If the page's entry chunk, the runtime chunk or the reporter
+  itself fails to load, no reporter exists to call. For a page whose islands
+  are all `idle` or `visible`, the runtime loads on the first trigger, so the
+  same is true before that trigger fires.
 - **A marker the runtime cannot read.** A hand-written or damaged
-  `<fw-island>` is reported to the console by the runtime and not to the
+  `<pagedeck-island>` is reported to the console by the runtime and not to the
   reporter, because it names no island the build registered.
 - **Pages that never ran.** A reader whose browser does not run JavaScript
   sends nothing.
 
+## The release
+
+The page does not carry its build id, so two builds of one commit write the
+same chunks and pages. When an error is reported, the reporting code requests
+`/manifest.json` from the page's origin, the file `pagedeck build` writes at
+the root of its output, and takes `release` from its `build.id`. It requests
+the file once per page, and only when an error is reported: a page with no
+error makes no request. Errors reported at the same time share the request.
+
+The report carries no `release` field when the host does not serve that file,
+the request fails, or the answer is not the manifest:
+
+- **The edge artifacts of every adapter Pagedeck ships answer
+  `/manifest.json` with a 404**, because it is the deploy's own record of the
+  site ([Deploy a site](deploy-a-site.md#1-upload-the-output-directory)). A
+  site served through one gets reports with no `release`. A plain static host
+  that serves the output directory as it is serves the file.
+- **A `Content-Security-Policy` whose `connect-src`, or `default-src` when it
+  has no `connect-src`, does not allow `'self'`** refuses the request.
+
+`release` names the build the host serves when the error is reported. That is
+the build that served the page, unless a deploy happened while the page was
+open: then it names the new build. A `module-load` error for a chunk a deploy
+removed while the page was open is that case. To match a
+report without `release`, or to check one, use the chunk names in the stack,
+as below.
+
 ## Console behaviour
 
-The reporter is called first. Then each error is logged as React logs it with
-no reporter: a `recoverable` or `uncaught` error goes to `reportError`, which
-logs it as an uncaught error, and a `caught` error goes to `console.error`. A
-`module-load` error is rethrown, so the browser still logs the rejected import.
+Each error is logged first, as React logs it with no reporter: a
+`recoverable` or `uncaught` error goes to `reportError`, which logs it as an
+uncaught error, and a `caught` error goes to `console.error`. A
+`module-load` error is rethrown, so the browser still logs the rejected
+import.
+
+The reporter is called after that, asynchronously: once its module has loaded
+and `/manifest.json` has answered. A report that is still waiting when the
+reader leaves the page is not sent. Send it with `navigator.sendBeacon` or
+`fetch` with `keepalive: true`, so a report already sent is not lost when the
+page closes.
 
 If the reporter throws, its error goes to `console.error` and is not reported,
 so a broken reporter never calls itself. The island's own error is still
 logged, and every other island still hydrates.
 
-The reporter module is imported with the runtime, so an error thrown at its top
-level, while the module loads, stops the runtime and every island on the page.
-Keep the module's top level to declarations, and do the work inside the
-function it exports.
+The reporter module is loaded with a dynamic import. If it throws at its top
+level while it loads, or its chunk fails to load, that error goes to
+`console.error` once, no report is sent from that page, and every island still
+hydrates.
 
 ## Match a report to its build
 
@@ -125,12 +159,13 @@ function it exports.
 [the deploy recipe](../deploy-recipe.md) prepares for a site with an app. To
 investigate a report:
 
-1. Take `release` from the report, and find the build with that id: the
-   release directory `releases/<release>/`, or
-   `.pagedeck/manifests/<release>.json`, which lists every file that build
-   wrote.
-2. Read the file names in the error's stack: each frame names a chunk under
+1. Read the file names in the error's stack: each frame names a chunk under
    `/assets/`, with a line and a column.
+2. Find the build that wrote that chunk. With `release`, it is the release
+   directory `releases/<release>/`, or `.pagedeck/manifests/<release>.json`.
+   Check that the manifest lists the chunk the stack names. Without
+   `release`, or when the manifest does not list the chunk, search the kept
+   manifests for the chunk's name: each lists every file its build wrote.
 3. Open that chunk in the release's `site/assets/`, at that line and column.
    The chunk name holds a content hash, so the file in the release is the file
    the browser ran.
@@ -146,12 +181,9 @@ to find the statement.
 A site that does not declare `build.islandErrors` ships the same bytes as
 before the field existed: no chunk, page or loader changes.
 
-A site that declares it ships about 430 bytes Brotli of reporting code, plus
-its own reporter module, loaded with the islands runtime. The
+A site that declares it ships about 540 bytes Brotli of reporting code with
+the islands runtime, and its own reporter module as a separate chunk, which
+the runtime requests when it loads. The
 [JavaScript budget](../reference/javascript-budgets.md) of each page with an
-island counts it.
-
-The release id is written into each page's entry chunk. A new build has a new
-id, so every build renames the entry chunks and changes the HTML of each page
-with an island. The chunks the entries share, the runtime and the components,
-keep their names from build to build, so a browser keeps them in its cache.
+island counts the reporting code. The request for `/manifest.json` happens
+only when an error is reported.
