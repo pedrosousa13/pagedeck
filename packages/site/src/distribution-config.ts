@@ -117,6 +117,35 @@ function readFragments(fragments: readonly DistributionFragment[]): Record<Kind,
   return ours;
 }
 
+/**
+ * Whether `have` holds everything `want` sets, in any order: a field the service filled in
+ * with its default, or a list it reordered, is no change.
+ */
+function covers(have: XmlElement, want: XmlElement): boolean {
+  if (have.name !== want.name) return false;
+  if (want.children.length === 0) return have.children.length === 0 && have.text === want.text;
+  const pool = [...have.children];
+  return want.children.every((one) => {
+    const at = pool.findIndex((candidate) => covers(candidate, one));
+    if (at === -1) return false;
+    pool.splice(at, 1);
+    return true;
+  });
+}
+
+// The children in the order `like` holds them, at every depth; a name `like` lacks keeps the
+// reference's alphabetical place after them.
+function orderLike(node: XmlElement, like: XmlElement | undefined): XmlElement {
+  if (like === undefined || node.children.length === 0) return node;
+  const names = [...new Set(like.children.map((one) => one.name))];
+  const rank = (name: string): number => {
+    const at = names.indexOf(name);
+    return at === -1 ? names.length : at;
+  };
+  const sorted = [...node.children].sort((a, b) => rank(a.name) - rank(b.name));
+  return { ...node, children: sorted.map((one) => orderLike(one, like.children.find((t) => t.name === one.name))) };
+}
+
 const keyOf = (kind: Kind, node: XmlElement): string => text(child(node, LISTS[kind].key));
 
 function isOurs(kind: Kind, node: XmlElement, fragmentErrors: ReadonlySet<string>): boolean {
@@ -131,17 +160,23 @@ function itemsOf(root: XmlElement, kind: Kind): XmlElement[] {
   return items === undefined ? [] : children(items, LISTS[kind].member);
 }
 
+// Items and Quantity stay where the config put them.
 function setItems(root: XmlElement, kind: Kind, members: XmlElement[]): void {
   let list = root.children.find((one) => one.name === LISTS[kind].list);
   if (list === undefined) {
     if (members.length === 0) return;
-    list = element(LISTS[kind].list, [element("Items", []), element("Quantity", "0")]);
+    list = element(LISTS[kind].list, []);
     root.children.push(list);
   }
-  const rest = list.children.filter((one) => one.name !== "Items" && one.name !== "Quantity");
+  const items = element("Items", members);
   const quantity = element("Quantity", String(members.length));
-  list.children =
-    members.length === 0 ? [...rest, quantity] : [element("Items", members), quantity, ...rest];
+  const next = list.children.flatMap((one) => {
+    if (one.name === "Items") return members.length === 0 ? [] : [items];
+    return one.name === "Quantity" ? [quantity] : [one];
+  });
+  if (!next.includes(quantity)) next.push(quantity);
+  if (members.length > 0 && !next.includes(items)) next.splice(next.indexOf(quantity), 0, items);
+  list.children = next;
 }
 
 /**
@@ -218,7 +253,6 @@ export function planDistribution(
   // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html : the
   // request's root carries this namespace, and the response syntax shows none.
   if (!root.attributes.some(([key]) => key === "xmlns")) root.attributes.push(["xmlns", NAMESPACE]);
-  const before = writeXml(root);
   const ours = readFragments(fragments);
   const fragmentErrors = new Set(ours.error.map((one) => keyOf("error", one)));
   const prefixes = ours.behavior
@@ -229,27 +263,39 @@ export function planDistribution(
   if (faults.length > 0) throw new ConfigError(faults.join("\n"));
 
   const diff: string[] = [];
+  let reordered = false;
   const operator: Record<Kind, number> = { origin: 0, behavior: 0, error: 0 };
   for (const kind of KINDS) {
     const current = itemsOf(root, kind);
     const kept = current.filter((one) => !isOurs(kind, one, fragmentErrors));
     operator[kind] = kept.length;
     const was = new Map(
-      current.filter((one) => isOurs(kind, one, fragmentErrors)).map((one) => [keyOf(kind, one), writeXml(one)]),
+      current.filter((one) => isOurs(kind, one, fragmentErrors)).map((one) => [keyOf(kind, one), one]),
     );
     const label = `  ${kind.padEnd(10)}`;
-    for (const one of ours[kind]) {
+    const merged = ours[kind].map((one) => {
       const key = keyOf(kind, one);
       const old = was.get(key);
-      if (old === undefined) diff.push(`${label}+ ${key}`);
-      else if (old !== writeXml(one)) diff.push(`${label}~ ${key}`);
       was.delete(key);
-    }
+      if (old === undefined) {
+        diff.push(`${label}+ ${key}`);
+        return orderLike(one, current[0]);
+      }
+      if (covers(old, one)) return old;
+      diff.push(
+        kind === "error"
+          ? `${label}~ ${key} (the distribution's own ${key} response is replaced, since the site declares ${key})`
+          : `${label}~ ${key}`,
+      );
+      return orderLike(one, old);
+    });
     for (const key of was.keys()) diff.push(`${label}- ${key}`);
-    setItems(root, kind, [...ours[kind], ...kept]);
+    const members = [...merged, ...kept];
+    if (members.some((one, at) => one !== current[at])) reordered = true;
+    setItems(root, kind, members);
   }
   const config = writeXml(root);
-  if (config === before) {
+  if (diff.length === 0 && !reordered) {
     return {
       config,
       changed: false,

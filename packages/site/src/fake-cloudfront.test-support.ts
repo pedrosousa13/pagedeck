@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
+import { element, readXml, writeXml } from "./distribution-xml.js";
+import type { XmlElement } from "./distribution-xml.js";
 
 export const RECORDED = readFileSync(new URL("./distribution-config.fixture.xml", import.meta.url), "utf8")
   .replace(/<!--[\s\S]*?-->\n/, "");
@@ -24,6 +26,42 @@ export interface FakeCloudFront {
 
 function errorBody(code: string): string {
   return `<?xml version="1.0"?><ErrorResponse xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/"><Error><Type>Sender</Type><Code>${code}</Code><Message>${code} for AKIDTEST</Message></Error><RequestId>r</RequestId></ErrorResponse>`;
+}
+
+// Fields the GetDistributionConfig response syntax lists that a fragment leaves out
+// (https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_GetDistributionConfig.html).
+// The values are invented: the reference gives no sample response.
+const DEFAULTED: Readonly<Record<string, readonly [string, string | XmlElement[]][]>> = {
+  Origin: [
+    ["ConnectionAttempts", "3"],
+    ["ConnectionTimeout", "10"],
+    ["OriginShield", [element("Enabled", "false")]],
+  ],
+  CustomOriginConfig: [
+    ["OriginKeepaliveTimeout", "5"],
+    ["OriginReadTimeout", "30"],
+  ],
+  CacheBehavior: [
+    ["SmoothStreaming", "false"],
+    ["FieldLevelEncryptionId", ""],
+    ["LambdaFunctionAssociations", [element("Quantity", "0")]],
+  ],
+};
+
+// The config as the service answers it after an update: each defaulted field filled in, and
+// every element's children in an order of its own (here by name, descending), except the members of an
+// Items list, whose order is the config's meaning.
+export function asStored(xml: string): string {
+  const reshape = (node: XmlElement): void => {
+    for (const [name, value] of DEFAULTED[node.name] ?? []) {
+      if (!node.children.some((one) => one.name === name)) node.children.push(element(name, value));
+    }
+    for (const one of node.children) reshape(one);
+    if (node.name !== "Items") node.children.sort((a, b) => (a.name < b.name ? 1 : a.name > b.name ? -1 : 0));
+  };
+  const root = readXml(xml, "PUT body");
+  reshape(root);
+  return writeXml(root);
 }
 
 // A stand-in for CloudFront's API: SigV4 headers present and scoped to cloudfront in
@@ -75,7 +113,7 @@ export async function startFakeCloudFront(ids: readonly string[]): Promise<FakeC
           reply(412, errorBody("PreconditionFailed"));
           return;
         }
-        fake.stored.set(id, { xml: body, version: current.version + 1 });
+        fake.stored.set(id, { xml: asStored(body), version: current.version + 1 });
         reply(200, "<Distribution/>", { etag: `E${String(current.version + 1)}` });
         return;
       }

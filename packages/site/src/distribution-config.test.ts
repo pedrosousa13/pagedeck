@@ -7,6 +7,8 @@ import { cloudfront } from "@pagedeck/adapter-cloudfront";
 import { matchesUnder, planDistribution } from "./distribution-config.js";
 import type { DistributionFragment } from "./distribution-config.js";
 import { child, children, readXml, text } from "./distribution-xml.js";
+import type { XmlElement } from "./distribution-xml.js";
+import { asStored } from "./fake-cloudfront.test-support.js";
 
 const RECORDED = readFileSync(new URL("./distribution-config.fixture.xml", import.meta.url), "utf8")
   .replace(/<!--[\s\S]*?-->\n/, "");
@@ -131,6 +133,41 @@ test("the config sent carries the 2020-05-31 namespace even when the one read di
   const bare = RECORDED.replace(' xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/"', "");
   const plan = planDistribution(bare, fragments(["/api/"]), "E2EXAMPLE");
   expect(plan.config).toContain('<DistributionConfig xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">');
+});
+
+function origin(xml: string, id: string): XmlElement {
+  const items = child(child(readXml(xml, "test"), "Origins"), "Items");
+  return children(items, "Origin").find((one) => text(child(one, "Id")) === id) as XmlElement;
+}
+
+const names = (node: XmlElement): string[] => node.children.map((one) => one.name);
+
+test("a config the service reordered and filled with defaults still holds the fragments", () => {
+  const once = planDistribution(RECORDED, fragments(["/api/"]), "E2EXAMPLE");
+  const stored = asStored(once.config);
+  expect(stored).toContain("<SmoothStreaming>false</SmoothStreaming>");
+  const twice = planDistribution(stored, fragments(["/api/"]), "E2EXAMPLE");
+  expect(twice.changed).toBe(false);
+});
+
+test("a new item's children take the order of an item of its kind in the config read", () => {
+  const stored = asStored(planDistribution(RECORDED, fragments(["/api/"]), "E2EXAMPLE").config);
+  const plan = planDistribution(stored, fragments(["/api/", "/new/"]), "E2EXAMPLE");
+  const like = origin(stored, "pagedeck-upstream/api/");
+  const added = origin(plan.config, "pagedeck-upstream/new/");
+  expect(names(added)).toEqual(names(like).filter((name) => names(added).includes(name)));
+  const config = (node: XmlElement): string[] => names(child(node, "CustomOriginConfig"));
+  expect(config(added)).toEqual(config(like).filter((name) => config(added).includes(name)));
+  expect(names(added)).not.toEqual([...names(added)].sort());
+});
+
+test("an operator error response for a code the site declares is replaced, and the diff says so", () => {
+  const operator = RECORDED.replace("<ErrorCode>403</ErrorCode>", "<ErrorCode>404</ErrorCode>");
+  const plan = planDistribution(operator, fragments(["/api/"]), "E2EXAMPLE");
+  expect(plan.lines).toContain(
+    "  error     ~ 404 (the distribution's own 404 response is replaced, since the site declares 404)",
+  );
+  expect(plan.config).not.toContain("/denied.html");
 });
 
 test("a lone bad fragment keeps its cause, and several are reported together", () => {
