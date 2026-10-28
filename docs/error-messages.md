@@ -4628,12 +4628,14 @@ Island scan: 2 modules carrying "use client" are imported from outside every isl
 ```
 
 Not a refusal: the scan sees imports, not renders, and a package that marks
-every file `"use client"` can render correctly as static HTML. Only the
-outermost module is reported, the one some module outside every `"use client"`
-closure and every island imports. A client module nested inside a reported one
-is not reported, because registering the outer module brings the inner one
-into its island. Neither is a client module that only a registered island
-imports, with or without the directive: it is already part of that island.
+every file `"use client"` can render correctly as static HTML. The walk starts
+at every registered component that is not an island, whether or not an island
+imports it, and follows every import, through a module an island also imports
+(#130). It stops at each `"use client"` module and each island. So only the
+outermost module is reported: a client module nested inside a reported one is
+not, because registering the outer module brings the inner one into its
+island. Neither is a client module that only a registered island imports, with
+or without the directive: it is already part of that island.
 
 The twenty-fourth is `relativeCardWarning`
 (`packages/core/src/social-image.ts`, #99): a site that draws share cards with
