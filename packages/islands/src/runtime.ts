@@ -219,7 +219,8 @@ function markerFailure(failures: readonly UnreadableMarker[]): RegistryError {
 }
 
 // Outermost, so its effect runs after every effect in the island's tree.
-function Hydrated(props: { marker: IslandElement; children: ReactNode }) {
+function Hydrated(props: { marker: IslandElement; children?: ReactNode }) {
+  "use no memo";
   useEffect(() => {
     props.marker.setAttribute(ISLAND_HYDRATED_ATTRIBUTE, "");
   }, []);
