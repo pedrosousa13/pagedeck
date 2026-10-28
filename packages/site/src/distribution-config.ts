@@ -1,4 +1,4 @@
-import { ConfigError, quoteIdentifier } from "@pagedeck/core";
+import { ConfigError, describeError, quoteIdentifier } from "@pagedeck/core";
 import { child, children, element, readXml, text, writeXml } from "./distribution-xml.js";
 import type { XmlElement } from "./distribution-xml.js";
 
@@ -39,50 +39,81 @@ const MEMBER: Readonly<Record<string, string>> = {
   OriginSslProtocols: "SslProtocol",
 };
 
-function fragmentFault(fragment: DistributionFragment, what: string): ConfigError {
+function fragmentFault(fragment: DistributionFragment, what: string, cause?: unknown): ConfigError {
   return new ConfigError(
     `Distribution-config fragment ${quoteIdentifier(fragment.path)}: ${what} — rebuild the site so the cloudfront-function adapter writes it again`,
+    cause === undefined ? undefined : { cause },
   );
 }
 
+/**
+ * Throws a lone failure whole, so it keeps its chain, and several as one report with each
+ * chain on its own line (docs/error-messages.md, rule 4).
+ */
+export function throwCollected(failures: readonly Error[]): void {
+  const [first] = failures;
+  if (first === undefined) return;
+  if (failures.length === 1) throw first;
+  const message = failures.map((one) => describeError(one)).join("\n");
+  throw failures.every((one) => one instanceof ConfigError) ? new ConfigError(message) : new Error(message);
+}
+
 // Children in the order the API reference lists them, which is alphabetical.
-function toXml(name: string, value: unknown, fragment: DistributionFragment): XmlElement {
+function toXml(name: string, value: unknown, faults: string[]): XmlElement {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1));
     return element(
       name,
       entries.map(([key, inner]) => {
-        if (!Array.isArray(inner)) return toXml(key, inner, fragment);
+        if (!Array.isArray(inner)) return toXml(key, inner, faults);
         const member = MEMBER[name];
-        if (member === undefined) throw fragmentFault(fragment, `it holds a list under ${quoteIdentifier(name)}, which this deploy has no member name for`);
-        return element(key, inner.map((one) => toXml(member, one, fragment)));
+        if (member === undefined) {
+          faults.push(`it holds a list under ${quoteIdentifier(name)}, which this deploy has no member name for`);
+          return element(key, []);
+        }
+        return element(key, inner.map((one) => toXml(member, one, faults)));
       }),
     );
   }
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return element(name, String(value));
   }
-  throw fragmentFault(fragment, `${quoteIdentifier(name)} is ${value === null ? "null" : Array.isArray(value) ? "a list inside a list" : typeof value}`);
+  faults.push(`${quoteIdentifier(name)} is ${value === null ? "null" : Array.isArray(value) ? "a list inside a list" : typeof value}`);
+  return element(name, "");
 }
 
 function readFragments(fragments: readonly DistributionFragment[]): Record<Kind, XmlElement[]> {
   const ours: Record<Kind, XmlElement[]> = { origin: [], behavior: [], error: [] };
+  const failures: Error[] = [];
   for (const fragment of fragments) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(fragment.contents);
     } catch (cause) {
-      throw fragmentFault(fragment, `it is not JSON (${(cause as Error).message})`);
+      failures.push(fragmentFault(fragment, "it is not JSON", cause));
+      continue;
     }
-    if (typeof parsed !== "object" || parsed === null) throw fragmentFault(fragment, "it is not an object");
+    if (typeof parsed !== "object" || parsed === null) {
+      failures.push(fragmentFault(fragment, "it is not an object"));
+      continue;
+    }
+    const faults: string[] = [];
     for (const [list, body] of Object.entries(parsed)) {
       const kind = KINDS.find((one) => LISTS[one].list === list);
-      if (kind === undefined) throw fragmentFault(fragment, `it names ${quoteIdentifier(list)}, which this deploy does not merge`);
+      if (kind === undefined) {
+        faults.push(`it names ${quoteIdentifier(list)}, which this deploy does not merge`);
+        continue;
+      }
       const items = (body as { Items?: unknown }).Items;
-      if (!Array.isArray(items)) throw fragmentFault(fragment, `${quoteIdentifier(list)} has no Items list`);
-      ours[kind].push(...items.map((item) => toXml(LISTS[kind].member, item, fragment)));
+      if (!Array.isArray(items)) {
+        faults.push(`${quoteIdentifier(list)} has no Items list`);
+        continue;
+      }
+      ours[kind].push(...items.map((item) => toXml(LISTS[kind].member, item, faults)));
     }
+    failures.push(...faults.map((what) => fragmentFault(fragment, what)));
   }
+  throwCollected(failures);
   return ours;
 }
 

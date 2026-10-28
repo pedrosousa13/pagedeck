@@ -1,4 +1,5 @@
 import { ConfigError, quoteIdentifier } from "@pagedeck/core";
+import { throwCollected } from "./distribution-config.js";
 import { applyDistributionConfig } from "./distribution-api.js";
 import type { CloudFrontAccess } from "./distribution-api.js";
 import type { DistributionFragment } from "./distribution-config.js";
@@ -134,11 +135,5 @@ export async function updateDistributions(
       failures.push(error as Error);
     }
   }
-  const [first] = failures;
-  if (first === undefined) return;
-  if (failures.length === 1) throw first;
-  const message = failures.map((one) => one.message).join("\n");
-  throw failures.every((one) => one instanceof ConfigError)
-    ? new ConfigError(message, { cause: first })
-    : new Error(message, { cause: first });
+  throwCollected(failures);
 }

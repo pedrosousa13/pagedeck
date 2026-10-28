@@ -132,3 +132,41 @@ test("the config sent carries the 2020-05-31 namespace even when the one read di
   const plan = planDistribution(bare, fragments(["/api/"]), "E2EXAMPLE");
   expect(plan.config).toContain('<DistributionConfig xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">');
 });
+
+test("a lone bad fragment keeps its cause, and several are reported together", () => {
+  let lone: unknown;
+  try {
+    planDistribution(RECORDED, [{ path: "upstreams.json", contents: "{" }], "E2EXAMPLE");
+  } catch (error) {
+    lone = error;
+  }
+  expect(lone).toBeInstanceOf(ConfigError);
+  expect((lone as Error).message).toBe(
+    'Distribution-config fragment "upstreams.json": it is not JSON — rebuild the site so the cloudfront-function adapter writes it again',
+  );
+  expect((lone as Error).cause).toBeInstanceOf(SyntaxError);
+
+  let many: unknown;
+  try {
+    planDistribution(
+      RECORDED,
+      [
+        { path: "upstreams.json", contents: "{" },
+        { path: "error-responses.json", contents: '{"Aliases":{"Items":[]},"Origins":{"Items":[{"Id":null}]}}' },
+      ],
+      "E2EXAMPLE",
+    );
+  } catch (error) {
+    many = error;
+  }
+  expect(many).toBeInstanceOf(ConfigError);
+  const lines = (many as Error).message.split("\n");
+  expect(lines).toHaveLength(3);
+  expect(lines[0]).toMatch(/^Distribution-config fragment "upstreams.json": it is not JSON — rebuild .*: .+/);
+  expect(lines[1]).toBe(
+    'Distribution-config fragment "error-responses.json": it names "Aliases", which this deploy does not merge — rebuild the site so the cloudfront-function adapter writes it again',
+  );
+  expect(lines[2]).toBe(
+    'Distribution-config fragment "error-responses.json": "Id" is null — rebuild the site so the cloudfront-function adapter writes it again',
+  );
+});
