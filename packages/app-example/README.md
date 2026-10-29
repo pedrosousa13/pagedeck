@@ -112,12 +112,13 @@ Cloudflare, a rate limiting rule sets one
 
 - **If incoming requests match:**
   `http.request.method eq "POST" and http.request.uri.path eq "/account/sign-in"`.
-  The Free plan offers only the path field, and
-  `http.request.uri.path eq "/account/sign-in"` alone does the same job, since
-  the app takes only a `POST` there.
+  The Free plan offers only the path field
+  (<https://developers.cloudflare.com/waf/rate-limiting-rules/#availability>),
+  and `http.request.uri.path eq "/account/sign-in"` alone does the same job,
+  since the app takes only a `POST` there.
 - **With the same characteristics:** IP.
 - **Requests and period:** 5 requests per minute. The Free plan fixes the
-  period at 10 seconds.
+  period at 10 seconds, as the same availability table shows.
 - **Action:** Block, which answers `429` by default, for a duration of
   10 minutes.
 
