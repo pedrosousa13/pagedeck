@@ -1,12 +1,13 @@
 import type { ContentStoreReader } from "@pagedeck/content";
 import { variantUrl } from "./alternates.js";
-import { ConfigError } from "./exit.js";
+import { ConfigError, printable } from "./exit.js";
 import { domainHost, localeTree } from "./locales.js";
 import type { LocaleSet } from "./locales.js";
 import { collisionLine, fileKey } from "./manifest.js";
 import type { EmittedFile } from "./manifest.js";
 import type { Page } from "./pages.js";
 import { quote, quoteAddress } from "./quote.js";
+import { RenderError } from "./tree.js";
 import { escapeXml, XML_DECLARATION } from "./xml.js";
 
 export interface FeedItemFields {
@@ -157,6 +158,7 @@ export interface FeedInput {
 export function feedFiles(input: FeedInput): readonly EmittedFile[] {
   const { setting, origin, store, pages } = input;
   const domain = originTree(origin, input.locales);
+  const forbidden: string[] = [];
 
   const items = pages.flatMap((page) => {
     if (page.collection !== setting.collection) return [];
@@ -174,6 +176,15 @@ export function feedFiles(input: FeedInput): readonly EmittedFile[] {
       const held = (data as Record<string, unknown>)[name];
       return typeof held === "string" && held !== "" ? held : undefined;
     };
+    for (const name of [setting.item.title, setting.item.description]) {
+      if (name === undefined) continue;
+      const codePoints = forbiddenCodePoints(field(name));
+      if (codePoints.length > 0) {
+        forbidden.push(
+          `  ${printable(`/${entry.locale}/${entry.path}`)}: ${name} — holds ${codePoints.join(", ")}`,
+        );
+      }
+    }
     return [
       {
         link: variantUrl(origin, page),
@@ -203,6 +214,15 @@ export function feedFiles(input: FeedInput): readonly EmittedFile[] {
       `Feed: the feed is at a deploy key this build already wrote — a deploy key holds one file, and the site's own pages, chunks and assets are written before the feed is:\n${collisionLine(key, clash.kind)} — move the page off that address`,
     );
   }
+  if (forbidden.length > 0) {
+    const headline =
+      forbidden.length === 1
+        ? "1 field the feed writes holds"
+        : `${String(forbidden.length)} fields the feed writes hold`;
+    throw new RenderError(
+      `Collection "${setting.collection}": ${headline} a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n${forbidden.join("\n")}`,
+    );
+  }
   return [
     {
       ...(domain === undefined ? {} : { domain }),
@@ -227,6 +247,19 @@ interface FeedItem {
   readonly title: string | undefined;
   readonly description: string | undefined;
   readonly date: Date | undefined;
+}
+
+const FORBIDDEN_IN_XML =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|\p{Surrogate}/gu;
+
+function forbiddenCodePoints(value: string | undefined): readonly string[] {
+  if (value === undefined) return [];
+  const found = new Set<string>();
+  for (const [character] of value.matchAll(FORBIDDEN_IN_XML)) {
+    const hex = (character.codePointAt(0) ?? 0).toString(16).toUpperCase();
+    found.add(`U+${hex.padStart(4, "0")}`);
+  }
+  return [...found];
 }
 
 const ATOM_NS = "http://www.w3.org/2005/Atom";
