@@ -22,7 +22,7 @@ import {
   parseSyncArgs,
   runCli,
 } from "./cli.js";
-import { markDiagnostic } from "./diagnostic-marker.js";
+import { DIAGNOSTIC_MARKER, markDiagnostic } from "./diagnostic-marker.js";
 import { EXIT_CODES } from "./exit.js";
 import { MANIFEST_VERSION } from "./manifest.js";
 import { RenderError, renderPage } from "./render.js";
@@ -1250,7 +1250,7 @@ test("rollback reports a bad grace period and an unknown build id in one run", a
 
 test("a forged rollback target cannot forge a line in the report that refuses it", async () => {
   const dir = rollbackSite();
-  const forged = 'build-99"\n\u001B[Kfw: Site build: 0 problems\r';
+  const forged = `build-99"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
 
   const result = await run(
     dir,
@@ -1271,7 +1271,7 @@ test("a forged rollback target cannot forge a line in the report that refuses it
   expect(written[0]).toContain(`Rollback to build ${JSON.stringify(forged)}`);
 });
 
-const FORGED_ARG = 'x"\n\u001B[Kfw: Site build: 0 problems\r';
+const FORGED_ARG = `x"\n\u001B[K${DIAGNOSTIC_MARKER} Site build: 0 problems\r`;
 
 function writtenWithoutForgery(forged: Run, plain: Run): string[] {
   expect(forged.code).toBe(EXIT_CODES.configError);
@@ -1421,7 +1421,7 @@ test("an unknown verb cannot forge a line in its refusal", async () => {
   );
 });
 
-const C1_FORGED = "x\u009B2K\u0085fw: Site build: 0 problems";
+const C1_FORGED = `x\u009B2K\u0085${DIAGNOSTIC_MARKER} Site build: 0 problems`;
 
 test("a C1 control in a rollback target reaches stderr written out", async () => {
   const dir = rollbackSite();
@@ -1438,7 +1438,7 @@ test("a C1 control in a rollback target reaches stderr written out", async () =>
   expect(/[\u0080-\u009F]/.test(result.err)).toBe(false);
   // Literal, not JSON.stringify: JSON.stringify leaves C1 raw.
   expect(result.err).toContain(
-    'Rollback to build "x\\u009b2K\\u0085fw: Site build: 0 problems"',
+    `Rollback to build "x\\u009b2K\\u0085${DIAGNOSTIC_MARKER} Site build: 0 problems"`,
   );
 });
 
@@ -1453,14 +1453,14 @@ test("a C1 control in a typed argument reaches stderr written out", async () => 
   expect(/[\u0080-\u009F]/.test(written.join("\n"))).toBe(false);
   // Literal, not JSON.stringify: JSON.stringify leaves C1 raw.
   expect(written[0]).toBe(
-    'pagedeck: pagedeck dev --port takes a port between 0 and 65535, and got "x\\u009b2K\\u0085fw: Site build: 0 problems".',
+    `pagedeck: pagedeck dev --port takes a port between 0 and 65535, and got "x\\u009b2K\\u0085${DIAGNOSTIC_MARKER} Site build: 0 problems".`,
   );
 });
 
 test("a target given twice cannot forge a line, and neither credential is quoted", async () => {
   const dir = siteDir();
-  const argvUrl = `//AKIAARGV:argvsecret@bucket/a"b\nfw: Site build: 0 problems?sig=argvsig`;
-  const envUrl = `//AKIAENV:envsecret@bucket/c"d\nfw: Site build: 0 problems?sig=envsig`;
+  const argvUrl = `//AKIAARGV:argvsecret@bucket/a"b\n${DIAGNOSTIC_MARKER} Site build: 0 problems?sig=argvsig`;
+  const envUrl = `//AKIAENV:envsecret@bucket/c"d\n${DIAGNOSTIC_MARKER} Site build: 0 problems?sig=envsig`;
 
   const forged = await runIn(dir, { PAGEDECK_SNAPSHOT_URL: envUrl }, [
     "store",
