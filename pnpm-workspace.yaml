@@ -4,3 +4,6 @@ allowBuilds:
   esbuild: true
   # wrangler deploy runs without workerd's install script (#52).
   workerd: false
+overrides:
+  # Every satori release pins fflate 0.7.3 (GHSA-px8p-9vwx-vf98) (#209).
+  fflate: 0.7.5
