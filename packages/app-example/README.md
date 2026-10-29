@@ -81,10 +81,14 @@ The app owns `/account/`, and no built page is under it (ADR-0010):
   `__Host-session` cookie: `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`.
 - `GET /account/me` reads the session on every request and answers `401`
   without one, for a revoked or expired one, or for a cookie it never issued.
-- `POST /account/sign-out` deletes the session from KV, so the same cookie is
-  refused after it, and clears the cookie.
+- `POST /account/sign-out` deletes the session from KV and clears the cookie.
 - A new sign-in deletes the session the visitor's cookie already held, so it
   revokes the previous session.
+- A revocation takes effect at once in the location where it was made, where
+  a kept copy of the cookie is then refused. KV is eventually consistent, so
+  another location can still accept that copy for about 60 seconds. A site
+  that needs revocation to hold everywhere at once keeps its sessions in a
+  strongly consistent store, such as Durable Objects or D1.
 - A session lasts `SESSION_SECONDS`, an hour unless that variable is set. The
   app checks the time itself, since KV keeps an entry for 60 seconds at least.
 - `hono/csrf` refuses a sign-in or sign-out posted from another site, as it

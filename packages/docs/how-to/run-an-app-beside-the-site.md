@@ -418,12 +418,20 @@ async function sessionOf(c: Context<{ Bindings: AccountEnv }>): Promise<Session 
 `GET /account/me` answers `401` and clears the cookie when there is no
 session. That covers an anonymous request, a cookie the app never issued, a
 session past its lifetime and one signed out. Signing out deletes the session
-from KV, so a copy of the cookie kept after sign-out is refused too: the
-session is revocable, which a cookie that carries its own signed claims is
-not. A new sign-in deletes the session the visitor's cookie already held, so
-signing in again revokes the previous session. The app checks the expiry time itself, because KV keeps an entry for 60
-seconds at least, and a session can be shorter. `SESSION_SECONDS` sets the
-lifetime, an hour by default.
+from KV, so the session is revocable, which a cookie that carries its own
+signed claims is not. A new sign-in deletes the session the visitor's cookie
+already held, so signing in again revokes the previous session. The app checks
+the expiry time itself, because KV keeps an entry for 60 seconds at least, and
+a session can be shorter. `SESSION_SECONDS` sets the lifetime, an hour by
+default.
+
+A revocation takes effect at once in the Cloudflare location where it was
+made: a copy of the cookie sent there after sign-out is refused. Workers KV is
+eventually consistent, so another location can still read the deleted session
+from its cache, and accept that copy, for about 60 seconds
+(<https://developers.cloudflare.com/kv/concepts/how-kv-works/#consistency>). A
+site that needs a revocation to hold everywhere at once keeps its sessions in a
+strongly consistent store, such as Durable Objects or D1, instead of KV.
 
 The account takes the same request protection as the form: `csrf()` from
 `hono/csrf` refuses a sign-in or sign-out from another site, and
