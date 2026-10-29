@@ -171,10 +171,13 @@ chunk cost 169 B raw and 68 B gzip. The maintainer ruled that cost accepted on
 (3,276 B Brotli), from 7,099 B raw, 3,520 B gzip and 3,145 B Brotli.** Vite
 8.3 rewrote its preload helper, which the shared `pagedeck-startup` chunk
 carries: it now reads the page's links into sets once per call and keeps a
-promise per preload. The chunk grew from 2,047 B to 2,370 B raw, and no other
-chunk changed. This is a toolchain bump, which the ratchet below does not
-absorb, and the maintainer ruled it accepted on #208: a security floor requires
-Vite 8.3.3 or later, and a fresh install resolves 8.3.x anyway.
+promise per preload. The chunk grew from 2,047 B to 2,370 B raw, no other
+chunk changed, and the new helper costs 323 B raw and 110 B gzip. Core's Vite floor is 8.3.3 because GHSA-587h-7wmj-h5pm,
+GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw, GHSA-rq7h-c2jc-7f22,
+GHSA-vfpm-58rq-9qcg and GHSA-9jrq-w75r-8gcw cover 8.2.0 to 8.2.3 and 8.3.0 to
+8.3.2, and a fresh install resolves 8.3.x anyway. The maintainer ruled the cost
+accepted on #208. That ruling stands in place of the finding the ratchet below
+asks for on a Vite release, because the bytes are the floor's cost.
 
 **2026-09-28, #547: the gzip column is measured with content hashes
 normalised.** Before this date it read 3,154 B and 58,995 B. A CSS-only change
