@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks), there are 127 below, 114 of them
+`x` at/from `path`, outside fenced blocks), there are 128 below, 115 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 313 messages fenced
-below, 236 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 314 messages fenced
+below, 237 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 236 checked messages pin 35415 of the 99831 fenced characters, and
+below**: the 237 checked messages pin 35489 of the 101069 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2232,6 +2232,29 @@ instead, which is §2's `(whole entry)` read at a page rather than at a field:
 Passthrough: 2 references a page makes to a file beside its content resolve to nothing this build can publish — put the file at that path beneath the directory "build.passthrough.contentRoot" names, or point the reference at a file that is already there:
   en /posts/ferry — "../../assets/images/ferry/rules.png" → "/assets/images/ferry/rules.png" — content entry "posts en posts/ferry"
   en /posts/json-bonsai — "../../assets/images/json-bonsai/query.png" → "/assets/images/json-bonsai/query.png" — content entry "posts en posts/json-bonsai"
+```
+
+**A reference the content tree never publishes is refused before that one**
+(#206). Content can come from a CMS whose editors cannot touch the repository,
+so a reference alone must not decide what leaves `contentRoot`: a post writing
+`../../.env` or `../../components/Secret.tsx` would otherwise publish that file.
+`contentReferenceRefusal` (`packages/core/src/passthrough.ts`) refuses an
+address with a segment that starts with a dot, escaped or not, and a file whose
+extension is not in `CONTENT_ROOT_EXTENSIONS`. Each line is the
+unresolved-reference line with its reason added, and the headline spells the
+whole list, because a reader told their extension is wrong without being told
+which are right goes to the source (rule 3). The check runs before the file is
+looked for, so the line is the same whether the file exists or not, and the
+refusal tells an editor nothing about the tree. Both refusals are collected in
+one run (rule 5): this paragraph comes first, and the unresolved-reference one
+follows it in the same `ConfigError` where a reference also names a missing
+image.
+
+```
+Passthrough: 3 content-relative references name a file build.passthrough.contentRoot never publishes — a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of .apng, .avif, .bmp, .gif, .ico, .jpeg, .jpg, .jxl, .png, .svg, .tif, .tiff, .webp, .aac, .flac, .m4a, .mp3, .oga, .ogg, .opus, .wav, .weba, .m4v, .mov, .mp4, .ogv, .webm, .otf, .ttf, .woff, .woff2, .pdf, .vtt or .css, and it refuses any other reference before it looks for the file, so each line below holds whether or not that file exists; point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root:
+  en /posts/ferry — "../../.env" → "/.env" — content entry "posts en posts/ferry" — the segment ".env" starts with a dot
+  en /posts/ferry — "../.git/config" → "/.git/config" — content entry "posts en posts/ferry" — the segment ".git" starts with a dot
+  en /posts/ferry — "../../secret.ts" → "/secret.ts" — content entry "posts en posts/ferry" — its extension ".ts" is not one a content tree publishes
 ```
 
 `speculationFaultReport` (`packages/core/src/speculation.ts`) is the seventeenth,

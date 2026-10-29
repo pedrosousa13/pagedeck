@@ -151,6 +151,71 @@ function resolveAgainst(base: string, href: string): string {
   return `/${segments.join("/")}`;
 }
 
+export const CONTENT_ROOT_EXTENSIONS: readonly string[] = [
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".jxl",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+  ".aac",
+  ".flac",
+  ".m4a",
+  ".mp3",
+  ".oga",
+  ".ogg",
+  ".opus",
+  ".wav",
+  ".weba",
+  ".m4v",
+  ".mov",
+  ".mp4",
+  ".ogv",
+  ".webm",
+  ".otf",
+  ".ttf",
+  ".woff",
+  ".woff2",
+  ".pdf",
+  ".vtt",
+  ".css",
+];
+
+const PUBLISHED_EXTENSIONS = new Set(CONTENT_ROOT_EXTENSIONS);
+
+function decoded(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+export function contentReferenceRefusal(address: string): string | undefined {
+  const segments = address.split("/").filter((segment) => segment !== "");
+  const dotted = segments.find(
+    (segment) => segment.startsWith(".") || decoded(segment).startsWith("."),
+  );
+  if (dotted !== undefined) {
+    return `the segment ${quote(dotted)} starts with a dot`;
+  }
+  const name = segments.at(-1) ?? "";
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) {
+    return "its file name has no extension, and a content tree publishes only one on the list";
+  }
+  const extension = name.slice(dot).toLowerCase();
+  if (PUBLISHED_EXTENSIONS.has(extension)) return undefined;
+  return `its extension ${quote(name.slice(dot))} is not one a content tree publishes`;
+}
+
 const COLLISION_FIX: Readonly<Record<PassthroughInput["field"], string>> = {
   root: 'move the page off that address, or take the file out of the directory "build.passthrough.root" names',
   contentRoot:

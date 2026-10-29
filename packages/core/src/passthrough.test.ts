@@ -3,6 +3,7 @@ import type { LocaleSet } from "./locales.js";
 import type { EmittedFile } from "./manifest.js";
 import type { Page } from "./pages.js";
 import {
+  contentReferenceRefusal,
   contentRelativeReferences,
   passthroughFaultReport,
   passthroughFiles,
@@ -348,4 +349,57 @@ test("one address is collected once however many pages point at it, in address o
       trailingSlash: "never",
     }).map((one) => one.address),
   ).toEqual(["/a.png", "/b.png"]);
+});
+
+test("an address with a segment that starts with a dot is refused, an escaped dot included", () => {
+  expect(contentReferenceRefusal("/.env")).toBe(
+    'the segment ".env" starts with a dot',
+  );
+  expect(contentReferenceRefusal("/posts/.git/config")).toBe(
+    'the segment ".git" starts with a dot',
+  );
+  expect(contentReferenceRefusal("/assets/.hidden/logo.png")).toBe(
+    'the segment ".hidden" starts with a dot',
+  );
+  expect(contentReferenceRefusal("/en/%2e%2e/logo.png")).toBe(
+    'the segment "%2e%2e" starts with a dot',
+  );
+  expect(contentReferenceRefusal("/en/%2Eenv.png")).toBe(
+    'the segment "%2Eenv.png" starts with a dot',
+  );
+});
+
+test("an address whose extension is off the list is refused, and so is one with none", () => {
+  expect(contentReferenceRefusal("/components/Secret.tsx")).toBe(
+    'its extension ".tsx" is not one a content tree publishes',
+  );
+  expect(contentReferenceRefusal("/pagedeck.config.ts")).toBe(
+    'its extension ".ts" is not one a content tree publishes',
+  );
+  expect(contentReferenceRefusal("/assets/app.js")).toBe(
+    'its extension ".js" is not one a content tree publishes',
+  );
+  expect(contentReferenceRefusal("/content.db")).toBe(
+    'its extension ".db" is not one a content tree publishes',
+  );
+  expect(contentReferenceRefusal("/LICENSE")).toBe(
+    "its file name has no extension, and a content tree publishes only one on the list",
+  );
+});
+
+test("an image, a sound, a video, a font, a PDF, a caption track and a stylesheet are published, whatever the extension's case", () => {
+  for (const address of [
+    "/assets/images/ferry/logo.png",
+    "/assets/images/json-bonsai/logo.webp",
+    "/photos/IMG_0001.JPG",
+    "/icons/mark.svg",
+    "/audio/intro.mp3",
+    "/video/demo.webm",
+    "/fonts/body.woff2",
+    "/papers/spec.pdf",
+    "/video/demo.en.vtt",
+    "/styles/print.css",
+  ]) {
+    expect(contentReferenceRefusal(address), address).toBeUndefined();
+  }
 });

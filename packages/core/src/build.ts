@@ -125,6 +125,8 @@ import {
   variantPath,
 } from "./routing.js";
 import {
+  CONTENT_ROOT_EXTENSIONS,
+  contentReferenceRefusal,
   contentRelativeReferences,
   passthroughAddress,
   passthroughFiles,
@@ -203,6 +205,9 @@ const MISSING_CONTENT_ROOT_FIX =
   "point contentRoot at the content tree a page's content-relative references resolve into";
 const UNRESOLVED_REFERENCE_FIX =
   'put the file at that path beneath the directory "build.passthrough.contentRoot" names, or point the reference at a file that is already there';
+const REFUSED_REFERENCE_RULE = `a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of ${CONTENT_ROOT_EXTENSIONS.slice(0, -1).join(", ")} or ${CONTENT_ROOT_EXTENSIONS.at(-1) ?? ""}, and it refuses any other reference before it looks for the file, so each line below holds whether or not that file exists`;
+const REFUSED_REFERENCE_FIX =
+  'point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root';
 const NO_CONTENT_ENTRY =
   "no content entry: no stored entry backs this page, so the reference is in whatever composed it";
 const UNHELD_FIX =
@@ -1294,8 +1299,14 @@ async function stageSite(input: {
   if (passthrough?.contentRoot !== undefined) {
     const contentRoot = passthrough.contentRoot;
     const found: PassthroughSource[] = [];
+    const refused: string[] = [];
     const unresolved: string[] = [];
     for (const reference of referenced) {
+      const refusal = contentReferenceRefusal(reference.address);
+      if (refusal !== undefined) {
+        refused.push(`${contentReferenceLine(reference)} — ${refusal}`);
+        continue;
+      }
       const src = join(contentRoot, ...reference.address.slice(1).split("/"));
       if (!existsSync(src) || !statSync(src).isFile()) {
         unresolved.push(contentReferenceLine(reference));
@@ -1303,8 +1314,18 @@ async function stageSite(input: {
       }
       found.push({ src, bytes: await readFile(src) });
     }
+    const reports: string[] = [];
+    if (refused.length > 0) {
+      reports.push(
+        `Passthrough: ${String(refused.length)} ${
+          refused.length === 1
+            ? "content-relative reference names"
+            : "content-relative references name"
+        } a file build.passthrough.contentRoot never publishes — ${REFUSED_REFERENCE_RULE}; ${REFUSED_REFERENCE_FIX}:\n${refused.join("\n")}`,
+      );
+    }
     if (unresolved.length > 0) {
-      throw new ConfigError(
+      reports.push(
         `Passthrough: ${String(unresolved.length)} ${
           unresolved.length === 1
             ? "reference a page makes to a file beside its content resolves"
@@ -1312,6 +1333,7 @@ async function stageSite(input: {
         } to nothing this build can publish — ${UNRESOLVED_REFERENCE_FIX}:\n${unresolved.join("\n")}`,
       );
     }
+    if (reports.length > 0) throw new ConfigError(reports.join("\n"));
     const published = passthroughFiles({
       field: "contentRoot",
       root: contentRoot,
