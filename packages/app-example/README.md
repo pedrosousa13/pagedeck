@@ -103,6 +103,40 @@ so wrangler creates one on the first deploy and writes its id into
 [Run an app beside the site](../docs/how-to/run-an-app-beside-the-site.md)
 describes.
 
+`POST /account/sign-in` checks the credential on every request and counts no
+attempts. The stub's password is random, but a site that signs in a password a
+person chose needs an attempt limit on that endpoint, at the host or in the
+app. Abuse controls belong to the host, and the example sets none. On
+Cloudflare, a rate limiting rule sets one
+(<https://developers.cloudflare.com/waf/rate-limiting-rules/parameters/>):
+
+- **If incoming requests match:**
+  `http.request.method eq "POST" and http.request.uri.path eq "/account/sign-in"`.
+  The Free plan offers only the path field, and
+  `http.request.uri.path eq "/account/sign-in"` alone does the same job, since
+  the app takes only a `POST` there.
+- **With the same characteristics:** IP.
+- **Requests and period:** 5 requests per minute. The Free plan fixes the
+  period at 10 seconds.
+- **Action:** Block, which answers `429` by default, for a duration of
+  10 minutes.
+
+After you deploy the rule, send more attempts than it allows, with a wrong
+password, from an address you can afford to block for 10 minutes:
+
+```sh
+for i in $(seq 1 10); do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+    -H 'Origin: https://app-example.example' \
+    -d 'email=editor@example.com' -d 'password=wrong' \
+    https://app-example.example/account/sign-in
+done
+```
+
+The first attempts print `401` and, once the count passes the limit, `429`.
+Put your own host in both places. `hono/csrf` accepts a post whose `Origin`
+is the app's own, so a wrong password answers `401` and not `403`.
+
 ## The protected preview
 
 `wrangler.preview.jsonc` is a second Worker with no code for the preview
