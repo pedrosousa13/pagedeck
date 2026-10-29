@@ -571,7 +571,7 @@ test("every field holding a character XML 1.0 forbids is refused in one throw, n
   expect(build).toThrow(RenderError);
   expect(build).toThrow(
     new RenderError(
-      `Collection "posts": 3 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n  /en/posts/form-feed — title — U+000C\n  /en/posts/many — title — U+D800\n  /en/posts/many — summary — U+0000, U+FFFE, U+FFFF`,
+      `Collection "posts": 3 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n  /en/posts/form-feed: title — holds U+000C\n  /en/posts/many: title — holds U+D800\n  /en/posts/many: summary — holds U+0000, U+FFFE, U+FFFF`,
     ),
   );
 });

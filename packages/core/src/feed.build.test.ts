@@ -306,7 +306,7 @@ test("a title holding a form feed and another holding a lone surrogate fail one 
 
   expect(code).toBe(EXIT_CODES.syncFailed);
   expect(err).toEqual([
-    `Collection "posts": 2 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n  /en/posts/form-feed — title — U+000C\n  /en/posts/surrogate — title — U+D800`,
+    `Collection "posts": 2 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n  /en/posts/form-feed: title — holds U+000C\n  /en/posts/surrogate: title — holds U+D800`,
   ]);
   expect(existsSync(join(dir, "dist", "rss.xml"))).toBe(false);
 }, 120_000);

@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 238 checked messages pin 35734 of the 101302 fenced characters, and
+below**: the 238 checked messages pin 35734 of the 101312 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -582,8 +582,8 @@ the value:
 
 ```
 Collection "posts": 2 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:
-  /en/posts/form-feed — title — U+000C
-  /en/posts/surrogate — title — U+D800
+  /en/posts/form-feed: title — holds U+000C
+  /en/posts/surrogate: title — holds U+D800
 ```
 
 The field is the entry's own field, `summary` rather than `item.description`,

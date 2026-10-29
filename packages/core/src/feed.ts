@@ -177,10 +177,11 @@ export function feedFiles(input: FeedInput): readonly EmittedFile[] {
       return typeof held === "string" && held !== "" ? held : undefined;
     };
     for (const name of [setting.item.title, setting.item.description]) {
+      if (name === undefined) continue;
       const codePoints = forbiddenCodePoints(field(name));
       if (codePoints.length > 0) {
         forbidden.push(
-          `  ${printable(`/${entry.locale}/${entry.path}`)} — ${String(name)} — ${codePoints.join(", ")}`,
+          `  ${printable(`/${entry.locale}/${entry.path}`)}: ${name} — holds ${codePoints.join(", ")}`,
         );
       }
     }
