@@ -108,7 +108,7 @@ caller forgot an argument.
 **Page collection, and only page collection.** A `fromCollection` source over a
 scheduled collection makes pages of its due entries and no others. Every other
 place your config reads the store reads it raw, and `listEntries` and
-`getEntry` answer with every entry, embargoed ones included:
+`getEntry` answer with every entry, entries outside their window included:
 
 - `paginate`'s `lists` gets the store and `now`, and must filter the entries
   itself. [Paged lists](./paged-lists.md#scheduled-entries) shows how.
@@ -125,6 +125,14 @@ import { listDueEntries } from "@pagedeck/content";
 
 build: {
   outDir: "./site",
+  pages: definePages({
+    // ...
+    sources: [
+      fromCollection(posts, {
+        dependsOn: (entry, store) => store.listEntries("posts"),
+      }),
+    ],
+  }),
   chrome: (page, store, now) => ({
     before: [
       {
@@ -142,6 +150,13 @@ build: {
 `listDueEntries` runs the same query page collection runs, so the list and
 the pages agree. Pass it the instant you were handed and not a clock of your
 own: a second clock read can fall on the other side of a `publishAt`.
+
+**Declare what the chrome lists in `dependsOn`.** An incremental build counts
+an entry that enters or leaves its window as changed, and re-renders a page
+only when an entry in its `dependsOn` changed. Without the declaration, every
+carried page keeps its old list.
+[Chrome and incremental builds](./page-body.md#chrome-and-incremental-builds)
+has the rule and the one case it misses.
 
 ## What ships today
 

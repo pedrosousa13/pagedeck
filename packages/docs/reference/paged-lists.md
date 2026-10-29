@@ -129,12 +129,13 @@ paged list over a scheduled collection lists its entries with
 
 ```ts
 import { listDueEntries } from "@pagedeck/content";
+import { ConfigError, paginate } from "@pagedeck/core";
 
 paginate({
   pageSize: 10,
   lists: (store, now) => {
     if (now === undefined) {
-      throw new Error(
+      throw new ConfigError(
         'Paged list "posts": the collection is scheduled, and this page set was collected with no instant — pass one to collectPages, as pagedeck build passes its build stamp\'s createdAt',
       );
     }
