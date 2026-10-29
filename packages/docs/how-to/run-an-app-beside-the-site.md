@@ -462,6 +462,46 @@ route under `/account/` checks the provider's answer and then creates the
 session the same way. The session, the cookie, the expiry and sign-out do not
 change. Pagedeck integrates no provider, and adds no auth to core.
 
+### Limit sign-in attempts
+
+`POST /account/sign-in` checks the credential on every request and counts no
+attempts. The stub's password is random, so guessing it is not practical. A
+site that replaces the stub with a password a person chose needs an attempt
+limit on that endpoint, at the host or in the app. As with the sign-up, abuse
+controls belong to the host, and the example sets none. On Cloudflare, a rate
+limiting rule sets one, with these values in the dashboard
+(<https://developers.cloudflare.com/waf/rate-limiting-rules/parameters/>):
+
+- **If incoming requests match:**
+  `http.request.method eq "POST" and http.request.uri.path eq "/account/sign-in"`.
+  The Free plan offers only the path field
+  (<https://developers.cloudflare.com/waf/rate-limiting-rules/#availability>),
+  and `http.request.uri.path eq "/account/sign-in"` alone does the same job,
+  since the app takes only a `POST` there.
+- **With the same characteristics:** IP, so each address has its own count.
+- **Requests and period:** 5 requests per minute. The Free plan fixes the
+  period at 10 seconds, as the same availability table shows.
+- **Action:** Block, which answers `429` by default, for a duration of
+  10 minutes.
+
+A local run cannot show the rule, since `wrangler dev` applies none. After you
+deploy it, send more attempts than it allows, with a wrong password, from an
+address you can afford to block for 10 minutes, from the example's
+`README.md`:
+
+```sh
+for i in $(seq 1 10); do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+    -H 'Origin: https://app-example.example' \
+    -d 'email=editor@example.com' -d 'password=wrong' \
+    https://app-example.example/account/sign-in
+done
+```
+
+The first attempts print `401` and, once the count passes the limit, `429`.
+Put your own host in both places. `hono/csrf` accepts a post whose `Origin`
+is the app's own, so a wrong password answers `401` and not `403`.
+
 ## A preview only editors can load
 
 Two different things protect a site, and they belong to different layers:
