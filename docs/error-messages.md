@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 238 checked messages pin 35734 of the 101312 fenced characters, and
+below**: the 238 checked messages pin 35734 of the 101438 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -4359,7 +4359,7 @@ stopping at the first would reveal them one build at a time and leave the rest
 of the site's URLs unasked:
 
 ```
-Site build: the external link probe answered with something that is not an HTTP status 2 times — return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD" })).status:
+Site build: the external link probe answered with something that is not an HTTP status 2 times — return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status, or copy the one that also refuses internal hosts (Pagedeck documentation: Link checking, External links):
   "https://example.com/a" — answered "200"
   "https://example.com/c" — answered NaN
 ```

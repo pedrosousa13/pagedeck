@@ -567,7 +567,7 @@ test("every unusable answer is collected before the probe's own fault is thrown"
   ).rejects.toThrow(
     new ConfigError(
       [
-        'Site build: the external link probe answered with something that is not an HTTP status 2 times — return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD" })).status:',
+        'Site build: the external link probe answered with something that is not an HTTP status 2 times — return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status, or copy the one that also refuses internal hosts (Pagedeck documentation: Link checking, External links):',
         '  "https://example.com/a" — answered "200"',
         '  "https://example.com/c" — answered NaN',
       ].join("\n"),
