@@ -120,6 +120,39 @@ path would invent a level of URL structure that no page is emitted at. Use
 before you hand it over if your posts should be newest first. Nothing reorders
 it, because which entry lands on page 2 is what a reader bookmarks.
 
+## Scheduled entries
+
+`store.listEntries` answers with every entry of a collection, including the
+ones a [publication window](./publication-window.md) keeps off the site. A
+paged list over a scheduled collection lists its entries with
+`listDueEntries` at `now`, the second argument of `lists`:
+
+```ts
+import { listDueEntries } from "@pagedeck/content";
+import { ConfigError, paginate } from "@pagedeck/core";
+
+paginate({
+  pageSize: 10,
+  lists: (store, now) => {
+    if (now === undefined) {
+      throw new ConfigError(
+        'Paged list "posts": the collection is scheduled, and this page set was collected with no instant — pass one to collectPages, as pagedeck build passes its build stamp\'s createdAt',
+      );
+    }
+    return [
+      { locale: "en", path: ["posts"], entries: listDueEntries(store, posts, now) },
+    ];
+  },
+});
+```
+
+`posts` is the collection itself, the value you list in `collections`, not its
+name. `now` is the instant page collection uses: the build stamp's `createdAt`
+in `pagedeck build`, and the moment the request arrived in `pagedeck dev`. It
+is `undefined` only when a program calls `collectPages` with no instant, and
+then a scheduled collection has nothing to be due against, so the list refuses
+rather than publish every entry.
+
 ## What you get for free
 
 A paged page is an ordinary row of the route table, so everything that reads

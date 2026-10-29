@@ -26,6 +26,12 @@ export default function Nav({ title }) {
 }
 `;
 
+const RECENT = `import { createElement } from "react";
+export default function Recent({ titles }) {
+  return createElement("aside", null, "marker-recent-4e71 " + titles.join(","));
+}
+`;
+
 const ENTRIES = {
   evergreen: { title: "Evergreen" },
   open: {
@@ -37,10 +43,11 @@ const ENTRIES = {
   expired: { title: "Expired", unpublish_at: "2000-01-01T00:00:00Z" },
 };
 
-function site(): void {
+function site(chrome = ""): void {
   rmSync(DIR, { recursive: true, force: true });
   mkdirSync(join(DIR, "components"), { recursive: true });
   writeFileSync(join(DIR, "components", "Nav.js"), NAV);
+  writeFileSync(join(DIR, "components", "Recent.js"), RECENT);
 
   for (const [path, data] of Object.entries(ENTRIES)) {
     const file = join(DIR, "content", "en", `${path}.json`);
@@ -51,6 +58,7 @@ function site(): void {
   writeFileSync(
     join(DIR, "pagedeck.config.ts"),
     `
+import { listDueEntries } from "@pagedeck/content";
 import { defineConfig, defineLocales, definePages, fromCollection } from "@pagedeck/core";
 import { createFixtureLoader } from "@pagedeck/fixtures";
 
@@ -72,7 +80,8 @@ export default defineConfig({
       locales: defineLocales({ en: { label: "en", direction: "ltr" } }),
       sources: [fromCollection(posts, { route: (entry) => "/" + entry.path })],
     }),
-    components: { Nav: "./components/Nav.js" },
+    components: { Nav: "./components/Nav.js", Recent: "./components/Recent.js" },
+    ${chrome}
     content: (page, store) => {
       const entry = store.getEntry("posts", page.locale, page.entry.path);
       return {
@@ -130,4 +139,30 @@ test("a build emits the entries inside their publication window and no others", 
     "/evergreen",
     "/open",
   ]);
+}, 120_000);
+
+test("a chrome lists a scheduled collection's due entries at the instant the build passes it", async () => {
+  site(`chrome: (page, store, now) => ({
+      before: [
+        {
+          component: "Recent",
+          props: {
+            titles: listDueEntries(store, posts, now).map((entry) => entry.data.title),
+          },
+        },
+      ],
+    }),`);
+  const synced = await pagedeck("sync");
+  if (synced.code !== EXIT_CODES.success) throw new Error(synced.err);
+
+  const built = await pagedeck("build");
+
+  if (built.code !== EXIT_CODES.success) throw new Error(built.err);
+  const html = readFileSync(
+    join(DIR, "dist", "evergreen", "index.html"),
+    "utf8",
+  );
+  expect(html).toContain("marker-recent-4e71 Evergreen,Open<");
+  expect(html).not.toContain("Future");
+  expect(html).not.toContain("Expired");
 }, 120_000);

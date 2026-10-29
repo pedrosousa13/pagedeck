@@ -66,8 +66,8 @@ the same page and shows the same message in its error overlay.
 ## Chrome: markup beside the landmark
 
 `build.chrome` is the one way to put markup outside `<main>`. It is a callback
-with the two arguments `build.content` takes, the page and the content store, and it
-returns two lists of entry nodes:
+with the three arguments `build.content` takes, the page, the content store and the
+build's instant, and it returns two lists of entry nodes:
 
 ```ts
 build: {

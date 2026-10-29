@@ -194,9 +194,13 @@ test("a page with no layout goes to the content callback", async () => {
     dependencies: [],
   };
 
-  const content = await contentOf(page, new Map(), store, () => ({
-    tree: [{ component: "counter" }],
-  }));
+  const content = await contentOf(
+    page,
+    new Map(),
+    store,
+    () => ({ tree: [{ component: "counter" }] }),
+    "2026-01-01T00:00:00.000Z",
+  );
 
   expect(content).toEqual({ tree: [{ component: "counter" }] });
 });
@@ -210,7 +214,9 @@ test("a page with no layout and no content callback fails, naming the page and b
     dependencies: [],
   };
 
-  const failure = failureOf(() => contentOf(page, new Map(), store, undefined));
+  const failure = failureOf(() =>
+    contentOf(page, new Map(), store, undefined, "2026-01-01T00:00:00.000Z"),
+  );
 
   expect(failure).toBeInstanceOf(ConfigError);
   expect(failure.message).toBe(

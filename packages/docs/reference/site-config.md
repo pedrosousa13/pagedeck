@@ -135,8 +135,8 @@ The layout itself must be a key of `build.components` too. `pagedeck build`,
 `pagedeck dev` and `pagedeck sync` check it when they load the config, and
 exit `2` naming every source whose layout is unregistered.
 
-`build.content` renders every other page. The callback gets the page and the
-content store, and returns the page's component tree. Each page has one
+`build.content` renders every other page. The callback gets the page, the
+content store and the build's instant, and returns the page's component tree. Each page has one
 renderer, chosen by its source: a page whose source names a layout renders
 into that layout, and the build never calls the callback for it. A page whose
 source names no layout, such as one from `paginate` or `fromTemplate`, goes to

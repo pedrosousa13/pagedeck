@@ -119,14 +119,17 @@ export interface BuildSection {
   content?(
     page: Page,
     store: ContentStoreReader,
+    now: string,
   ): PageContent | Promise<PageContent>;
   head?(
     page: Page,
     store: ContentStoreReader,
+    now: string,
   ): PageHead | undefined | Promise<PageHead | undefined>;
   chrome?(
     page: Page,
     store: ContentStoreReader,
+    now: string,
   ): PageChrome | undefined | Promise<PageChrome | undefined>;
   readonly outDir: string;
   readonly css?: readonly string[];

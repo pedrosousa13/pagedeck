@@ -1753,7 +1753,7 @@ test("a build section carries a declared head through to the loaded config", asy
 
   const config = await loadConfig(dir);
 
-  expect(config.build?.head?.({} as never, {} as never)).toEqual({
+  expect(config.build?.head?.({} as never, {} as never, "2026-01-01T00:00:00.000Z")).toEqual({
     title: "Site",
   });
 });

@@ -8,8 +8,9 @@ description: Name the fields holding when an entry is published and unpublished,
 
 A collection can name the fields of its entries that hold the instants an entry
 starts and stops being a page. `publishField` names the first, `unpublishField`
-the second, and a build collects only the entries inside the window they
-describe.
+the second, and page collection takes only the entries inside the window they
+describe. The window binds page collection and nothing else: see
+[Where the window applies](#where-the-window-applies).
 
 ```ts
 defineCollection({
@@ -56,8 +57,9 @@ value. An entry with no publish time is already published; an entry with no
 unpublish time never expires. Most entries of a scheduled collection carry
 neither, and they are all pages.
 
-The field is a name and not a callback because the selection happens in SQL: an
-entry outside its window is never loaded, let alone routed and then dropped.
+The field is a name and not a callback because the selection happens in SQL:
+page collection never loads an entry outside its window, let alone routes it
+and then drops it.
 Scheduling costs no extra column, no extra table and no migration; the
 timestamps are read out of the JSON your loader already stored.
 
@@ -92,10 +94,69 @@ stamp and you get the same pages, which is what makes the output comparable at
 all. The dev server passes the moment the request arrived instead, which is the
 instant a preview is asking about.
 
+Your `build.content`, `build.head` and `build.chrome` callbacks get the same
+instant as their third argument, `now`, after the page and the store. A
+`paginate` source's `lists` gets it as its second.
+
 A scheduled collection collected with **no** instant is refused rather than
 published wholesale. The message names the collection and the field it is
 scheduled by. Publishing everything would be a site shipping drafts because a
 caller forgot an argument.
+
+## Where the window applies
+
+**Page collection, and only page collection.** A `fromCollection` source over a
+scheduled collection makes pages of its due entries and no others. Every other
+place your config reads the store reads it raw, and `listEntries` and
+`getEntry` answer with every entry, entries outside their window included:
+
+- `paginate`'s `lists` gets the store and `now`, and must filter the entries
+  itself. [Paged lists](./paged-lists.md#scheduled-entries) shows how.
+- `dependsOn`, `sharedDependsOn` and `relatesTo` get the store and no instant.
+- `build.content`, `build.head` and `build.chrome` get the store and `now`.
+
+So a chrome that lists recent posts, or a head that names a related one, can
+publish the title of an entry whose page the build left out. The link check
+refuses a link to that page, but a title or summary with no link ships. Read a
+scheduled collection with `listDueEntries` at the instant you were handed:
+
+```ts
+import { listDueEntries } from "@pagedeck/content";
+
+build: {
+  outDir: "./site",
+  pages: definePages({
+    // ...
+    sources: [
+      fromCollection(posts, {
+        dependsOn: (entry, store) => store.listEntries("posts"),
+      }),
+    ],
+  }),
+  chrome: (page, store, now) => ({
+    before: [
+      {
+        component: "RecentPosts",
+        props: {
+          titles: listDueEntries(store, posts, now).map((post) => post.data.title),
+        },
+      },
+    ],
+  }),
+  // ...
+}
+```
+
+`listDueEntries` runs the same query page collection runs, so the list and
+the pages agree. Pass it the instant you were handed and not a clock of your
+own: a second clock read can fall on the other side of a `publishAt`.
+
+**Declare what the chrome lists in `dependsOn`.** An incremental build counts
+an entry that enters or leaves its window as changed, and re-renders a page
+only when an entry in its `dependsOn` changed. Without the declaration, every
+carried page keeps its old list.
+[Chrome and incremental builds](./page-body.md#chrome-and-incremental-builds)
+has the rule and the one case it misses.
 
 ## What ships today
 
