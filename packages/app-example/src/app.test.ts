@@ -125,3 +125,11 @@ test("an unstamped app names no release", async () => {
   expect(await response.json()).toEqual({ release: null });
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 });
+
+test("an /api route, an account path and a miss send no Strict-Transport-Security, and Hono's other defaults stay", async () => {
+  for (const path of ["/api/release", "/account/me", "/no-such-page/"]) {
+    const response = await app.request(`${ORIGIN}${path}`);
+    expect(response.headers.get("Strict-Transport-Security"), path).toBeNull();
+    expect(response.headers.get("X-Frame-Options"), path).toBe("SAMEORIGIN");
+  }
+});

@@ -136,6 +136,7 @@ test("the prefix is answered by the app, with the app's own headers", async () =
   expect(accepted.headers.get("Cache-Control")).toBe("private, no-store");
   // `secureHeaders()`'s value, not the build's `DENY`: `_headers` never reaches the app.
   expect(accepted.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+  expect(accepted.headers.get("Strict-Transport-Security")).toBeNull();
 
   const refused = await signup("reader@localhost");
   expect(refused.status).toBe(422);
@@ -171,6 +172,7 @@ test("a path with no file falls through to the app's 404", async () => {
   const response = await fetch(`${origin}/no-such-page/`);
   expect(response.status).toBe(404);
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(response.headers.get("Strict-Transport-Security")).toBeNull();
 }, 30_000);
 
 async function signIn(at: string, password = ACCOUNT.password, from = at): Promise<Response> {
@@ -202,6 +204,7 @@ test("an anonymous request for the account is refused, and nothing may cache the
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   expect(response.headers.get("Content-Security-Policy")).toBeNull();
+  expect(response.headers.get("Strict-Transport-Security")).toBeNull();
 }, 30_000);
 
 test("sign-in opens the account, and sign-out revokes the same cookie on the server", async () => {
