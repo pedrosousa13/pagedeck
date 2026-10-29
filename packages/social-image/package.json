@@ -30,7 +30,7 @@
   "dependencies": {
     "@pagedeck/core": "workspace:*",
     "@resvg/resvg-js": "2.6.2",
-    "satori": "0.33.4"
+    "satori": "0.33.5"
   },
   "publishConfig": {
     "access": "public"
