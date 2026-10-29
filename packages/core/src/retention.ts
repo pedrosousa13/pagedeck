@@ -3,10 +3,12 @@ import {
   mkdir,
   readFile,
   readdir,
+  rm,
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
+import type { ChunkSourcemap } from "./client-build.js";
 import { ConfigError, describeError, printable } from "./exit.js";
 import { manifestJson, readManifest } from "./manifest.js";
 import type { Manifest } from "./manifest.js";
@@ -19,6 +21,8 @@ export interface RetentionPolicy {
 export const DEFAULT_RETENTION_POLICY: RetentionPolicy = { keep: 20 };
 
 export const RETENTION_DIR = ".pagedeck/manifests";
+
+export const SOURCEMAP_DIR = ".pagedeck/sourcemaps";
 
 const ID_FIX = "mint the build id as a name a path can hold, such as a uuid";
 
@@ -235,12 +239,53 @@ function misfiledWarning(
   return `Retention store: ${subject} — pagedeck build writes each document to "<build id>.json" and reads it back by that id, so a document filed elsewhere is unreachable by rollback and was written by hand; ${fix}:\n${lines}`;
 }
 
+export function sourcemapOf(root: string, id: string, chunk: string): string {
+  return join(root, SOURCEMAP_DIR, id, `${chunk.replace(/^\/+/, "")}.map`);
+}
+
+async function retainSourcemaps(
+  root: string,
+  id: string,
+  sourcemaps: readonly ChunkSourcemap[],
+): Promise<void> {
+  for (const map of sourcemaps) {
+    const file = sourcemapOf(root, id, map.path.slice(0, -".map".length));
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, map.contents);
+  }
+}
+
+/** By directory listing, so maps whose manifest went unreadable go with it. */
+async function pruneSourcemaps(
+  root: string,
+  kept: readonly HeldManifest[],
+): Promise<void> {
+  const ids = new Set(
+    kept.map(({ file }) => basename(file).slice(0, -".json".length)),
+  );
+  let held: string[];
+  try {
+    held = await readdir(join(root, SOURCEMAP_DIR));
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw cause;
+  }
+  for (const name of held) {
+    if (!ids.has(name)) {
+      await rm(join(root, SOURCEMAP_DIR, name), { recursive: true, force: true });
+    }
+  }
+}
+
 export async function retainManifest(
   root: string,
   manifest: Manifest,
   policy: RetentionPolicy = DEFAULT_RETENTION_POLICY,
+  sourcemaps: readonly ChunkSourcemap[] = [],
 ): Promise<string | undefined> {
   assertUsableId(manifest.build.id);
+  // Before the manifest: a retained build's maps are whole once it is listed.
+  await retainSourcemaps(root, manifest.build.id, sourcemaps);
   await mkdir(storeDir(root), { recursive: true });
   await writeFile(fileOf(root, manifest.build.id), manifestJson(manifest));
 
@@ -248,6 +293,7 @@ export async function retainManifest(
   const pruned = held.slice(policy.keep);
   for (const { file } of pruned) await unlink(file);
   for (const { file } of unreadable) await unlink(file);
+  await pruneSourcemaps(root, held.slice(0, policy.keep));
   const sections = [
     misfiledWarning(held.slice(0, policy.keep), pruned),
     unreadableWarning(unreadable),

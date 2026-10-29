@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
 import {
@@ -47,10 +47,18 @@ export interface ClientBuildInput {
   split?: readonly ManifestChunk[];
   upstreams?: readonly UpstreamRule[];
   islandErrors?: string;
+  sourcemaps?: boolean;
+}
+
+export interface ChunkSourcemap {
+  path: string;
+  contents: string;
 }
 
 export interface ClientBuild {
   files: readonly EmittedFile[];
+  /** Never placed: retained beside the build's manifest, outside `outDir` (ADR-0002, #199). */
+  sourcemaps: readonly ChunkSourcemap[];
   entryScripts: ReadonlyMap<string, string>;
   entryStyles: ReadonlyMap<string, readonly string[]>;
   globalStyles: readonly string[];
@@ -417,6 +425,7 @@ export async function buildClient(
         : await buildGlobalStyles(input);
     return {
       ...globalStyles,
+      sourcemaps: [],
       entryScripts: new Map(),
       entryStyles: new Map(),
       modules: new Map(),
@@ -517,6 +526,8 @@ export async function buildClient(
         build: {
           write: false,
           assetsDir: ASSET_DIR,
+          // `"hidden"` writes no `sourceMappingURL` comment into a chunk.
+          sourcemap: input.sourcemaps === true ? "hidden" : false,
           rolldownOptions: {
             // The whole map, always: a partial graph would duplicate the shared
             // store against the core chunk (spec §11, #64).
@@ -526,6 +537,10 @@ export async function buildClient(
               chunkFileNames: `${ASSET_DIR}/[name]-[hash].js`,
               assetFileNames: naming.assetFileNames,
               codeSplitting: splitting,
+              sourcemapPathTransform: (source, map) =>
+                relative(input.root, resolve(dirname(map), source))
+                  .split(sep)
+                  .join("/"),
             },
           },
         },
@@ -578,6 +593,7 @@ export async function buildClient(
   }
 
   const files: EmittedFile[] = [];
+  const sourcemaps: ChunkSourcemap[] = [];
   const modules = new Map<string, readonly string[]>();
   const imports = new Map<string, readonly string[]>();
   const entryScripts = new Map<string, string>();
@@ -589,6 +605,10 @@ export async function buildClient(
     if (!("output" in one)) continue;
     for (const emitted of one.output) {
       const path = chunkPath(emitted.fileName);
+      if (emitted.type === "asset" && emitted.fileName.endsWith(".map")) {
+        sourcemaps.push({ path, contents: String(emitted.source) });
+        continue;
+      }
       if (emitted.type === "chunk") {
         const held = Object.keys(emitted.modules);
         const splitByRolldown =
@@ -647,6 +667,7 @@ export async function buildClient(
 
   return {
     files,
+    sourcemaps,
     entryScripts,
     entryStyles: planEntryStyles(chunks, cssOfChunk),
     globalStyles: planGlobalStyles(globalCss.size > 0, chunks, cssOfChunk),

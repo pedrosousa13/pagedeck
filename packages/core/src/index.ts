@@ -257,9 +257,11 @@ export {
   readRetainedManifest,
   RETENTION_DIR,
   retainManifest,
+  SOURCEMAP_DIR,
   unusableId,
 } from "./retention.js";
 export type { RetentionPolicy } from "./retention.js";
+export type { ChunkSourcemap } from "./client-build.js";
 export {
   planRouting,
   redirectIndex,
