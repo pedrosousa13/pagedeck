@@ -107,8 +107,9 @@ export function contentRelativeReferences(
       if (reference.kind !== "asset" || target.at !== "relative") continue;
       const address = resolveAgainst(base, target.href);
       if (emitted.has(fileKey(file.domain, address))) continue;
-      if (found.has(address)) continue;
-      found.set(address, {
+      const key = `${page} ${address}`;
+      if (found.has(key)) continue;
+      found.set(key, {
         ...(entry === undefined ? {} : { entry }),
         page,
         href: reference.url,
@@ -119,6 +120,17 @@ export function contentRelativeReferences(
   return [...found.values()].sort((a, b) =>
     a.address < b.address ? -1 : a.address > b.address ? 1 : 0,
   );
+}
+
+export function firstPerAddress(
+  references: readonly ContentRelativeReference[],
+): readonly ContentRelativeReference[] {
+  const seen = new Set<string>();
+  return references.filter((reference) => {
+    if (seen.has(reference.address)) return false;
+    seen.add(reference.address);
+    return true;
+  });
 }
 
 function entryOf(page: Page): string | undefined {
@@ -149,6 +161,69 @@ function resolveAgainst(base: string, href: string): string {
     segments.push(segment);
   }
   return `/${segments.join("/")}`;
+}
+
+export const CONTENT_ROOT_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".jxl",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+  ".aac",
+  ".flac",
+  ".m4a",
+  ".mp3",
+  ".oga",
+  ".ogg",
+  ".opus",
+  ".wav",
+  ".weba",
+  ".m4v",
+  ".mov",
+  ".mp4",
+  ".ogv",
+  ".webm",
+  ".otf",
+  ".ttf",
+  ".woff",
+  ".woff2",
+  ".pdf",
+  ".vtt",
+  ".css",
+]);
+
+function decoded(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+export function contentReferenceRefusal(address: string): string | undefined {
+  const segments = address.split("/").filter((segment) => segment !== "");
+  const dotted = segments.find(
+    (segment) => segment.startsWith(".") || decoded(segment).startsWith("."),
+  );
+  if (dotted !== undefined) {
+    return `the segment ${quote(dotted)} starts with a dot`;
+  }
+  const name = segments.at(-1) ?? "";
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) {
+    return "its file name has no extension, and a content tree publishes only one on the list";
+  }
+  const extension = name.slice(dot);
+  if (CONTENT_ROOT_EXTENSIONS.has(extension.toLowerCase())) return undefined;
+  return `its extension ${quote(extension)} is not one a content tree publishes`;
 }
 
 const COLLISION_FIX: Readonly<Record<PassthroughInput["field"], string>> = {

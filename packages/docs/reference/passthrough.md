@@ -129,10 +129,41 @@ the address the file takes are the same string, which is what makes the referenc
 work rather than a coincidence you have to check.
 
 **Only a file a page points at is published.** That is the difference from
-`root`, and it is why `contentRoot` can be a tree that also holds your markdown,
-your components and your layouts: nothing publishes them, because no page's
-`<img>` names them. An image sitting in the tree that no post uses is not
-published either.
+`root`. An image sitting in the tree that no post uses is not published.
+
+**Only a file of a published type is published, and never a dotfile.** Content
+can come from someone who cannot touch the repository, such as a CMS editor, so
+a reference does not decide alone what leaves the tree. The build refuses a
+reference when a segment of the address it resolves to starts with a dot,
+written as `.` or as `%2e`: `.env`, `.git/config` and `.drafts/logo.png` are all
+refused. It also refuses a reference whose file has no extension or an
+extension outside this list, in any case:
+
+- images: `.apng`, `.avif`, `.bmp`, `.gif`, `.ico`, `.jpeg`, `.jpg`, `.jxl`,
+  `.png`, `.svg`, `.tif`, `.tiff`, `.webp`
+- audio: `.aac`, `.flac`, `.m4a`, `.mp3`, `.oga`, `.ogg`, `.opus`, `.wav`,
+  `.weba`
+- video: `.m4v`, `.mov`, `.mp4`, `.ogv`, `.webm`
+- fonts: `.otf`, `.ttf`, `.woff`, `.woff2`
+- `.pdf`, `.vtt` and `.css`
+
+The list decides every asset reference a page makes, so a relative
+`<script src>` is refused too: `.js` is not on it, and neither are `.ts`,
+`.tsx`, `.md`, `.json` or `.db`. That is why `contentRoot` can be a tree that
+also holds your markdown, your components, your layouts and your config. A file
+the site means to serve that the list leaves out goes in `root`, and a page
+references it from the site root.
+
+The build refuses a reference before it looks for the file, so the refusal is
+the same whether the file exists or not, and an editor learns nothing about the
+tree from it. Every refused reference is listed in one run, once for each page
+that makes it, with the reason on each line:
+
+```
+Passthrough: 2 content-relative references name a file build.passthrough.contentRoot never publishes — a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of .apng, .avif, .bmp, .gif, .ico, .jpeg, .jpg, .jxl, .png, .svg, .tif, .tiff, .webp, .aac, .flac, .m4a, .mp3, .oga, .ogg, .opus, .wav, .weba, .m4v, .mov, .mp4, .ogv, .webm, .otf, .ttf, .woff, .woff2, .pdf, .vtt or .css; point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root:
+  en /posts/ferry — "../../.env" → "/.env" — content entry "posts en posts/ferry" — the segment ".env" starts with a dot
+  en /posts/ferry — "../../secret.ts" → "/secret.ts" — content entry "posts en posts/ferry" — its extension ".ts" is not one a content tree publishes
+```
 
 **A reference that names nothing there refuses the build**, naming the page, what
 it wrote, the address this build went looking at, and the entry the reference is
@@ -150,7 +181,7 @@ address: the first page that reaches it, what that page wrote, the address, and
 the entry it is written in. The fix is to declare `contentRoot`:
 
 ```
-Passthrough: 1 content-relative reference resolves to nothing this build publishes, because this site declares no build.passthrough.contentRoot — a content-relative reference resolves against the address its page is served at, and the file it names is published from the content tree that key declares, so without it each page below points at an address nothing in this build emits; this is a warning and not a refusal because the host may serve these files from somewhere this build never reads — declare build.passthrough.contentRoot as the directory these files sit beneath, and the build publishes each one and refuses any that is missing:
+Passthrough: 1 content-relative reference resolves to nothing this build publishes, because this site declares no build.passthrough.contentRoot — a content-relative reference resolves against the address its page is served at, and the file it names is published from the content tree that key declares, so without it each page below points at an address nothing in this build emits; this is a warning and not a refusal because the host may serve these files from somewhere this build never reads — declare build.passthrough.contentRoot as the directory these files sit beneath, and the build publishes each one, refusing any that is missing, has a segment that starts with a dot or has an extension a content tree does not publish:
   en /posts/ferry — "../../assets/images/ferry/logo.png" → "/assets/images/ferry/logo.png" — content entry "posts en posts/ferry"
 ```
 

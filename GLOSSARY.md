@@ -1093,13 +1093,17 @@ its own path beneath it, in every output tree (`passthroughFiles`,
 
 **Two directories name them and the noun covers both.** `root` is published
 whole, and `contentRoot` is a content tree from which only the files a page
-points at are published (#474) — the difference is which files land, not what a
+points at, and of a published type, are published (#474, #206) — the difference is which files land, not what a
 landed file is, and both take their address from the same `passthroughAddress`.
 Either key may be declared alone (#491).
 A content tree holds a site's markdown, its layouts and its components beside
 the images its posts reference, so publishing it whole would serve a site's own
-sources to a reader; that is the whole of why the second key reads a set rather
-than a walk.
+sources to a reader; that is why the second key reads a set rather than a walk.
+A set is not enough alone, because content can come from an editor who cannot
+touch the repository and a reference can name a source file: so a content tree
+also publishes only a file whose extension is on `CONTENT_ROOT_EXTENSIONS` and
+whose address has no segment starting with a dot (`contentReferenceRefusal`,
+`packages/core/src/passthrough.ts`, #206).
 
 The noun exists because the file has no stage. Every other file in an output
 tree is something this build *made* — a page, a chunk, a font subset, a social
