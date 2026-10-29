@@ -94,7 +94,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "rolldown": "1.2.13",
-    "vite": "^8.2.2"
+    "vite": "^8.3.3"
   },
   "bin": {
     "pagedeck": "./dist/bin.js"
@@ -108,7 +108,7 @@
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
     "tailwindcss": "4.3.3",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "publishConfig": {
     "access": "public"

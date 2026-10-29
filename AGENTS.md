@@ -409,17 +409,17 @@ Its fonts (#45) are static `ofl/firasans/` files from `google/fonts` at
 `e345593da2a4d596212542edbd28f2ed08fe6cbe`; a variable binary would serve one
 weight.
 
-**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 13.8% over
+**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 13.5% over
 its figure. Every locale is keyed: a page no pattern matches is unbudgeted, not
 free.
 
 | Page | Limit | Measured | Made of |
 | --- | --- | --- | --- |
 | `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 54010 B (#139) | `pagedeck-core` chunk 52478 B, `pagedeck-startup` chunk 907 B, entry chunk 258 B, the inline script loader 367 B |
+| `en /pricing` | `60kb` (61440 B) | 54120 B (#208) | `pagedeck-core` chunk 52469 B, `pagedeck-startup` chunk 1024 B, entry chunk 260 B, the inline script loader 367 B |
 
-The whole-build ceiling is 61 kB Brotli (62464 B) against 54573 B of `js`
-measured (#139), 14.5% over it, counting the 930 B `slot` chunk and not the inline
+The whole-build ceiling is 61 kB Brotli (62464 B) against 54688 B of `js`
+measured (#208), 14.2% over it, counting the 935 B `slot` chunk and not the inline
 loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):
@@ -805,10 +805,10 @@ over the uncompressed local origin, not the Brotli of `build.budget`:
 | Page | Bytes limit | Measured | Requests |
 | --- | --- | --- | --- |
 | `/de/`, `/en/`, `/en/legal/terms/` | 0 | 0 | 0 |
-| `/en/pricing/` | 230400 | 197083 (#139; 196569 B of chunk on disk, `pagedeck-core` 194081 B, `pagedeck-startup` 2047 B, plus 514 B of headers) | 4 |
+| `/en/pricing/` | 230400 | 197406 (#208; 196892 B of chunk on disk, `pagedeck-core` 194081 B, `pagedeck-startup` 2370 B, plus 514 B of headers) | 4 |
 
 Zeros and request counts take no headroom: a request is a decision.
-`/en/pricing`'s 16.9% is for a `react-dom` patch release walking `pagedeck-core`.
+`/en/pricing`'s 16.7% is for a `react-dom` patch release walking `pagedeck-core`.
 `pagedeck-startup` is one more request, the cost of #95's chunk split, which the
 maintainer ruled accepted. Another request is the consent manager at
 `consent.example`, which resolves nowhere; a real vendor there means

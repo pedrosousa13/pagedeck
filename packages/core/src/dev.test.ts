@@ -492,6 +492,9 @@ test("an island component edit updates that page's entry rather than reloading",
   expect(entry.status).toBe(200);
   expect(entry.body).toContain("hotIslands(import.meta.hot, modules)");
   expect(entry.body).toContain("import.meta.hot.accept();");
+  expect(entryUrl.startsWith("/@id/__x00__")).toBe(true);
+  const entryId = `\0${entryUrl.slice("/@id/__x00__".length)}`;
+  expect(entry.body).toContain(`__vite__createHotContext(${JSON.stringify(entryId)})`);
 
   expect((await get("/src/Counter.js")).status).toBe(200);
 
@@ -512,8 +515,8 @@ test("an island component edit updates that page's entry rather than reloading",
     const updates = update.updates ?? [];
     expect(updates).toHaveLength(1);
     expect(updates[0]?.type).toBe("js-update");
-    expect(updates[0]?.path).toBe(entryUrl);
-    expect(updates[0]?.acceptedPath).toBe(entryUrl);
+    expect(updates[0]?.path).toBe(entryId);
+    expect(updates[0]?.acceptedPath).toBe(entryId);
     expect(
       client.messages.filter((message) => message.type === "full-reload"),
     ).toEqual([]);
