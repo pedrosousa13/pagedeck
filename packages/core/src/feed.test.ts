@@ -1,11 +1,13 @@
 import { openStore } from "@pagedeck/content";
 import type { ContentStore } from "@pagedeck/content";
+import { JSDOM } from "jsdom";
 import { afterEach, expect, test } from "vitest";
 import { feedFaultReport, feedFiles } from "./feed.js";
 import type { FeedSetting } from "./feed.js";
 import type { LocaleSet } from "./locales.js";
 import type { EmittedFile } from "./manifest.js";
 import type { Page } from "./pages.js";
+import { RenderError } from "./tree.js";
 
 const ORIGIN = "https://example.com";
 
@@ -510,11 +512,67 @@ test("XML delimiters in a title, a description and a URL are escaped", () => {
   ]);
   const xml = feed({ store, pages: [row({ path: "/posts/a&b" })] });
 
-  expect(xml).toContain("<title>Tom &amp; &quot;Jerry&quot; &lt;b></title>");
+  expect(xml).toContain("<title>Tom &amp; &quot;Jerry&quot; &lt;b&gt;</title>");
   expect(xml).toContain("<description>1 &lt; 2 &amp; 3</description>");
   expect(xml).toContain("<link>https://example.com/en/posts/a&amp;b</link>");
   expect(xml).toContain(
     '<guid isPermaLink="true">https://example.com/en/posts/a&amp;b</guid>',
+  );
+});
+
+function parseErrors(xml: string): string | undefined {
+  const { DOMParser } = new JSDOM("").window;
+  const parsed = new DOMParser().parseFromString(xml, "application/xml");
+  return parsed.querySelector("parsererror")?.textContent ?? undefined;
+}
+
+test("a title holding the CDATA end marker writes a feed that parses as XML, the title intact", () => {
+  const store = storeWith([
+    { path: "posts/a", data: { title: "Brackets ]]> in a title" } },
+  ]);
+  const xml = feed({ store, pages: [row({ path: "/posts/a" })] });
+
+  expect(parseErrors(xml)).toBe(undefined);
+  expect(xml).toContain("<title>Brackets ]]&gt; in a title</title>");
+});
+
+test("tab, line breaks and characters outside the BMP are written, and the feed parses", () => {
+  const store = storeWith([
+    {
+      path: "posts/a",
+      data: { title: "Tab\there", summary: "Line\nfeed\r\nand \u{1F600} \u{1FFFE}" },
+    },
+  ]);
+  const xml = feed({ store, pages: [row({ path: "/posts/a" })] });
+
+  expect(parseErrors(xml)).toBe(undefined);
+  expect(xml).toContain("<title>Tab\there</title>");
+});
+
+test("every field holding a character XML 1.0 forbids is refused in one throw, naming the entry, the field and the code point", () => {
+  const store = storeWith([
+    { path: "posts/form-feed", data: { title: "Form \f feed" } },
+    { path: "posts/plain", data: { title: "Plain", summary: "Fine" } },
+    {
+      path: "posts/many",
+      data: { title: "Lone \uD800", summary: "Nul \u0000, ￾ and ￿ \u0000" },
+    },
+  ]);
+  const build = (): string =>
+    feed({
+      store,
+      pages: [
+        row({ path: "/posts/form-feed" }),
+        row({ path: "/posts/plain" }),
+        row({ path: "/posts/many" }),
+      ],
+    });
+
+  expect(build).toThrow(RenderError);
+  expect(build).toThrow(
+    new RenderError(
+      `Collection "posts": 3 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n  /en/posts/form-feed — title — U+000C\n  /en/posts/many — title — U+D800\n  /en/posts/many — summary — U+0000, U+FFFE, U+FFFF`,
+    ),
   );
 });
 

@@ -22,6 +22,7 @@ const PLAIN_SITE = join(SITES, ".pagedeck-feed-plain-test");
 const FEED_SITE = join(SITES, ".pagedeck-feed-declared-test");
 const TWICE_SITE = join(SITES, ".pagedeck-feed-twice-test");
 const TREES_SITE = join(SITES, ".pagedeck-feed-trees-test");
+const FORBIDDEN_SITE = join(SITES, ".pagedeck-feed-forbidden-test");
 
 const ONE_TREE = `en: { label: "English", direction: "ltr" },`;
 const TWO_TREES = `en: { label: "English", direction: "ltr", domain: "example.com" },
@@ -59,13 +60,14 @@ function site(
   declared = "",
   locales = ONE_TREE,
   contentLocales: readonly string[] = ["en"],
+  posts = POSTS,
 ): string {
   rmSync(root, { recursive: true, force: true });
 
   mkdirSync(join(root, "components"), { recursive: true });
   writeFileSync(join(root, "components", "Copy.js"), COMPONENT);
   for (const locale of contentLocales) {
-    for (const [slug, data] of Object.entries(POSTS)) {
+    for (const [slug, data] of Object.entries(posts)) {
       const file = join(root, "content", locale, "posts", `${slug}.json`);
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, `${JSON.stringify({ rev: 1, data })}\n`);
@@ -162,7 +164,13 @@ async function buildOnce(
 }
 
 afterAll(() => {
-  for (const root of [PLAIN_SITE, FEED_SITE, TWICE_SITE, TREES_SITE]) {
+  for (const root of [
+    PLAIN_SITE,
+    FEED_SITE,
+    TWICE_SITE,
+    TREES_SITE,
+    FORBIDDEN_SITE,
+  ]) {
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -279,4 +287,26 @@ test("the feed is linked from every page's head, and only where the site asked",
     "manifest.json",
     ...feed.manifest.pages.map((page) => page.html.slice(1)).sort(),
   ]);
+}, 120_000);
+
+test("a title holding a form feed and another holding a lone surrogate fail one build that names both entries and fields", async () => {
+  const dir = site(FORBIDDEN_SITE, DECLARED, ONE_TREE, ["en"], {
+    "form-feed": { title: "Form \f feed", date: "2026-06-01T09:00:00Z" },
+    surrogate: { title: "Lone \uD800", date: "2026-06-02T09:00:00Z" },
+  });
+  await run(dir, "sync");
+  const { runCli } = await import("./cli.js");
+  const err: string[] = [];
+  const code = await runCli(["build"], {
+    cwd: dir,
+    env: {},
+    out: () => undefined,
+    err: (line) => err.push(line),
+  });
+
+  expect(code).toBe(EXIT_CODES.syncFailed);
+  expect(err).toEqual([
+    `Collection "posts": 2 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:\n  /en/posts/form-feed — title — U+000C\n  /en/posts/surrogate — title — U+D800`,
+  ]);
+  expect(existsSync(join(dir, "dist", "rss.xml"))).toBe(false);
 }, 120_000);

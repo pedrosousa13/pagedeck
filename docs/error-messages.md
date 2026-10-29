@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks), there are 128 below, 115 of them
+`x` at/from `path`, outside fenced blocks), there are 129 below, 116 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 314 messages fenced
-below, 237 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 315 messages fenced
+below, 238 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 237 checked messages pin 35577 of the 101034 fenced characters, and
+below**: the 238 checked messages pin 35734 of the 101302 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -571,6 +571,23 @@ and never resolves it as a module, so it refuses `./x.js` above as an unknown
 name, the same as a typo. A page that falls back to another locale's entry
 renders that entry, and the report names the entry once. Both faults are
 content, so they exit `1`; rule 7 argues the class.
+
+`feedFiles` in `packages/core/src/feed.ts` reads the title and description of
+every item before it writes the site feed (#204). A value holding a character
+XML 1.0 forbids (a C0 control other than tab, LF and CR, a lone surrogate,
+U+FFFE or U+FFFF) would make the whole feed unparseable for every reader, and
+no escape spells one, so the build refuses it rather than drop it. The report
+has one line per entry and field, naming each forbidden code point and never
+the value:
+
+```
+Collection "posts": 2 fields the feed writes hold a character XML 1.0 forbids, so no feed reader can parse the feed — remove each character its line names, or replace it with one XML allows:
+  /en/posts/form-feed — title — U+000C
+  /en/posts/surrogate — title — U+D800
+```
+
+The field is the entry's own field, `summary` rather than `item.description`,
+because the fix is in the content. It is content, so it exits `1`.
 
 `loadComponents` in `packages/core/src/tree.tsx` collects across a page's
 whole tree, so one run names every component a rename left behind:

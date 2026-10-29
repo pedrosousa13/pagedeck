@@ -23,6 +23,11 @@ declare module "jsdom" {
 
   export class JSDOM {
     constructor(html: string);
-    readonly window: { readonly document: ParsedDocument };
+    readonly window: {
+      readonly document: ParsedDocument;
+      readonly DOMParser: new () => {
+        parseFromString(source: string, type: string): ParsedDocument;
+      };
+    };
   }
 }

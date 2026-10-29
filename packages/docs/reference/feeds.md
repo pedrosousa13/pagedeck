@@ -83,6 +83,13 @@ date-time writes no `<pubDate>`. Which fields an entry holds is content; if a
 field is required, say so in the collection's schema, where the failure names
 the entry.
 
+**A title or description holding a character XML 1.0 forbids fails the
+build**: a C0 control character other than tab, line feed and carriage return,
+a lone surrogate, U+FFFE or U+FFFF. No escape can write one, and one such
+character would stop every reader parsing the whole feed. The build names each
+entry, field and code point in one report, so remove or replace each character
+in the content. Every other character, `]]>` included, is escaped and written.
+
 ## `origin` is required
 
 Every `<link>` and `<guid>` in a feed is an absolute URL (RSS has no relative
