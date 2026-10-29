@@ -15,7 +15,7 @@ const wantsJson = (c: Context) => c.req.header("Accept")?.includes("application/
 // Before `basePath`, so the middleware also covers a path with no file, which reaches the
 // Worker too.
 const app = new Hono()
-  .use(secureHeaders())
+  .use(secureHeaders({ strictTransportSecurity: false }))
   .use(async (c, next) => {
     await next();
     c.header("Cache-Control", "private, no-store");

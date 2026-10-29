@@ -71,7 +71,7 @@ The app is a Hono app whose routes start with `/api` or `/account`. Under
 
 ```ts
 const app = new Hono()
-  .use(secureHeaders())
+  .use(secureHeaders({ strictTransportSecurity: false }))
   .use(async (c, next) => {
     await next();
     c.header("Cache-Control", "private, no-store");
@@ -205,6 +205,13 @@ response the Worker writes
 app sets its own: `secureHeaders()` adds Hono's security headers, and the
 second middleware marks every answer `private, no-store`, so no cache, shared
 or the browser's own, keeps a reply written for one visitor.
+
+`strictTransportSecurity: false` drops one of Hono's defaults,
+`Strict-Transport-Security`. A browser that receives Hono's value refuses plain
+HTTP for the host and every subdomain for 180 days, and keeps refusing after you
+take it back. [Two headers this framework will not decide for
+you](../reference/routing.md#two-headers-this-framework-will-not-decide-for-you)
+says why, and how to write it yourself once the domain is ready.
 
 ## The island calls the app by its type
 

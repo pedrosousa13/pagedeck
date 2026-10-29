@@ -4,7 +4,7 @@ import { validator } from "hono/validator";
 
 // Before `basePath`, so a host that hands the app a path with no file still sends these headers.
 const app = new Hono()
-  .use(secureHeaders())
+  .use(secureHeaders({ strictTransportSecurity: false }))
   .use(async (c, next) => {
     await next();
     c.header("Cache-Control", "no-store");
