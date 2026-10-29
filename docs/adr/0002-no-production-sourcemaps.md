@@ -11,7 +11,8 @@ Date: 2026-08-25
 
 Accepted. Forward-looking: nothing in the repo sets `build.sourcemap`, so no
 sourcemap is emitted today and there is no code change attached to this. Raised
-by #83.
+by #83. Amended on 2026-10-29 by #199, which keeps maps out of the output and in
+the local retention store (see the last section).
 
 ## Context
 
@@ -117,3 +118,48 @@ for any future tooling that consumes it, in exchange for nothing.
 `compileIslands` now runs `oxc-transform-react` in a child process in place of
 Babel, with `sourcemap: true` in place of `sourceMaps: true`. The map it returns
 has the same shape and the same `sources` entry, and the decision stands.
+
+## Amendment (2026-10-29, #199)
+
+A site that declares `build.islandErrors` now gets a sourcemap for each island
+chunk, kept in its retention store and never in its output. `pagedeck trace`
+reads the maps there to turn a frame of an island error report into a source
+file, line and column. A site that does not declare `build.islandErrors` builds
+exactly as before: no map is made and nothing new is written.
+
+**Production output still holds no map.** `buildClient`
+(`packages/core/src/client-build.ts`) sets `build.sourcemap: "hidden"` only
+for such a site, with `write: false` as before, and takes every `.map` out of
+the bundler's result before anything is placed. The maps come back as
+`sourcemaps`, beside `files` and never inside it, so no map reaches the output
+directory, the edge output or a deploy. `"hidden"` writes no `sourceMappingURL`
+comment, so no chunk names a map. Keeping maps changes no byte of any chunk or
+page: `client-build.test.ts` builds the same site with and without them and
+compares what each places, and still asserts that no file it places ends `.map`
+or holds `sourceMappingURL`. `sourcemaps.build.test.ts` asserts the same over
+the whole output tree and the edge output of a built site.
+
+**The maps live only in the local retention store**, at
+`.pagedeck/sourcemaps/<build id>/<chunk path>.map`, beside
+`.pagedeck/manifests/`. `retainManifest` (`packages/core/src/retention.ts`)
+writes them before the manifest, and prunes them with it past
+`build.retention.keep`. Each map's `sources` is relative to the site root, so a
+map holds no path of the machine that built it. A page's entry chunk holds only
+the code the build generates to load its islands, so it has no source to map
+and gets none. An incremental build runs the client build again, so it keeps
+maps under its own build id.
+
+**This is not the "emit then delete" alternative this ADR rejects.** That
+measure wrote maps into the output directory and removed them after: a window a
+reordered step could publish, with a `sourceMappingURL` left in each chunk. Here
+no map is ever written to the output directory, so there is no window to
+reorder and no comment to leave. It is also not the upload alternative above:
+nothing sends a map anywhere.
+
+**The retention store now holds the full source of every island.** Each map
+carries `sourcesContent`, so `.pagedeck/` holds the complete text of every
+module an island chunk was built from, comments included. Whoever uploads
+`.pagedeck/`, caches it in CI or attaches it to a release uploads that source.
+Do not publish `.pagedeck/`. Maps may go into the retention store and nowhere
+else that a build writes; copying them anywhere else is a decision for whoever
+makes it, made with this disclosure in front of them.

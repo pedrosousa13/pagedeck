@@ -1024,6 +1024,18 @@ _Avoid_: manifest list, history listing (a listing is what it replaces),
 retention index (retention is the site's store), index unqualified (the two
 senses above)
 
+**Retained sourcemap**:
+A sourcemap of one island chunk, kept in a site's retention store at
+`.pagedeck/sourcemaps/<build id>/<chunk path>.map` and never in the output
+tree, the edge output or a deploy (`SOURCEMAP_DIR`,
+`packages/core/src/retention.ts`, #199). A build makes them only while the site
+declares `build.islandErrors`, and prunes them with their build's manifest.
+`pagedeck trace` is their only reader. Each holds the full source of what it
+maps (ADR-0002's amendment), so the store is as private as the source.
+_Avoid_: hidden sourcemap (that is the bundler's setting, which only drops the
+`sourceMappingURL` comment), production sourcemap (production output holds
+none), source map upload (nothing uploads them)
+
 **Tree key**:
 The host that names an output tree: the host the URL parser reads out of a
 locale's declared `domain` — lowercased, IDNA-encoded, an IPv4 address in its
