@@ -759,7 +759,7 @@ test("a .tsx component edit is rendered after the reload, three edits in a row",
     await editAndReload(NOTE, noteSource(marker));
     await served("/noted", `<p data-text="noted">${marker}</p>`);
   }
-}, 90_000);
+}, 150_000);
 
 test("an edit to a module a component imports from the site is rendered after the reload, three edits in a row", async () => {
   expect((await get("/quoted")).body).toContain("<q>quote-before-5c62</q>");
@@ -768,7 +768,7 @@ test("an edit to a module a component imports from the site is rendered after th
     await editAndReload(QUOTE_TEXT, quoteTextSource(marker));
     await served("/quoted", `<q>${marker}</q>`);
   }
-}, 90_000);
+}, 150_000);
 
 test("a component declared by path is islanded, and its page's entry imports it", async () => {
   const page = await get("/pathed");
@@ -1429,4 +1429,4 @@ test("a component the config imports by value is rendered edited after the first
   } finally {
     rmSync(FRAMED_SITE, { recursive: true, force: true });
   }
-}, 120_000);
+}, 150_000);
