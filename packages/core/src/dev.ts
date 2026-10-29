@@ -394,7 +394,8 @@ function pageHandler(
       store = openStore(config.storePath);
       // The clock, deliberately: a dev server answers what the site looks like
       // now.
-      const pages = collectPages(store, section.pages, new Date().toISOString());
+      const now = new Date().toISOString();
+      const pages = collectPages(store, section.pages, now);
       const page = matchPage(pages, hostOf(request), path);
       if (page === undefined) {
         respondText(
@@ -409,6 +410,7 @@ function pageHandler(
         section,
         page,
         store,
+        now,
         foldStrategy,
         styles,
       });
@@ -716,13 +718,14 @@ async function renderDocument(input: {
   entryNames: Map<string, string>;
   page: Page;
   store: ContentStoreReader;
+  now: string;
   foldStrategy: ReturnType<typeof resolveFoldStrategy>;
   styles: readonly string[];
 }): Promise<string> {
-  const { section, page, store } = input;
+  const { section, page, store, now } = input;
   const layouts = layoutContents([page], store, section.components);
-  const content = await contentOf(page, layouts, store, section.content);
-  const chrome = await section.chrome?.(page, store);
+  const content = await contentOf(page, layouts, store, section.content, now);
+  const chrome = await section.chrome?.(page, store, now);
   const locale = section.pages.locales.get(page.locale);
   const rendered = await renderPage({
     ...content,
@@ -762,7 +765,7 @@ async function renderDocument(input: {
     styles: input.styles,
     script: entry === undefined ? undefined : virtualModuleUrl(entry.id),
     inlineStyles: [],
-    head: await section.head?.(page, store),
+    head: await section.head?.(page, store, now),
     links: undefined,
     section,
   });

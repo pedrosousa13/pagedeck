@@ -14,7 +14,8 @@ content, and the build never invents content a site did not write.
 The `<body>`'s one landmark is written the same way: see [Page body](./page-body.md).
 
 **`build.head` is where a site writes it.** It is a callback, taking the same
-two arguments `build.content` takes: the page, and the store.
+three arguments `build.content` takes: the page, the store, and the build's
+instant.
 
 ```ts
 build: {

@@ -10,6 +10,7 @@ import type { PageContent } from "./tree.js";
 type ContentCallback = (
   page: Page,
   store: ContentStoreReader,
+  now: string,
 ) => PageContent | Promise<PageContent>;
 
 interface EntryFault {
@@ -146,6 +147,7 @@ export function contentOf(
   layouts: ReadonlyMap<Page, PageContent>,
   store: ContentStoreReader,
   content: ContentCallback | undefined,
+  now: string,
 ): PageContent | Promise<PageContent> {
   const laid = layouts.get(page);
   if (laid !== undefined) return laid;
@@ -154,5 +156,5 @@ export function contentOf(
       `Page /${page.locale}${page.path}: names no layout, and the build section declares no content callback to render it — declare build.content, or name a layout on the page's source`,
     );
   }
-  return content(page, store);
+  return content(page, store, now);
 }

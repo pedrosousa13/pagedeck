@@ -871,7 +871,7 @@ async function stageSite(input: {
   const heads = new Map<string, PageHead>();
   if (section.head !== undefined) {
     for (const page of pages) {
-      const head = await section.head(page, store);
+      const head = await section.head(page, store, input.stamp.createdAt);
       if (head !== undefined) heads.set(`${page.locale} ${page.path}`, head);
     }
   }
@@ -928,6 +928,7 @@ async function stageSite(input: {
           : incremental.render.map((one) => one.page),
         section,
         store,
+        input.stamp.createdAt,
         facts,
         foldStrategy,
         socialImages?.cards,
@@ -1754,6 +1755,7 @@ async function renderAll(
   pages: readonly Page[],
   section: LoadedBuildSection,
   store: ContentStoreReader,
+  now: string,
   modules: Readonly<Record<string, ModuleFacts>>,
   foldStrategy: FoldStrategy | undefined,
   cards: ReadonlyMap<string, SocialCard> | undefined,
@@ -1761,8 +1763,8 @@ async function renderAll(
   const rows: RenderedRow[] = [];
   const layouts = layoutContents(pages, store, section.components);
   for (const page of pages) {
-    const content = await contentOf(page, layouts, store, section.content);
-    const chrome = await section.chrome?.(page, store);
+    const content = await contentOf(page, layouts, store, section.content, now);
+    const chrome = await section.chrome?.(page, store, now);
     const locale = section.pages.locales.get(page.locale);
     const card = cards?.get(pageLabel(page));
     const result = await renderPage({
