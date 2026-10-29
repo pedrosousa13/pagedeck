@@ -738,6 +738,18 @@ async function editAndReload(file: string, source: string): Promise<void> {
   }
 }
 
+async function served(path: string, marker: string, at: string = origin): Promise<void> {
+  const body = await until(
+    async () => (await fetch(`${at}${path}`)).text(),
+    (text) => text.includes(marker),
+  );
+  if (!body.includes(marker)) {
+    throw new Error(
+      `${path} did not serve ${JSON.stringify(marker)} within ${String(MESSAGE_TIMEOUT)}ms — it last served:\n${body}`,
+    );
+  }
+}
+
 test("a .tsx component edit is rendered after the reload, three edits in a row", async () => {
   expect((await get("/noted")).body).toContain(
     '<p data-text="noted">note-before-4e1a</p>',
@@ -745,9 +757,7 @@ test("a .tsx component edit is rendered after the reload, three edits in a row",
 
   for (const marker of ["note-after-0c3d", "note-again-71b2", "note-third-e83f"]) {
     await editAndReload(NOTE, noteSource(marker));
-    expect((await get("/noted")).body).toContain(
-      `<p data-text="noted">${marker}</p>`,
-    );
+    await served("/noted", `<p data-text="noted">${marker}</p>`);
   }
 }, 90_000);
 
@@ -756,7 +766,7 @@ test("an edit to a module a component imports from the site is rendered after th
 
   for (const marker of ["quote-after-9d14", "quote-again-3a7e", "quote-third-b590"]) {
     await editAndReload(QUOTE_TEXT, quoteTextSource(marker));
-    expect((await get("/quoted")).body).toContain(`<q>${marker}</q>`);
+    await served("/quoted", `<q>${marker}</q>`);
   }
 }, 90_000);
 
@@ -793,7 +803,8 @@ test("a component declared by path renders, and an edit to it is rendered after 
   );
 
   await editAndReload(PATH_NOTE, noteSource("path-note-after-2b17"));
-  expect((await get("/path-noted")).body).toContain(
+  await served(
+    "/path-noted",
     '<p data-text="path-noted">path-note-after-2b17</p>',
   );
 }, 60_000);
@@ -805,9 +816,7 @@ test("a config edit is re-read, and the browser is told to reload", async () => 
   try {
     writeConfig("config-after-6b52");
     await client.next("full-reload");
-    expect((await get("/hot")).body).toContain(
-      "<title>config-after-6b52</title>",
-    );
+    await served("/hot", "<title>config-after-6b52</title>");
   } finally {
     client.close();
   }
@@ -1415,9 +1424,7 @@ test("a component the config imports by value is rendered edited after the first
       } finally {
         client.close();
       }
-      expect(await (await fetch(`${at}/home`)).text()).toContain(
-        'data-frame="frame-after-d41b"',
-      );
+      await served("/home", 'data-frame="frame-after-d41b"', at);
     });
   } finally {
     rmSync(FRAMED_SITE, { recursive: true, force: true });
