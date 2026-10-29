@@ -15,6 +15,13 @@ helper (Vite 8.2.2) skips a dependency when
 `link.href === dep && (!isCss || link.rel === "stylesheet")`, so it never
 checks `disabled`, and a disabled link with the same `href` would satisfy it.
 
+Vite 8.3.4's helper (#208) reads every `<link>` once per call, on its first
+dependency, into two sets: `preloadedHrefs.all` holds each link's `href`, and
+`preloadedHrefs.styles` each `rel="stylesheet"` link's. It skips a sheet whose
+resolved `href` is in `styles`. It still never checks `disabled`, so a disabled
+link in the page's markup would still satisfy it. That was read from Vite's
+source, not measured again; the table below is the 8.2.2 helper's.
+
 It was tested in three browsers. The page carried the sheet inline plus the
 disabled link, it ran the helper copied from a real build, its policy was
 `style-src 'self'`, and requests were counted on the server:

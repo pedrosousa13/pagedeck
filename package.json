@@ -30,7 +30,7 @@
     "@types/node": "^24.13.3",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "packageManager": "pnpm@11.20.0"
 }

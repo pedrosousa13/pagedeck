@@ -157,15 +157,15 @@ The build fails with exit code 2, and prints:
 
 ```
 pagedeck: JavaScript budget: 2 pages transfer more JavaScript for first render than their budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
-pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53728 B over 4 chunks, the 3 largest:
-pagedeck:     /assets/pagedeck-core-Fd3gtD28.js — 52215 B
-pagedeck:     /assets/pagedeck-startup-B0-zO-Qr.js — 1017 B
-pagedeck:     /assets/counter-DW3eABbQ.js — 257 B
+pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53831 B over 4 chunks, the 3 largest:
+pagedeck:     /assets/pagedeck-core-Cns6bgET.js — 52215 B
+pagedeck:     /assets/pagedeck-startup-B3Ra50G7.js — 1120 B
+pagedeck:     /assets/counter-Cs6A6vJa.js — 257 B
 pagedeck:     fold strategy promoted "counter" at tree position 1 from "visible" to "load" — position 1 is above the fold threshold of 4
-pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53524 B over 3 chunks:
-pagedeck:     /assets/pagedeck-core-Fd3gtD28.js — 52215 B
-pagedeck:     /assets/pagedeck-startup-B0-zO-Qr.js — 1017 B
-pagedeck:     /assets/entry-ce914658698880e6-BTeEtYuX.js — 292 B
+pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53661 B over 3 chunks:
+pagedeck:     /assets/pagedeck-core-Cns6bgET.js — 52215 B
+pagedeck:     /assets/pagedeck-startup-B3Ra50G7.js — 1120 B
+pagedeck:     /assets/entry-ce914658698880e6-C4BtvQy5.js — 326 B
 ```
 
 The message names every page over its limit, the pattern that set the limit,
@@ -182,7 +182,7 @@ and the budget charges it all the same. Moving an island off `load` saves the
 island's own chunk, not React.
 
 Give each page with an island a limit of its own. Size it from the figure the
-build printed, plus room for drift: about 15% over 53728 B, rounded to a whole
+build printed, plus room for drift: about 15% over 53831 B, rounded to a whole
 kilobyte, is `60kb`. Replace the budget in `pagedeck.config.ts`:
 
 ```ts
@@ -217,16 +217,16 @@ It has one row per budgeted page. This is the row for the greeting's page:
   "pattern": "/greet/",
   "limitText": "60kb",
   "limit": 61440,
-  "actual": 53524,
+  "actual": 53661,
   "jsInlined": 0,
   "css": 0,
   "cssInlined": 0,
-  "html": 319,
+  "html": 314,
   "breach": false,
   "chunks": [
-    { "path": "/assets/pagedeck-core-Fd3gtD28.js", "bytes": 52215 },
-    { "path": "/assets/pagedeck-startup-B0-zO-Qr.js", "bytes": 1017 },
-    { "path": "/assets/entry-ce914658698880e6-BTeEtYuX.js", "bytes": 292 }
+    { "path": "/assets/pagedeck-core-Cns6bgET.js", "bytes": 52215 },
+    { "path": "/assets/pagedeck-startup-B3Ra50G7.js", "bytes": 1120 },
+    { "path": "/assets/entry-ce914658698880e6-C4BtvQy5.js", "bytes": 326 }
   ],
   "causes": [],
   "largestIslandProps": 2,

@@ -265,22 +265,22 @@ for first render, and its chunks, from `.pagedeck/budget-report.json`:
   { "path": "/", "actual": 0, "chunks": [] },
   {
     "path": "/faq/",
-    "actual": 53657,
+    "actual": 53823,
     "chunks": [
-      { "path": "/assets/pagedeck-core-PPUiLqhS.js", "bytes": 52095 },
-      { "path": "/assets/pagedeck-startup-BulL5Qr8.js", "bytes": 907 },
-      { "path": "/assets/faq-CUtoZSey.js", "bytes": 419 },
-      { "path": "/assets/entry-837fbeaa886c70a7-JVL43Bns.js", "bytes": 236 }
+      { "path": "/assets/pagedeck-core-BUVA4pOP.js", "bytes": 52147 },
+      { "path": "/assets/pagedeck-startup-CMck48DV.js", "bytes": 1024 },
+      { "path": "/assets/faq-BVcU_6cD.js", "bytes": 415 },
+      { "path": "/assets/entry-837fbeaa886c70a7-C6wvvO5j.js", "bytes": 237 }
     ]
   },
   {
     "path": "/signup/",
-    "actual": 53802,
+    "actual": 53973,
     "chunks": [
-      { "path": "/assets/pagedeck-core-PPUiLqhS.js", "bytes": 52095 },
-      { "path": "/assets/pagedeck-startup-BulL5Qr8.js", "bytes": 907 },
-      { "path": "/assets/signup_form-CVL_1gcS.js", "bytes": 557 },
-      { "path": "/assets/entry-3891e9689bdecc7b-ByL1EArU.js", "bytes": 243 }
+      { "path": "/assets/pagedeck-core-BUVA4pOP.js", "bytes": 52147 },
+      { "path": "/assets/pagedeck-startup-CMck48DV.js", "bytes": 1024 },
+      { "path": "/assets/signup_form-CBPYUEcU.js", "bytes": 558 },
+      { "path": "/assets/entry-3891e9689bdecc7b-D0kR07d3.js", "bytes": 244 }
     ]
   }
 ]

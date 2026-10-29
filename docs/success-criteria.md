@@ -22,7 +22,7 @@ settle it.
 | # | Spec §15 criterion | Verdict | The number it rests on |
 | --- | --- | --- | --- |
 | 1 | Content-only pages: **0 kB JS** | **met** | 0 B raw, gzip and Brotli on all three content pages; the twin's floor is 452,538 B raw / 133,120 B gzip |
-| 2 | Island pages: the framework's own JS at or under **7,099 B raw / 3,520 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95, #97, #89, #176 and #139) | **met** | 7,099 B raw / 3,520 B gzip on `/en/pricing`, React set apart: at the recorded ceiling, which is today's figure. From `pnpm build && npx vitest run packages/site/src/runtime.build.test.ts` |
+| 2 | Island pages: the framework's own JS at or under **7,422 B raw / 3,630 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95, #97, #89, #176, #139 and #208) | **met** | 7,422 B raw / 3,630 B gzip on `/en/pricing`, React set apart: at the recorded ceiling, which is today's figure. From `pnpm build && npx vitest run packages/site/src/runtime.build.test.ts` |
 | 3 | Core Web Vitals better on every metric, in production (CrUX/RUM) | **not measurable here** | no production, no RUM, no CrUX — the comparison plan is below. The landing page's field data is #56 |
 | 4 | Publish-to-live for a content edit **< 60 s** | **met** | 15.2 s, 16.2 s and 17.3 s from `wrangler deploy` starting to the live landing page serving the edit, three runs on 2026-10-08 (#2). The build before the deploy is not in the figure |
 | 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **not measurable here** | Lighthouse mobile performance 99 or 100 on every run over the four live landing pages (#2), but the landing page loads no third-party script, so there is no loadout for the score to survive |
@@ -133,8 +133,8 @@ this criterion's verdict, and 80 % is no longer a target.
 **2026-10-09, #95: the ceiling is re-measured to 6,685 B raw and 3,389 B gzip
 (3,039 B Brotli).** Moving the hydrate triggers and Vite's preload helper into
 a startup chunk of their own costs the names each chunk imports and exports.
-The maintainer ruled that cost accepted on #95. It, #97, #89, #176 and #139
-below are the exceptions to "never raised" below, and the table above keeps the
+The maintainer ruled that cost accepted on #95. It, #97, #89, #176, #139 and
+#208 below are the exceptions to "never raised" below, and the table above keeps the
 figures the ruling on #292 recorded.
 
 **2026-10-09, #97: the ceiling is re-measured to 6,714 B raw and 3,404 B gzip
@@ -166,6 +166,18 @@ the public signal a test or script waits on. The wrapper and its effect, the
 extra element around each tree and the attribute's name in the shared startup
 chunk cost 169 B raw and 68 B gzip. The maintainer ruled that cost accepted on
 #139, whose brief asked for the mark to be set from an effect in that wrapper.
+
+**2026-10-29, #208: the ceiling is re-measured to 7,422 B raw and 3,630 B gzip
+(3,276 B Brotli), from 7,099 B raw, 3,520 B gzip and 3,145 B Brotli.** Vite
+8.3 rewrote its preload helper, which the shared `pagedeck-startup` chunk
+carries: it now reads the page's links into sets once per call and keeps a
+promise per preload. The chunk grew from 2,047 B to 2,370 B raw, no other
+chunk changed, and the new helper costs 323 B raw and 110 B gzip. Core's Vite floor is 8.3.3 because GHSA-587h-7wmj-h5pm,
+GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw, GHSA-rq7h-c2jc-7f22,
+GHSA-vfpm-58rq-9qcg and GHSA-9jrq-w75r-8gcw cover 8.2.0 to 8.2.3 and 8.3.0 to
+8.3.2, and a fresh install resolves 8.3.x anyway. The maintainer ruled the cost
+accepted on #208. That ruling stands in place of the finding the ratchet below
+asks for on a Vite release, because the bytes are the floor's cost.
 
 **2026-09-28, #547: the gzip column is measured with content hashes
 normalised.** Before this date it read 3,154 B and 58,995 B. A CSS-only change
