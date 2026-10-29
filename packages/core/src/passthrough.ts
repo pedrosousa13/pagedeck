@@ -107,8 +107,9 @@ export function contentRelativeReferences(
       if (reference.kind !== "asset" || target.at !== "relative") continue;
       const address = resolveAgainst(base, target.href);
       if (emitted.has(fileKey(file.domain, address))) continue;
-      if (found.has(address)) continue;
-      found.set(address, {
+      const key = `${page} ${address}`;
+      if (found.has(key)) continue;
+      found.set(key, {
         ...(entry === undefined ? {} : { entry }),
         page,
         href: reference.url,
@@ -119,6 +120,17 @@ export function contentRelativeReferences(
   return [...found.values()].sort((a, b) =>
     a.address < b.address ? -1 : a.address > b.address ? 1 : 0,
   );
+}
+
+export function firstPerAddress(
+  references: readonly ContentRelativeReference[],
+): readonly ContentRelativeReference[] {
+  const seen = new Set<string>();
+  return references.filter((reference) => {
+    if (seen.has(reference.address)) return false;
+    seen.add(reference.address);
+    return true;
+  });
 }
 
 function entryOf(page: Page): string | undefined {
@@ -151,7 +163,7 @@ function resolveAgainst(base: string, href: string): string {
   return `/${segments.join("/")}`;
 }
 
-export const CONTENT_ROOT_EXTENSIONS: readonly string[] = [
+export const CONTENT_ROOT_EXTENSIONS: ReadonlySet<string> = new Set([
   ".apng",
   ".avif",
   ".bmp",
@@ -186,9 +198,7 @@ export const CONTENT_ROOT_EXTENSIONS: readonly string[] = [
   ".pdf",
   ".vtt",
   ".css",
-];
-
-const PUBLISHED_EXTENSIONS = new Set(CONTENT_ROOT_EXTENSIONS);
+]);
 
 function decoded(segment: string): string {
   try {
@@ -211,9 +221,9 @@ export function contentReferenceRefusal(address: string): string | undefined {
   if (dot === -1) {
     return "its file name has no extension, and a content tree publishes only one on the list";
   }
-  const extension = name.slice(dot).toLowerCase();
-  if (PUBLISHED_EXTENSIONS.has(extension)) return undefined;
-  return `its extension ${quote(name.slice(dot))} is not one a content tree publishes`;
+  const extension = name.slice(dot);
+  if (CONTENT_ROOT_EXTENSIONS.has(extension.toLowerCase())) return undefined;
+  return `its extension ${quote(extension)} is not one a content tree publishes`;
 }
 
 const COLLISION_FIX: Readonly<Record<PassthroughInput["field"], string>> = {

@@ -1,10 +1,14 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { LocaleSet } from "./locales.js";
 import type { EmittedFile } from "./manifest.js";
 import type { Page } from "./pages.js";
 import {
+  CONTENT_ROOT_EXTENSIONS,
   contentReferenceRefusal,
   contentRelativeReferences,
+  firstPerAddress,
   passthroughFaultReport,
   passthroughFiles,
 } from "./passthrough.js";
@@ -334,7 +338,7 @@ test("an address this build already emitted is not collected, so nothing is publ
   ).toEqual([]);
 });
 
-test("one address is collected once however many pages point at it, in address order", () => {
+test("one address is collected once per page that points at it, in address order", () => {
   expect(
     contentRelativeReferences({
       documents: [
@@ -347,8 +351,27 @@ test("one address is collected once however many pages point at it, in address o
       emitted: [],
       pages: [],
       trailingSlash: "never",
-    }).map((one) => one.address),
-  ).toEqual(["/a.png", "/b.png"]);
+    }).map((one) => `${one.page} ${one.address}`),
+  ).toEqual([
+    "en /posts/ferry /a.png",
+    "en /posts/ferry /b.png",
+    "en /posts/json-bonsai /b.png",
+  ]);
+});
+
+test("the first page to point at an address is the one kept per address", () => {
+  const references = contentRelativeReferences({
+    documents: [
+      document("/posts/ferry/index.html", '<img src="../../b.png">'),
+      document("/posts/json-bonsai/index.html", '<img src="../../b.png"><img src="../../b.png">'),
+    ],
+    emitted: [],
+    pages: [],
+    trailingSlash: "never",
+  });
+  expect(firstPerAddress(references).map((one) => one.page)).toEqual([
+    "en /posts/ferry",
+  ]);
 });
 
 test("an address with a segment that starts with a dot is refused, an escaped dot included", () => {
@@ -401,5 +424,33 @@ test("an image, a sound, a video, a font, a PDF, a caption track and a styleshee
     "/styles/print.css",
   ]) {
     expect(contentReferenceRefusal(address), address).toBeUndefined();
+  }
+});
+
+const REPO = join(import.meta.dirname, "..", "..", "..");
+const PASSTHROUGH_PAGE = join(REPO, "packages", "docs", "reference", "passthrough.md");
+const CATALOGUE = join(REPO, "docs", "error-messages.md");
+
+test("the passthrough page lists every extension a content tree publishes, and no other", () => {
+  const page = readFileSync(PASSTHROUGH_PAGE, "utf8");
+  const start = page.indexOf("extension outside this list");
+  const end = page.indexOf("The list decides", start);
+  expect(start, "the sentence that introduces the list").toBeGreaterThan(-1);
+  expect(end, "the sentence that follows the list").toBeGreaterThan(start);
+  const listed = [...page.slice(start, end).matchAll(/`(\.[a-z0-9]+)`/g)].map(
+    (match) => match[1] as string,
+  );
+  expect(listed.sort()).toEqual([...CONTENT_ROOT_EXTENSIONS].sort());
+});
+
+test("every quoted refusal spells the extension list the build prints", () => {
+  const printed = [...CONTENT_ROOT_EXTENSIONS];
+  const spelled = `its extension is one of ${printed.slice(0, -1).join(", ")} or ${printed.at(-1)};`;
+  for (const file of [PASSTHROUGH_PAGE, CATALOGUE]) {
+    const quoted = readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => line.includes("its extension is one of "));
+    expect(quoted.length, file).toBeGreaterThan(0);
+    for (const line of quoted) expect(line, file).toContain(spelled);
   }
 });

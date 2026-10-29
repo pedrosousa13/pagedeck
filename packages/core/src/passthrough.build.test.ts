@@ -43,6 +43,7 @@ const UNDEPLOYABLE_SITE = join(SITES, ".pagedeck-passthrough-undeployable-test")
 const REFUSED_SITE = join(SITES, ".pagedeck-passthrough-refused-test");
 const ABSENT_DOTFILE_SITE = join(SITES, ".pagedeck-passthrough-absent-dotfile-test");
 const PRESENT_DOTFILE_SITE = join(SITES, ".pagedeck-passthrough-present-dotfile-test");
+const SHARED_DOTFILE_SITE = join(SITES, ".pagedeck-passthrough-shared-dotfile-test");
 
 const ONE_TREE = `en: { label: "English", direction: "ltr" },`;
 const TWO_TREES = `en: { label: "English", direction: "ltr", domain: "example.com" },
@@ -367,6 +368,7 @@ afterAll(() => {
     REFUSED_SITE,
     ABSENT_DOTFILE_SITE,
     PRESENT_DOTFILE_SITE,
+    SHARED_DOTFILE_SITE,
   ]) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -847,7 +849,7 @@ test("a dotfile, a file under a dot directory and a source module are refused in
   expect(code).toBe(EXIT_CODES.configError);
   expect(err).toContain(
     [
-      `${REFUSAL_HEADLINE} — a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of .apng, .avif, .bmp, .gif, .ico, .jpeg, .jpg, .jxl, .png, .svg, .tif, .tiff, .webp, .aac, .flac, .m4a, .mp3, .oga, .ogg, .opus, .wav, .weba, .m4v, .mov, .mp4, .ogv, .webm, .otf, .ttf, .woff, .woff2, .pdf, .vtt or .css, and it refuses any other reference before it looks for the file, so each line below holds whether or not that file exists; point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root:`,
+      `${REFUSAL_HEADLINE} — a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of .apng, .avif, .bmp, .gif, .ico, .jpeg, .jpg, .jxl, .png, .svg, .tif, .tiff, .webp, .aac, .flac, .m4a, .mp3, .oga, .ogg, .opus, .wav, .weba, .m4v, .mov, .mp4, .ogv, .webm, .otf, .ttf, .woff, .woff2, .pdf, .vtt or .css; point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root:`,
       '  en /posts/ferry — "../../.env" → "/.env" — content entry "posts en posts/ferry" — the segment ".env" starts with a dot',
       '  en /posts/ferry — "../.git/config" → "/.git/config" — content entry "posts en posts/ferry" — the segment ".git" starts with a dot',
       '  en /posts/ferry — "../../secret.ts" → "/secret.ts" — content entry "posts en posts/ferry" — its extension ".ts" is not one a content tree publishes',
@@ -883,4 +885,24 @@ test("a reference to a missing dotfile is refused in the same words as one to a 
   );
   expect(absent).not.toContain("resolves to nothing this build can publish");
   expect(present).toBe(absent);
+}, 240_000);
+
+test("two pages referencing one dotfile are both named, each with its own entry", async () => {
+  const dir = site(SHARED_DOTFILE_SITE, {
+    declared: DECLARED_CONTENT,
+    files: { "assets/logo.png": 0x04 },
+    posts: { ferry: ["../../.env"], "json-bonsai": ["../../.env"] },
+    contentFiles: { ".env": 0x21 },
+  });
+  await run(dir, "sync");
+  const { code, err } = await runCode(dir, "build");
+
+  expect(code).toBe(EXIT_CODES.configError);
+  expect(err).toContain(
+    "Passthrough: 2 content-relative references name a file build.passthrough.contentRoot never publishes",
+  );
+  expect(err).toContain(
+    '  en /posts/ferry — "../../.env" → "/.env" — content entry "posts en posts/ferry" — the segment ".env" starts with a dot\n  en /posts/json-bonsai — "../../.env" → "/.env" — content entry "posts en posts/json-bonsai" — the segment ".env" starts with a dot',
+  );
+  expect(existsSync(join(dir, "dist"))).toBe(false);
 }, 240_000);

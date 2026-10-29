@@ -128,6 +128,7 @@ import {
   CONTENT_ROOT_EXTENSIONS,
   contentReferenceRefusal,
   contentRelativeReferences,
+  firstPerAddress,
   passthroughAddress,
   passthroughFiles,
 } from "./passthrough.js";
@@ -205,7 +206,8 @@ const MISSING_CONTENT_ROOT_FIX =
   "point contentRoot at the content tree a page's content-relative references resolve into";
 const UNRESOLVED_REFERENCE_FIX =
   'put the file at that path beneath the directory "build.passthrough.contentRoot" names, or point the reference at a file that is already there';
-const REFUSED_REFERENCE_RULE = `a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of ${CONTENT_ROOT_EXTENSIONS.slice(0, -1).join(", ")} or ${CONTENT_ROOT_EXTENSIONS.at(-1) ?? ""}, and it refuses any other reference before it looks for the file, so each line below holds whether or not that file exists`;
+const LISTED_EXTENSIONS = [...CONTENT_ROOT_EXTENSIONS];
+const REFUSED_REFERENCE_RULE = `a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot and its extension is one of ${LISTED_EXTENSIONS.slice(0, -1).join(", ")} or ${LISTED_EXTENSIONS.at(-1)}`;
 const REFUSED_REFERENCE_FIX =
   'point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root';
 const NO_CONTENT_ENTRY =
@@ -229,7 +231,7 @@ function undeclaredContentRootWarning(
     references.length === 1
       ? "1 content-relative reference resolves to nothing this build publishes"
       : `${String(references.length)} content-relative references resolve to nothing this build publishes`;
-  return `Passthrough: ${subject}, because this site declares no build.passthrough.contentRoot — a content-relative reference resolves against the address its page is served at, and the file it names is published from the content tree that key declares, so without it each page below points at an address nothing in this build emits; this is a warning and not a refusal because the host may serve these files from somewhere this build never reads — declare build.passthrough.contentRoot as the directory these files sit beneath, and the build publishes each one and refuses any that is missing:\n${references.map(contentReferenceLine).join("\n")}`;
+  return `Passthrough: ${subject}, because this site declares no build.passthrough.contentRoot — a content-relative reference resolves against the address its page is served at, and the file it names is published from the content tree that key declares, so without it each page below points at an address nothing in this build emits; this is a warning and not a refusal because the host may serve these files from somewhere this build never reads — declare build.passthrough.contentRoot as the directory these files sit beneath, and the build publishes each one, refusing any that is missing, has a segment that starts with a dot or has an extension a content tree does not publish:\n${references.map(contentReferenceLine).join("\n")}`;
 }
 
 async function previousBuild(input: {
@@ -1294,19 +1296,20 @@ async function stageSite(input: {
   });
   const undeclaredContentRoot =
     passthrough?.contentRoot === undefined
-      ? undeclaredContentRootWarning(referenced)
+      ? undeclaredContentRootWarning(firstPerAddress(referenced))
       : undefined;
   if (passthrough?.contentRoot !== undefined) {
     const contentRoot = passthrough.contentRoot;
     const found: PassthroughSource[] = [];
-    const refused: string[] = [];
-    const unresolved: string[] = [];
-    for (const reference of referenced) {
+    const refused = referenced.flatMap((reference) => {
       const refusal = contentReferenceRefusal(reference.address);
-      if (refusal !== undefined) {
-        refused.push(`${contentReferenceLine(reference)} — ${refusal}`);
-        continue;
-      }
+      return refusal === undefined
+        ? []
+        : [`${contentReferenceLine(reference)} — ${refusal}`];
+    });
+    const unresolved: string[] = [];
+    for (const reference of firstPerAddress(referenced)) {
+      if (contentReferenceRefusal(reference.address) !== undefined) continue;
       const src = join(contentRoot, ...reference.address.slice(1).split("/"));
       if (!existsSync(src) || !statSync(src).isFile()) {
         unresolved.push(contentReferenceLine(reference));
