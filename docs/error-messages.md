@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 238 checked messages pin 35734 of the 101312 fenced characters, and
+below**: the 238 checked messages pin 35734 of the 101440 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -4359,7 +4359,7 @@ stopping at the first would reveal them one build at a time and leave the rest
 of the site's URLs unasked:
 
 ```
-Site build: the external link probe answered with something that is not an HTTP status 2 times — return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD" })).status:
+Site build: the external link probe answered with something that is not an HTTP status 2 times — return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status, or copy the probe that also refuses internal hosts (Pagedeck documentation: Link checking, External links):
   "https://example.com/a" — answered "200"
   "https://example.com/c" — answered NaN
 ```
@@ -5123,11 +5123,14 @@ yet. The messages above are where the links belong: the schema failure to the
 schema guide, the snapshot scheme failure to the snapshot how-to. A dead URL in
 a build failure is worse than no URL, so link only a page that is served.
 
-Three lines name a page instead, by the title, and heading where one helps, that
+Five lines name a page instead, by the title, and heading where one helps, that
 the docs show. The twenty-first warning above names the Favicon page
 (#76), and the twenty-fourth names the Page head page's "Cards the build draws"
-heading (#99). `pagedeck build` prints the third after its summary when the site
-declares `build.preview` (#713):
+heading (#99). The probe refusal above, and the config refusal of a
+`build.links.external` with no probe, name the Link checking page's "External
+links" heading, where the probe that refuses internal hosts is (#205).
+`pagedeck build` prints the fifth after its summary when the site declares
+`build.preview` (#713):
 
 ```
 preview: /_preview — this app authenticates nothing and renders any draft posted to it; put the deployment behind whatever the drafts need (Pagedeck documentation: Preview app, Security)

@@ -169,11 +169,13 @@ makes network requests**, which is why the field carries the function that makes
 them:
 
 ```ts
+import { probe } from "./src/probe.ts";
+
 build: {
   outDir: "./site",
   links: {
     external: {
-      probe: async (url) => (await fetch(url, { method: "HEAD" })).status,
+      probe,
       limit: 20,
       intervalMs: 500,
     },
@@ -192,6 +194,61 @@ is the line in the config that says what this build now does.
 
 Your probe is handed one URL and answers with the HTTP status the request came
 back with. It may throw; a timeout is how a network says nothing.
+
+**The URLs come from your content**, so whoever can edit a page or a CMS field
+chooses the hosts your build machine sends requests to. A link to
+`http://169.254.169.254/` asks a cloud machine's metadata service, and a link to
+`http://localhost:8080/` asks whatever runs beside the build. This probe refuses
+those hosts before it makes a request, and does not follow a redirect:
+
+`src/probe.ts`:
+
+```ts
+import type { LinkProbe } from "@pagedeck/core";
+
+function internal(hostname: string): boolean {
+  const ipv4 = /^(\d+)\.(\d+)\.\d+\.\d+$/.exec(hostname);
+  if (ipv4 !== null) {
+    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    );
+  }
+  return /(^|\.)localhost\.?$/.test(hostname) || /^\[(::1?\]|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/.test(hostname);
+}
+
+export const probe: LinkProbe = async (url) => {
+  const { hostname } = new URL(url);
+  if (internal(hostname)) throw new Error(`refused ${hostname}, an internal host`);
+  return (await fetch(url, { method: "HEAD", redirect: "manual" })).status;
+};
+```
+
+`new URL` writes an address in one form first, so `http://2130706433/` and
+`http://0x7f.1/` are both `127.0.0.1` by the time the check reads them. The
+check covers `localhost` and every name under it; IPv4 `0.0.0.0/8`, `10/8`,
+`127/8`, `169.254/16`, `172.16/12` and `192.168/16`; and IPv6 `[::]`, `[::1]`,
+`fc00::/7` and `fe80::/10`.
+
+A refused host throws, so the build warns that the URL could not be checked and
+prints the reason, as for any probe that throws. It does not answer with a
+status: a 400 or over would read as a broken link that a host reported, and a
+value that is not a status fails the build.
+
+With `redirect: "manual"`, a redirect answers with its own 3xx status, which is
+under 400 and so reads as healthy. The probe never requests the address the
+redirect names, which content does not choose and this check never sees.
+
+**What this does not catch**: a hostname that resolves to an internal address.
+`internal.example.com` can point at `10.0.0.5`, and the probe asks it, because
+the check reads the URL and never asks DNS. An IPv4 address written inside IPv6,
+such as `[::ffff:7f00:1]`, is not caught either. Where that matters, run the
+build on a machine that cannot reach anything internal.
 
 **Requests are sequential, paced, and capped**, and the last two are different
 protections worth having separately.
@@ -273,5 +330,5 @@ Declaring `external` without a probe is refused for the reason the framework
 ships none:
 
 ```
-Config "/site/pagedeck.config.ts": "build.links.external" names no probe for this build to ask each URL with, and this framework ships none — declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD" })).status }
+Config "/site/pagedeck.config.ts": "build.links.external" names no probe for this build to ask each URL with, and this framework ships none — declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status }, or copy the probe that also refuses internal hosts (Pagedeck documentation: Link checking, External links)
 ```

@@ -542,7 +542,7 @@ test("a build section refuses an external link check that names no probe", async
   expect(error).toBeInstanceOf(ConfigError);
   const message = (error as Error).message;
   expect(message).toContain(
-    `"build.links.external" names no probe for this build to ask each URL with, and this framework ships none — declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD" })).status }`,
+    `"build.links.external" names no probe for this build to ask each URL with, and this framework ships none — declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status }, or copy the probe that also refuses internal hosts (Pagedeck documentation: Link checking, External links)`,
   );
   expect(message).toContain(
     `"build.links.external" declares a limit that is not a count of requests — write a whole number of requests above zero, such as { limit: 20 }:\n  0 — below one`,
