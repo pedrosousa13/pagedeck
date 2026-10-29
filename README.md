@@ -22,9 +22,8 @@ repository's own test site, `packages/site`:
 
 - The three content pages it measures ship 0 B of JavaScript.
 - Its page with an island, `/en/pricing`, ships 7,099 B raw and 3,520 B gzip
-  of Pagedeck's own JavaScript, measured on
-  [#188](https://github.com/pedrosousa13/pagedeck/issues/188). React adds
-  189,807 B raw and 58,977 B gzip.
+  of Pagedeck's own JavaScript, measured on #188. React adds 189,807 B raw and
+  58,977 B gzip.
   For both gzip figures, the measurement first replaces each content hash in a
   file name with a same-length placeholder, so renaming a file cannot move
   them.
