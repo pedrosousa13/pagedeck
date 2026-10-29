@@ -211,7 +211,9 @@ or the browser's own, keeps a reply written for one visitor.
 HTTP for the host and every subdomain for 180 days, and keeps refusing after you
 take it back. [Two headers this framework will not decide for
 you](../reference/routing.md#two-headers-this-framework-will-not-decide-for-you)
-says why, and how to write it yourself once the domain is ready.
+says why, and how to write it for the built pages once the domain is ready.
+For the app's own responses, pass that value to `secureHeaders` as
+`strictTransportSecurity`.
 
 ## The island calls the app by its type
 
