@@ -52,7 +52,7 @@ const BROKEN_FIX =
 const LINKS_UNKNOWN_FIX =
   "delete the field, or correct it to one of: broken, external";
 const EXTERNAL_SHAPE_FIX =
-  'declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status }, or copy the one that also refuses internal hosts (Pagedeck documentation: Link checking, External links)';
+  'declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status }, or copy the probe that also refuses internal hosts (Pagedeck documentation: Link checking, External links)';
 const EXTERNAL_UNKNOWN_FIX =
   "delete the field, or correct it to one of: probe, limit, intervalMs";
 const EXTERNAL_LIMIT_FIX =
@@ -498,7 +498,7 @@ function cutQuery(url: string): string {
 }
 
 const PROBE_FIX =
-  'return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status, or copy the one that also refuses internal hosts (Pagedeck documentation: Link checking, External links)';
+  'return the status code the request came back with, as probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status, or copy the probe that also refuses internal hosts (Pagedeck documentation: Link checking, External links)';
 
 function lines(
   faults: readonly (BrokenReference | RedirectedReference)[],

@@ -219,7 +219,7 @@ function internal(hostname: string): boolean {
       (a === 192 && b === 168)
     );
   }
-  return /(^|\.)localhost\.?$/.test(hostname) || /^\[(::1\]|f[cd]|fe[89ab])/.test(hostname);
+  return /(^|\.)localhost\.?$/.test(hostname) || /^\[(::1?\]|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/.test(hostname);
 }
 
 export const probe: LinkProbe = async (url) => {
@@ -232,7 +232,7 @@ export const probe: LinkProbe = async (url) => {
 `new URL` writes an address in one form first, so `http://2130706433/` and
 `http://0x7f.1/` are both `127.0.0.1` by the time the check reads them. The
 check covers `localhost` and every name under it; IPv4 `0.0.0.0/8`, `10/8`,
-`127/8`, `169.254/16`, `172.16/12` and `192.168/16`; and IPv6 `[::1]`,
+`127/8`, `169.254/16`, `172.16/12` and `192.168/16`; and IPv6 `[::]`, `[::1]`,
 `fc00::/7` and `fe80::/10`.
 
 A refused host throws, so the build warns that the URL could not be checked and
@@ -330,5 +330,5 @@ Declaring `external` without a probe is refused for the reason the framework
 ships none:
 
 ```
-Config "/site/pagedeck.config.ts": "build.links.external" names no probe for this build to ask each URL with, and this framework ships none — declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status }, or copy the one that also refuses internal hosts (Pagedeck documentation: Link checking, External links)
+Config "/site/pagedeck.config.ts": "build.links.external" names no probe for this build to ask each URL with, and this framework ships none — declare the probe this build asks each URL with, as external: { probe: async (url) => (await fetch(url, { method: "HEAD", redirect: "manual" })).status }, or copy the probe that also refuses internal hosts (Pagedeck documentation: Link checking, External links)
 ```

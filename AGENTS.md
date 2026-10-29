@@ -547,6 +547,14 @@ pages say about Pagedeck's own starter, examples, CLI and repository live here:
     `PreviewBridge` (#713). Rename the page or the heading, and change the
     notice in `packages/core/src/cli.ts` with it. `favicon.test.ts` and
     `page-head.test.ts` hold the warnings those pages quote to the catalogue.
+  - `link-checking.test.ts` compiles `reference/link-checking.md`'s
+    `src/probe.ts` fence against the real `LinkProbe` and runs it with `fetch`
+    stubbed: each literal internal host throws with no request, and a public
+    one is asked with `redirect: "manual"` (#205). It also requires
+    `EXTERNAL_SHAPE_FIX` and `PROBE_FIX` in `packages/core/src/links.ts` to
+    cite the page's `title` and the `##` heading the probe sits under, and
+    the page and the catalogue to quote them. Change a covered host, and change
+    the test's lists and the page's with it.
   - `react-compiler.test.ts` holds `reference/react-compiler.md`'s output
     fences to what `compileIslands` prints.
   - `reserved-names.test.ts` renders every page and fails on a byte core's

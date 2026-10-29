@@ -10,6 +10,8 @@ import { fences } from "./tutorial.test-support.js";
 const DOCS = join(import.meta.dirname, "..");
 const REFERENCE = join(DOCS, "reference", "link-checking.md");
 const BASE_CONFIG = join(DOCS, "..", "..", "tsconfig.base.json");
+const LINKS = join(DOCS, "..", "core", "src", "links.ts");
+const CATALOGUE = join(DOCS, "..", "..", "docs", "error-messages.md");
 
 const PROBE = "src/probe.ts";
 
@@ -26,9 +28,11 @@ const REFUSED = [
   "http://172.16.0.1/",
   "http://172.31.255.255/",
   "http://192.168.1.1/",
+  "http://[::]/",
   "http://[::1]/",
   "http://[fc00::1]/",
   "http://[fd12:3456::1]/",
+  "http://[fdff::1]/",
   "http://[fe80::1]/",
   "http://[febf::1]/",
 ];
@@ -39,6 +43,8 @@ const ASKED = [
   "http://11.0.0.1/",
   "http://127.example.com/",
   "http://[2001:db8::1]/",
+  "http://[fc::1]/",
+  "http://[fe8::1]/",
 ];
 
 function sample(): string {
@@ -111,4 +117,40 @@ test('the probe sample asks a public host once, with redirect: "manual", and ans
   expect(fetch.mock.calls).toEqual(
     ASKED.map((url) => [url, expect.objectContaining({ method: "HEAD", redirect: "manual" })]),
   );
+});
+
+function fix(name: string): string {
+  const source = ts.createSourceFile(LINKS, readFileSync(LINKS, "utf8"), ts.ScriptTarget.ES2022);
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.name.text === name) {
+        const value = declaration.initializer;
+        if (value !== undefined && ts.isStringLiteral(value)) return value.text;
+      }
+    }
+  }
+  throw new Error(`${LINKS} declares no string constant ${name}`);
+}
+
+test.each(["EXTERNAL_SHAPE_FIX", "PROBE_FIX"])(
+  "%s cites this page's title and the heading the guarded probe sits under",
+  (name) => {
+    const text = readFileSync(REFERENCE, "utf8");
+    const cited = /\(Pagedeck documentation: ([^,]+), ([^)]+)\)$/.exec(fix(name));
+    expect(cited, `${name} ending "(Pagedeck documentation: <title>, <heading>)"`).not.toBeNull();
+    expect(/^title: (.+)$/m.exec(text)?.[1]).toBe(cited?.[1]);
+    const heading = `## ${String(cited?.[2])}`;
+    const lines = text.split("\n");
+    expect(lines).toContain(heading);
+    const sampleAt = lines.indexOf(`\`${PROBE}\`:`);
+    expect(lines.slice(0, sampleAt).filter((line) => line.startsWith("## ")).at(-1)).toBe(heading);
+  },
+);
+
+test("the page and the catalogue quote the fix strings links.ts holds", () => {
+  const page = fences(readFileSync(REFERENCE, "utf8")).map(({ code }) => code);
+  expect(page.some((code) => code.includes(fix("EXTERNAL_SHAPE_FIX")))).toBe(true);
+  const catalogue = fences(readFileSync(CATALOGUE, "utf8")).map(({ code }) => code);
+  expect(catalogue.some((code) => code.includes(fix("PROBE_FIX")))).toBe(true);
 });
