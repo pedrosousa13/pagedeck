@@ -26,7 +26,12 @@ import { pullSnapshot, pushSnapshot, redactTarget } from "./snapshot.js";
 import { syncSite } from "./sync.js";
 import type { SyncOptions, SyncReport } from "./sync.js";
 import { trackSiteModules } from "./site-modules.js";
-import { differingWarning, parseFrame, traceFrame } from "./trace.js";
+import {
+  differingWarning,
+  parseFrame,
+  traceFrame,
+  unreadableWarning,
+} from "./trace.js";
 import type { Frame } from "./trace.js";
 import { rest, watchSync } from "./watch.js";
 
@@ -667,8 +672,12 @@ async function runTraceVerb(
   const { frame, id } = parseTraceArgs(args);
   const config = await loadConfig(io.cwd);
   const traced = await traceFrame(dirname(config.configPath), frame, id);
-  const warning = differingWarning(frame, traced);
-  if (warning !== undefined) io.err(warning);
+  for (const warning of [
+    differingWarning(frame, traced),
+    unreadableWarning(frame, traced),
+  ]) {
+    if (warning !== undefined) io.err(warning);
+  }
   io.out(`${traced.source}:${String(traced.line)}:${String(traced.column)}`);
   return EXIT_CODES.success;
 }

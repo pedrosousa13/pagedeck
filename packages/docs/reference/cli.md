@@ -348,8 +348,10 @@ those builds on stderr, so that you can pass the right one.
 
 A frame it cannot resolve is refused with exit **2**: a build the store does not
 hold, a chunk no retained build holds a map for, a position the map does not
-cover, or a line or column past the end of the chunk. A refusal quotes the
-frame without its host, userinfo or query string.
+cover, a line or column past the end of the chunk, or a map or chunk in the
+store that will not open. A frame in code run by `eval` or `new Function`
+names no chunk, and is refused too: trace the next frame down the stack. A
+refusal quotes the frame without its host, userinfo or query string.
 
 ```
 pagedeck: Trace "assets/Counter-BrQs-g2S.js:1:60": build "b9" is not in the retention store — the retained builds are "b1", "b2", so pass one of those, or leave the build id out to search them all; a build past build.retention.keep is pruned with its maps, and to read one again, build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map

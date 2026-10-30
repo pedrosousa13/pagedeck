@@ -161,7 +161,8 @@ as a pnpm store, from its last `node_modules/` on
 outside any `node_modules`, as a workspace or a linked package resolves to, as
 `node_modules/<name>/<path>`, from the nearest `package.json` above it that
 has a `name`, so a linked package reads as it would installed; and a file with
-no such `package.json` by its own name, under `[outside the site root]/`.
+no such `package.json`, or whose `name` breaks npm's rule for a package name
+(as `../../x` does), by its own name, under `[outside the site root]/`.
 `sourcemaps.build.test.ts` builds a site with a package linked from outside
 its root and asserts that no source holds `..`, the root, the linked
 directory, the home directory or the temporary directory.

@@ -322,7 +322,7 @@ function missingFix(files: readonly string[]): string {
  * Listed, not "anything but `ENOENT`": an unlisted errno stays at exit 1, where
  * a retry may still fix it (#387).
  */
-const UNREADABLE_DOCUMENT_CODES = new Set([
+export const UNREADABLE_DOCUMENT_CODES: ReadonlySet<string> = new Set([
   "ELOOP",
   "EMLINK",
   "EACCES",
@@ -347,7 +347,7 @@ export async function readRetainedManifest(
       // Not `missingFix`: its listing comes off `readdir` and would name this
       // file.
       throw new ConfigError(
-        `Retained manifest ${quoteIdentifier(id)}: nothing opened at ${quoteIdentifier(file)} — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens every document read-only and never through a symlink, so a link is refused rather than followed; put a document this pagedeck can open at that path, or roll back to a build id the store already holds`,
+        `Retained manifest ${quoteIdentifier(id)}: nothing opened at ${quoteIdentifier(file)} — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens every document read-only and refuses one that is itself a link rather than follow it; put a document this pagedeck can open at that path, or roll back to a build id the store already holds`,
         { cause },
       );
     }

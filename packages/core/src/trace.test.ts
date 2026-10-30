@@ -7,7 +7,7 @@ import { ConfigError, EXIT_CODES } from "./exit.js";
 import { MANIFEST_VERSION } from "./manifest.js";
 import type { Manifest } from "./manifest.js";
 import { retainedChunkOf, retainManifest, sourcemapOf } from "./retention.js";
-import { differingWarning, parseFrame, traceFrame } from "./trace.js";
+import { differingWarning, parseFrame, traceFrame, unreadableWarning } from "./trace.js";
 
 const FIXTURES = join(import.meta.dirname, "..", "..", "fixtures", "src", "index.ts");
 
@@ -126,6 +126,19 @@ test("a frame is read as Chrome and Firefox print it in a stack", () => {
   }
 });
 
+test("a frame in code run by eval or new Function is refused, not read as a chunk", () => {
+  for (const text of [
+    "    at eval (eval at Counter (https://example.com/assets/Chart-a1.js:10:5), <anonymous>:3:4)",
+    "    at Counter (eval at render (https://example.com/assets/Chart-a1.js:10:5), <anonymous>:3:4)",
+    "Counter@https://example.com/assets/Chart-a1.js line 10 > eval:3:4",
+    "Counter@https://example.com/assets/Chart-a1.js line 10 > Function:3:4",
+  ]) {
+    expect(parseFrame(text), text).toBe(
+      "pagedeck trace takes a frame in a chunk, and got a frame in code run by eval or new Function, whose line and column count from the start of that code and not of any chunk; trace the next frame down the stack that names a chunk under /assets/.",
+    );
+  }
+});
+
 test("a frame refusal names no userinfo, host or query string of the frame it was given", () => {
   const refusals = [
     "https://user:secret@intranet.test/assets/Chart-a1.js?token=abc",
@@ -171,6 +184,7 @@ test("a frame resolves to its source through the named build's map, counted from
     line: 1,
     column: 25,
     differing: [],
+    unreadable: [],
   });
 });
 
@@ -188,6 +202,7 @@ test("with no build id, the newest retained build holding the chunk answers, and
     line: 1,
     column: 25,
     differing: ["b1"],
+    unreadable: [],
   });
   expect(differingWarning(FRAME, traced)).toBe(
     'Trace "assets/Chart-a1.js:1:10": build "b1" also holds a map for "assets/Chart-a1.js" that differs from the one read, the newest build\'s, "b2" — a chunk\'s name is a hash of its code, so an edit that changes no code, such as a comment, changes the map and keeps the name; pass the report\'s release as <build-id> to read that build\'s map',
@@ -288,15 +303,52 @@ test("a map retained without its chunk is refused, since the position cannot be 
   );
 });
 
-test("a map is never read through a symlink", async () => {
-  const root = siteRoot();
-  await retain(root, "b1", "2026-10-28T10:00:00.000Z", chartMap());
-  const map = sourcemapOf(root, "b1", FRAME.chunk);
-  writeFileSync(join(root, "elsewhere.map"), chartMap());
-  rmSync(map);
-  symlinkSync(join(root, "elsewhere.map"), map);
+function linkInPlace(root: string, file: string): void {
+  const elsewhere = join(root, `elsewhere-${String(Math.random()).slice(2)}`);
+  writeFileSync(elsewhere, "{}");
+  rmSync(file);
+  symlinkSync(elsewhere, file);
+}
 
-  await expect(traceFrame(root, FRAME, "b1")).rejects.toMatchObject({ code: "ELOOP" });
+const UNOPENED =
+  "the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens each map and chunk read-only and refuses one that is itself a link rather than follow it; build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map";
+
+test("a map or chunk that is a link is refused by frame, build and path, with or without a build id", async () => {
+  for (const of of [sourcemapOf, retainedChunkOf]) {
+    const root = siteRoot();
+    await retain(root, "b1", "2026-10-28T10:00:00.000Z", chartMap());
+    const file = of(root, "b1", FRAME.chunk);
+    linkInPlace(root, file);
+
+    for (const id of ["b1", undefined]) {
+      const failure = await refusal(traceFrame(root, FRAME, id));
+      expect(failure.message).toBe(
+        `Trace "assets/Chart-a1.js:1:10": build "b1": nothing opened at ${JSON.stringify(file)} — ${UNOPENED}`,
+      );
+      expect(failure.cause).toMatchObject({ code: "ELOOP" });
+    }
+  }
+});
+
+test("with no build id, an older build's map that will not open leaves the newest build's answer standing, and is named in a warning", async () => {
+  const root = siteRoot();
+  await retain(root, "b1", "2026-10-27T10:00:00.000Z", chartMap());
+  await retain(root, "b2", "2026-10-28T10:00:00.000Z", chartMap());
+  linkInPlace(root, sourcemapOf(root, "b1", FRAME.chunk));
+
+  const traced = await traceFrame(root, FRAME);
+
+  expect(traced).toEqual({
+    build: "b2",
+    source: "src/Chart.js",
+    line: 1,
+    column: 25,
+    differing: [],
+    unreadable: ["b1"],
+  });
+  expect(unreadableWarning(FRAME, traced)).toBe(
+    'Trace "assets/Chart-a1.js:1:10": build "b1" holds a map for "assets/Chart-a1.js" that did not open, so it was not compared with the one read, the newest build\'s, "b2" — pass "b1" as <build-id> to see why it did not open',
+  );
 });
 
 test("a map that does not parse is refused with its path and the parser's error as the cause", async () => {

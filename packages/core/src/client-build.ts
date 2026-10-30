@@ -211,6 +211,10 @@ function declaredName(dir: string): string | undefined {
 
 const OUTSIDE_ROOT = "[outside the site root]";
 
+// npm's rule for a new package name: a name outside it, such as `../../x`,
+// could put a `..` into a source.
+const PACKAGE_NAME = /^(?:@[a-z0-9~-][a-z0-9._~-]*\/)?[a-z0-9~-][a-z0-9._~-]*$/;
+
 /**
  * A source as an install of every package would name it, so that a map holds
  * no path of the machine that built it (ADR-0002).
@@ -225,7 +229,9 @@ export function sourceName(root: string, file: string): string {
   for (let dir = dirname(file); dir !== dirname(dir); dir = dirname(dir)) {
     const name = declaredName(dir);
     if (name !== undefined) {
-      return ["node_modules", name, ...relative(dir, file).split(sep)].join("/");
+      return PACKAGE_NAME.test(name)
+        ? ["node_modules", name, ...relative(dir, file).split(sep)].join("/")
+        : `${OUTSIDE_ROOT}/${basename(file)}`;
     }
   }
   return `${OUTSIDE_ROOT}/${basename(file)}`;

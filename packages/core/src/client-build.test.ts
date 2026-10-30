@@ -417,6 +417,10 @@ test("a map names a source from the root, from its last node_modules, by its pac
   try {
     mkdirSync(join(outside, "linked", "src"), { recursive: true });
     writeFileSync(join(outside, "linked", "package.json"), '{"name":"@scope/linked"}');
+    for (const [dir, name] of [["climbing", "../../x"], ["dotted", ".hidden"], ["upper", "Linked"]] as const) {
+      mkdirSync(join(outside, dir, "src"), { recursive: true });
+      writeFileSync(join(outside, dir, "package.json"), JSON.stringify({ name }));
+    }
     const pnpm = "node_modules/.pnpm/react@19.2.8/node_modules/react/cjs/react.production.js";
 
     expect(
@@ -426,6 +430,9 @@ test("a map names a source from the root, from its last node_modules, by its pac
         `/home/someone/store/${pnpm}`,
         join(outside, "linked", "src", "index.js"),
         join(outside, "loose.js"),
+        join(outside, "climbing", "src", "f.js"),
+        join(outside, "dotted", "src", "f.js"),
+        join(outside, "upper", "src", "f.js"),
       ].map((file) => sourceName("/site", file)),
     ).toEqual([
       "components/Counter.js",
@@ -433,6 +440,9 @@ test("a map names a source from the root, from its last node_modules, by its pac
       "node_modules/react/cjs/react.production.js",
       "node_modules/@scope/linked/src/index.js",
       "[outside the site root]/loose.js",
+      "[outside the site root]/f.js",
+      "[outside the site root]/f.js",
+      "[outside the site root]/f.js",
     ]);
   } finally {
     rmSync(outside, { recursive: true, force: true });
