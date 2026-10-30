@@ -119,15 +119,18 @@ test("retaining prunes everything past the keep count, oldest first", async () =
   ]);
 });
 
-test("retaining writes a build's sourcemaps under its id, each at its chunk's path", async () => {
+test("retaining writes a build's sourcemaps under its id, each at its chunk's path beside the chunk", async () => {
   const root = siteRoot();
   await retainManifest(root, manifest("b1", "2026-08-25T10:00:00.000Z"), DEFAULT_RETENTION_POLICY, [
-    { path: "/assets/Hero-a1.js.map", contents: '{"version":3}' },
+    { path: "/assets/Hero-a1.js.map", contents: '{"version":3}', code: "hero();" },
   ]);
 
   expect(
     readFileSync(join(root, SOURCEMAP_DIR, "b1", "assets", "Hero-a1.js.map"), "utf8"),
   ).toBe('{"version":3}');
+  expect(readFileSync(join(root, SOURCEMAP_DIR, "b1", "assets", "Hero-a1.js"), "utf8")).toBe(
+    "hero();",
+  );
 });
 
 test("a build retained with no sourcemaps writes no sourcemap store", async () => {
@@ -139,7 +142,7 @@ test("a build retained with no sourcemaps writes no sourcemap store", async () =
 
 test("pruning a build past the keep count deletes its sourcemaps with its manifest", async () => {
   const root = siteRoot();
-  const maps = [{ path: "/assets/Hero-a1.js.map", contents: "{}" }];
+  const maps = [{ path: "/assets/Hero-a1.js.map", contents: "{}", code: "hero();" }];
   for (const [id, createdAt] of [
     ["b1", "2026-08-25T10:00:00.000Z"],
     ["b2", "2026-08-26T09:30:00.000Z"],

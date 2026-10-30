@@ -1,5 +1,13 @@
 import { readFileSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import type { Plugin, PluginOption } from "vite";
 import { runBundle } from "./bundler.js";
 import {
@@ -53,11 +61,12 @@ export interface ClientBuildInput {
 export interface ChunkSourcemap {
   path: string;
   contents: string;
+  /** What `pagedeck trace` measures a frame's line and column against. */
+  code: string;
 }
 
 export interface ClientBuild {
   files: readonly EmittedFile[];
-  /** Never placed: retained beside the build's manifest, outside `outDir` (ADR-0002, #199). */
   sourcemaps: readonly ChunkSourcemap[];
   entryScripts: ReadonlyMap<string, string>;
   entryStyles: ReadonlyMap<string, readonly string[]>;
@@ -186,6 +195,40 @@ function sameVersion(ids: ReadonlySet<string>): Map<string, string[]> {
     if (group.length < 2) byVersion.delete(version);
   }
   return byVersion;
+}
+
+function declaredName(dir: string): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const name = (parsed as { name?: unknown }).name;
+  return typeof name === "string" ? name : undefined;
+}
+
+const OUTSIDE_ROOT = "[outside the site root]";
+
+/**
+ * A source as an install of every package would name it, so that a map holds
+ * no path of the machine that built it (ADR-0002).
+ */
+export function sourceName(root: string, file: string): string {
+  const local = relative(root, file);
+  const inside = !isAbsolute(local) && local.split(sep)[0] !== "..";
+  const parts = (inside ? local : file).split(sep);
+  const last = parts.lastIndexOf("node_modules");
+  if (last !== -1) return parts.slice(last).join("/");
+  if (inside) return parts.join("/");
+  for (let dir = dirname(file); dir !== dirname(dir); dir = dirname(dir)) {
+    const name = declaredName(dir);
+    if (name !== undefined) {
+      return ["node_modules", name, ...relative(dir, file).split(sep)].join("/");
+    }
+  }
+  return `${OUTSIDE_ROOT}/${basename(file)}`;
 }
 
 function declaredVersion(path: string): string | undefined {
@@ -538,9 +581,7 @@ export async function buildClient(
               assetFileNames: naming.assetFileNames,
               codeSplitting: splitting,
               sourcemapPathTransform: (source, map) =>
-                relative(input.root, resolve(dirname(map), source))
-                  .split(sep)
-                  .join("/"),
+                sourceName(input.root, resolve(dirname(map), source)),
             },
           },
         },
@@ -593,7 +634,7 @@ export async function buildClient(
   }
 
   const files: EmittedFile[] = [];
-  const sourcemaps: ChunkSourcemap[] = [];
+  const mapOfChunk = new Map<string, string>();
   const modules = new Map<string, readonly string[]>();
   const imports = new Map<string, readonly string[]>();
   const entryScripts = new Map<string, string>();
@@ -606,7 +647,7 @@ export async function buildClient(
     for (const emitted of one.output) {
       const path = chunkPath(emitted.fileName);
       if (emitted.type === "asset" && emitted.fileName.endsWith(".map")) {
-        sourcemaps.push({ path, contents: String(emitted.source) });
+        mapOfChunk.set(path.slice(0, -".map".length), String(emitted.source));
         continue;
       }
       if (emitted.type === "chunk") {
@@ -663,6 +704,13 @@ export async function buildClient(
     tiers: input.tiers,
     chunks,
     captured,
+  });
+
+  const sourcemaps = files.flatMap((file): ChunkSourcemap[] => {
+    const contents = mapOfChunk.get(file.path);
+    return contents === undefined
+      ? []
+      : [{ path: `${file.path}.map`, contents, code: String(file.contents) }];
   });
 
   return {

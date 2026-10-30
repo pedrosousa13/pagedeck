@@ -188,7 +188,6 @@ export interface SiteBuild {
   entries: EntryPlan;
   tiers: TierPlan;
   files: readonly EmittedFile[];
-  /** Retained beside the manifest and never written into `outDir` (#199). */
   sourcemaps: readonly ChunkSourcemap[];
   manifest: Manifest;
   patch?: SitePatch;

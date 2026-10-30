@@ -1,7 +1,9 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { ASSET_DIR, buildClient, checkClientGraph } from "./client-build.js";
+import { ASSET_DIR, buildClient, checkClientGraph, sourceName } from "./client-build.js";
 import type { ClientBuild } from "./client-build.js";
 import { planEntries } from "./entries.js";
 import type { PageDemand } from "./entries.js";
@@ -409,6 +411,33 @@ test("a build that keeps maps hands back one per chunk with a source, beside fil
     expect(map.contents).not.toContain(FIXTURE_DIR);
   }
 }, 60_000);
+
+test("a map names a source from the root, from its last node_modules, by its package, or by its own name alone", () => {
+  const outside = mkdtempSync(join(tmpdir(), "pagedeck-source-name-"));
+  try {
+    mkdirSync(join(outside, "linked", "src"), { recursive: true });
+    writeFileSync(join(outside, "linked", "package.json"), '{"name":"@scope/linked"}');
+    const pnpm = "node_modules/.pnpm/react@19.2.8/node_modules/react/cjs/react.production.js";
+
+    expect(
+      [
+        "/site/components/Counter.js",
+        `/site/${pnpm}`,
+        `/home/someone/store/${pnpm}`,
+        join(outside, "linked", "src", "index.js"),
+        join(outside, "loose.js"),
+      ].map((file) => sourceName("/site", file)),
+    ).toEqual([
+      "components/Counter.js",
+      "node_modules/react/cjs/react.production.js",
+      "node_modules/react/cjs/react.production.js",
+      "node_modules/@scope/linked/src/index.js",
+      "[outside the site root]/loose.js",
+    ]);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
 
 test("keeping maps changes no byte of what the client build places", async () => {
   const { sourcemaps: none, ...without } = await built();

@@ -162,6 +162,10 @@ interface StoreReading {
 // error a log quotes (#387). `?? 0` for Windows, which lacks the constant.
 const STORE_OPEN_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
 
+export async function readStoreFile(file: string): Promise<string> {
+  return await readFile(file, { encoding: "utf8", flag: STORE_OPEN_FLAGS });
+}
+
 /**
  * Skips what it cannot open rather than throwing: one stale document after a
  * `MANIFEST_VERSION` bump must not fail every later build.
@@ -172,10 +176,7 @@ async function readStore(root: string): Promise<StoreReading> {
   for (const name of await retainedFiles(root)) {
     const file = join(storeDir(root), name);
     try {
-      const text = await readFile(file, {
-        encoding: "utf8",
-        flag: STORE_OPEN_FLAGS,
-      });
+      const text = await readStoreFile(file);
       held.push({ file, manifest: readManifest(text, file) });
     } catch (error) {
       unreadable.push({ file, error });
@@ -239,8 +240,12 @@ function misfiledWarning(
   return `Retention store: ${subject} — pagedeck build writes each document to "<build id>.json" and reads it back by that id, so a document filed elsewhere is unreachable by rollback and was written by hand; ${fix}:\n${lines}`;
 }
 
+export function retainedChunkOf(root: string, id: string, chunk: string): string {
+  return join(root, SOURCEMAP_DIR, id, chunk.replace(/^\/+/, ""));
+}
+
 export function sourcemapOf(root: string, id: string, chunk: string): string {
-  return join(root, SOURCEMAP_DIR, id, `${chunk.replace(/^\/+/, "")}.map`);
+  return `${retainedChunkOf(root, id, chunk)}.map`;
 }
 
 async function retainSourcemaps(
@@ -249,9 +254,10 @@ async function retainSourcemaps(
   sourcemaps: readonly ChunkSourcemap[],
 ): Promise<void> {
   for (const map of sourcemaps) {
-    const file = sourcemapOf(root, id, map.path.slice(0, -".map".length));
-    await mkdir(dirname(file), { recursive: true });
-    await writeFile(file, map.contents);
+    const chunk = retainedChunkOf(root, id, map.path.slice(0, -".map".length));
+    await mkdir(dirname(chunk), { recursive: true });
+    await writeFile(chunk, map.code);
+    await writeFile(`${chunk}.map`, map.contents);
   }
 }
 
@@ -290,12 +296,13 @@ export async function retainManifest(
   await writeFile(fileOf(root, manifest.build.id), manifestJson(manifest));
 
   const { held, unreadable } = await readStore(root);
+  const kept = held.slice(0, policy.keep);
   const pruned = held.slice(policy.keep);
   for (const { file } of pruned) await unlink(file);
   for (const { file } of unreadable) await unlink(file);
-  await pruneSourcemaps(root, held.slice(0, policy.keep));
+  await pruneSourcemaps(root, kept);
   const sections = [
-    misfiledWarning(held.slice(0, policy.keep), pruned),
+    misfiledWarning(kept, pruned),
     unreadableWarning(unreadable),
   ].filter((section): section is string => section !== undefined);
   return sections.length === 0 ? undefined : sections.join("\n\n");
@@ -333,7 +340,7 @@ export async function readRetainedManifest(
   const file = fileOf(root, id);
   let text: string;
   try {
-    text = await readFile(file, { encoding: "utf8", flag: STORE_OPEN_FLAGS });
+    text = await readStoreFile(file);
   } catch (cause) {
     const code = (cause as NodeJS.ErrnoException).code;
     if (code !== undefined && UNREADABLE_DOCUMENT_CODES.has(code)) {

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
@@ -6,7 +6,7 @@ import { runCli } from "./cli.js";
 import { ConfigError, EXIT_CODES } from "./exit.js";
 import { MANIFEST_VERSION } from "./manifest.js";
 import type { Manifest } from "./manifest.js";
-import { retainManifest, sourcemapOf } from "./retention.js";
+import { retainedChunkOf, retainManifest, sourcemapOf } from "./retention.js";
 import { differingWarning, parseFrame, traceFrame } from "./trace.js";
 
 const FIXTURES = join(import.meta.dirname, "..", "..", "fixtures", "src", "index.ts");
@@ -77,12 +77,17 @@ function chartMap(sourcesContent = "export default function Chart() {}\n"): stri
   });
 }
 
+// Line 1 is 60 characters long and line 2, which the map leaves unmapped, 20.
+const CHART_CODE = `${"x".repeat(60)}\n${"y".repeat(20)}`;
+
 async function retain(root: string, id: string, createdAt: string, map?: string): Promise<void> {
   await retainManifest(
     root,
     manifest(id, createdAt),
     { keep: 20 },
-    map === undefined ? [] : [{ path: "/assets/Chart-a1.js.map", contents: map }],
+    map === undefined
+      ? []
+      : [{ path: "/assets/Chart-a1.js.map", contents: map, code: CHART_CODE }],
   );
 }
 
@@ -105,6 +110,42 @@ test("a frame is read as a stack names it: a URL, a path from the root, or a pat
     "assets/Chart-a1.js:1:10",
   ]) {
     expect(parseFrame(text), text).toEqual(FRAME);
+  }
+});
+
+test("a frame is read as Chrome and Firefox print it in a stack", () => {
+  for (const text of [
+    "    at Counter (https://example.com/assets/Chart-a1.js:1:10)",
+    "at async Counter (https://example.com/assets/Chart-a1.js:1:10)",
+    "at https://example.com/assets/Chart-a1.js:1:10",
+    "Counter@https://example.com/assets/Chart-a1.js:1:10",
+    "@https://example.com/assets/Chart-a1.js:1:10",
+    "Counter@https://user:secret@example.com/assets/Chart-a1.js:1:10",
+  ]) {
+    expect(parseFrame(text), text).toEqual(FRAME);
+  }
+});
+
+test("a frame refusal names no userinfo, host or query string of the frame it was given", () => {
+  const refusals = [
+    "https://user:secret@intranet.test/assets/Chart-a1.js?token=abc",
+    "https://user:secret@intranet.test/assets/Chart-a1.js?token=abc:0:2",
+    "    at Counter (https://user:secret@intranet.test/assets/Chart-a1.js?token=a:b:1)",
+    "https://user:secret@[intranet.test/assets/Chart-a1.js?token=abc:1:2",
+    "assets/../Chart-a1.js?token=abc:1:2",
+  ].map((text) => parseFrame(text));
+
+  expect(refusals).toEqual([
+    'pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "/assets/Chart-a1.js".',
+    'pagedeck trace takes a frame\'s line and column counted from 1, as a browser\'s stack counts them, and got "/assets/Chart-a1.js:0:2".',
+    'pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "/assets/Chart-a1.js".',
+    'pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "/assets/Chart-a1.js:1:2", whose chunk is not a URL.',
+    'pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "assets/../Chart-a1.js:1:2", whose chunk is not a path in the output tree.',
+  ]);
+  for (const refusal of refusals) {
+    for (const secret of ["user", "secret", "intranet", "token", "abc"]) {
+      expect(refusal).not.toContain(secret);
+    }
   }
 });
 
@@ -214,6 +255,48 @@ test("a position on a line the map does not cover is refused rather than guessed
   expect((await refusal(traceFrame(root, { ...FRAME, line: 2 }, "b1"))).message).toBe(
     'Trace "assets/Chart-a1.js:2:10": build "b1"\'s sourcemap for "assets/Chart-a1.js" maps no source at line 2, column 10 — check the line and column against the frame, which a browser counts from 1, and check that the report\'s release is this build',
   );
+});
+
+test("a column past the end of its line is refused, though the map would answer it from the line's last segment", async () => {
+  const root = siteRoot();
+  await retain(root, "b1", "2026-10-28T10:00:00.000Z", chartMap());
+
+  expect((await refusal(traceFrame(root, { ...FRAME, column: 61 }, "b1"))).message).toBe(
+    'Trace "assets/Chart-a1.js:1:61": column 61 is past the end of line 1 of "assets/Chart-a1.js" as build "b1" wrote it, which is 60 characters long — check the line and column against the frame, which a browser counts from 1, and check that the report\'s release is this build',
+  );
+  expect(await traceFrame(root, { ...FRAME, column: 60 }, "b1")).toMatchObject({
+    source: "src/Chart.js",
+  });
+});
+
+test("a line past the end of the chunk is refused", async () => {
+  const root = siteRoot();
+  await retain(root, "b1", "2026-10-28T10:00:00.000Z", chartMap());
+
+  expect((await refusal(traceFrame(root, { ...FRAME, line: 3 }, "b1"))).message).toBe(
+    'Trace "assets/Chart-a1.js:3:10": line 3 is past the end of "assets/Chart-a1.js" as build "b1" wrote it, which has 2 lines — check the line and column against the frame, which a browser counts from 1, and check that the report\'s release is this build',
+  );
+});
+
+test("a map retained without its chunk is refused, since the position cannot be checked", async () => {
+  const root = siteRoot();
+  await retain(root, "b1", "2026-10-28T10:00:00.000Z", chartMap());
+  rmSync(retainedChunkOf(root, "b1", FRAME.chunk));
+
+  expect((await refusal(traceFrame(root, FRAME, "b1"))).message).toBe(
+    'Trace "assets/Chart-a1.js:1:10": build "b1" retained a sourcemap for "assets/Chart-a1.js" and not the chunk itself, which the frame\'s line and column are checked against — pagedeck build writes the two together, so the store was edited by hand; build the commit that served the page again, with build.islandErrors declared: a chunk\'s name is a hash of its contents, so the same commit writes the same chunk and its map',
+  );
+});
+
+test("a map is never read through a symlink", async () => {
+  const root = siteRoot();
+  await retain(root, "b1", "2026-10-28T10:00:00.000Z", chartMap());
+  const map = sourcemapOf(root, "b1", FRAME.chunk);
+  writeFileSync(join(root, "elsewhere.map"), chartMap());
+  rmSync(map);
+  symlinkSync(join(root, "elsewhere.map"), map);
+
+  await expect(traceFrame(root, FRAME, "b1")).rejects.toMatchObject({ code: "ELOOP" });
 });
 
 test("a map that does not parse is refused with its path and the parser's error as the cause", async () => {

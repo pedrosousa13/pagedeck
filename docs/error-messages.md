@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 325 messages fenced
-below, 248 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 329 messages fenced
+below, 252 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 248 checked messages pin 37149 of the 104138 fenced characters, and
+below**: the 248 checked messages pin 37469 of the 105363 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1867,7 +1867,9 @@ Retained manifest "b1": nothing opened at "/site/.pagedeck/manifests/b1.json" �
 **`pagedeck trace` reads the same store and refuses in the same shape** (#199).
 `traceFrame` (`packages/core/src/trace.ts`) names the frame first, as the chunk
 path and position it read, and never the URL it was given, which can carry a
-host the store has no use for. A build id is held to `unusableId`
+host, userinfo or a query string the store has no use for (rule 6). It reads
+each map and chunk the way the manifest store reads a document, read-only and
+never through a symlink. A build id is held to `unusableId`
 (`packages/core/src/retention.ts`) before it reaches a path, and one the store
 does not hold is refused with the ids it does hold, or with the empty store's
 own sentence, for the rollback refusal's reason above. Every refusal is a
@@ -1888,20 +1890,34 @@ Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1" retained no sourcemap for "a
 Trace "assets/Counter-BrQs-g2S.js:1:60": no retained build holds a sourcemap for "assets/Counter-BrQs-g2S.js" in "/site/.pagedeck/sourcemaps" — a build keeps its maps only while build.islandErrors is declared, and the store keeps the last build.retention.keep builds; check the chunk name against the frame, or build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
 
 Trace "assets/Counter-BrQs-g2S.js:2:60": build "b1"'s sourcemap for "assets/Counter-BrQs-g2S.js" maps no source at line 2, column 60 — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build
+
+Trace "assets/Counter-BrQs-g2S.js:3:60": line 3 is past the end of "assets/Counter-BrQs-g2S.js" as build "b1" wrote it, which has 2 lines — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build
+
+Trace "assets/Counter-BrQs-g2S.js:1:5000": column 5000 is past the end of line 1 of "assets/Counter-BrQs-g2S.js" as build "b1" wrote it, which is 318 characters long — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1" retained a sourcemap for "assets/Counter-BrQs-g2S.js" and not the chunk itself, which the frame's line and column are checked against — pagedeck build writes the two together, so the store was edited by hand; build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
 ```
 
-A position on a line the map has no segment for is refused rather than
-answered. `SourceMap.findOrigin` would answer it, by carrying the offset from
-the nearest segment before it into the source, which names a line the code was
-never on. `traceFrame` reads `findEntry` and refuses an entry from another line.
+A position the map cannot place is refused rather than answered.
+`SourceMap.findOrigin` would answer a position on a line with no segment, by
+carrying the offset from the nearest segment before it into the source, which
+names a line the code was never on, so `traceFrame` reads `findEntry` and
+refuses an entry from another line. `findEntry` also answers a column past the
+end of its line from the line's last segment, and the map does not know how
+long the line is. So a build keeps each chunk beside its map, and `traceFrame`
+refuses a line or column past the end of the chunk as that build wrote it.
 
 The frame's own shape is the command line's, so `parseFrame`
 (`packages/core/src/trace.ts`) refuses it through the usage text with the
-others:
+others. It takes a frame as Chrome or Firefox prints it in a stack, and quotes
+what it got with the URL's scheme, host, userinfo and query string removed,
+so `https://user:secret@intranet.test/assets/Counter-BrQs-g2S.js?token=abc` is
+quoted as `/assets/Counter-BrQs-g2S.js`:
 
 ```
-pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "assets/Counter-BrQs-g2S.js".
+pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "/assets/Counter-BrQs-g2S.js".
 pagedeck trace takes a frame's line and column counted from 1, as a browser's stack counts them, and got "assets/Counter-BrQs-g2S.js:0:60".
+pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "assets/../Counter-BrQs-g2S.js:1:60", whose chunk is not a path in the output tree.
 pagedeck trace takes one <frame> and at most one <build-id>, the release the report carries, and got 3 arguments.
 ```
 

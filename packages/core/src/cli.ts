@@ -27,6 +27,7 @@ import { syncSite } from "./sync.js";
 import type { SyncOptions, SyncReport } from "./sync.js";
 import { trackSiteModules } from "./site-modules.js";
 import { differingWarning, parseFrame, traceFrame } from "./trace.js";
+import type { Frame } from "./trace.js";
 import { rest, watchSync } from "./watch.js";
 
 export interface CliIo {
@@ -57,9 +58,10 @@ const USAGE = [
   "pagedeck diff takes --force to deploy a build that was not based on the build it is",
   "deploying over. pagedeck rollback needs no such flag: a rollback is out of order by",
   "definition, which is the whole of what it is for.",
-  "<frame> is <chunk>:<line>:<column>, as an island error's stack names it. pagedeck trace",
-  "reads the sourcemaps a build retains while build.islandErrors is declared, from",
-  "<build-id> or, naming none, from the newest retained build that holds the chunk.",
+  "<frame> is one frame of an island error's stack, as Chrome or Firefox writes it, or",
+  "<chunk>:<line>:<column> alone. pagedeck trace reads the sourcemaps a build retains",
+  "while build.islandErrors is declared, from <build-id> or, naming none, from the",
+  "newest retained build that holds the chunk.",
   "<url> is a file: or https: URL (an S3-style target is a presigned https: URL).",
   "pagedeck store takes <url> from PAGEDECK_SNAPSHOT_URL when the command line names none.",
   "Naming no <url> is what keeps a presigned one out of the process table and",
@@ -634,7 +636,7 @@ async function runRollbackVerb(
 }
 
 function parseTraceArgs(args: readonly string[]): {
-  frame: Exclude<ReturnType<typeof parseFrame>, string>;
+  frame: Frame;
   id?: string;
 } {
   const faults: string[] = [];

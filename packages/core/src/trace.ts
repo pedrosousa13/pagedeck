@@ -1,10 +1,11 @@
 import { SourceMap } from "node:module";
 import { join } from "node:path";
-import { readFile } from "node:fs/promises";
 import { ConfigError } from "./exit.js";
 import { quote, quoteIdentifier } from "./quote.js";
 import {
   listRetainedManifests,
+  readStoreFile,
+  retainedChunkOf,
   SOURCEMAP_DIR,
   sourcemapOf,
   unusableId,
@@ -27,22 +28,47 @@ export interface TracedFrame {
 }
 
 const SCHEME = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//;
+const ORIGIN = /[a-zA-Z][a-zA-Z\d+.-]*:\/\/[^/]*/;
+const POSITION = /^(.+):(\d+):(\d+)$/;
+// Chrome: `at Counter (<location>)` or `at <location>`.
+const CHROME_FRAME = /^\s*at\s+(?:.*\()?(.+?)\)?\s*$/;
+// Firefox: `Counter@<location>`; a `://` before the `@` is a URL's userinfo.
+const FIREFOX_FRAME = /^\s*([^@]*)@(.+)$/;
 
 export const FRAME_SHAPE =
   "<chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345";
 
-export function parseFrame(text: string): Frame | string {
-  const found = /^(.+):(\d+):(\d+)$/.exec(text);
-  if (found === null) {
-    return `pagedeck trace takes a frame as ${FRAME_SHAPE}, and got ${quote(text)}.`;
+function locationOf(text: string): string {
+  const chrome = CHROME_FRAME.exec(text);
+  if (chrome?.[1] !== undefined) return chrome[1];
+  const firefox = FIREFOX_FRAME.exec(text);
+  if (firefox?.[2] !== undefined && firefox[1]?.includes("://") === false) {
+    return firefox[2];
   }
-  const [, spelled, line, column] = found as unknown as [string, string, string, string];
-  let path = spelled;
-  if (SCHEME.test(path)) {
+  return text.trim();
+}
+
+/** Rule 6: a frame's URL can carry credentials in its userinfo or query. */
+function redacted(location: string): string {
+  return location
+    .replace(ORIGIN, "")
+    .replace(/[?#].*?(?=:\d+:\d+$|$)/, "");
+}
+
+export function parseFrame(text: string): Frame | string {
+  const location = locationOf(text);
+  const shown = quote(redacted(location));
+  const found = POSITION.exec(location);
+  if (found === null) {
+    return `pagedeck trace takes a frame as ${FRAME_SHAPE}, and got ${shown}.`;
+  }
+  const [, spelled = "", line = "", column = ""] = found;
+  let path = spelled.replace(/[?#].*$/, "");
+  if (SCHEME.test(spelled)) {
     try {
-      path = new URL(path).pathname;
+      path = new URL(spelled).pathname;
     } catch {
-      return `pagedeck trace takes a frame as ${FRAME_SHAPE}, and got ${quote(text)}, whose chunk is not a URL.`;
+      return `pagedeck trace takes a frame as ${FRAME_SHAPE}, and got ${shown}, whose chunk is not a URL.`;
     }
   }
   const chunk = path.replace(/^\/+/, "");
@@ -51,10 +77,10 @@ export function parseFrame(text: string): Frame | string {
     chunk.includes("\\") ||
     segments.some((segment) => segment === "" || segment === "." || segment === "..")
   ) {
-    return `pagedeck trace takes a frame as ${FRAME_SHAPE}, and got ${quote(text)}, whose chunk is not a path in the output tree.`;
+    return `pagedeck trace takes a frame as ${FRAME_SHAPE}, and got ${shown}, whose chunk is not a path in the output tree.`;
   }
   if (Number(line) === 0 || Number(column) === 0) {
-    return `pagedeck trace takes a frame's line and column counted from 1, as a browser's stack counts them, and got ${quote(text)}.`;
+    return `pagedeck trace takes a frame's line and column counted from 1, as a browser's stack counts them, and got ${shown}.`;
   }
   return { chunk, line: Number(line), column: Number(column) };
 }
@@ -65,9 +91,9 @@ function frameName(frame: Frame): string {
   );
 }
 
-async function readMap(file: string): Promise<string | undefined> {
+async function readHeld(file: string): Promise<string | undefined> {
   try {
-    return await readFile(file, "utf8");
+    return await readStoreFile(file);
   } catch (cause) {
     if ((cause as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw cause;
@@ -83,12 +109,20 @@ async function retainedIds(root: string): Promise<readonly string[]> {
     .filter((id) => unusableId(id) === undefined);
 }
 
-function resolveIn(
+const POSITION_FIX =
+  "check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build";
+
+function lineCount(lines: number): string {
+  return lines === 1 ? "1 line" : `${String(lines)} lines`;
+}
+
+async function resolveIn(
+  root: string,
   frame: Frame,
   build: string,
   file: string,
   text: string,
-): Omit<TracedFrame, "differing"> {
+): Promise<Omit<TracedFrame, "differing">> {
   let map: SourceMap;
   try {
     map = new SourceMap(JSON.parse(text) as ConstructorParameters<typeof SourceMap>[0]);
@@ -98,6 +132,25 @@ function resolveIn(
       { cause },
     );
   }
+  const code = await readHeld(retainedChunkOf(root, build, frame.chunk));
+  if (code === undefined) {
+    throw new ConfigError(
+      `Trace ${frameName(frame)}: build ${quoteIdentifier(build)} retained a sourcemap for ${quoteIdentifier(frame.chunk)} and not the chunk itself, which the frame's line and column are checked against — pagedeck build writes the two together, so the store was edited by hand; ${REBUILD_FIX}`,
+    );
+  }
+  // `findEntry` answers a position past the end from the line's last segment.
+  const lines = code.split("\n");
+  const generated = lines[frame.line - 1];
+  if (generated === undefined) {
+    throw new ConfigError(
+      `Trace ${frameName(frame)}: line ${String(frame.line)} is past the end of ${quoteIdentifier(frame.chunk)} as build ${quoteIdentifier(build)} wrote it, which has ${lineCount(lines.length)} — ${POSITION_FIX}`,
+    );
+  }
+  if (frame.column > generated.length) {
+    throw new ConfigError(
+      `Trace ${frameName(frame)}: column ${String(frame.column)} is past the end of line ${String(frame.line)} of ${quoteIdentifier(frame.chunk)} as build ${quoteIdentifier(build)} wrote it, which is ${String(generated.length)} characters long — ${POSITION_FIX}`,
+    );
+  }
   const entry = map.findEntry(frame.line - 1, frame.column - 1);
   if (
     !("originalSource" in entry) ||
@@ -105,7 +158,7 @@ function resolveIn(
     entry.generatedLine !== frame.line - 1
   ) {
     throw new ConfigError(
-      `Trace ${frameName(frame)}: build ${quoteIdentifier(build)}'s sourcemap for ${quoteIdentifier(frame.chunk)} maps no source at line ${String(frame.line)}, column ${String(frame.column)} — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build`,
+      `Trace ${frameName(frame)}: build ${quoteIdentifier(build)}'s sourcemap for ${quoteIdentifier(frame.chunk)} maps no source at line ${String(frame.line)}, column ${String(frame.column)} — ${POSITION_FIX}`,
     );
   }
   return {
@@ -144,19 +197,19 @@ export async function traceFrame(
       );
     }
     const file = sourcemapOf(root, id, frame.chunk);
-    const text = await readMap(file);
+    const text = await readHeld(file);
     if (text === undefined) {
       throw new ConfigError(
         `Trace ${frameName(frame)}: build ${quoteIdentifier(id)} retained no sourcemap for ${quoteIdentifier(frame.chunk)} — a build keeps a map for each chunk it wrote from authored source, and only while build.islandErrors is declared, so check the chunk name against the frame, or leave the build id out to search every retained build`,
       );
     }
-    return { ...resolveIn(frame, id, file, text), differing: [] };
+    return { ...(await resolveIn(root, frame, id, file, text)), differing: [] };
   }
 
   const held: { id: string; file: string; text: string }[] = [];
   for (const one of ids) {
     const file = sourcemapOf(root, one, frame.chunk);
-    const text = await readMap(file);
+    const text = await readHeld(file);
     if (text !== undefined) held.push({ id: one, file, text });
   }
   const [newest] = held;
@@ -166,7 +219,7 @@ export async function traceFrame(
     );
   }
   return {
-    ...resolveIn(frame, newest.id, newest.file, newest.text),
+    ...(await resolveIn(root, frame, newest.id, newest.file, newest.text)),
     differing: held
       .slice(1)
       .filter((other) => other.text !== newest.text)
