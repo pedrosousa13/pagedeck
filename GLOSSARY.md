@@ -1030,8 +1030,11 @@ A sourcemap of one island chunk, kept in a site's retention store at
 tree, the edge output or a deploy (`SOURCEMAP_DIR`,
 `packages/core/src/retention.ts`, #199). A build makes them only while the site
 declares `build.islandErrors`, and prunes them with their build's manifest.
-`pagedeck trace` is their only reader. Each holds the full source of what it
-maps (ADR-0002's amendment), so the store is as private as the source.
+Each sits beside a copy of its chunk, which `pagedeck trace` checks a frame's
+line and column against, and names its sources without a path of the machine
+that built it. `pagedeck trace` is their only reader. Each holds the full
+source of what it maps (ADR-0002's amendment), so the store is as private as
+the source.
 _Avoid_: hidden sourcemap (that is the bundler's setting, which only drops the
 `sourceMappingURL` comment), production sourcemap (production output holds
 none), source map upload (nothing uploads them)

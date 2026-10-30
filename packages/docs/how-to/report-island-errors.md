@@ -158,13 +158,15 @@ hydrates.
 `.pagedeck/manifests/`, and the name of the release directory that
 [the deploy recipe](../deploy-recipe.md) prepares for a site with an app.
 
-Each frame in the error's stack names a chunk under `/assets/`, with a line and
-a column, such as `https://example.com/assets/Counter-BrQs-g2S.js:1:60`. Run
-`pagedeck trace` in the site's directory with that frame and the report's
-`release`:
+The reporter above sends `error.stack`. Each frame in it names a chunk under
+`/assets/`, with a line and a column. Chrome writes a frame as
+`at Counter (https://example.com/assets/Counter-BrQs-g2S.js:1:60)`, and Firefox
+as `Counter@https://example.com/assets/Counter-BrQs-g2S.js:1:60`. Run
+`pagedeck trace` in the site's directory with one frame as the stack holds it,
+in quotes, and the report's `release`:
 
 ```sh
-npx pagedeck trace https://example.com/assets/Counter-BrQs-g2S.js:1:60 a04807ad-00d9-4ba3-a8df-e48321a2b889
+npx pagedeck trace "at Counter (https://example.com/assets/Counter-BrQs-g2S.js:1:60)" a04807ad-00d9-4ba3-a8df-e48321a2b889
 ```
 
 It prints the file, line and column in your source, from the site's root:
@@ -173,8 +175,11 @@ It prints the file, line and column in your source, from the site's root:
 components/Counter.js:3:59
 ```
 
-The frame can also be written `/assets/Counter-BrQs-g2S.js:1:60` or
-`assets/Counter-BrQs-g2S.js:1:60`. Without a build id, `pagedeck trace` reads
+The frame can also be the URL alone,
+`https://example.com/assets/Counter-BrQs-g2S.js:1:60`, or the path,
+`/assets/Counter-BrQs-g2S.js:1:60` or `assets/Counter-BrQs-g2S.js:1:60`. When
+`pagedeck trace` refuses a frame, it quotes the frame without its host,
+userinfo or query string. Without a build id, `pagedeck trace` reads
 the newest retained build that holds a map for the chunk. Use that for a
 report with no `release`. A chunk's name is a hash of its code, so every build
 that holds the chunk ran the same code. If an older build holds a different map
@@ -186,7 +191,10 @@ them.
 
 A site that declares `build.islandErrors` keeps a sourcemap for each chunk that
 holds your code, in `.pagedeck/sourcemaps/<build id>/`, beside the build's
-manifest. No map is written to the output directory or the edge output, and no
+manifest, with a copy of the chunk, which `pagedeck trace` uses to refuse a
+line or column past the end of the code. A map names each source by its path
+from the site's root, or a dependency as `node_modules/<package>/<path>`, and
+never by a path of the machine that built it. No map is written to the output directory or the edge output, and no
 chunk names a map, so a deploy publishes none
 ([ADR-0002](../adr/0002-no-production-sourcemaps.md)). `pagedeck build` keeps
 the maps of the last `build.retention.keep` builds and deletes the rest with
