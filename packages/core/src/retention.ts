@@ -3,10 +3,12 @@ import {
   mkdir,
   readFile,
   readdir,
+  rm,
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
+import type { ChunkSourcemap } from "./client-build.js";
 import { ConfigError, describeError, printable } from "./exit.js";
 import { manifestJson, readManifest } from "./manifest.js";
 import type { Manifest } from "./manifest.js";
@@ -19,6 +21,8 @@ export interface RetentionPolicy {
 export const DEFAULT_RETENTION_POLICY: RetentionPolicy = { keep: 20 };
 
 export const RETENTION_DIR = ".pagedeck/manifests";
+
+export const SOURCEMAP_DIR = ".pagedeck/sourcemaps";
 
 const ID_FIX = "mint the build id as a name a path can hold, such as a uuid";
 
@@ -158,6 +162,10 @@ interface StoreReading {
 // error a log quotes (#387). `?? 0` for Windows, which lacks the constant.
 const STORE_OPEN_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
 
+export async function readStoreFile(file: string): Promise<string> {
+  return await readFile(file, { encoding: "utf8", flag: STORE_OPEN_FLAGS });
+}
+
 /**
  * Skips what it cannot open rather than throwing: one stale document after a
  * `MANIFEST_VERSION` bump must not fail every later build.
@@ -168,10 +176,7 @@ async function readStore(root: string): Promise<StoreReading> {
   for (const name of await retainedFiles(root)) {
     const file = join(storeDir(root), name);
     try {
-      const text = await readFile(file, {
-        encoding: "utf8",
-        flag: STORE_OPEN_FLAGS,
-      });
+      const text = await readStoreFile(file);
       held.push({ file, manifest: readManifest(text, file) });
     } catch (error) {
       unreadable.push({ file, error });
@@ -235,21 +240,69 @@ function misfiledWarning(
   return `Retention store: ${subject} — pagedeck build writes each document to "<build id>.json" and reads it back by that id, so a document filed elsewhere is unreachable by rollback and was written by hand; ${fix}:\n${lines}`;
 }
 
+export function retainedChunkOf(root: string, id: string, chunk: string): string {
+  return join(root, SOURCEMAP_DIR, id, chunk.replace(/^\/+/, ""));
+}
+
+export function sourcemapOf(root: string, id: string, chunk: string): string {
+  return `${retainedChunkOf(root, id, chunk)}.map`;
+}
+
+async function retainSourcemaps(
+  root: string,
+  id: string,
+  sourcemaps: readonly ChunkSourcemap[],
+): Promise<void> {
+  for (const map of sourcemaps) {
+    const chunk = retainedChunkOf(root, id, map.path.slice(0, -".map".length));
+    await mkdir(dirname(chunk), { recursive: true });
+    await writeFile(chunk, map.code);
+    await writeFile(`${chunk}.map`, map.contents);
+  }
+}
+
+/** By directory listing, so maps whose manifest went unreadable go with it. */
+async function pruneSourcemaps(
+  root: string,
+  kept: readonly HeldManifest[],
+): Promise<void> {
+  const ids = new Set(
+    kept.map(({ file }) => basename(file).slice(0, -".json".length)),
+  );
+  let held: string[];
+  try {
+    held = await readdir(join(root, SOURCEMAP_DIR));
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw cause;
+  }
+  for (const name of held) {
+    if (!ids.has(name)) {
+      await rm(join(root, SOURCEMAP_DIR, name), { recursive: true, force: true });
+    }
+  }
+}
+
 export async function retainManifest(
   root: string,
   manifest: Manifest,
   policy: RetentionPolicy = DEFAULT_RETENTION_POLICY,
+  sourcemaps: readonly ChunkSourcemap[] = [],
 ): Promise<string | undefined> {
   assertUsableId(manifest.build.id);
+  // Before the manifest: a retained build's maps are whole once it is listed.
+  await retainSourcemaps(root, manifest.build.id, sourcemaps);
   await mkdir(storeDir(root), { recursive: true });
   await writeFile(fileOf(root, manifest.build.id), manifestJson(manifest));
 
   const { held, unreadable } = await readStore(root);
+  const kept = held.slice(0, policy.keep);
   const pruned = held.slice(policy.keep);
   for (const { file } of pruned) await unlink(file);
   for (const { file } of unreadable) await unlink(file);
+  await pruneSourcemaps(root, kept);
   const sections = [
-    misfiledWarning(held.slice(0, policy.keep), pruned),
+    misfiledWarning(kept, pruned),
     unreadableWarning(unreadable),
   ].filter((section): section is string => section !== undefined);
   return sections.length === 0 ? undefined : sections.join("\n\n");
@@ -269,7 +322,7 @@ function missingFix(files: readonly string[]): string {
  * Listed, not "anything but `ENOENT`": an unlisted errno stays at exit 1, where
  * a retry may still fix it (#387).
  */
-const UNREADABLE_DOCUMENT_CODES = new Set([
+export const UNREADABLE_DOCUMENT_CODES: ReadonlySet<string> = new Set([
   "ELOOP",
   "EMLINK",
   "EACCES",
@@ -287,14 +340,14 @@ export async function readRetainedManifest(
   const file = fileOf(root, id);
   let text: string;
   try {
-    text = await readFile(file, { encoding: "utf8", flag: STORE_OPEN_FLAGS });
+    text = await readStoreFile(file);
   } catch (cause) {
     const code = (cause as NodeJS.ErrnoException).code;
     if (code !== undefined && UNREADABLE_DOCUMENT_CODES.has(code)) {
       // Not `missingFix`: its listing comes off `readdir` and would name this
       // file.
       throw new ConfigError(
-        `Retained manifest ${quoteIdentifier(id)}: nothing opened at ${quoteIdentifier(file)} — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens every document read-only and never through a symlink, so a link is refused rather than followed; put a document this pagedeck can open at that path, or roll back to a build id the store already holds`,
+        `Retained manifest ${quoteIdentifier(id)}: nothing opened at ${quoteIdentifier(file)} — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens every document read-only and refuses one that is itself a link rather than follow it; put a document this pagedeck can open at that path, or roll back to a build id the store already holds`,
         { cause },
       );
     }

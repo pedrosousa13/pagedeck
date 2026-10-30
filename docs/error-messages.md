@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks), there are 129 below, 116 of them
+`x` at/from `path`, outside fenced blocks), there are 132 below, 119 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 315 messages fenced
-below, 238 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 332 messages fenced
+below, 255 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 238 checked messages pin 35734 of the 101440 fenced characters, and
+below**: the 248 checked messages pin 38081 of the 106372 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1861,7 +1861,84 @@ door answers all of this by skipping the file and pruning it, because a caller
 that named no document has asked for none in particular.
 
 ```
-Retained manifest "b1": nothing opened at "/site/.pagedeck/manifests/b1.json" — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens every document read-only and never through a symlink, so a link is refused rather than followed; put a document this pagedeck can open at that path, or roll back to a build id the store already holds
+Retained manifest "b1": nothing opened at "/site/.pagedeck/manifests/b1.json" — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens every document read-only and refuses one that is itself a link rather than follow it; put a document this pagedeck can open at that path, or roll back to a build id the store already holds
+```
+
+**`pagedeck trace` reads the same store and refuses in the same shape** (#199).
+`traceFrame` (`packages/core/src/trace.ts`) names the frame first, as the chunk
+path and position it read, and never the URL it was given, which can carry a
+host, userinfo or a query string the store has no use for (rule 6). It reads
+each map and chunk the way the manifest store reads a document: read-only, and
+refusing one whose own name is a link. `O_NOFOLLOW` checks only the last
+component of the path, so a link in a directory above it is still followed.
+A map or chunk that will not open for one of the errnos the manifest store
+lists is refused with the build and path, and any other errno is rethrown.
+With no build id, the newest build that holds a map for the chunk answers; an
+older build's map that will not open only goes uncompared, with a warning,
+since it cannot change the answer. A build id is held to `unusableId`
+(`packages/core/src/retention.ts`) before it reaches a path, and one the store
+does not hold is refused with the ids it does hold, or with the empty store's
+own sentence, for the rollback refusal's reason above. Every refusal is a
+`ConfigError` and exit 2: the frame, the id and the store fail the same way on
+every run until one of them changes. A pruned build has a fix of its own:
+chunk names are content hashes, so building the same commit again writes the
+chunk and its map back.
+
+```
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b9" is not in the retention store — the retained builds are "b1", "b2", so pass one of those, or leave the build id out to search them all; a build past build.retention.keep is pruned with its maps, and to read one again, build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b9" is not in the retention store — the store holds no retained build, so run pagedeck build to fill it
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build ".." is not a build id the store can hold — the build id is a dot segment, which resolves out of the retention store; pass the release the report carries, or leave the build id out to search every retained build
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1" retained no sourcemap for "assets/Counter-BrQs-g2S.js" — a build keeps a map for each chunk it wrote from authored source, and only while build.islandErrors is declared, so check the chunk name against the frame, or leave the build id out to search every retained build
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": no retained build holds a sourcemap for "assets/Counter-BrQs-g2S.js" in "/site/.pagedeck/sourcemaps" — a build keeps its maps only while build.islandErrors is declared, and the store keeps the last build.retention.keep builds; check the chunk name against the frame, or build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
+
+Trace "assets/Counter-BrQs-g2S.js:2:60": build "b1"'s sourcemap for "assets/Counter-BrQs-g2S.js" maps no source at line 2, column 60 — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build
+
+Trace "assets/Counter-BrQs-g2S.js:3:60": line 3 is past the end of "assets/Counter-BrQs-g2S.js" as build "b1" wrote it, which has 2 lines — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build
+
+Trace "assets/Counter-BrQs-g2S.js:1:5000": column 5000 is past the end of line 1 of "assets/Counter-BrQs-g2S.js" as build "b1" wrote it, which is 318 characters long — check the line and column against the frame, which a browser counts from 1, and check that the report's release is this build
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1" retained a sourcemap for "assets/Counter-BrQs-g2S.js" and not the chunk itself, which the frame's line and column are checked against — pagedeck build writes the two together, so the store was edited by hand; build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1": nothing opened at "/site/.pagedeck/sourcemaps/b1/assets/Counter-BrQs-g2S.js.map" — the open ends there on a link, on a directory, on a mode that forbids the read, or on a name the file system will not take, and the store opens each map and chunk read-only and refuses one that is itself a link rather than follow it; build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
+```
+
+A position the map cannot place is refused rather than answered.
+`SourceMap.findOrigin` would answer a position on a line with no segment, by
+carrying the offset from the nearest segment before it into the source, which
+names a line the code was never on, so `traceFrame` reads `findEntry` and
+refuses an entry from another line. `findEntry` also answers a column past the
+end of its line from the line's last segment, and the map does not know how
+long the line is. So a build keeps each chunk beside its map, and `traceFrame`
+refuses a line or column past the end of the chunk as that build wrote it.
+
+The frame's own shape is the command line's, so `parseFrame`
+(`packages/core/src/trace.ts`) refuses it through the usage text with the
+others. It takes a frame as Chrome or Firefox prints it in a stack, and quotes
+what it got with the URL's scheme, host, userinfo and query string removed,
+so `https://user:secret@intranet.test/assets/Counter-BrQs-g2S.js?token=abc` is
+quoted as `/assets/Counter-BrQs-g2S.js`:
+
+```
+pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "/assets/Counter-BrQs-g2S.js".
+pagedeck trace takes a frame's line and column counted from 1, as a browser's stack counts them, and got "assets/Counter-BrQs-g2S.js:0:60".
+pagedeck trace takes a frame as <chunk>:<line>:<column>, as a stack names it, such as https://example.com/assets/Counter-1a2b3c4d.js:1:2345, and got "assets/../Counter-BrQs-g2S.js:1:60", whose chunk is not a path in the output tree.
+pagedeck trace takes a frame in a chunk, and got a frame in code run by eval or new Function, whose line and column count from the start of that code and not of any chunk; trace the next frame down the stack that names a chunk under /assets/.
+pagedeck trace takes one <frame> and at most one <build-id>, the release the report carries, and got 3 arguments.
+```
+
+When no build id is given and older builds hold a different map for the chunk,
+the newest answers and a warning names the others, because a chunk name hashes
+code and not source. A second warning names an older build whose map did not
+open:
+
+```
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1" also holds a map for "assets/Counter-BrQs-g2S.js" that differs from the one read, the newest build's, "b2" — a chunk's name is a hash of its code, so an edit that changes no code, such as a comment, changes the map and keeps the name; pass the report's release as <build-id> to read that build's map
+
+Trace "assets/Counter-BrQs-g2S.js:1:60": build "b1" holds a map for "assets/Counter-BrQs-g2S.js" that did not open, so it was not compared with the one read, the newest build's, "b2" — pass "b1" as <build-id> to see why it did not open
 ```
 
 `routingFaultReport` (`packages/core/src/routing.ts`) is the fifteenth, and it

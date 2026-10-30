@@ -29,7 +29,7 @@ import { outputDir } from "./config.js";
 import type { LoadedBuildSection, LoadedConfig } from "./config.js";
 import { classesOfHtml } from "./classes.js";
 import { buildClient } from "./client-build.js";
-import type { ClientBuild } from "./client-build.js";
+import type { ChunkSourcemap, ClientBuild } from "./client-build.js";
 import { installClientReferences } from "./client-reference-loader.js";
 import { inlineStyleElements, inlinedPages } from "./critical-css.js";
 import { checkDrift, driftWarnings } from "./drift.js";
@@ -188,6 +188,7 @@ export interface SiteBuild {
   entries: EntryPlan;
   tiers: TierPlan;
   files: readonly EmittedFile[];
+  sourcemaps: readonly ChunkSourcemap[];
   manifest: Manifest;
   patch?: SitePatch;
   warnings: readonly string[];
@@ -621,6 +622,7 @@ export async function buildSite(input: BuildSiteInput): Promise<SiteBuild> {
       dirname(input.config.configPath),
       staged.manifest,
       section.retention ?? DEFAULT_RETENTION_POLICY,
+      staged.sourcemaps,
     );
     const warnings = [
       ...staged.warnings,
@@ -986,7 +988,7 @@ async function stageSite(input: {
       : { upstreams: section.routing.upstreams }),
     ...(section.islandErrors === undefined
       ? {}
-      : { islandErrors: section.islandErrors }),
+      : { islandErrors: section.islandErrors, sourcemaps: true }),
   });
 
   const previewBundle =
@@ -1539,6 +1541,7 @@ async function stageSite(input: {
       entries: plan,
       tiers,
       files,
+      sourcemaps: client.sourcemaps,
       manifest,
       ...(edge === undefined
         ? {}

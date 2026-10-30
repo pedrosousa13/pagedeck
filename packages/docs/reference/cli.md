@@ -1,7 +1,7 @@
 ---
 section: reference
 title: The pagedeck command
-description: Each pagedeck verb, from sync and dev to diff and rollback, is listed with the flags it takes and the exit codes it returns.
+description: Each pagedeck verb, from sync and dev to diff, rollback and trace, is listed with the flags it takes and the exit codes it returns.
 ---
 
 # The pagedeck command
@@ -20,6 +20,7 @@ pagedeck store pull [<url>]                fetch the store snapshot from <url>
 pagedeck store push [<url>]                upload the store snapshot to <url>
 pagedeck diff <from> <to>                  compare two manifests, in upload order
 pagedeck rollback <build-id>               restore a retained build, in upload order
+pagedeck trace <frame> [<build-id>]        map a reported frame to its source, from a retained build
 ```
 
 ## pagedeck sync
@@ -315,6 +316,49 @@ pagedeck: Retained manifest "3c77b1de": is not in the store at "/site/.pagedeck/
 
 How far back you can go is `build.retention.keep`, and the whole recipe is in
 [Deploy serialization and rollback](./deploy-serialization.md).
+
+## pagedeck trace
+
+Prints the source file, line and column of one frame of an island error's
+stack, from the sourcemaps a build keeps while the site declares
+`build.islandErrors`:
+
+```sh
+pagedeck trace "at Counter (https://example.com/assets/Counter-BrQs-g2S.js:1:60)" a04807ad-00d9-4ba3-a8df-e48321a2b889
+```
+
+```
+components/Counter.js:3:59
+```
+
+`<frame>` is one frame of the stack, as Chrome writes it
+(`at Counter (<url>:1:60)` or `at <url>:1:60`) or as Firefox writes it
+(`Counter@<url>:1:60`), quoted as one argument. It can also be
+`<chunk>:<line>:<column>` alone: a URL, a path from the site's root such as
+`/assets/Counter-BrQs-g2S.js:1:60`, or the same path without its first `/`.
+The line and column count from 1, as a browser counts them. The file is
+relative to the directory that holds the config.
+
+The `<build-id>` is the `release` the report carries. `pagedeck build` keeps
+each build's maps in `.pagedeck/sourcemaps/<build-id>/`, beside the manifests,
+and deletes them with the manifest past `build.retention.keep`. With no
+`<build-id>`, `pagedeck trace` reads the newest retained build that holds a map
+for the chunk. If an older build holds a different map for that chunk, it names
+those builds on stderr, so that you can pass the right one.
+
+A frame it cannot resolve is refused with exit **2**: a build the store does not
+hold, a chunk no retained build holds a map for, a position the map does not
+cover, a line or column past the end of the chunk, or a map or chunk in the
+store that will not open. A frame in code run by `eval` or `new Function`
+names no chunk, and is refused too: trace the next frame down the stack. A
+refusal quotes the frame without its host, userinfo or query string.
+
+```
+pagedeck: Trace "assets/Counter-BrQs-g2S.js:1:60": build "b9" is not in the retention store — the retained builds are "b1", "b2", so pass one of those, or leave the build id out to search them all; a build past build.retention.keep is pruned with its maps, and to read one again, build the commit that served the page again, with build.islandErrors declared: a chunk's name is a hash of its contents, so the same commit writes the same chunk and its map
+```
+
+[Report island errors from production](../how-to/report-island-errors.md#match-a-report-to-its-build)
+has the whole procedure.
 
 ## Exit codes
 

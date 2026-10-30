@@ -1,7 +1,9 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { ASSET_DIR, buildClient, checkClientGraph } from "./client-build.js";
+import { ASSET_DIR, buildClient, checkClientGraph, sourceName } from "./client-build.js";
 import type { ClientBuild } from "./client-build.js";
 import { planEntries } from "./entries.js";
 import type { PageDemand } from "./entries.js";
@@ -366,6 +368,94 @@ test("no chunk carries a build-machine path or a sourcemap", async () => {
   expect(
     build.files.some((file) => textOf(file.contents).includes("marker-card")),
   ).toBe(true);
+}, 60_000);
+
+async function builtKeepingMaps(): Promise<ClientBuild> {
+  const entries = plan();
+  return await buildClient({
+    root: FIXTURE_DIR,
+    origin: ORIGIN,
+    plan: entries,
+    tiers: tiers(entries),
+    sourcemaps: true,
+  });
+}
+
+test("a build that keeps no maps hands back none", async () => {
+  expect((await built()).sourcemaps).toEqual([]);
+}, 60_000);
+
+// An entry chunk is the build's own generated code, which has no source to map.
+test("a build that keeps maps hands back one per chunk with a source, beside files and never in them", async () => {
+  const build = await builtKeepingMaps();
+
+  for (const file of build.files) {
+    expect(textOf(file.contents)).not.toContain("sourceMappingURL");
+    expect(file.path.endsWith(".map")).toBe(false);
+  }
+  const entries = new Set(build.entryScripts.values());
+  const chunks = build.files.filter(
+    (file) => file.kind === "js" && !entries.has(file.path),
+  );
+  expect(build.sourcemaps.map((map) => map.path).sort()).toEqual(
+    chunks.map((file) => `${file.path}.map`).sort(),
+  );
+  const card = build.sourcemaps.find((map) =>
+    map.contents.includes("marker-card-3e9a"),
+  );
+  expect(JSON.parse(card?.contents ?? "{}")).toMatchObject({
+    version: 3,
+    sources: expect.arrayContaining(["src/Card.tsx"]) as unknown,
+  });
+  for (const map of build.sourcemaps) {
+    expect(map.contents).not.toContain(FIXTURE_DIR);
+  }
+}, 60_000);
+
+test("a map names a source from the root, from its last node_modules, by its package, or by its own name alone", () => {
+  const outside = mkdtempSync(join(tmpdir(), "pagedeck-source-name-"));
+  try {
+    mkdirSync(join(outside, "linked", "src"), { recursive: true });
+    writeFileSync(join(outside, "linked", "package.json"), '{"name":"@scope/linked"}');
+    for (const [dir, name] of [["climbing", "../../x"], ["dotted", ".hidden"], ["upper", "Linked"]] as const) {
+      mkdirSync(join(outside, dir, "src"), { recursive: true });
+      writeFileSync(join(outside, dir, "package.json"), JSON.stringify({ name }));
+    }
+    const pnpm = "node_modules/.pnpm/react@19.2.8/node_modules/react/cjs/react.production.js";
+
+    expect(
+      [
+        "/site/components/Counter.js",
+        `/site/${pnpm}`,
+        `/home/someone/store/${pnpm}`,
+        join(outside, "linked", "src", "index.js"),
+        join(outside, "loose.js"),
+        join(outside, "climbing", "src", "f.js"),
+        join(outside, "dotted", "src", "f.js"),
+        join(outside, "upper", "src", "f.js"),
+      ].map((file) => sourceName("/site", file)),
+    ).toEqual([
+      "components/Counter.js",
+      "node_modules/react/cjs/react.production.js",
+      "node_modules/react/cjs/react.production.js",
+      "node_modules/@scope/linked/src/index.js",
+      "[outside the site root]/loose.js",
+      "[outside the site root]/f.js",
+      "[outside the site root]/f.js",
+      "[outside the site root]/f.js",
+    ]);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("keeping maps changes no byte of what the client build places", async () => {
+  const { sourcemaps: none, ...without } = await built();
+  const { sourcemaps, ...kept } = await builtKeepingMaps();
+
+  expect(none).toEqual([]);
+  expect(sourcemaps.length).toBeGreaterThan(0);
+  expect(kept).toEqual(without);
 }, 60_000);
 
 test("a production build ships no development React", async () => {

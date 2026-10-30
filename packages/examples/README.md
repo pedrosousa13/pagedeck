@@ -25,10 +25,12 @@ contract gets an example or joins this list:
   #31), retention and the deploy chain (`listRetainedManifests`,
   `retainManifest`, `readRetainedManifest`, `RetentionPolicy`,
   `DEFAULT_RETENTION_POLICY`, `RETENTION_DIR`, `BuildStamp.parent`,
-  `pagedeck rollback`, `pagedeck diff --force`; #32), routing and experiments
-  (`RoutingConfig` and its types, `VARIANT_SEGMENT`, `VariantRule`,
-  `WeightedVariant`, `ResolvedExperiment`, `RoutingTree.experiments`,
-  `ManifestVariant`, `ManifestPage.variants`, `variantPath`; #270, #34), the
+  `pagedeck rollback`, `pagedeck diff --force`; #32), the retained island
+  sourcemaps (`SOURCEMAP_DIR`, `ChunkSourcemap`, `pagedeck trace`; #199),
+  routing and experiments (`RoutingConfig` and its types, `VARIANT_SEGMENT`,
+  `VariantRule`, `WeightedVariant`, `ResolvedExperiment`,
+  `RoutingTree.experiments`, `ManifestVariant`, `ManifestPage.variants`,
+  `variantPath`; #270, #34), the
   publication window (`publicationChanges`, `ScheduledCollection`, #36), the
   font seam (`FontAdapter` and its four shapes), and the `BuildSection` fields
   `head`, `chrome`, `driftThreshold`, `driftSupplement`, `safelist`, `search`,

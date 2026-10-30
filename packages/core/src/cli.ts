@@ -26,6 +26,13 @@ import { pullSnapshot, pushSnapshot, redactTarget } from "./snapshot.js";
 import { syncSite } from "./sync.js";
 import type { SyncOptions, SyncReport } from "./sync.js";
 import { trackSiteModules } from "./site-modules.js";
+import {
+  differingWarning,
+  parseFrame,
+  traceFrame,
+  unreadableWarning,
+} from "./trace.js";
+import type { Frame } from "./trace.js";
 import { rest, watchSync } from "./watch.js";
 
 export interface CliIo {
@@ -47,6 +54,7 @@ const USAGE = [
   "  pagedeck store push [<url>]                   upload the store snapshot to <url>",
   "  pagedeck diff <from> <to>                     compare two manifests, in upload order",
   "  pagedeck rollback <build-id>                  restore a retained build, in upload order",
+  "  pagedeck trace <frame> [<build-id>]           map a reported frame to its source, from a retained build",
   "",
   "pagedeck sync --watch runs until it is stopped, syncing every --interval <seconds>",
   "(default 5). It composes with --incremental rather than implying it: --watch",
@@ -55,6 +63,10 @@ const USAGE = [
   "pagedeck diff takes --force to deploy a build that was not based on the build it is",
   "deploying over. pagedeck rollback needs no such flag: a rollback is out of order by",
   "definition, which is the whole of what it is for.",
+  "<frame> is one frame of an island error's stack, as Chrome or Firefox writes it, or",
+  "<chunk>:<line>:<column> alone. pagedeck trace reads the sourcemaps a build retains",
+  "while build.islandErrors is declared, from <build-id> or, naming none, from the",
+  "newest retained build that holds the chunk.",
   "<url> is a file: or https: URL (an S3-style target is a presigned https: URL).",
   "pagedeck store takes <url> from PAGEDECK_SNAPSHOT_URL when the command line names none.",
   "Naming no <url> is what keeps a presigned one out of the process table and",
@@ -628,6 +640,48 @@ async function runRollbackVerb(
   return EXIT_CODES.success;
 }
 
+function parseTraceArgs(args: readonly string[]): {
+  frame: Frame;
+  id?: string;
+} {
+  const faults: string[] = [];
+  const positional: string[] = [];
+  for (const arg of args) {
+    if (arg.startsWith("--")) {
+      faults.push(`Unknown option ${quoteIdentifier(arg)} for pagedeck trace.`);
+    } else positional.push(arg);
+  }
+  if (positional.length === 0 || positional.length > 2) {
+    faults.push(
+      `pagedeck trace takes one <frame> and at most one <build-id>, the release the report carries, and got ${String(positional.length)} arguments.`,
+    );
+  }
+  const [text, id] = positional;
+  const frame = text === undefined ? undefined : parseFrame(text);
+  if (typeof frame === "string") faults.push(frame);
+  if (faults.length > 0 || frame === undefined || typeof frame === "string") {
+    throw usageError(faults.join("\n"));
+  }
+  return { frame, ...(id === undefined ? {} : { id }) };
+}
+
+async function runTraceVerb(
+  args: readonly string[],
+  io: CliIo,
+): Promise<ExitCode> {
+  const { frame, id } = parseTraceArgs(args);
+  const config = await loadConfig(io.cwd);
+  const traced = await traceFrame(dirname(config.configPath), frame, id);
+  for (const warning of [
+    differingWarning(frame, traced),
+    unreadableWarning(frame, traced),
+  ]) {
+    if (warning !== undefined) io.err(warning);
+  }
+  io.out(`${traced.source}:${String(traced.line)}:${String(traced.column)}`);
+  return EXIT_CODES.success;
+}
+
 export async function runCli(
   argv: readonly string[],
   io: CliIo,
@@ -643,6 +697,7 @@ export async function runCli(
     if (verb === "store") return await runStoreVerb(args, io);
     if (verb === "diff") return await runDiffVerb(args, io);
     if (verb === "rollback") return await runRollbackVerb(args, io);
+    if (verb === "trace") return await runTraceVerb(args, io);
     throw usageError(
       verb === undefined
         ? "No command given."

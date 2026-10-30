@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -21,6 +22,7 @@ import {
   readRetainedManifest,
   RETENTION_DIR,
   retainManifest,
+  SOURCEMAP_DIR,
 } from "./retention.js";
 
 const roots: string[] = [];
@@ -115,6 +117,42 @@ test("retaining prunes everything past the keep count, oldest first", async () =
     "b3.json",
     "b4.json",
   ]);
+});
+
+test("retaining writes a build's sourcemaps under its id, each at its chunk's path beside the chunk", async () => {
+  const root = siteRoot();
+  await retainManifest(root, manifest("b1", "2026-08-25T10:00:00.000Z"), DEFAULT_RETENTION_POLICY, [
+    { path: "/assets/Hero-a1.js.map", contents: '{"version":3}', code: "hero();" },
+  ]);
+
+  expect(
+    readFileSync(join(root, SOURCEMAP_DIR, "b1", "assets", "Hero-a1.js.map"), "utf8"),
+  ).toBe('{"version":3}');
+  expect(readFileSync(join(root, SOURCEMAP_DIR, "b1", "assets", "Hero-a1.js"), "utf8")).toBe(
+    "hero();",
+  );
+});
+
+test("a build retained with no sourcemaps writes no sourcemap store", async () => {
+  const root = siteRoot();
+  await retainManifest(root, manifest("b1", "2026-08-25T10:00:00.000Z"));
+
+  expect(existsSync(join(root, SOURCEMAP_DIR))).toBe(false);
+});
+
+test("pruning a build past the keep count deletes its sourcemaps with its manifest", async () => {
+  const root = siteRoot();
+  const maps = [{ path: "/assets/Hero-a1.js.map", contents: "{}", code: "hero();" }];
+  for (const [id, createdAt] of [
+    ["b1", "2026-08-25T10:00:00.000Z"],
+    ["b2", "2026-08-26T09:30:00.000Z"],
+  ] as const) {
+    await retainManifest(root, manifest(id, createdAt), { keep: 3 }, maps);
+  }
+
+  await retainManifest(root, manifest("b3", "2026-08-27T09:30:00.000Z"), { keep: 2 }, maps);
+
+  expect(readdirSync(join(root, SOURCEMAP_DIR)).sort()).toEqual(["b2", "b3"]);
 });
 
 test("a site that keeps nothing retains nothing, including the build that just ran", async () => {

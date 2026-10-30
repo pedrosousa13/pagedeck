@@ -1057,6 +1057,7 @@ function eagerJoin(input: {
   };
   const client: ClientBuild = {
     files: [],
+    sourcemaps: [],
     entryScripts: new Map(),
     entryStyles: new Map(),
     globalStyles: [],

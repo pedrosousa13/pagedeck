@@ -90,6 +90,13 @@ with nothing wrong with it. Restore the directory at the start of the job and
 save it at the end, the way you would a build cache, or keep it on the machine
 that deploys. A chain nothing carries between runs is not a chain.
 
+**A site that declares `build.islandErrors` also keeps its island sourcemaps
+here**, in `.pagedeck/sourcemaps/<build id>/`, for
+[`pagedeck trace`](./cli.md#pagedeck-trace) to read. They are pruned with
+their build's manifest. Each map holds the full source of the modules it maps,
+so keep `.pagedeck/` wherever your source may go: a private cache or the
+deploying machine, never a public artifact or the deploy itself.
+
 ## build.retention.keep
 
 How many manifests the store keeps is a named config, and the default is twenty:

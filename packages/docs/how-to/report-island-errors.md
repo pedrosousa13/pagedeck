@@ -156,25 +156,58 @@ hydrates.
 `release` is the build id: the `build.id` in the `manifest.json` that
 `pagedeck build` writes, the name of the build's manifest in
 `.pagedeck/manifests/`, and the name of the release directory that
-[the deploy recipe](../deploy-recipe.md) prepares for a site with an app. To
-investigate a report:
+[the deploy recipe](../deploy-recipe.md) prepares for a site with an app.
 
-1. Read the file names in the error's stack: each frame names a chunk under
-   `/assets/`, with a line and a column.
-2. Find the build that wrote that chunk. With `release`, it is the release
-   directory `releases/<release>/`, or `.pagedeck/manifests/<release>.json`.
-   Check that the manifest lists the chunk the stack names. Without
-   `release`, or when the manifest does not list the chunk, search the kept
-   manifests for the chunk's name: each lists every file its build wrote.
-3. Open that chunk in the release's `site/assets/`, at that line and column.
-   The chunk name holds a content hash, so the file in the release is the file
-   the browser ran.
+The reporter above sends `error.stack`. Each frame in it names a chunk under
+`/assets/`, with a line and a column. Chrome writes a frame as
+`at Counter (https://example.com/assets/Counter-BrQs-g2S.js:1:60)`, and Firefox
+as `Counter@https://example.com/assets/Counter-BrQs-g2S.js:1:60`. Run
+`pagedeck trace` in the site's directory with one frame as the stack holds it,
+in quotes, and the report's `release`:
 
-The frames point at minified chunks, not at your source. A production build
-emits no sourcemap ([ADR-0002](../adr/0002-no-production-sourcemaps.md)),
-because a sourcemap holds the full source of every component it maps. Use
-`component` and `kind` to find the island, and the minified code at the frame
-to find the statement.
+```sh
+npx pagedeck trace "at Counter (https://example.com/assets/Counter-BrQs-g2S.js:1:60)" a04807ad-00d9-4ba3-a8df-e48321a2b889
+```
+
+It prints the file, line and column in your source, from the site's root:
+
+```
+components/Counter.js:3:59
+```
+
+The frame can also be the URL alone,
+`https://example.com/assets/Counter-BrQs-g2S.js:1:60`, or the path,
+`/assets/Counter-BrQs-g2S.js:1:60` or `assets/Counter-BrQs-g2S.js:1:60`. When
+`pagedeck trace` refuses a frame, it quotes the frame without its host,
+userinfo or query string. Without a build id, `pagedeck trace` reads
+the newest retained build that holds a map for the chunk. Use that for a
+report with no `release`. A chunk's name is a hash of its code, so every build
+that holds the chunk ran the same code. If an older build holds a different map
+for it, because an edit such as a comment changed the source and not the code,
+`pagedeck trace` says which builds those are; pass the build id to read one of
+them.
+
+### Where the maps are
+
+A site that declares `build.islandErrors` keeps a sourcemap for each chunk that
+holds your code, in `.pagedeck/sourcemaps/<build id>/`, beside the build's
+manifest, with a copy of the chunk, which `pagedeck trace` uses to refuse a
+line or column past the end of the code. A map names each source by its path
+from the site's root, or a dependency as `node_modules/<package>/<path>`, and
+never by a path of the machine that built it. No map is written to the output directory or the edge output, and no
+chunk names a map, so a deploy publishes none
+([ADR-0002](../adr/0002-no-production-sourcemaps.md)). `pagedeck build` keeps
+the maps of the last `build.retention.keep` builds and deletes the rest with
+their manifests. A page's entry chunk holds only the code the build generates
+to load its islands, and has no map.
+
+**A sourcemap holds the full source of every module it maps**, comments
+included. Keep `.pagedeck/` private: do not deploy it, publish it or attach it
+to anything that others can read.
+
+If the build that served the chunk was pruned, build the same commit again with
+`build.islandErrors` declared. The chunk's name is a hash of its code, so the
+build writes the same chunk and a map for it.
 
 ## What it costs
 
@@ -183,7 +216,8 @@ before the field existed: no chunk, page or loader changes.
 
 A site that declares it ships about 540 bytes Brotli of reporting code with
 the islands runtime, and its own reporter module as a separate chunk, which
-the runtime requests when it loads. The
+the runtime requests when it loads. The sourcemaps it keeps are not shipped,
+and they change no chunk or page. The
 [JavaScript budget](../reference/javascript-budgets.md) of each page with an
 island counts the reporting code. The request for `/manifest.json` happens
 only when an error is reported.
