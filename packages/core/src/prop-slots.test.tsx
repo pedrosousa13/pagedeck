@@ -534,3 +534,32 @@ test("a prop slot's key cannot collide with a key the island gives its own sibli
   expect(hydrating.filter((line) => line.includes("same key"))).toEqual([]);
   expect($("[data-children]")).toBe(slot);
 });
+
+function HiddenTemplate() {
+  return <ProxiedHidden aside={<span data-aside="">later &amp; more</span>} />;
+}
+
+test("an unplaced prop slot shows its server HTML once the island places it", async () => {
+  document.body.innerHTML = await render(HiddenTemplate);
+
+  const complaints = await hydrate(async () => Hidden as ComponentType<never>);
+  await click("#show");
+
+  expect($("aside").innerHTML).toBe(
+    '<pagedeck-slot role="presentation" style="display: contents;"><span data-aside="">later &amp; more</span></pagedeck-slot>',
+  );
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+test("the stash is gone from the DOM before any island mounts", async () => {
+  document.body.innerHTML = await render(HiddenTemplate);
+  expect(document.body.querySelector("[data-pagedeck-region-stash]")).not.toBe(null);
+  const resolve = vi.fn(() => new Promise<ComponentType<never>>(() => {}));
+
+  await hydrate(resolve);
+
+  expect(resolve).toHaveBeenCalled();
+  expect(document.body.querySelector("[data-pagedeck-region-stash]")).toBe(null);
+  expect($('[data-pagedeck-component="Hidden"]').getAttribute("data-pagedeck-hydrated")).toBe(null);
+});
