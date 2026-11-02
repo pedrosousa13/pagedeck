@@ -95,7 +95,7 @@ export function buildTwiceFailure(
       .map((tree) => `"${tree}"`)
       .join(
         " and ",
-      )} holds no assets/pricing_page-*.js chunk, so the "use client" path this check is cited for went unbuilt — restore the directive-driven island to the site's entries, or stop citing this check for #178 in build.test.ts and AGENTS.md`;
+      )} holds no assets/pricing_page-*.js chunk, so the "use client" path this check is cited for went unbuilt — restore the directive-driven island to the site's entries, or stop citing this check for #178 in build.test.ts and docs/maintaining/harnesses.md`;
   }
 
   const stamps = [buildStamp(trees.first), buildStamp(trees.second)];
