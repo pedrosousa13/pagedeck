@@ -46,7 +46,10 @@ decision's starting point.
 identified by the island's marker and a prop path.** The path is an array of
 segments, each a string key or a non-negative array index, such as
 `["items", 0, "node"]` or `["children"]`. The marker lists every path once, in
-the order the walk finds them, in the attribute `ISLAND_SLOTS_ATTRIBUTE` names.
+the order the walk finds them, in the attribute `ISLAND_SLOT_PATHS_ATTRIBUTE`
+names. That constant, `ISLAND_REGION_ATTRIBUTE` and
+`ISLAND_REGION_STASH_ATTRIBUTE` are the names the first slice under #175 adds
+beside `marker.ts`'s existing constants.
 Segments rather than a dotted string mean a key that contains a dot needs no
 escaping. Ownership is "nearest marker", the same as for tree slots, so a path
 never repeats the island's prefix.
@@ -58,8 +61,12 @@ props. A marker never mixes the two kinds.
 **An element is found at any depth through plain objects and arrays.** The walk
 uses the depth limit (32) and the cycle guard that `refusedProps` already has.
 An element inside any other container, such as a `Map`, a `Set` or a class
-instance, is refused at build with a fix. Serializing that container would
-silently drop the element.
+instance, is refused at build, and the fix is to move the element into a plain
+object or array. Serializing that container would silently drop the element.
+
+**Each region arrives whole.** The build renders with `progressiveChunkSize:
+Infinity`, so no boundary is streamed as pending and the client mapping below
+only ever sees complete regions.
 
 **Each placed region carries a mark.** A `<template>` with the region attribute
 (`ISLAND_REGION_ATTRIBUTE`) is the first child inside the region's boundary, and
@@ -101,7 +108,9 @@ of its own, with its own marker, instead of HTML that nothing hydrates.
 each element with `null` before `refusedProps` and `islandProps` run. Element
 paths never reach the JSON check or `build.islandPropsBudget`. Only the `null`
 placeholders count. Every other refusal stays as it is: functions, symbol keys,
-accessors, the refused prop names, and depth past the limit.
+accessors, depth past the limit, and the refused prop names in
+`REFUSED_PROP_NAMES` (`__proto__`, `constructor`, `dangerouslySetInnerHTML`,
+`key` and `ref`).
 
 **ADR-0006 holds for the new kind unchanged.** A prop path, like a position, is
 public and holds no secret, so nothing on the read path authenticates a prop
@@ -114,14 +123,16 @@ strip the values from the text.
 **ADR-0005 holds for the new kind, with one difference.** A container that
 re-renders around a prop slot drops what it meant to say, silently, because the
 stand-in keeps its identity and never renders slot content. Under
-`cloneElement`, a tree slot and a prop slot behave differently. The prop slot's
-stand-in loses its subtree and the fallback rebuilds the HTML as new DOM. The
-content stays, but node identity is lost, and a nested island inside the
-rebuilt region is not hydrated again. The framework states this and does not
+`cloneElement`, a tree slot and a prop slot behave differently. A tree slot is
+legal and silent, as ADR-0005 pins. A prop slot's stand-in
+loses its subtree and the fallback rebuilds the HTML as new DOM. The content
+stays, but node identity is lost, and a nested island inside the rebuilt region
+is not hydrated again. That last point is inferred from the prototype, not
+measured. The framework states this and does not
 guard it, for the reason ADR-0005 gives: no build-time signal tells a legal
-handling of a slot from a faulty one. ADR-0005's harness is extended to the
-stand-in, with and without the React Compiler, so the silence is measured and
-not argued.
+handling of a slot from a faulty one. A later slice extends ADR-0005's harness to
+the stand-in, with and without the React Compiler, and to a nested island in a
+cloned region, so the silence is measured and not argued.
 
 **A prop slot rendered from a list sits inside a keyed element.** A keyed
 wrapper (`<li key={id}>`) keeps each region's nodes across a reorder. Bare,
@@ -157,7 +168,8 @@ proxied instances pays nothing.
 
 **Widen `ISLAND_ID_PATTERN` to admit a dotted prop path.** Rejected. A key
 containing a dot would need escaping, and one pattern could no longer tell a
-position from a path, which is the difference ADR-0006 and the stash rely on.
+position from a path, so a tree-slot id and a region could each pass for the
+other.
 
 **Mark a region with a wrapper element instead of a `<template>`.** Rejected. A
 wrapper is invalid inside `<tbody>` and `<tr>`, and it would change the

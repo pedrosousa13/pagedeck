@@ -678,7 +678,7 @@ Server-rendered content an **Island** carries as static HTML that the client
 keeps and never renders. A **tree slot** is a child placed by the entry tree,
 identified by its entry-tree position. A **prop slot** is an element passed in
 the props of an island that another component's code renders, identified by its
-island marker and a prop path such as `items.0.node` (ADR-0011).
+island marker and a prop path such as `["items", 0, "node"]` (ADR-0011).
 _Avoid_: proxied slot ("proxied" names the island instance, not the slot),
 hole, placeholder
 
