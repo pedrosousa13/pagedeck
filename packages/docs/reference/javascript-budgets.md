@@ -51,16 +51,17 @@ Seven consequences are worth stating outright:
 
 - **Only `hydrate: "load"` islands' own chunks count.** An island hydrating on
   `load` has its module fetched the moment the page's entry runs, so it is part
-  of first render. `idle` and `visible` islands are not: `visible` waits for the
-  island to scroll into view, which for a page nobody scrolls is never, and
-  `idle` waits for the browser to finish the page's own load work, which is
+  of first render. `idle`, `visible` and `interaction` islands are not:
+  `visible` waits for the island to scroll into view, which for a page nobody
+  scrolls is never, `interaction` waits for a focus or press inside the island,
+  and `idle` waits for the browser to finish the page's own load work, which is
   after first render by definition. Moving an island from `load` to `visible`
   is therefore a real way to get a page back under its budget.
-- **A runtime loaded later still counts.** A page whose islands are all `idle`
-  or `visible` loads React and the island runtime only when its first island's
-  trigger fires. Its budget charges them all the same, because a budget counts
-  what a page downloads, not when. Moving every island off `load` saves the
-  islands' own chunks and the work at load, not React's bytes.
+- **A runtime loaded later still counts.** A page whose islands are all `idle`,
+  `visible` or `interaction` loads React and the island runtime only when its
+  first island's trigger fires. Its budget charges them all the same, because a
+  budget counts what a page downloads, not when. Moving every island off `load`
+  saves the islands' own chunks and the work at load, not React's bytes.
 - **A shared chunk counts, once.** A chunk two of a page's islands both reach is
   one download. A tier chunk shared with the rest of the site still counts
   against every page that loads it on first render.
@@ -145,10 +146,10 @@ grouped by the settings above. The decision is made per module, so two
 registry names on one module are grouped together if either hydrates on
 `load`. The reason is
 the bill above: `pagedeck-core` counts against every page that loads it on first
-render, so an `idle` or `visible` component inside it would add its bytes to
-every page with a `load` island, including pages that never render it. Left
-out, it costs a page that uses it one more request when its island's trigger
-fires. Its stylesheet follows its code, out of the core sheet.
+render, so an `idle`, `visible` or `interaction` component inside it would add
+its bytes to every page with a `load` island, including pages that never render
+it. Left out, it costs a page that uses it one more request when its island's
+trigger fires. Its stylesheet follows its code, out of the core sheet.
 
 `exclude` is for a component the rule does not catch: one that hydrates on
 `load` somewhere but that you want out of the shared chunks all the same.
@@ -395,9 +396,10 @@ and has no island over a declared limit, gets no report.
 Every budgeted page appears, breaching or not, in route-table order, with its
 chunks largest first, and every critical-CSS page beside them. `actual` is the
 sum of `chunks` plus `jsInlined`, and `chunks` is the first-render set described
-above; a chunk this page fetches only when an `idle` or `visible` island
-hydrates is in neither. `css`, `cssInlined` and `html` sit beside `actual` and
-are in no part of it, and `breach` is `actual > limit` and nothing else.
+above; a chunk this page fetches only when an `idle`, `visible` or `interaction`
+island hydrates is in neither. `css`, `cssInlined` and `html` sit beside
+`actual` and are in no part of it, and `breach` is `actual > limit` and nothing
+else.
 `largestIslandProps` is the page's largest island props in bytes, 0 on a page
 with no island, and `islandPropsBreaches` lists each island over the limit,
 largest first, with its `component`, `prefix`, `bytes` and every top-level prop

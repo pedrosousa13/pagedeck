@@ -4,6 +4,26 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import SearchIsland from "./island.js";
+import type { SearchClient, SearchClientOptions } from "./query.js";
+
+const warmed = vi.hoisted(() => ({ calls: 0 }));
+
+vi.mock("./query.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./query.js")>();
+  return {
+    ...actual,
+    createSearchClient: (options: SearchClientOptions): SearchClient => {
+      const client = actual.createSearchClient(options);
+      return {
+        ...client,
+        warm: () => {
+          warmed.calls += 1;
+          return client.warm();
+        },
+      };
+    },
+  };
+});
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
@@ -180,6 +200,7 @@ function options(container: Container): El[] {
 
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  warmed.calls = 0;
   installFetch();
 });
 
@@ -282,6 +303,26 @@ test("with a placeholder the input is still named by its label", () => {
   ]);
   expect(box.getAttribute("aria-label")).toBeNull();
   expect(box.getAttribute("aria-labelledby")).toBeNull();
+});
+
+// Under `interaction`, the focus that hydrates the island lands before React listens for it.
+test("an island hydrated with its input already focused warms the index once", async () => {
+  mount({ beforeHydrating: (html) => input(html).focus() });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(warmed.calls).toBe(1);
+  expect(fetched).toEqual(["/search/en/index.json"]);
+});
+
+test("an island hydrated with its input not focused warms nothing", async () => {
+  mount();
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(warmed.calls).toBe(0);
 });
 
 test("focusing the input fetches the shard ranges and no shard", async () => {

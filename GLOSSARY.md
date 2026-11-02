@@ -666,6 +666,11 @@ the site's probe decided, and core never says how)
 **Island**:
 A component the build marks in the emitted HTML so the client runtime can
 hydrate it. Everything else on the page ships as static HTML.
+
+Its `interaction` hydration mode is not the **Script loader**'s `interaction`
+strategy, though both wait for a reader (#75). The mode hydrates one island on
+the first `focusin` or `pointerdown` inside its marker; the strategy appends a
+script on the first `pointerdown`, `keydown` or `wheel` anywhere on the page.
 _Avoid_: widget, interactive component
 
 **Shell**:

@@ -312,7 +312,7 @@ test("defineComponents reports every malformed entry in one throw", () => {
     `Component registry: 4 components are not usable — fix each one:
   "hero": declares no path — ${FIX}
   "lead_form": declares a loader, import, which was removed — ${FIX}
-  "carousel": hydrate "sometimes" is not a hydration mode — use "none", "load", "visible" or "idle"
+  "carousel": hydrate "sometimes" is not a hydration mode — use "none", "load", "visible", "idle" or "interaction"
   "banner": is null, not a component definition — ${FIX}`,
   );
 });
@@ -350,6 +350,13 @@ test("defineComponents takes a component declared by path, bare or with options"
   >();
 });
 
+test("defineComponents takes a component that hydrates on interaction", () => {
+  const search = { path: "@pagedeck/search/island", hydrate: "interaction" } as const;
+
+  expect(componentFaults({ search })).toEqual([]);
+  expect(defineComponents({ search })).toEqual({ search });
+});
+
 test("defineComponents reports every unusable path in one throw", () => {
   const failing = () =>
     defineComponents(
@@ -372,7 +379,7 @@ test("defineComponents reports every unusable path in one throw", () => {
   "empty_option": path is empty — ${FIX}
   "numbered": path is a number, not a string — ${FIX}
   "both": declares both path and import, and import was removed — keep path and drop import
-  "moded": hydrate "eventually" is not a hydration mode — use "none", "load", "visible" or "idle"`,
+  "moded": hydrate "eventually" is not a hydration mode — use "none", "load", "visible", "idle" or "interaction"`,
   );
 });
 

@@ -26,10 +26,17 @@ export type Schedule = (
 // Safari has never shipped `requestIdleCallback`, so every iPhone takes this.
 const IDLE_FALLBACK_MS = 200;
 
+// A marker with no element children has nothing to observe or interact with,
+// so `visible` and `interaction` fall back to `idle` for it.
 export const schedule: Schedule = (marker, mode, hydrate) => {
   if (mode === "load") hydrate();
   else if (mode === "idle") whenIdle(hydrate);
-  else whenVisible(marker, hydrate);
+  else {
+    const targets = observableTargets(marker);
+    if (targets.length === 0) whenIdle(hydrate);
+    else if (mode === "interaction") whenInteracted(marker, hydrate);
+    else whenVisible(targets, hydrate);
+  }
 };
 
 function whenIdle(hydrate: () => void): void {
@@ -40,13 +47,7 @@ function whenIdle(hydrate: () => void): void {
 
 // Observes the marker's element children, not the marker: under
 // `display: contents` it has no box and would never intersect (prototype #68).
-function whenVisible(marker: IslandElement, hydrate: () => void): void {
-  const targets: IslandElement[] = [];
-  observableTargets(marker, targets);
-  if (targets.length === 0) {
-    whenIdle(hydrate);
-    return;
-  }
+function whenVisible(targets: IslandElement[], hydrate: () => void): void {
   let hydrated = false;
   const observer = new browser.IntersectionObserver((entries) => {
     if (hydrated || !entries.some((entry) => entry.isIntersecting)) return;
@@ -66,13 +67,25 @@ function whenVisible(marker: IslandElement, hydrate: () => void): void {
 
 function observableTargets(
   element: IslandElement,
-  into: IslandElement[],
-): void {
+  into: IslandElement[] = [],
+): IslandElement[] {
   for (const child of Array.from(element.children)) {
     if (child.localName === ISLAND_SLOT_TAG || child.localName === ISLAND_TAG) {
       observableTargets(child, into);
     } else into.push(child);
   }
+  return into;
+}
+
+const INTERACTIONS = ["focusin", "pointerdown"];
+
+// The event that fires it is not replayed: replaying a press could act twice (#75).
+function whenInteracted(marker: IslandElement, hydrate: () => void): void {
+  const fire = (): void => {
+    for (const type of INTERACTIONS) marker.removeEventListener(type, fire);
+    hydrate();
+  };
+  for (const type of INTERACTIONS) marker.addEventListener(type, fire);
 }
 
 /**
