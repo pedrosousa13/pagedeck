@@ -1,7 +1,7 @@
 // Example: island a `"use client"` component no entry names, through `clientReference`. In a
 // real site `pagedeck build` substitutes the stand-ins; this example does it by hand.
 import { clientReference, renderPage } from "@pagedeck/core";
-import { LikeButton, Tabs, ThemeProvider } from "./site-components.js";
+import { LikeButton, ThemeProvider } from "./site-components.js";
 import type { ComponentRegistry } from "@pagedeck/islands";
 
 // `PageContext.path`, rooted; the store keys this page as `article`.
@@ -12,7 +12,6 @@ const ProxiedLikeButton = clientReference(LikeButton, {
   name: "LikeButton",
   mode: "visible",
 });
-const ProxiedTabs = clientReference(Tabs, { name: "Tabs", mode: "load" });
 
 // In a site this would import `LikeButton`; the build's loader makes that import the stand-in.
 function ArticleFooter({ title }: { title: string }) {
@@ -24,13 +23,9 @@ function ArticleFooter({ title }: { title: string }) {
   );
 }
 
-/** The same template, wrong on purpose: a JSX child the client component never renders. */
+/** The same template, wrong on purpose: a function prop, which no marker can carry. */
 function BadFooter() {
-  return (
-    <ProxiedTabs open={0}>
-      <p>panel</p>
-    </ProxiedTabs>
-  );
+  return <ProxiedLikeButton count={12} onLike={() => undefined} />;
 }
 
 export interface NestedIsland {
@@ -44,7 +39,7 @@ export interface NestedIsland {
 export interface NestedClientComponentExample {
   html: string;
   islands: readonly NestedIsland[];
-  unplacedPropSlot: string;
+  refusedProp: string;
 }
 
 export async function islandNestedClientComponent(): Promise<NestedClientComponentExample> {
@@ -62,11 +57,11 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
     providers: [{ component: ThemeProvider, props: { theme: "dark" } }],
   });
 
-  let unplacedPropSlot = "no error";
+  let refusedProp = "no error";
   try {
     await renderPage({ page: PAGE, template: "BadFooter", registry });
   } catch (error) {
-    unplacedPropSlot = (error as Error).message;
+    refusedProp = (error as Error).message;
   }
 
   return {
@@ -77,6 +72,6 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
       mode: island.mode,
       path: island.path,
     })),
-    unplacedPropSlot,
+    refusedProp,
   };
 }

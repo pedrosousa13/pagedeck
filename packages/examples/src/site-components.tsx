@@ -106,7 +106,7 @@ export function AddToCart({ sku }: { sku: string }) {
 }
 
 // An island no entry names; `islanding-a-nested-client-component.tsx` renders it.
-export function LikeButton({ count }: { count: number }) {
+export function LikeButton({ count }: { count: number; onLike?: () => void }) {
   const id = useId();
   return (
     <button className="like" id={id} type="button">
