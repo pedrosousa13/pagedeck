@@ -77,7 +77,7 @@ The trust boundary has three parts, and each credential stays in one of them:
 
 Nothing in this workflow runs in a browser, and no credential is in a webhook
 body or a dispatch payload. Give the deploy credential only to the steps that
-write, as [Deploy recipe](../deploy-recipe.md) does under "The secret": a
+write, as [Deploy recipe](../deploy-recipe.md) does under "The secrets": a
 job-level `env:` reaches every action and install script in the job.
 
 ## The job

@@ -290,12 +290,12 @@ test("an outline entry's text is the heading's text content, never its markup", 
 });
 
 test("an underscore inside a word is text, not emphasis, so the outline keeps it", async () => {
-  const rendered = await renderer.render("### PAGEDECK_SNAPSHOT_URL\n", "d.md");
+  const rendered = await renderer.render("### PAGEDECK_SNAPSHOT_PULL_URL\n", "d.md");
   expect(rendered.toc).toEqual([
-    { depth: 3, slug: "pagedeck-snapshot-url", text: "PAGEDECK_SNAPSHOT_URL" },
+    { depth: 3, slug: "pagedeck-snapshot-pull-url", text: "PAGEDECK_SNAPSHOT_PULL_URL" },
   ]);
   expect(rendered.html).toContain(
-    '<h3 id="pagedeck-snapshot-url">PAGEDECK_SNAPSHOT_URL</h3>',
+    '<h3 id="pagedeck-snapshot-pull-url">PAGEDECK_SNAPSHOT_PULL_URL</h3>',
   );
 });
 
@@ -335,7 +335,7 @@ test("a first level-1 heading with no text gives no title, and no later one take
 test("the title keeps every character a reader sees, and drops only the markers", async () => {
   const titles = await Promise.all(
     [
-      "# PAGEDECK_SNAPSHOT_URL\n",
+      "# PAGEDECK_SNAPSHOT_PULL_URL\n",
       "# `server_data_page.tsx`\n",
       "# An _emphasised_ word\n",
       "# A __strong__ word\n",
@@ -346,7 +346,7 @@ test("the title keeps every character a reader sees, and drops only the markers"
     ].map(async (body) => (await renderer.render(body, "d.md")).title),
   );
   expect(titles).toEqual([
-    "PAGEDECK_SNAPSHOT_URL",
+    "PAGEDECK_SNAPSHOT_PULL_URL",
     "server_data_page.tsx",
     "An emphasised word",
     "A strong word",

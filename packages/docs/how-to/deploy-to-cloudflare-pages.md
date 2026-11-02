@@ -123,16 +123,17 @@ A build that starts with no `content.db` syncs every entry, so a plain
 
 If a full sync is too slow for your content source, keep `content.db` between
 builds with `pagedeck store pull` and `pagedeck store push`.
-`PAGEDECK_SNAPSHOT_URL` is a credential (see
-[PAGEDECK_SNAPSHOT_URL](../reference/cli.md#pagedeck-snapshot-url)), and any build
-that has it can overwrite the snapshot production builds start from. In the
-project's Settings > Variables and Secrets, add it to the Production
-environment only, and select **Encrypt** so it is stored as a secret.
+`PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL` are credentials
+(see [the snapshot variables](../reference/cli.md#the-snapshot-variables)), and
+any build that has the push URL can overwrite the snapshot production builds
+start from. In the project's Settings > Variables and Secrets, add both to the
+Production environment only, and select **Encrypt** so each is stored as a
+secret.
 Cloudflare's [bindings](https://developers.cloudflare.com/pages/functions/bindings/)
 page documents **Encrypt** for secrets bound to Pages Functions and does not
 say whether an encrypted value reaches the build. If the first production
 build stops with the `pagedeck store pull` usage error that names
-`PAGEDECK_SNAPSHOT_URL`, the build did not receive it.
+`PAGEDECK_SNAPSHOT_PULL_URL`, the build did not receive it.
 
 Then run the snapshot steps only on a production build. Cloudflare sets
 `CF_PAGES_BRANCH` to the name of the branch being deployed
@@ -158,7 +159,7 @@ fi
 Replace `"main"` with the production branch set in the project. If that
 branch is ever renamed and the script is not, production builds take the
 `else` branch and silently stop pulling and pushing the snapshot. A preview
-build gets no `PAGEDECK_SNAPSHOT_URL`, so it syncs every entry and touches no
+build gets neither variable, so it syncs every entry and touches no
 snapshot. On the first production run there is no snapshot to pull and no
 cursor for `--incremental` to start from: run `pagedeck sync` and
 `pagedeck store push` once first.

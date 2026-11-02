@@ -106,9 +106,10 @@ builds, to sync and build incrementally instead, takes the same two pieces
 the store and a cache for `.pagedeck/`, wired into that plugin or into
 `command` here.
 
-If you keep the snapshot, set `PAGEDECK_SNAPSHOT_URL` in the site's
-environment variables with **Contains secret values** selected, and give it a
-value only in the Production deploy context. Netlify says "Secret values must
+If you keep the snapshot, set `PAGEDECK_SNAPSHOT_PULL_URL` and
+`PAGEDECK_SNAPSHOT_PUSH_URL` in the site's environment variables with
+**Contains secret values** selected, and give each a value only in the
+Production deploy context. Netlify says "Secret values must
 be set to explicit deploy contexts and scopes to avoid unexpected exposure"
 ([secrets controller](https://docs.netlify.com/build/environment-variables/secrets-controller/)).
 Run `pagedeck store pull` and `pagedeck store push` only when `CONTEXT`, the
@@ -133,7 +134,7 @@ else
 fi
 ```
 
-Deploy previews and branch deploys get no `PAGEDECK_SNAPSHOT_URL` and take
+Deploy previews and branch deploys get neither variable and take
 the `else` branch: a full sync and build that touches no snapshot. On the
 first production run there is no snapshot to pull and no cursor for
 `--incremental` to start from: run `pagedeck sync` and `pagedeck store push`
