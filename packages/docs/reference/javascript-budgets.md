@@ -146,7 +146,7 @@ grouped by the settings above. The decision is made per module, so two
 registry names on one module are grouped together if either hydrates on
 `load`. The reason is
 the bill above: `pagedeck-core` counts against every page that loads it on first
-render, so an `idle` or `visible` component inside it would add its bytes to
+render, so an `idle`, `visible` or `interaction` component inside it would add its bytes to
 every page with a `load` island, including pages that never render it. Left
 out, it costs a page that uses it one more request when its island's trigger
 fires. Its stylesheet follows its code, out of the core sheet.

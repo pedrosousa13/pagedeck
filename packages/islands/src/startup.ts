@@ -77,17 +77,16 @@ function observableTargets(
   return into;
 }
 
+const INTERACTIONS = ["focusin", "pointerdown"];
+
 // Listens on the marker, so only events from inside the island reach it. The
 // event that fires it is not replayed: replaying a press could act twice.
 function whenInteracted(marker: IslandElement, hydrate: () => void): void {
-  let hydrated = false;
-  for (const type of ["focusin", "pointerdown"]) {
-    marker.addEventListener(type, () => {
-      if (hydrated) return;
-      hydrated = true;
-      hydrate();
-    });
-  }
+  const fire = (): void => {
+    for (const type of INTERACTIONS) marker.removeEventListener(type, fire);
+    hydrate();
+  };
+  for (const type of INTERACTIONS) marker.addEventListener(type, fire);
 }
 
 /**

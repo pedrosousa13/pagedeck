@@ -93,8 +93,8 @@ another island from hydrating.
 - **Failures before the runtime loads.** The reporter loads when the islands
   runtime loads. If the page's entry chunk, the runtime chunk or the reporter
   itself fails to load, no reporter exists to call. For a page whose islands
-  are all `idle` or `visible`, the runtime loads on the first trigger, so the
-  same is true before that trigger fires.
+  are all `idle`, `visible` or `interaction`, the runtime loads on the first
+  trigger, so the same is true before that trigger fires.
 - **A marker the runtime cannot read.** A hand-written or damaged
   `<pagedeck-island>` is reported to the console by the runtime and not to the
   reporter, because it names no island the build registered.

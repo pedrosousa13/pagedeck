@@ -32,6 +32,7 @@ export interface IslandElement extends IslandRoot {
   readonly content?: { readonly textContent: string | null };
   remove(): void;
   addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
 }
 
 export interface IslandRoot {

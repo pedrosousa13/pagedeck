@@ -23,8 +23,8 @@ import { wrapInProviders } from "./providers.js";
 import { RegistryError } from "./registry.js";
 import type { RootProvider } from "./providers.js";
 import { hydrateIslands } from "./runtime.js";
-import type { IslandRoot } from "./runtime.js";
-import { hydrateOnTrigger } from "./startup.js";
+import type { IslandElement, IslandRoot } from "./runtime.js";
+import { hydrateOnTrigger, schedule } from "./startup.js";
 import type { Schedule } from "./startup.js";
 
 declare global {
@@ -569,6 +569,23 @@ test("the press that hydrates an interaction island is not replayed", async () =
 
   expect(resolve).toHaveBeenCalledTimes(1);
   expect(marker.textContent).toBe("0");
+});
+
+test("an interaction island's listeners are removed once it hydrates", async () => {
+  fakeBrowser({ idle: true });
+  const { marker } = await interactionPage();
+  const target = marker as unknown as IslandElement;
+  const added = vi.spyOn(target, "addEventListener");
+  const removed = vi.spyOn(target, "removeEventListener");
+  const hydrate = vi.fn();
+
+  schedule(target, "interaction", hydrate);
+  await interact(marker.querySelector("button"), "focusin");
+  await interact(marker.querySelector("button"), "focusin");
+
+  expect(hydrate).toHaveBeenCalledTimes(1);
+  expect(added.mock.calls.length).toBeGreaterThan(0);
+  expect(removed.mock.calls).toEqual(added.mock.calls);
 });
 
 test("an interaction island with no element children falls back to idle", async () => {
