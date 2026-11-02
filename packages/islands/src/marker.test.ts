@@ -7,7 +7,9 @@ import {
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_REGION_ATTRIBUTE,
   ISLAND_SLOT_ATTRIBUTE,
+  ISLAND_SLOT_PATHS_ATTRIBUTE,
   ISLAND_SLOT_TAG,
   ISLAND_TAG,
   ISLAND_TEMPLATE_ATTRIBUTE,
@@ -26,6 +28,11 @@ test("the slot names are the contract both sides import", () => {
   expect(ISLAND_SLOT_TAG).toBe("pagedeck-slot");
   expect(ISLAND_SLOT_ATTRIBUTE).toBe("data-pagedeck-slot");
   expect(ISLAND_TEMPLATE_ATTRIBUTE).toBe("data-pagedeck-template");
+});
+
+test("the prop-slot names are the contract both sides import", () => {
+  expect(ISLAND_SLOT_PATHS_ATTRIBUTE).toBe("data-pagedeck-slot-paths");
+  expect(ISLAND_REGION_ATTRIBUTE).toBe("data-pagedeck-region");
 });
 
 test("the facade placeholder name is the contract the build and its loader share", () => {

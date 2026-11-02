@@ -362,6 +362,32 @@ test("a search-exclusion attribute typed into rich text does not reach the page"
   );
 });
 
+test("a prop-slot path list typed into rich text does not reach the page", async () => {
+  const html = await richText(
+    '<span data-pagedeck-slot-paths="[[&quot;children&quot;]]">x</span>' +
+      "<span data-pagedeck-slot-paths='[[\"children\"]]'>x</span>" +
+      "<span data-pagedeck-slot-paths=[]>x</span>" +
+      "<span DATA-PAGEDECK-SLOT-PATHS>x</span>",
+  );
+
+  expect(html).toBe(
+    '<div class="rich"><span>x</span><span>x</span><span>x</span><span>x</span></div>',
+  );
+});
+
+test("a prop-slot region mark typed into rich text does not reach the page", async () => {
+  const html = await richText(
+    '<template data-pagedeck-region="0"></template>' +
+      "<template data-pagedeck-region='0'></template>" +
+      "<template data-pagedeck-region=0></template>" +
+      "<template DATA-PAGEDECK-REGION></template>",
+  );
+
+  expect(html).toBe(
+    '<div class="rich"><template></template><template></template><template></template><template></template></div>',
+  );
+});
+
 test("a data-pagedeck-* name the strip does not enumerate is left alone", async () => {
   const html = await richText('<span data-pagedeck-consent="denied">x</span>');
 
