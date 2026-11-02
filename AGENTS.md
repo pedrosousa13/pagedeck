@@ -178,7 +178,11 @@ position from a field its types do not declare. The pin also holds
 read a `"use client"` module's exports without running it (#174), and the
 way Rolldown rejects `this.resolve` when a plugin's `resolveId` throws: its
 own error, with the plugin's as the `cause`, marked `code: "PLUGIN_ERROR"` and
-`plugin`, which `resolve-faults.ts` reads to name the plugin (#189). Core pins
+`plugin`, which `resolve-faults.ts` reads to name the plugin (#189). The pin
+must sit inside the rolldown range of the newest vite that core's `vite` range
+admits on the npm registry. Otherwise a consumer installs two rolldowns, and the pin no longer
+covers the one vite builds with. The pack harness fails on an install that
+holds two (#216). Core pins
 **`oxc-transform-react`** exactly (#164): it is the React Compiler that
 `compileIslands` runs over every island, it is `0.x`, it calls itself
 experimental and publishes almost daily, and a release may change what a
@@ -684,8 +688,11 @@ publishing. It fails on a tarball file outside `package.json`, `README*`,
 `template-app/` files its `files` names one by one, and for `@pagedeck/docs`
 alone its markdown, `nav.json` and `assets/`, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
-and on a packed manifest that still says
-`workspace:`, names a private package, or exports a file the tarball lacks.
+on a packed manifest that still says
+`workspace:`, names a private package, or exports a file the tarball lacks,
+on an install that holds more than one `rolldown` version, and on a core
+`rolldown` pin outside the rolldown range of the newest vite that core's `vite`
+range admits on the npm registry (#216).
 `.pnpmfile.mjs` drops `devDependencies` and every `source` condition from a
 manifest as `pnpm pack` writes it, so pack with pnpm, not npm. The install is
 `pnpm install --prefer-offline --no-frozen-lockfile` with `hoist: false`, so a
