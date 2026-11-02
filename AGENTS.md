@@ -637,18 +637,13 @@ moved into the other, and every page with an island pays `runtime.js`.
 ### The island props budget
 
 `build.islandPropsBudget` limits one island's serialized props in UTF-8 bytes
-before HTML escaping (#653). `DEFAULT_ISLAND_PROPS_BUDGET` in
-`packages/core/src/budgets.ts` is `3kb`: the largest measurement below, rounded
-up to a whole kilobyte, leaving room for content to grow. It catches a whole
-entry passed as props.
+before HTML escaping (#653). It applies only to a site that declares it: with
+no `islandPropsBudget`, no island's props are checked (#229).
 
 | Site | Largest island props (#653) | Island and page |
 | --- | --- | --- |
 | the landing site, measured on #653 before #124 moved it to deck-cool | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
 | `packages/site` | 163 B | `pricing_page` on `/en/pricing` |
-
-If an island starts to fail the default, measure again and give a reason
-before changing it; never raise it to make the failure go away.
 
 ## Harnesses
 

@@ -2884,14 +2884,15 @@ many as it has islands the fold rule moved. They sit below the chunks because
 the chunks are what the limit was exceeded by and a cause says why one of them
 is there.
 
-**`checkBudgets` also reports every island whose serialized props are over
-`build.islandPropsBudget`** (#653). The props are the JSON in the island's
-marker, so a server component that hands an island a whole CMS entry ships the
-whole entry in the page, and no JavaScript budget sees it:
+**`checkBudgets` also reports every island whose serialized props are over a
+declared `build.islandPropsBudget`** (#653). A site that declares none has no
+props limit (#229). The props are the JSON in the island's marker, so a server
+component that hands an island a whole CMS entry ships the whole entry in the
+page, and no JavaScript budget sees it:
 
 ```
 Island props budget: 1 island carries more props in its marker than the limit allows — pass the island only the fields it renders, or raise the limit in pagedeck.config.ts's build.islandPropsBudget:
-  en /products/shirt — "variant_picker" at prefix "i3f2a0b1c2d3e" carries 69109 B of props against a limit of 3072 B, over 4 top-level props, the 3 largest:
+  en /products/shirt — "variant_picker" at prefix "i3f2a0b1c2d3e" carries 69109 B of props against a limit of 4096 B, over 4 top-level props, the 3 largest:
     "entry" — 66804 B
     "variants" — 2250 B
     "price" — 9 B
