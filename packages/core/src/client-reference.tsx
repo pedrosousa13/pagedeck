@@ -1,4 +1,11 @@
-import { createContext, createElement, useContext, useId } from "react";
+import {
+  createContext,
+  createElement,
+  isValidElement,
+  Suspense,
+  useContext,
+  useId,
+} from "react";
 import type { ReactElement, ReactNode } from "react";
 import {
   entryId,
@@ -35,6 +42,92 @@ export interface ProxyInstance {
   props: Readonly<Record<string, unknown>>;
   hasChildren: boolean;
   renderedBy: string | undefined;
+  // PROTOTYPE (#240): proxied slots.
+  serverProps: Readonly<Record<string, unknown>>;
+  slots: ProxiedSlot[];
+  placed: Set<number>;
+}
+
+export type SlotPath = readonly (string | number)[];
+
+export interface ProxiedSlot {
+  path: SlotPath;
+  element: ReactElement;
+}
+
+const isPlain = (value: object): boolean => {
+  const proto = Object.getPrototypeOf(value) as unknown;
+  return proto === Object.prototype || proto === null;
+};
+
+/**
+ * PROTOTYPE (#240): walks props for React elements at any depth. Answers the
+ * props the server renders (each element wrapped in a delimiting boundary) and
+ * the props the marker carries (each element replaced by `null`).
+ */
+function splitSlots(
+  value: unknown,
+  path: SlotPath,
+  slots: ProxiedSlot[],
+  placed: Set<number>,
+): { server: unknown; json: unknown } {
+  if (isValidElement(value)) {
+    const index = slots.length;
+    slots.push({ path, element: value });
+    return { server: wrapSlot(value, index, placed), json: null };
+  }
+  if (Array.isArray(value)) {
+    const parts = value.map((item, at) =>
+      splitSlots(item, [...path, at], slots, placed),
+    );
+    return {
+      server: parts.map((part) => part.server),
+      json: parts.map((part) => part.json),
+    };
+  }
+  if (typeof value === "object" && value !== null && isPlain(value)) {
+    const server: Record<string, unknown> = {};
+    const json: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const part = splitSlots(item, [...path, key], slots, placed);
+      server[key] = part.server;
+      json[key] = part.json;
+    }
+    return { server, json };
+  }
+  return { server: value, json: value };
+}
+
+export const REGION_ATTRIBUTE = "data-pagedeck-region";
+
+function RegionMark({ index, placed }: { index: number; placed: Set<number> }) {
+  placed.add(index);
+  return createElement("template", { [REGION_ATTRIBUTE]: String(index) });
+}
+
+// Slot content is the server wrapper's, not the island's: a client component
+// inside it is an island of its own, so the enclosing pass's scope comes back.
+function SlotScope({ children }: { children: ReactNode }) {
+  const scope = useContext(ProxyScopeContext);
+  const outer = scope?.phase === "island" ? scope.outer : undefined;
+  return createElement(
+    ProxyScopeContext.Provider,
+    { value: outer ?? scope },
+    children,
+  );
+}
+
+function wrapSlot(
+  element: ReactElement,
+  index: number,
+  placed: Set<number>,
+): ReactElement {
+  return createElement(
+    Suspense,
+    { fallback: null },
+    createElement(RegionMark, { index, placed }),
+    createElement(SlotScope, null, element),
+  );
 }
 
 /**
@@ -63,6 +156,7 @@ export type ProxyScope = {
   | {
       phase: "island";
       contradictions: Map<string, ContradictedHydration> | undefined;
+      outer?: ProxyScope;
     }
 );
 
@@ -83,6 +177,7 @@ function IslandScope({ children }: { children: ReactNode }) {
               phase: "island",
               contradictions:
                 scope.phase === "compose" ? undefined : scope.contradictions,
+              outer: scope.phase === "island" ? scope.outer : scope,
             },
     },
     children,
@@ -179,16 +274,24 @@ export function clientReference<P extends Record<string, unknown>>(
       }
       return null;
     }
-    const { children, ...rest } = props;
+    const slots: ProxiedSlot[] = [];
+    const placed = new Set<number>();
+    const split = splitSlots(props, [], slots, placed) as {
+      server: Record<string, unknown>;
+      json: Record<string, unknown>;
+    };
     scope.collected.set(prefix, {
       prefix,
       name,
       export: exported,
       mode,
       component: real,
-      props: rest,
-      hasChildren: rendersChildren(children),
+      props: split.json,
+      hasChildren: false,
       renderedBy: scope.renderedBy,
+      serverProps: split.server,
+      slots,
+      placed,
     });
     // Renders nothing: this instance's own pass renders it.
     return null;

@@ -424,6 +424,8 @@ export function islandInstances(
 export interface ComposedIsland {
   island: RenderedIsland;
   props: string;
+  // PROTOTYPE (#240): JSON list of the prop paths that held React elements.
+  slots?: string;
 }
 
 export interface PropsFailure {
@@ -749,8 +751,9 @@ export function islandMarker(
   composed: ComposedIsland,
   key: string,
 ): ReactElement {
-  const { island, props } = composed;
+  const { island, props, slots } = composed;
   return createElement(ISLAND_TAG, {
+    "data-pagedeck-slots": slots,
     key,
     [ISLAND_PREFIX_ATTRIBUTE]: island.prefix,
     [ISLAND_COMPONENT_ATTRIBUTE]: island.component,

@@ -86,6 +86,19 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     ownedBy(stash, marker).set(id, template.content?.textContent ?? "");
     template.remove();
   }
+  // PROTOTYPE (#240): proxied-slot stashes, out before anything mounts.
+  const regionStash = new Map<IslandElement, Map<string, string>>();
+  for (const template of root.querySelectorAll(
+    "template[data-pagedeck-region-stash]",
+  )) {
+    const marker = template.parentElement;
+    if (marker === null || marker.localName !== ISLAND_TAG) continue;
+    ownedBy(regionStash, marker).set(
+      template.getAttribute("data-pagedeck-region-stash") ?? "",
+      template.content?.textContent ?? "",
+    );
+    template.remove();
+  }
   const unreadable: UnreadableMarker[] = [];
   let position = 0;
   for (const marker of root.querySelectorAll(ISLAND_TAG)) {
@@ -100,8 +113,9 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     // life of the page, so it does not retain every marker's snapshot.
     const owned = slots.get(marker);
     const stashed = stash.get(marker);
+    const regions = regionStash.get(marker);
     (options.schedule ?? schedule)(marker, island.mode, () => {
-      void mount(marker, island, options, owned, stashed);
+      void mount(marker, island, options, owned, stashed, regions);
     });
   }
   if (unreadable.length > 0) throw markerFailure(unreadable);
@@ -237,11 +251,22 @@ async function mount(
   options: HydrateIslandsOptions,
   slots: ReadonlyMap<string, string> | undefined,
   stashed: ReadonlyMap<string, string> | undefined,
+  regions?: ReadonlyMap<string, string>,
 ): Promise<void> {
   const component = await options.resolve(
     island.name,
     marker.getAttribute(ISLAND_EXPORT_ATTRIBUTE),
   );
+  const slotPaths = marker.getAttribute("data-pagedeck-slots");
+  const props =
+    slotPaths === null
+      ? island.props
+      : (await import("./proxied-slot.js")).proxiedSlotProps(
+          marker,
+          JSON.parse(slotPaths) as (string | number)[][],
+          island.props,
+          regions,
+        );
   const container =
     stashed !== undefined || marker.querySelector(ISLAND_SLOT_TAG) !== null;
   const children = container
@@ -265,7 +290,7 @@ async function mount(
         Hydrated,
         { marker },
         wrapInProviders(
-          createElement(component as AnyComponent, island.props, ...children),
+          createElement(component as AnyComponent, props, ...children),
           options.providers ?? [],
           options.probe,
         ),

@@ -785,6 +785,8 @@ async function prerenderToHtml(
 
   const pending = prerender(tree, {
     identifierPrefix,
+    // PROTOTYPE (#240): never outline a boundary into `<!--$?-->` and `$RC`.
+    progressiveChunkSize: Infinity,
     signal: controller.signal,
     onError(error: unknown, info: { componentStack?: string }) {
       reported.push({ error, component: suspectFrom(info?.componentStack) });
@@ -943,18 +945,34 @@ export async function renderPage(
 
     for (const instance of renderable) {
       const own = await pass(
-        closeProxyScope(createElement(instance.component, instance.props)),
+        closeProxyScope(
+          createElement(instance.component, instance.serverProps),
+        ),
         instance.prefix,
         instance.name,
       );
       if (own.html === undefined) return own;
+
+      // PROTOTYPE (#240): an element the island did not place wrote no region,
+      // so its HTML is rendered on its own and stashed for the client.
+      let stash = "";
+      for (const [index, slot] of instance.slots.entries()) {
+        if (instance.placed.has(index)) continue;
+        const alone = await pass(
+          slot.element,
+          `${instance.prefix}s${String(index)}`,
+          instance.name,
+        );
+        if (alone.html === undefined) return alone;
+        stash += `<template data-pagedeck-region-stash="${String(index)}">${escapeStash(alone.html)}</template>`;
+      }
 
       const island: RenderedIsland = {
         component: instance.name,
         ...(instance.export === undefined ? {} : { export: instance.export }),
         mode: instance.mode,
         prefix: instance.prefix,
-        html: own.html,
+        html: own.html + stash,
       };
       const payload = islandProps(instance.props, instance.name);
       if ("failure" in payload) {
@@ -970,7 +988,13 @@ export async function renderPage(
         }
         continue;
       }
-      composed.set(instance.prefix, { island, props: payload.props });
+      composed.set(instance.prefix, {
+        island,
+        props: payload.props,
+        ...(instance.slots.length === 0
+          ? {}
+          : { slots: JSON.stringify(instance.slots.map((slot) => slot.path)) }),
+      });
       byPrefix.set(island.prefix, island);
       proxyIslands.push(island);
     }
