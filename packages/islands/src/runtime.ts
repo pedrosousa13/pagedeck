@@ -17,6 +17,7 @@ import {
   ISLAND_TEMPLATE_ATTRIBUTE,
   ISLAND_TEMPLATE_TAG,
 } from "./marker.js";
+import type { PropPath } from "./marker.js";
 import { wrapInProviders } from "./providers.js";
 import type { RootProvider, RootProviderProbe } from "./providers.js";
 import { RegistryError } from "./registry.js";
@@ -30,6 +31,7 @@ export interface IslandElement extends IslandRoot {
   readonly localName: string;
   readonly parentElement: IslandElement | null;
   readonly children: ArrayLike<IslandElement>;
+  readonly nextSibling: RegionNode | null;
   innerHTML: string;
   readonly content?: { readonly textContent: string | null };
   remove(): void;
@@ -156,8 +158,6 @@ interface Island {
   propSlots?: PropSlots;
 }
 
-export type PropPath = readonly (string | number)[];
-
 export interface PropSlots {
   paths: readonly PropPath[];
   html: ReadonlyMap<number, string>;
@@ -183,13 +183,11 @@ const COMMENT_NODE = 8;
 const escapeText = (text: string): string =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-// From the mark to the `<!--/$-->` that closes its boundary, counting the
-// boundaries nested inside it.
 function regionHtml(mark: IslandElement): string {
   let html = "";
   let depth = 0;
   for (
-    let node = (mark as unknown as RegionNode).nextSibling;
+    let node = mark.nextSibling;
     node !== null;
     node = node.nextSibling
   ) {

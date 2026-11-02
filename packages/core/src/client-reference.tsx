@@ -14,7 +14,7 @@ import {
   ISLAND_REGION_ATTRIBUTE,
   RegistryError,
 } from "@pagedeck/islands";
-import type { HydrationMode, PageContext } from "@pagedeck/islands";
+import type { HydrationMode, PageContext, PropPath } from "@pagedeck/islands";
 import {
   CLIENT_REFERENCE_TARGET,
   islandMarker,
@@ -48,8 +48,6 @@ export interface ProxyInstance {
   misplaced: readonly Omit<RefusedProp, "component">[];
   renderedBy: string | undefined;
 }
-
-export type PropPath = readonly (string | number)[];
 
 interface PropSlotWalk {
   slots: PropPath[];

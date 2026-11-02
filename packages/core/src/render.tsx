@@ -925,7 +925,7 @@ export async function renderPage(
       });
       const refused: Omit<RefusedProp, "component">[] = [];
       refusedProps(instance.props, [], new Set(), refused);
-      // Under a misplaced element, the rest are the element's own fields.
+      // Under a misplaced container, the rest are its element's own fields.
       const inside = instance.misplaced.map((prop) => `${prop.path}.`);
       const found = [
         ...instance.misplaced,

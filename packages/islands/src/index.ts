@@ -16,6 +16,7 @@ export {
   ISLAND_TEMPLATE_ATTRIBUTE,
   ISLAND_TEMPLATE_TAG,
 } from "./marker.js";
+export type { PropPath } from "./marker.js";
 export { SlotContent } from "./slot.js";
 export type { SlotContentProps } from "./slot.js";
 export {
