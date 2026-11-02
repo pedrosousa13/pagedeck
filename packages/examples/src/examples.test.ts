@@ -21,6 +21,7 @@ import { syncBrokenArticle } from "./a-broken-entry.js";
 import { registerComponents } from "./registering-components.js";
 import { renderExamplePage } from "./rendering-a-page.js";
 import { islandNestedClientComponent } from "./islanding-a-nested-client-component.js";
+import { passElementsToAnIsland } from "./passing-elements-to-an-island.js";
 import { planDeployFromManifests } from "./diffing-two-manifests.js";
 import { renderSiteImages } from "./rendering-images.js";
 import { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
@@ -311,6 +312,26 @@ test("the client-reference example islands a component no entry names", async ()
 
   expect(twicePlacedSlot).toBe(
     'Component "Teaser": prop "children" is an element the component renders in more than one place, and "BadFooter" renders it in entry /en/article — a prop slot has one region of server HTML and the browser keeps it where it is, so render the element once',
+  );
+});
+
+test("the prop-slot example hands a client component server-rendered elements", async () => {
+  const { html, islands } = await passElementsToAnIsland();
+  const [carousel] = islands;
+
+  expect(islands.map((island) => island.component)).toEqual(["Carousel"]);
+  expect(html).toBe(
+    `<pagedeck-island data-pagedeck-prefix="${carousel?.prefix ?? ""}"` +
+      ' data-pagedeck-component="Carousel" data-pagedeck-mode="visible"' +
+      ' data-pagedeck-props="{&quot;title&quot;:&quot;Cards&quot;,&quot;items&quot;:[{&quot;id&quot;:&quot;Alpha&quot;,&quot;node&quot;:null},{&quot;id&quot;:&quot;Beta&quot;,&quot;node&quot;:null}],&quot;children&quot;:null}"' +
+      ' data-pagedeck-slot-paths="[[&quot;items&quot;,0,&quot;node&quot;],[&quot;items&quot;,1,&quot;node&quot;],[&quot;children&quot;]]"' +
+      ' role="presentation" style="display:contents">' +
+      '<section><h2>Cards</h2><button type="button">Reverse</button><ul>' +
+      '<li><!--$--><template data-pagedeck-region="0"></template><article><h3>Alpha</h3></article><!--/$--></li>' +
+      '<li><!--$--><template data-pagedeck-region="1"></template><article><h3>Beta</h3></article><!--/$--></li>' +
+      "</ul>" +
+      '<footer><!--$--><template data-pagedeck-region="2"></template><p>Two cards</p><!--/$--></footer>' +
+      "</section></pagedeck-island>",
   );
 });
 
