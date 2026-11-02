@@ -205,8 +205,7 @@ export default function Cards() {
 }
 ```
 
-Name `cards` in a page's `components` list, as step 2 did for `greeting`, and
-register both components in `pagedeck.config.ts`:
+Register both components in `pagedeck.config.ts`:
 
 ```ts
 components: {
@@ -218,18 +217,36 @@ components: {
 },
 ```
 
-`Card` ships no JavaScript. Its HTML reaches the browser inside the list's
-three prop slots: `items[0].node`, `items[1].node` and `children`. A client
-component inside a prop slot becomes an island of its own.
+Put the list on a page of its own. Save this as `content/cards.md`:
+
+```
+---
+components: [cards]
+---
+
+# Cards
+```
+
+Sync and build again:
+
+```sh
+npx pagedeck sync
+npx pagedeck build
+```
+
+`site/cards/index.html` loads one island, the list. `Card` ships no
+JavaScript: its HTML reaches the browser inside the list's three prop slots,
+`items[0].node`, `items[1].node` and `children`. A client component inside a
+prop slot becomes an island of its own.
 
 Follow these rules for a prop slot:
 
 - **Put a slot rendered from a list inside a keyed element**, as `<li key>`
   above. A keyed wrapper moves the slot's HTML when the list reorders. Bare
   sibling slots stay in server order, and nothing reports it.
-- **The island cannot change a slot's content.** Re-rendering the island with
-  new data for a slot does nothing, and nothing reports it. To show different
-  content, pass a different element from the server.
+- **The island cannot change a slot's content.** A container that re-renders
+  a slot with new data drops that data silently. To show different content,
+  pass a different element from the server.
 - **`cloneElement` over a slot rebuilds it.** The content stays, but as new DOM
   nodes. An island inside the rebuilt slot hydrates again and starts from its
   initial state.
@@ -239,13 +256,19 @@ Follow these rules for a prop slot:
 - **Render each slot once.** The build refuses an island that renders the same
   slot in two places.
 
-A prop slot is found only in plain objects and arrays. The build refuses an
+The build looks for prop slots only in plain objects and arrays. It refuses an
 element inside a `Map`, a `Set` or a class instance, because serializing that
 container would drop the element. Move the element into a plain object or an
-array. Every other prop must still be data that JSON can hold. The build
-refuses a function, a symbol key, an accessor, a value nested more than 32
-levels deep, and a prop named `__proto__`, `constructor`,
-`dangerouslySetInnerHTML`, `key` or `ref`.
+array.
+
+Every other prop must still be data that JSON can hold. The build refuses:
+
+- a function
+- a symbol key
+- an accessor
+- a value nested more than 32 levels deep
+- a prop named `__proto__`, `constructor`, `dangerouslySetInnerHTML`, `key` or
+  `ref`
 
 Prop slots belong only to an island that another component renders. An island
 the page places itself, by a name in its `components` list or as a node of the
