@@ -402,3 +402,65 @@ test("a prop slot's HTML is read before any island mounts, so a nested island's 
   expect(restored.textContent).toBe("Anested 0");
   expect(restored.innerHTML).not.toContain("data-pagedeck-hydrated");
 });
+
+function BareList({ items }: { items: readonly { id: string; node: ReactNode }[] }) {
+  const [reversed, setReversed] = useState(false);
+  return (
+    <section>
+      <button id="reverse" type="button" onClick={() => setReversed(!reversed)}>
+        reverse
+      </button>
+      <div>{(reversed ? [...items].reverse() : items).map((item) => item.node)}</div>
+    </section>
+  );
+}
+
+const ProxiedBareList = clientReference(BareList, { name: "BareList", mode: "load" });
+
+test("bare sibling regions with no wrapper key keep server order on a reverse, silently", async () => {
+  function Template() {
+    return (
+      <ProxiedBareList
+        items={["A", "B"].map((name) => ({ id: name, node: <Card name={name} nested={false} /> }))}
+      />
+    );
+  }
+  document.body.innerHTML = await render(Template);
+  const cardA = $('[data-card="A"]');
+  const cardB = $('[data-card="B"]');
+
+  const complaints = await hydrate(async () => BareList as ComponentType<never>);
+  await click("#reverse");
+
+  expect(order()).toBe("AB");
+  expect($('[data-card="A"]')).toBe(cardA);
+  expect($('[data-card="B"]')).toBe(cardB);
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+test("a prop slot's key cannot collide with a key the island gives its own sibling", async () => {
+  function Pair({ children }: { children?: ReactNode }) {
+    return <div>{[<i key="0">own</i>, children]}</div>;
+  }
+  const ProxiedPair = clientReference(Pair, { name: "Pair", mode: "load" });
+  const complaints: string[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    complaints.push(args.map(String).join(" "));
+  });
+  function Template() {
+    return (
+      <ProxiedPair>
+        <p data-children="">slot</p>
+      </ProxiedPair>
+    );
+  }
+  document.body.innerHTML = await render(Template);
+  expect(complaints.filter((line) => line.includes("same key"))).toEqual([]);
+  const slot = $("[data-children]");
+
+  const hydrating = await hydrate(async () => Pair as ComponentType<never>);
+
+  expect(hydrating.filter((line) => line.includes("same key"))).toEqual([]);
+  expect($("[data-children]")).toBe(slot);
+});

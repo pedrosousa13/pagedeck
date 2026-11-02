@@ -200,7 +200,7 @@ function propSlotRegion(
 ): ReactElement {
   return createElement(
     Suspense,
-    { key: String(index), fallback: null },
+    { key: `pagedeck-prop-slot:${String(index)}`, fallback: null },
     createElement(RegionMark, { index, placed }),
     createElement(RegionScope, null, element),
   );

@@ -169,7 +169,7 @@ function standIn(html: string, index: number): ReactElement {
   return createElement(
     Suspense,
     {
-      key: String(index),
+      key: `pagedeck-prop-slot:${String(index)}`,
       fallback: createElement(ISLAND_SLOT_TAG, {
         role: "presentation",
         style: { display: "contents" },
