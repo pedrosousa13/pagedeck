@@ -6,13 +6,28 @@ import {
   createElement,
   memo,
   StrictMode,
+  Suspense,
   useEffect,
   useRef,
   useState,
 } from "react";
-import type { ReactElement, ReactNode } from "react";
-import { createRoot } from "react-dom/client";
-import { expect, test } from "vitest";
+import type { ComponentType, ReactElement, ReactNode } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { prerender } from "react-dom/static";
+import { expect, test, vi } from "vitest";
+import {
+  ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_MODE_ATTRIBUTE,
+  ISLAND_PREFIX_ATTRIBUTE,
+  ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_REGION_ATTRIBUTE,
+  ISLAND_SLOT_PATHS_ATTRIBUTE,
+  ISLAND_TAG,
+} from "./marker.js";
+import type { RootProvider } from "./providers.js";
+import { hydrateIslands } from "./runtime.js";
+import type { IslandElement } from "./runtime.js";
+import { propSlotProps } from "./slot.js";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
@@ -20,8 +35,13 @@ declare global {
 
 interface HarnessElement {
   innerHTML: string;
+  outerHTML: string;
+  readonly textContent: string | null;
   appendChild(child: HarnessElement): void;
-  querySelector(selectors: string): { click(): void } | null;
+  getAttribute(name: string): string | null;
+  querySelector(selectors: string): HarnessElement | null;
+  querySelectorAll(selectors: string): Iterable<HarnessElement>;
+  click(): void;
 }
 declare const document: {
   body: HarnessElement;
@@ -320,3 +340,292 @@ test("StrictMode hands DirectSlot's one comparator call the same prev/next", asy
 
 // §3 is this file run with and without `PAGEDECK_REACT_COMPILER=1`, so no case here
 // asserts it.
+
+// The prop slot (ADR 0011): the real stand-in `propSlotProps` builds, hydrated
+// over server regions, under the same shapes. No comparator sits in its path,
+// so what reaches it is counted as fallback mounts, through `hydrate`.
+
+interface PropSlotCounts {
+  fallbacksOnHydrate: number;
+  fallbacksPerRerender: number;
+  nodeKept: boolean;
+  contentChanged: boolean;
+  rebuilt: number;
+  complaints: readonly string[];
+}
+
+const PROP_SLOT_HTML = ["<p>slot 0</p>", "<p>slot 1</p>"];
+
+function serverRegion(index: number): ReactElement {
+  return createElement(
+    Suspense,
+    { key: `pagedeck-prop-slot:${String(index)}`, fallback: null },
+    createElement("template", { [ISLAND_REGION_ATTRIBUTE]: String(index) }),
+    createElement("p", null, `slot ${String(index)}`),
+  );
+}
+
+function standIns(
+  html: readonly string[],
+  hydrate: (root: IslandElement) => void,
+): readonly ReactNode[] {
+  const props = propSlotProps(
+    { children: html.map(() => null) },
+    {
+      paths: html.map((_, index) => ["children", index]),
+      html: new Map(html.map((markup, index) => [index, markup])),
+    },
+    hydrate,
+  );
+  return props.children as readonly ReactNode[];
+}
+
+// Rebuilt on every render: the prop-slot rows for a container that makes its
+// own stand-in, which no framework path does.
+let directHydrate: (root: IslandElement) => void = () => undefined;
+let onServer = false;
+
+function PropDirectSame(): ReactElement {
+  const [count, setCount] = useState(0);
+  return createElement(
+    "div",
+    { className: `direct-${String(count)}` },
+    createElement(
+      "button",
+      { type: "button", onClick: () => setCount(count + 1) },
+      "again",
+    ),
+    onServer ? serverRegion(0) : standIns(["<p>slot 0</p>"], directHydrate)[0],
+  );
+}
+
+function PropDirectSlot(): ReactElement {
+  const [count, setCount] = useState(0);
+  return createElement(
+    "div",
+    { className: `direct-${String(count)}` },
+    createElement(
+      "button",
+      { type: "button", onClick: () => setCount(count + 1) },
+      "again",
+    ),
+    onServer
+      ? serverRegion(0)
+      : standIns([`<p>render ${String(count)}</p>`], directHydrate)[0],
+  );
+}
+
+const PROP_SHAPES: readonly Shape[] = [
+  ...SHAPES.slice(0, 5),
+  { name: "DirectSame", render: PropDirectSame, slots: 0 },
+  { name: "DirectSlot", render: PropDirectSlot, slots: 0 },
+];
+
+async function serverHtml(tree: ReactElement): Promise<string> {
+  const { prelude } = await prerender(tree);
+  const decoder = new TextDecoder();
+  let html = "";
+  for await (const chunk of prelude) {
+    html += decoder.decode(chunk, { stream: true });
+  }
+  return html + decoder.decode();
+}
+
+function content(host: HarnessElement): string {
+  return [...host.querySelectorAll("p")]
+    .map((paragraph) => paragraph.outerHTML)
+    .join("");
+}
+
+async function measurePropSlot(
+  shape: Shape,
+  strict: boolean,
+): Promise<PropSlotCounts> {
+  let fallbacks = 0;
+  const hydrate = (): void => {
+    fallbacks += 1;
+  };
+  directHydrate = hydrate;
+  const html = PROP_SLOT_HTML.slice(0, shape.slots);
+  onServer = true;
+  const server = await serverHtml(
+    createElement(shape.render, null, ...html.map((_, index) => serverRegion(index))),
+  );
+  onServer = false;
+
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  document.body.innerHTML = "";
+  const host = document.createElement("div");
+  host.innerHTML = server;
+  document.body.appendChild(host);
+  const first = host.querySelector("p");
+  const before = content(host);
+  const complaints: string[] = [];
+  const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    complaints.push(args.map(String).join(" "));
+  });
+
+  const tree = createElement(shape.render, null, ...standIns(html, hydrate));
+  let root: { unmount(): void } | undefined;
+  await act(async () => {
+    root = hydrateRoot(host as never, strict ? createElement(StrictMode, null, tree) : tree, {
+      onRecoverableError: (error) => {
+        complaints.push(String(error));
+      },
+    });
+  });
+  const fallbacksOnHydrate = fallbacks;
+  fallbacks = 0;
+  await act(async () => {
+    host.querySelector("button")?.click();
+  });
+  const counts: PropSlotCounts = {
+    fallbacksOnHydrate,
+    fallbacksPerRerender: fallbacks,
+    nodeKept: host.querySelector("p") === first,
+    contentChanged: content(host) !== before,
+    rebuilt: [...host.querySelectorAll("pagedeck-slot")].length,
+    complaints,
+  };
+
+  await act(async () => {
+    root?.unmount();
+  });
+  spy.mockRestore();
+  globalThis.IS_REACT_ACT_ENVIRONMENT = undefined;
+  return counts;
+}
+
+const KEPT = { fallbacksPerRerender: 0, nodeKept: true, contentChanged: false, rebuilt: 0 };
+
+const PROP_SLOT_EXPECTED: Record<
+  string,
+  Omit<PropSlotCounts, "fallbacksOnHydrate" | "complaints">
+> = {
+  Restyled: KEPT,
+  Reversible: KEPT,
+  Framed: KEPT,
+  Held: KEPT,
+  Recloned: { fallbacksPerRerender: 2, nodeKept: false, contentChanged: false, rebuilt: 2 },
+  DirectSame: { fallbacksPerRerender: 1, nodeKept: false, contentChanged: false, rebuilt: 1 },
+  DirectSlot: { fallbacksPerRerender: 1, nodeKept: false, contentChanged: true, rebuilt: 1 },
+};
+
+for (const strict of [false, true]) {
+  for (const shape of PROP_SHAPES) {
+    test(`prop slot: ${shape.name}, ${strict ? "StrictMode" : "plain"}`, async () => {
+      const { fallbacksOnHydrate, complaints, ...rest } = await measurePropSlot(
+        shape,
+        strict,
+      );
+      expect(fallbacksOnHydrate).toBe(0);
+      expect(rest).toEqual(PROP_SLOT_EXPECTED[shape.name]);
+      expect(complaints).toEqual([]);
+    });
+  }
+}
+
+function NestedCounter(): ReactElement {
+  const [count, setCount] = useState(0);
+  return createElement(
+    "button",
+    { type: "button", onClick: () => setCount(count + 1) },
+    `nested ${String(count)}`,
+  );
+}
+
+const NESTED_MARKER = {
+  [ISLAND_PREFIX_ATTRIBUTE]: "inested",
+  [ISLAND_COMPONENT_ATTRIBUTE]: "NestedCounter",
+  [ISLAND_MODE_ATTRIBUTE]: "load",
+  [ISLAND_PROPS_ATTRIBUTE]: "{}",
+};
+
+function nestedRegion(): ReactElement {
+  return createElement(
+    Suspense,
+    { key: "pagedeck-prop-slot:0", fallback: null },
+    createElement("template", { [ISLAND_REGION_ATTRIBUTE]: "0" }),
+    createElement(ISLAND_TAG, NESTED_MARKER, createElement(NestedCounter)),
+  );
+}
+
+interface NestedClone {
+  rootSurvives: boolean;
+  hydratedAgain: boolean;
+  textAfter: string | null | undefined;
+  countsAfter: string | null | undefined;
+  complaints: readonly string[];
+}
+
+async function measureNestedClone(strict: boolean): Promise<NestedClone> {
+  const inner = await serverHtml(createElement(Recloned, null, nestedRegion()));
+  const outer = {
+    [ISLAND_PREFIX_ATTRIBUTE]: "iouter",
+    [ISLAND_COMPONENT_ATTRIBUTE]: "Recloned",
+    [ISLAND_MODE_ATTRIBUTE]: "load",
+    [ISLAND_PROPS_ATTRIBUTE]: JSON.stringify({ children: [null] }),
+    [ISLAND_SLOT_PATHS_ATTRIBUTE]: JSON.stringify([["children", 0]]),
+  };
+  const attributes = Object.entries(outer)
+    .map(([name, value]) => ` ${name}="${value.replaceAll('"', "&quot;")}"`)
+    .join("");
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  document.body.innerHTML = `<${ISLAND_TAG}${attributes}>${inner}</${ISLAND_TAG}>`;
+  const complaints: string[] = [];
+  const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    complaints.push(args.map(String).join(" "));
+  });
+  const nestedSelector = `[${ISLAND_COMPONENT_ATTRIBUTE}="NestedCounter"]`;
+  const settle = () =>
+    act(async () => new Promise((done) => setTimeout(done, 20)));
+  const modules: Record<string, ComponentType<never>> = {
+    Recloned: Recloned as ComponentType<never>,
+    NestedCounter: NestedCounter as ComponentType<never>,
+  };
+  const providers: readonly RootProvider[] = strict
+    ? [{ component: StrictMode as ComponentType<never> }]
+    : [];
+
+  await act(async () => {
+    hydrateIslands({ resolve: async (name) => modules[name] as ComponentType<never>, providers });
+  });
+  await settle();
+  const original = document.body.querySelector(nestedSelector);
+  await act(async () => {
+    original?.querySelector("button")?.click();
+  });
+  await act(async () => {
+    document.body.querySelector("button")?.click();
+  });
+  await settle();
+  const rebuilt = document.body.querySelector(nestedSelector);
+  const textAfter = rebuilt?.textContent;
+  await act(async () => {
+    rebuilt?.querySelector("button")?.click();
+  });
+  const result: NestedClone = {
+    rootSurvives: rebuilt === original,
+    hydratedAgain: rebuilt?.getAttribute("data-pagedeck-hydrated") === "",
+    textAfter,
+    countsAfter: rebuilt?.textContent,
+    complaints,
+  };
+  spy.mockRestore();
+  document.body.innerHTML = "";
+  globalThis.IS_REACT_ACT_ENVIRONMENT = undefined;
+  return result;
+}
+
+test.each([[false], [true]])(
+  "prop slot: cloneElement over a region holding a nested island hydrates it again, reset (StrictMode %s)",
+  async (strict) => {
+    expect(await measureNestedClone(strict)).toEqual({
+      rootSurvives: false,
+      hydratedAgain: true,
+      textAfter: "nested 0",
+      countsAfter: "nested 1",
+      complaints: [],
+    });
+  },
+);
