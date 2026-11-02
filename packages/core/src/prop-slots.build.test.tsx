@@ -46,20 +46,24 @@ const FILES: Readonly<Record<string, string>> = {
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-export default function List({ title, items, children }: {
+export default function List({ title, items, aside, children }: {
   title: string;
   items: { id: string; node: ReactNode }[];
+  aside: ReactNode;
   children?: ReactNode;
 }) {
   const [count, setCount] = useState(0);
   const [reversed, setReversed] = useState(false);
+  const [showAside, setShowAside] = useState(false);
   const shown = reversed ? [...items].reverse() : items;
   return (
     <section>
       <h2>{title}</h2>
       <button id="inc" type="button" onClick={() => setCount(count + 1)}>{"count " + String(count)}</button>
       <button id="reverse" type="button" onClick={() => setReversed(!reversed)}>reverse</button>
+      <button id="show-aside" type="button" onClick={() => setShowAside(true)}>aside</button>
       <ul>{shown.map((item) => <li key={item.id}>{item.node}</li>)}</ul>
+      {showAside ? <aside>{aside}</aside> : null}
       <footer>{children}</footer>
     </section>
   );
@@ -92,6 +96,7 @@ export default function Wrapper() {
     <List
       title="Cards"
       items={["A", "B"].map((name) => ({ id: name, node: <Card name={name} nested={name === "A"} /> }))}
+      aside={<p data-aside="">server aside</p>}
     >
       <p data-children="">server children</p>
     </List>
@@ -159,7 +164,7 @@ const order = (): string =>
     .map((card) => card.getAttribute("data-card"))
     .join("");
 
-test("pagedeck build writes prop slots that hydrate in place with the real runtime", async () => {
+test("pagedeck build writes prop slots that hydrate in place, and an unplaced one shows its server HTML once placed", async () => {
   rmSync(SITE, { recursive: true, force: true });
   for (const [file, contents] of Object.entries(FILES)) {
     mkdirSync(dirname(join(SITE, file)), { recursive: true });
@@ -171,7 +176,10 @@ test("pagedeck build writes prop slots that hydrate in place with the real runti
   const html = readFileSync(join(SITE, "site", "index.html"), "utf8");
   const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)?.[1] ?? "";
   expect(body).toContain(
-    'data-pagedeck-slot-paths="[[&quot;items&quot;,0,&quot;node&quot;],[&quot;items&quot;,1,&quot;node&quot;],[&quot;children&quot;]]"',
+    'data-pagedeck-slot-paths="[[&quot;items&quot;,0,&quot;node&quot;],[&quot;items&quot;,1,&quot;node&quot;],[&quot;aside&quot;],[&quot;children&quot;]]"',
+  );
+  expect(body).toContain(
+    '<template data-pagedeck-region-stash="2">&lt;p data-aside="">server aside&lt;/p></template>',
   );
   expect(body).toContain('data-pagedeck-component="counter"');
   expect(body).not.toContain("<!--$?-->");
@@ -183,7 +191,10 @@ test("pagedeck build writes prop slots that hydrate in place with the real runti
   });
   document.body.innerHTML = body;
   const list = $('[data-pagedeck-component="list"]');
-  const serverHtml = list.innerHTML;
+  const serverHtml = list.innerHTML.replace(
+    /<template data-pagedeck-region-stash[\s\S]*?<\/template>/,
+    "",
+  );
   const cardA = $('[data-card="A"]');
   const children = $("[data-children]");
 
@@ -213,6 +224,14 @@ test("pagedeck build writes prop slots that hydrate in place with the real runti
   expect($('[data-card="A"]')).toBe(cardA);
   await click("[data-nested]");
   expect($("[data-nested]").textContent).toBe("nested 2");
+
+  await click("#show-aside");
+  expect($("aside").innerHTML).toBe(
+    '<pagedeck-slot role="presentation" style="display: contents;"><p data-aside="">server aside</p></pagedeck-slot>',
+  );
+  await click("#inc");
+  expect($("#inc").textContent).toBe("count 3");
+  expect($('[data-card="A"]')).toBe(cardA);
 
   expect(complaints).toEqual([]);
   expect(reported).toEqual([]);
