@@ -72,8 +72,8 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     const marker = nearestMarker(slot);
     if (marker !== null) ownedBy(slots, marker).set(id, slot.innerHTML);
   }
-  // Before any stash comes out, so a region rebuilt from its fallback keeps a
-  // nested island's stash.
+  // Before any stash comes out: a fallback rebuilt from this HTML hydrates the
+  // nested islands in it, which read their own stashes from it.
   const regions = new Map<IslandElement, Region[]>();
   for (const mark of root.querySelectorAll(
     `${ISLAND_TEMPLATE_TAG}[${ISLAND_REGION_ATTRIBUTE}]`,

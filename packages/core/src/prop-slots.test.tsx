@@ -645,3 +645,28 @@ test("an island nested in an unplaced prop slot counts toward islandPropsBudget"
   const weighed = weighIslandProps(await render(Template), 1_000);
   expect(weighed.breaches.map((island) => island.component)).toEqual(["Label"]);
 });
+
+test("a nested island rebuilt by cloneElement still finds its own stash", async () => {
+  function Template() {
+    return (
+      <ProxiedCloner>
+        <div>
+          <ProxiedHidden aside={<span data-aside="">stashed</span>} />
+        </div>
+      </ProxiedCloner>
+    );
+  }
+  document.body.innerHTML = await render(Template);
+  const resolve = async (name: string) =>
+    (name === "Cloner" ? Cloner : Hidden) as ComponentType<never>;
+  await import("@pagedeck/islands/slot");
+
+  const complaints = await hydrate(resolve);
+  await click("#clone");
+  await settle();
+  await click("#show");
+
+  expect($("aside").textContent).toBe("stashed");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
