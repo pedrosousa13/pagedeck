@@ -2245,7 +2245,7 @@ which is the direction an author's explicit judgement is protecting. Ruled on
 A per-page decision a build takes on the site's behalf is recorded in
 `manifest.json`, not in `budget-report.json`. The budget report is written only
 for a site that declared `build.budget` or `build.criticalCss`, or whose build
-breached the island props limit (#653), so a listing
+breached a declared `build.islandPropsBudget` (#653, #229), so a listing
 that lived only there is invisible on most builds that produced one; the
 manifest is written by every `pagedeck build`. The budget report still carries such a
 decision where it explains a *spend* — `BudgetPageSpend.causes` — and both are

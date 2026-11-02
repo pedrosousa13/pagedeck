@@ -26,8 +26,9 @@ build with exit code 2, naming each breaching page, its limit, what it spends
 and its largest chunks. Every breaching page is reported, not the first.
 
 The field is optional. A site that declares no `budget` is not weighed and pays
-nothing for the check. The [island props](#island-props) limit is the exception:
-it applies to every site, with a default.
+nothing for the check. The [island props](#island-props) limit is checked only
+when declared: a site that declares no `islandPropsBudget` is never refused for
+its props.
 
 ## What a page costs
 
@@ -213,8 +214,8 @@ island only the 2.3 kB it renders, but if it passes the whole entry, the whole
 entry ships in the page. A JavaScript budget does not see it, because it is
 not JavaScript.
 
-So each island's props have a limit of their own, set for the whole site with
-`islandPropsBudget`:
+So each island's props can have a limit of their own, set for the whole site
+with `islandPropsBudget`:
 
 ```ts
 build: {
@@ -227,10 +228,9 @@ build: {
 The limit applies to each island on its own, on every page. It is not a total
 for the page, and it is not set per page. A size is written as for `budget`.
 
-**The default is `3kb`**, and it applies to every site that does not declare
-`islandPropsBudget`, with or without a `budget`. It is the largest island props
-measured on Pagedeck's own sites when the default was set, 2296 B for the
-landing page's variant picker, plus about 16%, rounded to a whole kilobyte.
+**There is no default.** A site that does not declare `islandPropsBudget` has
+no island props limit, with or without a `budget`, and no island fails the
+build for its props.
 
 What counts is the JSON the marker carries, **before HTML escaping**, in
 **UTF-8 bytes**. It is not compressed, unlike a JavaScript budget, so the figure
@@ -243,7 +243,7 @@ the HTML, its size against the limit, and its three largest top-level props:
 
 ```
 Island props budget: 1 island carries more props in its marker than the limit allows — pass the island only the fields it renders, or raise the limit in pagedeck.config.ts's build.islandPropsBudget:
-  en /products/shirt — "variant_picker" at prefix "i3f2a0b1c2d3e" carries 69109 B of props against a limit of 3072 B, over 4 top-level props, the 3 largest:
+  en /products/shirt — "variant_picker" at prefix "i3f2a0b1c2d3e" carries 69109 B of props against a limit of 4096 B, over 4 top-level props, the 3 largest:
     "entry" — 66804 B
     "variants" — 2250 B
     "price" — 9 B
@@ -354,16 +354,16 @@ no budget, and a flagged page gets a row whether or not a budget pattern matches
 it. Such a row has no `pattern`, no `limitText` and no `limit`, and its `breach`
 is always `false`: a page nothing budgeted has nothing to be over.
 
-A build with an island over the [island props](#island-props) limit writes it
-too, budget or no budget, and each page with such an island gets a row in the
-same way. A site that declares neither `budget` nor `criticalCss`, and has no
-island over the limit, gets no report.
+A build with an island over a declared [island props](#island-props) limit
+writes it too, budget or no budget, and each page with such an island gets a
+row in the same way. A site that declares neither `budget` nor `criticalCss`,
+and has no island over a declared limit, gets no report.
 
 ```json
 {
   "version": 2,
   "build": { "id": "7bc48ff6", "createdAt": "2026-08-29T17:53:34.114Z" },
-  "islandPropsLimit": { "limitText": "3kb", "limit": 3072 },
+  "islandPropsLimit": { "limitText": "4kb", "limit": 4096 },
   "pages": [
     {
       "locale": "en",
@@ -402,9 +402,10 @@ are in no part of it, and `breach` is `actual > limit` and nothing else.
 with no island, and `islandPropsBreaches` lists each island over the limit,
 largest first, with its `component`, `prefix`, `bytes` and every top-level prop
 in `props`. The limit itself is the report's `islandPropsLimit`, because it is
-one for the whole site. Neither is part of `actual` or `breach`. Two
-builds of one site produce the same report, so it can be diffed across commits
-to watch a page's weight over time.
+one for the whole site; a site that declares no `islandPropsBudget` has no
+`islandPropsLimit` and no `islandPropsBreaches` entries. Neither is part of
+`actual` or `breach`. Two builds of one site produce the same report, so it can
+be diffed across commits to watch a page's weight over time.
 
 **The report is `"version": 2` since inlined JavaScript started counting.**
 Version 1 rows had no `jsInlined`, and their `actual` was the chunks alone, so

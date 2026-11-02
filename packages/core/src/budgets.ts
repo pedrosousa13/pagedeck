@@ -76,14 +76,15 @@ export interface IslandPropsLimit {
   limit: number;
 }
 
-export interface IslandPropsBudget extends IslandPropsLimit {
+export interface IslandPropsBudget {
+  declared: IslandPropsLimit | undefined;
   byPage: ReadonlyMap<string, PageIslandProps>;
 }
 
 export interface BudgetReport {
   version: 2;
   build: BuildStamp;
-  islandPropsLimit: { limitText: string; limit: number };
+  islandPropsLimit?: IslandPropsLimit;
   pages: readonly BudgetPageSpend[];
 }
 
@@ -140,8 +141,6 @@ export function budgetFaultReport(
   });
 }
 
-export const DEFAULT_ISLAND_PROPS_BUDGET = "3kb";
-
 export function islandPropsBudgetFaultReport(
   value: unknown,
   where: string,
@@ -158,9 +157,9 @@ export function islandPropsBudgetFaultReport(
 
 export function islandPropsLimit(
   declared: string | undefined,
-): IslandPropsLimit {
-  const limitText = declared ?? DEFAULT_ISLAND_PROPS_BUDGET;
-  return { limitText, limit: parseSize(limitText) ?? 0 };
+): IslandPropsLimit | undefined {
+  if (declared === undefined) return undefined;
+  return { limitText: declared, limit: parseSize(declared) ?? 0 };
 }
 
 const ISLAND_MARKER = new RegExp(
@@ -237,7 +236,7 @@ function topLevelProps(serialized: string): IslandPropSpend[] {
  */
 export function weighIslandProps(
   html: string,
-  limit: number,
+  limit: number | undefined,
 ): PageIslandProps {
   let largest = 0;
   const breaches: IslandPropsSpend[] = [];
@@ -247,7 +246,7 @@ export function weighIslandProps(
     );
     const bytes = utf8Bytes(serialized);
     largest = Math.max(largest, bytes);
-    if (bytes <= limit) continue;
+    if (limit === undefined || bytes <= limit) continue;
     breaches.push({
       component: unescapeAttribute(
         markerAttribute(tag, ISLAND_COMPONENT_ATTRIBUTE),
@@ -347,10 +346,9 @@ export function planBudgets(input: {
   return {
     version: 2,
     build: input.build,
-    islandPropsLimit: {
-      limitText: input.islandProps.limitText,
-      limit: input.islandProps.limit,
-    },
+    ...(input.islandProps.declared === undefined
+      ? {}
+      : { islandPropsLimit: input.islandProps.declared }),
     pages,
   };
 }
@@ -393,6 +391,8 @@ const ISLAND_PROPS_FIX =
   "or raise the limit in pagedeck.config.ts's build.islandPropsBudget";
 
 function islandPropsBreaches(report: BudgetReport): string | undefined {
+  const limit = report.islandPropsLimit;
+  if (limit === undefined) return undefined;
   const lines = report.pages.flatMap((page) =>
     page.islandPropsBreaches.map((island) => {
       const shown = island.props.slice(0, TOP_CONTRIBUTORS);
@@ -410,7 +410,7 @@ function islandPropsBreaches(report: BudgetReport): string | undefined {
         `  ${page.locale} ${page.path} — "${island.component}" at prefix "${island.prefix}" carries ${String(
           island.bytes,
         )} B of props against a limit of ${String(
-          report.islandPropsLimit.limit,
+          limit.limit,
         )} B${over}${shown.length === 0 ? "" : ":"}`,
         ...shown.map(
           (prop) => `    ${JSON.stringify(prop.name)} — ${String(prop.bytes)} B`,

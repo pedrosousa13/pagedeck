@@ -4,7 +4,6 @@ import {
   budgetFaultReport,
   budgetReportJson,
   checkBudgets,
-  DEFAULT_ISLAND_PROPS_BUDGET,
   islandPropsBudgetFaultReport,
   islandPropsLimit,
   planBudgets,
@@ -45,7 +44,7 @@ const STYLES = new Map([
 ]);
 
 const NO_ISLAND_PROPS: IslandPropsBudget = {
-  ...islandPropsLimit(undefined),
+  declared: undefined,
   byPage: new Map(),
 };
 
@@ -615,7 +614,6 @@ test("the report is deterministic JSON, in route-table order, carrying the build
   expect(JSON.parse(json)).toEqual({
     version: 2,
     build: STAMP,
-    islandPropsLimit: islandPropsLimit(undefined),
     pages: [
       {
         locale: "en",
@@ -835,6 +833,16 @@ test("a page's figure is its largest island, and a page with none weighs 0", () 
   });
 });
 
+test("with no limit, an island is weighed and never a breach", () => {
+  const props = { entry: "z".repeat(200) };
+  const html = markerFor("Bigger", "i000000000003", props);
+
+  expect(weighIslandProps(html, undefined)).toEqual({
+    largest: Buffer.byteLength(JSON.stringify(props)),
+    breaches: [],
+  });
+});
+
 test("every island over the limit is a breach, listing its top-level props largest first", () => {
   const html =
     markerFor("Picker", "i000000000001", { label: "Size", entry: { body: "y".repeat(80) } }) +
@@ -869,7 +877,7 @@ test("each row carries its largest island props, and a breaching page gets a row
     { locale: "en", path: "/quiet" },
   ], undefined, {
     islandProps: {
-      ...PROPS_LIMIT,
+      declared: PROPS_LIMIT,
       byPage: new Map([
         ["en /pricing", { largest: 300, breaches: [] }],
         [
@@ -898,8 +906,7 @@ test("each row carries its largest island props, and a breaching page gets a row
 test("an island props breach fails the build naming the page, the island, its size against the limit and its largest props", () => {
   const breaching = report({}, [{ locale: "en", path: "/server-data" }], undefined, {
     islandProps: {
-      limitText: "3kb",
-      limit: 3072,
+      declared: { limitText: "3kb", limit: 3072 },
       byPage: new Map([
         [
           "en /server-data",
@@ -943,7 +950,7 @@ test("an island props breach fails the build naming the page, the island, its si
 test("a JavaScript breach and an island props breach are reported in one throw", () => {
   const both = report({ "/pricing": "1b" }, undefined, undefined, {
     islandProps: {
-      ...PROPS_LIMIT,
+      declared: PROPS_LIMIT,
       byPage: new Map([
         [
           "en /pricing",
@@ -973,11 +980,8 @@ test("an island props budget that is not a size is a config fault", () => {
   expect(islandPropsBudgetFaultReport("12kb", "Config")).toBeUndefined();
 });
 
-test("an undeclared island props budget is the default, and a declared one replaces it", () => {
-  expect(islandPropsLimit(undefined)).toEqual({
-    limitText: DEFAULT_ISLAND_PROPS_BUDGET,
-    limit: Number.parseInt(DEFAULT_ISLAND_PROPS_BUDGET, 10) * 1024,
-  });
+test("an undeclared island props budget sets no limit, and a declared one is parsed", () => {
+  expect(islandPropsLimit(undefined)).toBeUndefined();
   expect(islandPropsLimit("12kb")).toEqual({ limitText: "12kb", limit: 12288 });
 });
 

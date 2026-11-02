@@ -1463,7 +1463,7 @@ async function stageSite(input: {
   const islandProps = new Map(
     documents.map(({ key, file }) => [
       key,
-      weighIslandProps(textOf(file.contents), propsLimit.limit),
+      weighIslandProps(textOf(file.contents), propsLimit?.limit),
     ]),
   );
   if (
@@ -1473,7 +1473,7 @@ async function stageSite(input: {
   ) {
     const report = planBudgets({
       build: input.stamp,
-      islandProps: { ...propsLimit, byPage: islandProps },
+      islandProps: { declared: propsLimit, byPage: islandProps },
       budget: section.budget ?? {},
       inlinedPages: inlining,
       pages: identities,

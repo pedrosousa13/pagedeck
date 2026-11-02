@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliCompressSync } from "node:zlib";
 import { afterEach, expect, test } from "vitest";
-import { budgetReportPath, islandPropsLimit } from "./budgets.js";
+import { budgetReportPath } from "./budgets.js";
 import type { BudgetReport } from "./budgets.js";
 import { EXIT_CODES } from "./exit.js";
 import { ABSENT_FAVICON } from "./favicon.test-support.js";
@@ -524,29 +524,42 @@ const CMS_ENTRY = {
   ],
 };
 
-const DEFAULT_LIMIT = islandPropsLimit(undefined).limit;
-
-test("an island handed a whole CMS entry fails the build, naming the page, the island and its largest props", async () => {
+test("a site that declares no island props budget builds an island whose props breached the former 3 kB default, and writes no report", async () => {
+  const FORMER_DEFAULT_BYTES = 3 * 1024;
   const props = { entry: CMS_ENTRY, label: "Size" };
   const dir = site(undefined, { widgetProps: props });
   expect((await run(dir, "sync")).code).toBe(EXIT_CODES.success);
 
   const result = await run(dir, "build");
 
+  expect(Buffer.byteLength(JSON.stringify(props), "utf8")).toBeGreaterThan(FORMER_DEFAULT_BYTES);
+  expect(result.err).toBe(ABSENT_FAVICON);
+  expect(result.code).toBe(EXIT_CODES.success);
+  expect(existsSync(budgetReportPath(dir))).toBe(false);
+}, 60_000);
+
+test("an island handed a whole CMS entry fails a declared island props budget, naming the page, the island and its largest props", async () => {
+  const props = { entry: CMS_ENTRY, label: "Size" };
+  const dir = site(undefined, { widgetProps: props, islandPropsBudget: "1kb" });
+  expect((await run(dir, "sync")).code).toBe(EXIT_CODES.success);
+
+  const result = await run(dir, "build");
+
   const bytes = Buffer.byteLength(JSON.stringify(props), "utf8");
-  expect(bytes).toBeGreaterThan(DEFAULT_LIMIT);
   expect(result.code).toBe(EXIT_CODES.configError);
   expect(result.err).toContain(
     `Island props budget: 1 island carries more props in its marker than the limit allows — pass the island only the fields it renders, or raise the limit in pagedeck.config.ts's build.islandPropsBudget:`,
   );
   expect(result.err).toMatch(
     new RegExp(
-      `^  en / — "Widget" at prefix "i[0-9a-f]{12}" carries ${String(bytes)} B of props against a limit of ${String(DEFAULT_LIMIT)} B, over 2 top-level props:\n {4}"entry" — ${String(Buffer.byteLength(JSON.stringify(CMS_ENTRY)))} B\n {4}"label" — 6 B$`,
+      `^  en / — "Widget" at prefix "i[0-9a-f]{12}" carries ${String(bytes)} B of props against a limit of 1024 B, over 2 top-level props:\n {4}"entry" — ${String(Buffer.byteLength(JSON.stringify(CMS_ENTRY)))} B\n {4}"label" — 6 B$`,
       "m",
     ),
   );
 
-  const home = reportIn(dir).pages.find((page) => page.path === "/");
+  const report = reportIn(dir);
+  expect(report.islandPropsLimit).toEqual({ limitText: "1kb", limit: 1024 });
+  const home = report.pages.find((page) => page.path === "/");
   expect(home?.largestIslandProps).toBe(bytes);
   expect(home?.islandPropsBreaches.map((island) => island.component)).toEqual([
     "Widget",
@@ -566,7 +579,7 @@ test("an island handed only the fields it renders builds, and a site with no bud
   expect(existsSync(budgetReportPath(dir))).toBe(false);
 }, 60_000);
 
-test("a declared island props budget replaces the default, and every row reports its page's largest island", async () => {
+test("a declared island props budget is reported, and every row reports its page's largest island", async () => {
   const props = { label: "Size", variants: CMS_ENTRY.variants };
   const bytes = Buffer.byteLength(JSON.stringify(props), "utf8");
   const dir = site({ "/": "500kb", "/about": "0b" }, {
@@ -600,6 +613,7 @@ test("a carried page's island props are weighed off its document, so a lowered l
   const dir = site({ "/": "500kb", "/about": "0b" }, { widgetProps: props });
   expect((await run(dir, "sync")).code).toBe(EXIT_CODES.success);
   expect((await run(dir, "build")).code).toBe(EXIT_CODES.success);
+  expect(reportIn(dir).islandPropsLimit).toBeUndefined();
   expect(reportIn(dir).pages.find((page) => page.path === "/")?.largestIslandProps).toBe(
     bytes,
   );
@@ -622,7 +636,11 @@ test("a carried page's island props are weighed off its document, so a lowered l
 
 test("an island in a slot its container stashes is weighed, and fails the build over the limit", async () => {
   const props = { entry: CMS_ENTRY, label: "Size" };
-  const dir = site(undefined, { widgetProps: props, tabbed: true });
+  const dir = site(undefined, {
+    widgetProps: props,
+    tabbed: true,
+    islandPropsBudget: "1kb",
+  });
   expect((await run(dir, "sync")).code).toBe(EXIT_CODES.success);
 
   const result = await run(dir, "build");
