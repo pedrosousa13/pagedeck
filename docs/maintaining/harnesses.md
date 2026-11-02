@@ -171,7 +171,10 @@ SeaweedFS's S3 gateway in Docker, over TLS, with SigV4 URLs signed by a
 throwaway credential (#302, #652), and once through the shipped signing step in
 region `auto`, serving the result through the compiled Worker (#665). It also
 prunes a presigned origin through its history index and checks that the same
-files go as from a directory origin given the same history (#659). The script
+files go as from a directory origin given the same history (#659). It
+round-trips the content store through `PAGEDECK_SNAPSHOT_PULL_URL` and
+`PAGEDECK_SNAPSHOT_PUSH_URL`, and checks that a URL signed for one method is
+refused (HTTP 403) for the other (#63). The script
 runs `pnpm build` first, because the deploys spawn `deploy.bin.js`.
 
 **It needs a Docker daemon, `openssl` on `PATH`, and Node 24.5 or later**,

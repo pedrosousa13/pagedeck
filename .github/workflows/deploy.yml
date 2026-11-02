@@ -68,12 +68,15 @@ jobs:
           PAGEDECK_SNAPSHOT_PUSH_URL: ${{ secrets.PAGEDECK_SNAPSHOT_PUSH_URL }}
         run: |
           # Half a pair is refused: a run that pulls and cannot push, or pushes over what it never pulled, is a misconfiguration.
-          if [ -n "${PAGEDECK_SNAPSHOT_PULL_URL}" ] && [ -n "${PAGEDECK_SNAPSHOT_PUSH_URL}" ]; then
+          # A whitespace-only secret counts as unset, as `pagedeck store` counts it.
+          pull="$(printf '%s' "${PAGEDECK_SNAPSHOT_PULL_URL}" | tr -d '[:space:]')"
+          push="$(printf '%s' "${PAGEDECK_SNAPSHOT_PUSH_URL}" | tr -d '[:space:]')"
+          if [ -n "${pull}" ] && [ -n "${push}" ]; then
             echo "secret=true" >> "$GITHUB_OUTPUT"
-          elif [ -z "${PAGEDECK_SNAPSHOT_PULL_URL}${PAGEDECK_SNAPSHOT_PUSH_URL}" ]; then
+          elif [ -z "${pull}${push}" ]; then
             echo "secret=false" >> "$GITHUB_OUTPUT"
             echo "No PAGEDECK_SNAPSHOT_PULL_URL or PAGEDECK_SNAPSHOT_PUSH_URL is configured: this run will build from the site's own entries, print the plan and publish nothing."
-          elif [ -z "${PAGEDECK_SNAPSHOT_PUSH_URL}" ]; then
+          elif [ -z "${push}" ]; then
             echo "::error::PAGEDECK_SNAPSHOT_PULL_URL is configured and PAGEDECK_SNAPSHOT_PUSH_URL is not: add PAGEDECK_SNAPSHOT_PUSH_URL, a URL presigned for PUT, or remove PAGEDECK_SNAPSHOT_PULL_URL (docs/deploy-recipe.md, \"The secrets\")."
             exit 1
           else
