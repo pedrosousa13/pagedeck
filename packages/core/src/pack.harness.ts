@@ -21,10 +21,11 @@ import {
   PUBLIC_VERSION,
 } from "./public-packages.test-support.js";
 import {
+  newestVite,
   rolldownVersionsFault,
   viteRolldownFault,
   type WhyEntry,
-} from "./pack-install.test-support.js";
+} from "./rolldown-pin.test-support.js";
 import { fences, TUTORIAL } from "../../docs/src/tutorial.test-support.js";
 
 const run = promisify(execFile);
@@ -98,13 +99,27 @@ function workspaceAbove(path: string): string | undefined {
   }
 }
 
+async function spawnJson(command: string, args: string[], cwd: string): Promise<unknown> {
+  const { stdout } = await spawn(command, args, cwd);
+  if (stdout.trim() === "") return undefined;
+  try {
+    return JSON.parse(stdout) as unknown;
+  } catch (cause) {
+    throw new Error(
+      `Command "${command} ${args.join(" ")}" in "${cwd}": printed output that is not JSON, so the harness cannot read it — run it there by hand and check what it prints; its output is below and the parse error is attached as the cause\n${stdout}`,
+      { cause },
+    );
+  }
+}
+
 async function pnpmInstall(dir: string): Promise<void> {
   // Unfrozen: the copy only seeds resolution. Not offline: a fresh runner's cache lacks
   // metadata for entries outside its own install (#14).
   await spawn("pnpm", ["install", "--prefer-offline", "--no-frozen-lockfile"], dir);
-  const { stdout } = await spawn("pnpm", ["why", "--recursive", "rolldown", "--json"], dir);
-  const why = JSON.parse(stdout) as WhyEntry[];
-  const fault = rolldownVersionsFault(dir, why);
+  const why = (await spawnJson("pnpm", ["why", "--recursive", "rolldown", "--json"], dir)) as
+    | WhyEntry[]
+    | undefined;
+  const fault = rolldownVersionsFault(dir, why ?? []);
   if (fault !== undefined) throw new Error(fault);
 }
 
@@ -174,13 +189,21 @@ test("core's rolldown pin is inside the rolldown range of the newest vite core's
   ) as Manifest;
   const viteRange = core.dependencies?.vite ?? "";
   const pin = core.dependencies?.rolldown ?? "";
-  const admitted = JSON.parse(
-    (await spawn("npm", ["view", `vite@${viteRange}`, "version", "--json"], root)).stdout,
-  ) as string | string[];
-  const vite = [admitted].flat().at(-1) as string;
-  const rolldownRange = JSON.parse(
-    (await spawn("npm", ["view", `vite@${vite}`, "dependencies.rolldown", "--json"], root)).stdout,
-  ) as string;
+  const listed = (await spawnJson("npm", ["view", `vite@${viteRange}`, "version", "--json"], root)) as
+    | string
+    | string[]
+    | undefined;
+  const vite = newestVite(viteRange, [listed ?? []].flat());
+  if (vite === undefined) {
+    throw new Error(
+      `Package "@pagedeck/core": the npm registry lists no vite inside its range "${viteRange}", so a fresh install cannot resolve vite — set "vite" in packages/core/package.json to a range a published vite satisfies`,
+    );
+  }
+  const rolldownRange = (await spawnJson(
+    "npm",
+    ["view", `vite@${vite}`, "dependencies.rolldown", "--json"],
+    root,
+  )) as string | undefined;
   expect(viteRolldownFault({ viteRange, vite, rolldownRange, pin })).toBeUndefined();
 }, 60_000);
 

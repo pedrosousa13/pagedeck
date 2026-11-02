@@ -104,9 +104,11 @@
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/semver": "7.8.0",
     "@vitejs/plugin-react": "6.1.0",
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
+    "semver": "7.8.5",
     "tailwindcss": "4.3.3",
     "zod": "^4.6.6"
   },
