@@ -20,6 +20,7 @@ import {
   PUBLIC_PACKAGES,
   PUBLIC_VERSION,
 } from "./public-packages.test-support.js";
+import { rolldownVersionsFault, type WhyEntry } from "./pack-install.test-support.js";
 import { fences, TUTORIAL } from "../../docs/src/tutorial.test-support.js";
 
 const run = promisify(execFile);
@@ -93,6 +94,16 @@ function workspaceAbove(path: string): string | undefined {
   }
 }
 
+async function pnpmInstall(dir: string): Promise<void> {
+  // Unfrozen: the copy only seeds resolution. Not offline: a fresh runner's cache lacks
+  // metadata for entries outside its own install (#14).
+  await spawn("pnpm", ["install", "--prefer-offline", "--no-frozen-lockfile"], dir);
+  const { stdout } = await spawn("pnpm", ["why", "--recursive", "rolldown", "--json"], dir);
+  const why = JSON.parse(stdout) as WhyEntry[];
+  const fault = rolldownVersionsFault(dir, why);
+  if (fault !== undefined) throw new Error(fault);
+}
+
 let root = "";
 const packed: Packed[] = [];
 
@@ -115,9 +126,7 @@ async function install(
   // Without it, a range resolves to the newest version in pnpm's metadata cache,
   // not the version this workspace locked.
   await copyFile(join(REPO, "pnpm-lock.yaml"), join(dir, "pnpm-lock.yaml"));
-  // Unfrozen: the copy only seeds resolution. Not offline: a fresh runner's cache lacks
-  // metadata for entries outside its own install (#14).
-  await spawn("pnpm", ["install", "--prefer-offline", "--no-frozen-lockfile"], dir);
+  await pnpmInstall(dir);
 }
 
 beforeAll(async () => {
@@ -668,7 +677,7 @@ describe("a site created with --host", () => {
       )}\n`,
     );
     await copyFile(join(REPO, "pnpm-lock.yaml"), join(hostsRoot, "pnpm-lock.yaml"));
-    await spawn("pnpm", ["install", "--prefer-offline", "--no-frozen-lockfile"], hostsRoot);
+    await pnpmInstall(hostsRoot);
   }, 600_000);
 
   for (const { host, dependency, files } of HOST_CASES) {

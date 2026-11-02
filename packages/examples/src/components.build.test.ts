@@ -1,5 +1,5 @@
 // A browser build does not refuse `node:crypto`: vite stubs it, so the failure is silent.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { build } from "vite";
@@ -39,7 +39,11 @@ async function bundle(entry: string, out: string): Promise<string> {
       rollupOptions: { external: ["react", "react-dom", "react-dom/client"] },
     },
   });
-  return readFileSync(new URL("out.js", `file://${out}`), "utf8");
+  // Since vite 8.3.5 a library entry can be a facade over chunks of its own.
+  return readdirSync(out)
+    .filter((file) => file.endsWith(".js"))
+    .map((file) => readFileSync(`${out}${file}`, "utf8"))
+    .join("\n");
 }
 
 let components = "";
