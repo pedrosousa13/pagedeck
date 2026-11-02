@@ -137,9 +137,10 @@ a reference does not decide alone what leaves the tree. The build refuses a
 reference when a segment of the address it resolves to starts with a dot,
 written as `.` or as `%2e`: `.env`, `.git/config` and `.drafts/logo.png` are all
 refused. It refuses a segment that holds a backslash, written as `\` or as
-`%5C`, on every platform, because Windows reads a backslash as a separator and
-could resolve the address above `contentRoot`. It also refuses a reference
-whose file has no extension or an extension outside this list, in any case:
+`%5C` in any case, on every platform, because Windows reads a backslash as a
+separator and could resolve the address above `contentRoot`. It also refuses a
+reference whose file has no extension or an extension outside this list, in any
+case:
 
 - images: `.apng`, `.avif`, `.bmp`, `.gif`, `.ico`, `.jpeg`, `.jpg`, `.jxl`,
   `.png`, `.svg`, `.tif`, `.tiff`, `.webp`
@@ -162,7 +163,7 @@ tree from it. Every refused reference is listed in one run, once for each page
 that makes it, with the reason on each line:
 
 ```
-Passthrough: 2 content-relative references name a file build.passthrough.contentRoot never publishes — a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot or holds a backslash and its extension is one of .apng, .avif, .bmp, .gif, .ico, .jpeg, .jpg, .jxl, .png, .svg, .tif, .tiff, .webp, .aac, .flac, .m4a, .mp3, .oga, .ogg, .opus, .wav, .weba, .m4v, .mov, .mp4, .ogv, .webm, .otf, .ttf, .woff, .woff2, .pdf, .vtt or .css; point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root:
+Passthrough: 2 content-relative references name a file build.passthrough.contentRoot never publishes — a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot or holds a backslash, and its extension is one of .apng, .avif, .bmp, .gif, .ico, .jpeg, .jpg, .jxl, .png, .svg, .tif, .tiff, .webp, .aac, .flac, .m4a, .mp3, .oga, .ogg, .opus, .wav, .weba, .m4v, .mov, .mp4, .ogv, .webm, .otf, .ttf, .woff, .woff2, .pdf, .vtt or .css; point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root:
   en /posts/ferry — "../../.env" → "/.env" — content entry "posts en posts/ferry" — the segment ".env" starts with a dot
   en /posts/ferry — "../../secret.ts" → "/secret.ts" — content entry "posts en posts/ferry" — its extension ".ts" is not one a content tree publishes
 ```

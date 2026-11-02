@@ -217,7 +217,7 @@ export function contentReferenceRefusal(address: string): string | undefined {
     return `the segment ${quote(dotted)} starts with a dot`;
   }
   const backslashed = segments.find(
-    (segment) => segment.includes("\\") || decoded(segment).includes("\\"),
+    (segment) => segment.includes("\\") || /%5c/i.test(segment),
   );
   if (backslashed !== undefined) {
     return `the segment ${quote(backslashed)} holds a backslash`;

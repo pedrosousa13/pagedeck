@@ -208,7 +208,7 @@ const MISSING_CONTENT_ROOT_FIX =
 const UNRESOLVED_REFERENCE_FIX =
   'put the file at that path beneath the directory "build.passthrough.contentRoot" names, or point the reference at a file that is already there';
 const LISTED_EXTENSIONS = [...CONTENT_ROOT_EXTENSIONS];
-const REFUSED_REFERENCE_RULE = `a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot or holds a backslash and its extension is one of ${LISTED_EXTENSIONS.slice(0, -1).join(", ")} or ${LISTED_EXTENSIONS.at(-1)}`;
+const REFUSED_REFERENCE_RULE = `a content tree publishes a file only where no segment of the address its reference resolves to starts with a dot or holds a backslash, and its extension is one of ${LISTED_EXTENSIONS.slice(0, -1).join(", ")} or ${LISTED_EXTENSIONS.at(-1)}`;
 const REFUSED_REFERENCE_FIX =
   'point each reference at a file of one of those types beneath the directory "build.passthrough.contentRoot" names, or, where the site means to serve that file, put it in the directory "build.passthrough.root" names and reference it from the site root';
 const NO_CONTENT_ENTRY =

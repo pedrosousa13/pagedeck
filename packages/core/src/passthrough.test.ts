@@ -402,6 +402,9 @@ test("an address with a segment that holds a backslash is refused, an escaped ba
   expect(contentReferenceRefusal("/en/a%5c..%5csecret.png")).toBe(
     'the segment "a%5c..%5csecret.png" holds a backslash',
   );
+  expect(contentReferenceRefusal("/en/a%5C%zz.png")).toBe(
+    'the segment "a%5C%zz.png" holds a backslash',
+  );
   expect(contentReferenceRefusal("/en/posts/photo.png")).toBeUndefined();
 });
 
