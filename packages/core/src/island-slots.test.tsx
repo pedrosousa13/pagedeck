@@ -209,7 +209,11 @@ test("a slot position spelled in rich text does not cost the reader a panel", as
 
   expect(island.html).toBe(
     '<div class="tabs">' +
-      slot("0.1", '<div class="rich"><span>decoy</span><p>decoy</p></div>') +
+      slot(
+        "0.1",
+        '<div class="rich"><span data-x-pagedeck-slot="0.0">decoy</span>' +
+          '<x-pagedeck-slot data-x-pagedeck-slot="0.0"><p>decoy</p></x-pagedeck-slot></div>',
+      ) +
       "</div>" +
       stash("0.0", "<p>One</p>"),
   );

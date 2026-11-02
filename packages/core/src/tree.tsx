@@ -130,13 +130,14 @@ interface PageLocale {
 export const PageLocaleContext = createContext<PageLocale | undefined>(undefined);
 
 /**
- * Strips only the framework's reserved names (#109). Every other byte reaches
- * the page as written, so the HTML must already be sanitised.
+ * Neutralises only the framework's reserved names (#109, #258): each is renamed
+ * in place and every other byte reaches the page as written, so the HTML must
+ * already be sanitised.
  */
 export function unescapedHtml(html: string): {
   dangerouslySetInnerHTML: { __html: string };
 } {
-  return rawHtml(stripReservedNames(html));
+  return rawHtml(neutraliseReservedNames(html));
 }
 
 /**
@@ -157,12 +158,13 @@ export const IS_NAME_CHARACTER = new RegExp(NAME_CHARACTER);
 
 /**
  * An enumeration, not a `data-pagedeck-` prefix (#394, #566). Bytes, not a parse, so
- * a whole reserved name is removed wherever it is spelled.
+ * a whole reserved name is caught wherever it is spelled. A match is the part
+ * after `<`, `</` or `data-`, where the `x-` goes.
  */
 const RESERVED_NAMES = new RegExp(
   [
-    `</?(?:${[ISLAND_TAG, ISLAND_SLOT_TAG].join("|")})(?=[\\s/>]|$)[^>]*>?`,
-    `\\s*(?<!${NAME_CHARACTER})(?:${[
+    `(?<=</?)(?:${[ISLAND_TAG, ISLAND_SLOT_TAG].join("|")})(?=[\\s/>]|$)`,
+    `(?<=(?<!${NAME_CHARACTER})data-)(?:${[
       ISLAND_PREFIX_ATTRIBUTE,
       ISLAND_COMPONENT_ATTRIBUTE,
       ISLAND_EXPORT_ATTRIBUTE,
@@ -175,22 +177,21 @@ const RESERVED_NAMES = new RegExp(
       ISLAND_TEMPLATE_ATTRIBUTE,
       ISLAND_FACADE_ATTRIBUTE,
       SEARCH_ATTRIBUTE,
-    ].join("|")})(?!${NAME_CHARACTER})(?:\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>&"'=<\`]*))?`,
+    ]
+      .map((name) => name.slice("data-".length))
+      .join("|")})(?!${NAME_CHARACTER})`,
   ].join("|"),
   "gi",
 );
 
 /**
- * Repeated to a fixed point: a removal can join its neighbours into a new
- * reserved name. Case-insensitive, as the parser lowercases names.
+ * Inserts `x-` and removes nothing (#258): a removal can take a quote or `>`
+ * with it and retokenise sanitised HTML. The renamed spelling holds nothing
+ * `RESERVED_NAMES` matches, so one pass is a fixed point. Case-insensitive, as
+ * the parser lowercases names.
  */
-function stripReservedNames(html: string): string {
-  let stripped = html;
-  for (;;) {
-    const next = stripped.replace(RESERVED_NAMES, "");
-    if (next === stripped) return stripped;
-    stripped = next;
-  }
+function neutraliseReservedNames(html: string): string {
+  return html.replace(RESERVED_NAMES, "x-$&");
 }
 
 export function useBuildData<T>(key: string): T {

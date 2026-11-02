@@ -6,9 +6,9 @@ import { createMarkdownRenderer, parseFrontmatter } from "@pagedeck/markdown-loa
 import { guides, PACKAGE } from "./pages.test-support.js";
 import { docsRenderer } from "./render.test-support.js";
 
-test("no docs page loses a byte to the reserved-name strip", async () => {
+test("no docs page has a reserved name for the strip to rename", async () => {
   const render = await docsRenderer();
-  const losses: string[] = [];
+  const renamed: string[] = [];
   for (const file of guides()) {
     const { body } = parseFrontmatter(readFileSync(join(PACKAGE, file), "utf8"), file);
     const { html } = await render.render(body, file);
@@ -18,15 +18,18 @@ test("no docs page loses a byte to the reserved-name strip", async () => {
     while (html[start] === stripped[start]) start += 1;
     let end = 0;
     while (
-      end < stripped.length - start &&
+      end < html.length - start &&
       html[html.length - 1 - end] === stripped[stripped.length - 1 - end]
     ) {
       end += 1;
     }
-    losses.push(`${file}: the strip removes ${JSON.stringify(html.slice(start, html.length - end))}`);
+    renamed.push(
+      `${file}: the strip renames ${JSON.stringify(html.slice(start, html.length - end))}` +
+        ` to ${JSON.stringify(stripped.slice(start, stripped.length - end))}`,
+    );
   }
 
-  expect(losses).toEqual([]);
+  expect(renamed).toEqual([]);
 });
 
 test("a heading spelling a framework-reserved name still anchors after the strip", async () => {
@@ -42,9 +45,9 @@ test("a heading spelling a framework-reserved name still anchors after the strip
   expect(
     [...stripped.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
   ).toEqual(rendered.toc.map((entry) => entry.slug));
-  // The strip also removes reserved names from prose, so the heading's own text
-  // goes; its anchor still lands.
-  expect(stripped).toContain('<h2 id="slot"></h2>');
+  // The strip also renames reserved names in prose, so the heading's own text
+  // changes; its anchor still lands.
+  expect(stripped).toContain('<h2 id="slot">data-x-pagedeck-slot</h2>');
 });
 
 test("a heading spelling a reserved name after a non-ASCII letter still anchors", async () => {
