@@ -48,8 +48,8 @@ segments, each a string key or a non-negative array index, such as
 `["items", 0, "node"]` or `["children"]`. The marker lists every path once, in
 the order the walk finds them, in the attribute `ISLAND_SLOT_PATHS_ATTRIBUTE`
 names. That constant, `ISLAND_REGION_ATTRIBUTE` and
-`ISLAND_REGION_STASH_ATTRIBUTE` are the names the first slice under #175 adds
-beside `marker.ts`'s existing constants.
+`ISLAND_REGION_STASH_ATTRIBUTE` are the names the slices under #175 add
+beside `marker.ts`'s existing constants: #246 the first two, #247 the stash.
 Segments rather than a dotted string mean a key that contains a dot needs no
 escaping. Ownership is "nearest marker", the same as for tree slots, so a path
 never repeats the island's prefix.
@@ -84,9 +84,10 @@ writes the HTML escaped into a `<template>` that carries
 uses. The runtime removes the stash before any island mounts.
 
 **`ISLAND_ID_PATTERN` does not change.** It stays the tree-slot pattern. A
-region index has its own pattern, `^\d+$`, and must be less than the length of
-the marker's path list. The path list must parse as an array of paths whose
-segments are strings or non-negative integers. Each attribute has one reader
+region index has its own pattern, `^(0|[1-9]\d*)$`, must be less than the
+length of the marker's path list, and names one region of the island at most.
+The path list must parse as an array of paths whose segments are strings or
+non-negative integers. Each attribute has one reader
 and one shape, so neither id space can pass for the other.
 
 **On the client, each path gets one stand-in, built once for the island's

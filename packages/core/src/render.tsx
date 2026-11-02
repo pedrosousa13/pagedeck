@@ -44,6 +44,8 @@ import {
   openProxyScope,
   throwContradictedHydration,
   throwProxyFaults,
+  twicePlacedPropSlot,
+  unplacedPropSlot,
 } from "./client-reference.js";
 import { recordProxyInstance } from "./proxy-census.js";
 import type {
@@ -785,6 +787,9 @@ async function prerenderToHtml(
 
   const pending = prerender(tree, {
     identifierPrefix,
+    // A boundary outlined as `<!--$?-->` would reach the client as a pending
+    // prop-slot region (ADR 0011).
+    progressiveChunkSize: Infinity,
     signal: controller.signal,
     onError(error: unknown, info: { componentStack?: string }) {
       reported.push({ error, component: suspectFrom(info?.componentStack) });
@@ -872,7 +877,6 @@ export async function renderPage(
     duplicates: [],
     unserializable: [],
     refused: [],
-    children: [],
   };
 
   /**
@@ -917,17 +921,18 @@ export async function renderPage(
         component: instance.name,
         renderedBy: instance.renderedBy ?? null,
         prefix: instance.prefix,
-        refusedChildren: instance.hasChildren,
+        propSlots: instance.slots.length,
       });
-      if (instance.hasChildren) {
-        proxyFaults.children.push({
-          component: instance.name,
-          renderedBy: instance.renderedBy,
-        });
-        continue;
-      }
-      const found: Omit<RefusedProp, "component">[] = [];
-      refusedProps(instance.props, [], new Set(), found);
+      const refused: Omit<RefusedProp, "component">[] = [];
+      refusedProps(instance.props, [], new Set(), refused);
+      // Under a misplaced container, the rest are its element's own fields.
+      const inside = instance.misplaced.map((prop) => `${prop.path}.`);
+      const found = [
+        ...instance.misplaced,
+        ...refused.filter(
+          (prop) => !inside.some((path) => prop.path.startsWith(path)),
+        ),
+      ];
       if (found.length > 0) {
         for (const prop of found) {
           proxyFaults.refused.push({
@@ -943,7 +948,9 @@ export async function renderPage(
 
     for (const instance of renderable) {
       const own = await pass(
-        closeProxyScope(createElement(instance.component, instance.props)),
+        closeProxyScope(
+          createElement(instance.component, instance.serverProps),
+        ),
         instance.prefix,
         instance.name,
       );
@@ -970,7 +977,28 @@ export async function renderPage(
         }
         continue;
       }
-      composed.set(instance.prefix, { island, props: payload.props });
+      const misrendered = instance.slots.flatMap((path, index) => {
+        const places = instance.placed.get(index)?.size ?? 0;
+        if (places === 1) return [];
+        return [places === 0 ? unplacedPropSlot(path) : twicePlacedPropSlot(path)];
+      });
+      if (misrendered.length > 0) {
+        for (const prop of misrendered) {
+          proxyFaults.refused.push({
+            component: instance.name,
+            renderedBy: instance.renderedBy,
+            ...prop,
+          });
+        }
+        continue;
+      }
+      composed.set(instance.prefix, {
+        island,
+        props: payload.props,
+        ...(instance.slots.length === 0
+          ? {}
+          : { slotPaths: JSON.stringify(instance.slots) }),
+      });
       byPrefix.set(island.prefix, island);
       proxyIslands.push(island);
     }

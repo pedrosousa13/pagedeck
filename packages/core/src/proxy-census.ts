@@ -7,7 +7,7 @@ export interface ProxyCensusRow {
   component: string;
   renderedBy: string | null;
   prefix: string;
-  refusedChildren: boolean;
+  propSlots: number;
 }
 
 export function recordProxyInstance(row: ProxyCensusRow): void {

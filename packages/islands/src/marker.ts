@@ -26,6 +26,15 @@ export const ISLAND_SLOT_ATTRIBUTE = "data-pagedeck-slot";
 // build wrote (#114).
 export const ISLAND_ID_PATTERN = /^\d+(\.\d+)*$/;
 
+export type PropPath = readonly (string | number)[];
+
+// A JSON array of prop paths, one per prop slot (ADR 0011).
+export const ISLAND_SLOT_PATHS_ATTRIBUTE = "data-pagedeck-slot-paths";
+
+// On the `<template>` that opens a placed prop slot's region; the value is an
+// index into the marker's path list.
+export const ISLAND_REGION_ATTRIBUTE = "data-pagedeck-region";
+
 export const ISLAND_TEMPLATE_TAG = "template";
 
 export const ISLAND_TEMPLATE_ATTRIBUTE = "data-pagedeck-template";

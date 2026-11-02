@@ -10,7 +10,9 @@ import {
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_REGION_ATTRIBUTE,
   ISLAND_SLOT_ATTRIBUTE,
+  ISLAND_SLOT_PATHS_ATTRIBUTE,
   ISLAND_SLOT_TAG,
   ISLAND_TAG,
   ISLAND_TEMPLATE_ATTRIBUTE,
@@ -166,6 +168,8 @@ const RESERVED_NAMES = new RegExp(
       ISLAND_MODE_ATTRIBUTE,
       ISLAND_PROPS_ATTRIBUTE,
       ISLAND_SLOT_ATTRIBUTE,
+      ISLAND_SLOT_PATHS_ATTRIBUTE,
+      ISLAND_REGION_ATTRIBUTE,
       ISLAND_TEMPLATE_ATTRIBUTE,
       ISLAND_FACADE_ATTRIBUTE,
       SEARCH_ATTRIBUTE,
@@ -424,6 +428,7 @@ export function islandInstances(
 export interface ComposedIsland {
   island: RenderedIsland;
   props: string;
+  slotPaths?: string;
 }
 
 export interface PropsFailure {
@@ -461,7 +466,7 @@ const REFUSED_PROP_NAMES: readonly string[] = [
 
 const DATA_FIX = "give it a value JSON can hold";
 
-const MAXIMUM_PROP_DEPTH = 32;
+export const MAXIMUM_PROP_DEPTH = 32;
 
 function refusal(
   at: readonly string[],
@@ -749,7 +754,7 @@ export function islandMarker(
   composed: ComposedIsland,
   key: string,
 ): ReactElement {
-  const { island, props } = composed;
+  const { island, props, slotPaths } = composed;
   return createElement(ISLAND_TAG, {
     key,
     [ISLAND_PREFIX_ATTRIBUTE]: island.prefix,
@@ -757,6 +762,7 @@ export function islandMarker(
     [ISLAND_EXPORT_ATTRIBUTE]: island.export,
     [ISLAND_MODE_ATTRIBUTE]: island.mode,
     [ISLAND_PROPS_ATTRIBUTE]: props,
+    [ISLAND_SLOT_PATHS_ATTRIBUTE]: slotPaths,
     role: "presentation",
     style: { display: "contents" },
     ...rawHtml(island.html),

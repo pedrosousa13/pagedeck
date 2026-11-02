@@ -8,12 +8,15 @@ export {
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_REGION_ATTRIBUTE,
   ISLAND_SLOT_ATTRIBUTE,
+  ISLAND_SLOT_PATHS_ATTRIBUTE,
   ISLAND_SLOT_TAG,
   ISLAND_TAG,
   ISLAND_TEMPLATE_ATTRIBUTE,
   ISLAND_TEMPLATE_TAG,
 } from "./marker.js";
+export type { PropPath } from "./marker.js";
 export { SlotContent } from "./slot.js";
 export type { SlotContentProps } from "./slot.js";
 export {
