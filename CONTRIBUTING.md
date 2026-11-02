@@ -49,9 +49,9 @@ npx vitest run packages/core/src/config.test.ts
 ## Harnesses
 
 `pnpm test` runs no harness, though it runs each `*.harness.test.ts`, which
-tests a harness's logic. Each has its own script in the root
-`package.json`, and `AGENTS.md`, under "Harnesses", says what each one proves
-and when to run it. The pack harness is the one that checks the public
+tests a harness's logic. Each has its own script in the root `package.json`,
+and `docs/maintaining/harnesses.md` says what each one proves and when to run
+it. The pack harness is the one that checks the public
 packages:
 
 ```sh
@@ -76,6 +76,7 @@ too.
 
 ## Where the rules are
 
-`AGENTS.md` holds the rules for working in this repository. `GLOSSARY.md` holds
-the project's vocabulary and the decisions that bind later work. `docs/adr/`
-holds the architectural decisions.
+`AGENTS.md` holds the rules for working in this repository, and its index
+names the maintainer docs in `docs/maintaining/`. `GLOSSARY.md` holds the
+project's vocabulary and the decisions that bind later work. `docs/adr/` holds
+the architectural decisions.

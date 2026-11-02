@@ -71,7 +71,8 @@ is not:
     pointed at `127.0.0.1`.
 
   It skips with a stated reason where there is no Docker daemon, and `pnpm
-  test` does not run it. `AGENTS.md`, "The origin harness", says how to run it.
+  test` does not run it. `docs/maintaining/harnesses.md`, "The origin
+  harness", says how to run it.
   One S3 implementation passing is not every S3 origin passing: neither AWS S3
   nor Cloudflare R2 has been sent a request.
 - **It is not a CI service container, and cannot be one.** A service container

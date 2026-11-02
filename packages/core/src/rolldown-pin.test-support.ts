@@ -12,7 +12,7 @@ export interface WhyEntry {
   readonly dependents?: readonly WhyDependent[];
 }
 
-const FIX_SOURCE = '(AGENTS.md, "The published tarball")';
+const FIX_SOURCE = '(docs/maintaining/packaging.md, "The published tarball")';
 
 export function rolldownVersionsFault(dir: string, why: readonly WhyEntry[]): string | undefined {
   const brought = new Map<string, Set<string>>();

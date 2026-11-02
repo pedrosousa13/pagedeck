@@ -12,6 +12,7 @@ export const REPOSITORY_DOCS = {
   excluded: [
     "agents",
     "dogfood-*.md",
+    "maintaining",
     "research",
     "scaling-verification.md",
     "specs",

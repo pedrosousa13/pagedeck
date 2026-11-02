@@ -1264,9 +1264,9 @@ Written as the compound, because *publish* is spoken for twice above and
 neither sense is this one: an **origin** is what a built site's files are
 published *to*, and an **edge artifact** is published out of band against a
 distribution. Both are a site's output reaching a host; this is the repository's
-own source reaching a tarball. The bare adjective is safe only in `AGENTS.md`'s
-"The published tarball" section and in the test it names, where nothing else is
-under discussion.
+own source reaching a tarball. The bare adjective is safe only in
+`docs/maintaining/packaging.md`'s "The published tarball" section and in the
+test it names, where nothing else is under discussion.
 _Avoid_: published package (a private package is publishable and never
 published, and the difference is the point), publishing (the registry act,
 which only the release workflow does, #7), distributable, npm package (every package here is an npm package; only some of
@@ -1276,8 +1276,9 @@ what one could ship belongs in the tarball)
 A site whose config is in this repository to be copied — it is here to
 demonstrate the framework, so a reader arrives at it looking for how to write
 their own. The site port and the CMS and app examples are the ones so far, and
-`AGENTS.md` describes each. A site published under its own name is not
-one, however much of the framework it exercises and wherever its config lives:
+`docs/maintaining/sites.md` describes each. A site published under its own
+name is not one, however much of the framework it exercises and wherever its
+config lives:
 what a reader finds there is one deployment's answers, chosen for that
 deployment, and nobody starts a site from them.
 
@@ -1428,7 +1429,7 @@ it renders, and the same string it reports in that document's **outline**
 
 It is a third sense of *slug* in this repository, and that is what earns the
 entry. **Entry id**, above, refuses *slug* for an entry's own id and grants it
-to a CMS field that spells one (#161); `AGENTS.md` uses it for a
+to a CMS field that spells one (#161); `docs/maintaining/sites.md` uses it for a
 route segment of that same field. This is neither: it names a place *inside* a
 document and never the document, so a sentence that says "slug" and means an
 entry, a route or a heading has three readings and no way to pick one. Write
@@ -1573,9 +1574,9 @@ reports a tarball's every stowaway.
 It binds a package added tomorrow, which is what puts it here rather than in
 the section below: `packages/core/src/publishable-packages.test.ts` walks
 `packages/` off disk and packs whatever it finds, so a new package is held to
-all of it the day it lands, with no list to add itself to. `AGENTS.md` under
-"The published tarball" carries the three fields and the argument for each; do
-not restate them here. Ruled on #185.
+all of it the day it lands, with no list to add itself to.
+`docs/maintaining/packaging.md` under "The published tarball" carries the three
+fields and the argument for each; do not restate them here. Ruled on #185.
 
 Each package's `tsconfig.build.json` holds to the same rule. Only `references`
 differs between packages; `extends`, `compilerOptions`, `include` and `exclude`
@@ -1602,8 +1603,8 @@ markdown, `nav.json` and `assets/` and no code. So it emits nothing, has no
 and its `prepack` copies the published part of `docs/` in rather than running
 `tsc -b`, because `npm pack` cannot reach a file outside the package and
 `docs/` stays the one copy in git. The exception is named once, by package
-name, and admits nothing to any other package; `AGENTS.md` under "The
-published tarball" carries it.
+name, and admits nothing to any other package;
+`docs/maintaining/packaging.md` under "The published tarball" carries it.
 
 ### The bundler is reached through one door, and every hook it is handed is guarded
 

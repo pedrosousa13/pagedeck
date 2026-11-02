@@ -530,7 +530,8 @@ them, as below.
 origin: the harness collects each URL in Lighthouse's `network-requests` audit
 and found none on another origin. The landing page has no analytics, no tag
 manager, no pixel and no consent manager, and `/features/`' embed script and
-images are same-origin stand-ins by design (AGENTS.md, "The landing site").
+images are same-origin stand-ins by design (as this repository's `AGENTS.md`
+said until #124 moved the landing site to deck-cool).
 Cloudflare adds a `NEL` header that names `a.nel.cloudflare.com` as a report
 endpoint, with a `success_fraction` of 0. No load in the run sent it a report.
 So a mobile performance score of 99 or 100 is what the page scores with no
