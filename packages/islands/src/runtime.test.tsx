@@ -17,6 +17,8 @@ import {
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_REGION_ATTRIBUTE,
+  ISLAND_SLOT_PATHS_ATTRIBUTE,
   ISLAND_TAG,
 } from "./marker.js";
 import { wrapInProviders } from "./providers.js";
@@ -827,6 +829,84 @@ test("the islands after an unreadable marker still hydrate", async () => {
 
   expect(thrown).toBeInstanceOf(RegistryError);
   expect(mounted).toEqual(["one", "two"]);
+});
+
+function forgedPropSlots(
+  props: string,
+  paths: string | undefined,
+  region: string,
+): string {
+  const listed =
+    paths === undefined
+      ? ""
+      : ` ${ISLAND_SLOT_PATHS_ATTRIBUTE}="${escapeAttribute(paths)}"`;
+  return handWritten(
+    `${ISLAND_PREFIX_ATTRIBUTE}="iforged" ${ISLAND_COMPONENT_ATTRIBUTE}="Reveal"` +
+      ` ${ISLAND_MODE_ATTRIBUTE}="load" ${ISLAND_PROPS_ATTRIBUTE}="${escapeAttribute(props)}"${listed}`,
+  ).replace(
+    "<span>hi</span>",
+    `<div><!--$--><template ${ISLAND_REGION_ATTRIBUTE}="${region}"></template><p>slot</p><!--/$--></div>`,
+  );
+}
+
+const NOT_PATHS = `its ${ISLAND_SLOT_PATHS_ATTRIBUTE} is not a list of paths to null props`;
+const NOT_INDEX = `holds a region whose ${ISLAND_REGION_ATTRIBUTE} is not an index into its ${ISLAND_SLOT_PATHS_ATTRIBUTE}`;
+
+test.each([
+  ["a path list that is not JSON", '{"children":null}', "[[oops", "0", `its ${ISLAND_SLOT_PATHS_ATTRIBUTE} is not JSON`],
+  ["a path list that is not an array", '{"children":null}', '{"0":["children"]}', "0", NOT_PATHS],
+  ["an empty path", '{"children":null}', "[[]]", "0", NOT_PATHS],
+  ["a negative segment", '{"items":[null]}', '[["items",-1]]', "0", NOT_PATHS],
+  ["a non-integer segment", '{"items":[null]}', '[["items",0.5]]', "0", NOT_PATHS],
+  ["an index segment into an object", '{"items":{"0":null}}', '[["items",0]]', "0", NOT_PATHS],
+  ["a path to a prop that is not null", '{"title":"x"}', '[["title"]]', "0", NOT_PATHS],
+  ["a path through the prototype", '{"children":null}', '[["__proto__","polluted"]]', "0", NOT_PATHS],
+  ["a negative region index", '{"children":null}', '[["children"]]', "-1", NOT_INDEX],
+  ["an out-of-range region index", '{"children":null}', '[["children"]]', "1", NOT_INDEX],
+  ["a region index that is not a number", '{"children":null}', '[["children"]]', "x", NOT_INDEX],
+  ["a region but no path list", '{"children":null}', undefined, "0", NOT_INDEX],
+])("a marker with %s is refused at the read path without mounting", async (_, props, paths, region, reason) => {
+  fakeBrowser();
+  document.body.innerHTML = forgedPropSlots(props, paths, region);
+  const resolve = vi.fn(async () => Reveal as ComponentType<never>);
+
+  let thrown: unknown;
+  await act(async () => {
+    try {
+      hydrateIslands({ resolve });
+    } catch (error) {
+      thrown = error;
+    }
+  });
+
+  expect(thrown).toBeInstanceOf(RegistryError);
+  expect((thrown as Error).message).toBe(
+    `Island "Reveal" (iforged): ${reason}, so its prop slots cannot be placed — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
+  );
+  expect(resolve).not.toHaveBeenCalled();
+  expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+});
+
+test("a well-formed prop slot hydrates over its region, which stays the server's", async () => {
+  fakeBrowser();
+  function Holder({ children }: { children?: ReactNode }) {
+    return <div>{children}</div>;
+  }
+  document.body.innerHTML = forgedPropSlots('{"children":null}', '[["children"]]', "0");
+  const slot = document.body.querySelector("p");
+  // Loaded up front: the mount's on-demand import would outlast the `act`.
+  await import("./slot.js");
+
+  const complaints = await complaintsWhile(async () => {
+    await act(async () => {
+      hydrateIslands({ resolve: async () => Holder as ComponentType<never> });
+    });
+  });
+
+  expect(unexplained(complaints)).toEqual([]);
+  expect(reported).toEqual([]);
+  expect(document.body.querySelector("p")).toBe(slot);
+  expect(markers()[0]?.getAttribute(ISLAND_HYDRATED_ATTRIBUTE)).toBe("");
 });
 
 function Pair({ id }: { id: string }) {

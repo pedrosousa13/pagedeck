@@ -1,4 +1,4 @@
-import { createElement, memo, useEffect, useRef } from "react";
+import { createElement, memo, Suspense, use, useEffect, useRef } from "react";
 import type { ReactElement, ReactNode, RefObject } from "react";
 import {
   ISLAND_ID_PATTERN,
@@ -6,7 +6,7 @@ import {
   ISLAND_SLOT_TAG,
 } from "./marker.js";
 import { RegistryError } from "./registry.js";
-import type { IslandElement } from "./runtime.js";
+import type { IslandElement, PropSlots } from "./runtime.js";
 
 export interface SlotContentProps {
   slot: string;
@@ -154,4 +154,45 @@ export function adoptSlots({
     .map(([slot, markup]) =>
       createElement(AdoptedSlot, { key: slot, slot, html: markup, adopt }),
     );
+}
+
+const unsettled = new Promise<never>(() => {});
+
+// Suspends for the island's life, so its boundary stays dehydrated over the
+// server's HTML and the client never renders the slot (ADR 0011).
+function Unsettled(): null {
+  use(unsettled);
+  return null;
+}
+
+function standIn(html: string, index: number): ReactElement {
+  return createElement(
+    Suspense,
+    {
+      key: String(index),
+      fallback: createElement(ISLAND_SLOT_TAG, {
+        role: "presentation",
+        style: { display: "contents" },
+        dangerouslySetInnerHTML: { __html: html },
+      }),
+    },
+    createElement(Unsettled),
+  );
+}
+
+// Each stand-in is built once: a new element at a dehydrated boundary makes
+// React replace its server DOM. `hydrateIslands` checked every path already.
+export function propSlotProps(
+  props: Record<string, unknown>,
+  { paths, html }: PropSlots,
+): Record<string, unknown> {
+  const next = structuredClone(props);
+  paths.forEach((path, index) => {
+    let at = next as Record<string | number, unknown>;
+    for (const segment of path.slice(0, -1)) {
+      at = at[segment] as Record<string | number, unknown>;
+    }
+    at[path.at(-1) as string | number] = standIn(html.get(index) ?? "", index);
+  });
+  return next;
 }

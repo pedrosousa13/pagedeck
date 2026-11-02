@@ -1,11 +1,44 @@
 // @vitest-environment jsdom
-import { useState } from "react";
-import type { ReactNode } from "react";
-import { expect, test } from "vitest";
+import { act, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
+import { afterEach, expect, test, vi } from "vitest";
 import type { ComponentDefinition } from "@pagedeck/islands";
+import { hydrateIslands } from "@pagedeck/islands/runtime";
 import { weighIslandProps } from "./budgets.js";
 import { clientReference } from "./client-reference.js";
 import { renderPage, RenderError } from "./render.js";
+
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
+
+interface TestElement {
+  innerHTML: string;
+  readonly textContent: string | null;
+  getAttribute(name: string): string | null;
+  querySelector(selector: string): TestElement | null;
+  querySelectorAll(selector: string): Iterable<TestElement>;
+  click(): void;
+}
+declare const document: { body: TestElement };
+
+// Hoisted: React reads `reportError` once, when `react-dom/client` first loads.
+const reported: string[] = vi.hoisted(() => {
+  const lines: string[] = [];
+  (globalThis as { reportError?: (error: unknown) => void }).reportError = (
+    error,
+  ) => {
+    lines.push(String(error));
+  };
+  return lines;
+});
+
+afterEach(() => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = undefined;
+  document.body.innerHTML = "";
+  reported.length = 0;
+  vi.restoreAllMocks();
+});
 
 const PAGE = { locale: "en", path: "/home" } as const;
 
@@ -23,17 +56,28 @@ function List({
   children?: ReactNode;
 }) {
   const [count, setCount] = useState(0);
+  const [reversed, setReversed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const shown = reversed ? [...items].reverse() : items;
   return (
     <section>
       <h2>{title}</h2>
       <button id="inc" type="button" onClick={() => setCount(count + 1)}>
         {`count ${String(count)}`}
       </button>
-      <ul>
-        {items.map((item) => (
-          <li key={item.id}>{item.node}</li>
-        ))}
-      </ul>
+      <button id="reverse" type="button" onClick={() => setReversed(!reversed)}>
+        reverse
+      </button>
+      <button id="collapse" type="button" onClick={() => setCollapsed(!collapsed)}>
+        collapse
+      </button>
+      {collapsed ? null : (
+        <ul>
+          {shown.map((item) => (
+            <li key={item.id}>{item.node}</li>
+          ))}
+        </ul>
+      )}
       <footer>{children}</footer>
     </section>
   );
@@ -223,4 +267,114 @@ test("an element counts toward islandPropsBudget only as its null placeholder", 
   expect(weighed.breaches.map((island) => island.bytes)).toEqual([
     '{"title":"T","items":[],"children":null}'.length,
   ]);
+});
+
+const MODULES: Readonly<Record<string, ComponentType<never>>> = {
+  List: List as ComponentType<never>,
+  Counter: Counter as ComponentType<never>,
+};
+
+function $(selector: string): TestElement {
+  const found = document.body.querySelector(selector);
+  if (found === null) throw new Error(`nothing matches ${selector}`);
+  return found;
+}
+
+async function click(selector: string): Promise<void> {
+  await act(async () => {
+    $(selector).click();
+  });
+}
+
+function order(): string {
+  return [...document.body.querySelectorAll("[data-card]")]
+    .map((card) => card.getAttribute("data-card"))
+    .join("");
+}
+
+const withoutHydratedMark = (html: string): string =>
+  html.replaceAll(' data-pagedeck-hydrated=""', "");
+
+async function hydrate(
+  resolve: (name: string) => Promise<ComponentType<never>> = async (name) =>
+    MODULES[name] as ComponentType<never>,
+): Promise<string[]> {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const complaints: string[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    complaints.push(args.map(String).join(" "));
+  });
+  await act(async () => {
+    hydrateIslands({ resolve });
+  });
+  return complaints;
+}
+
+test("a proxied island hydrates around its prop slots and keeps their server DOM", async () => {
+  document.body.innerHTML = await render(Wrapper);
+  const list = $('[data-pagedeck-component="List"]');
+  const serverHtml = list.innerHTML;
+  const cardA = $('[data-card="A"]');
+  const children = $("[data-children]");
+
+  const complaints = await hydrate();
+
+  expect(list.getAttribute("data-pagedeck-hydrated")).toBe("");
+  expect(withoutHydratedMark(list.innerHTML)).toBe(serverHtml);
+  expect($('[data-card="A"]')).toBe(cardA);
+  expect($("[data-children]")).toBe(children);
+
+  await click("#inc");
+  await click("#inc");
+  expect($("#inc").textContent).toBe("count 2");
+  expect($('[data-card="A"]')).toBe(cardA);
+  expect($("[data-children]")).toBe(children);
+
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+test("a keyed reverse moves each prop slot's region with its nodes", async () => {
+  document.body.innerHTML = await render(Wrapper);
+  const cardA = $('[data-card="A"]');
+  const cardB = $('[data-card="B"]');
+
+  const complaints = await hydrate();
+  await click("#reverse");
+
+  expect(order()).toBe("BA");
+  expect($('[data-card="A"]')).toBe(cardA);
+  expect($('[data-card="B"]')).toBe(cardB);
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+test("a prop slot's HTML is read before any island mounts, so a nested island's state stays out of it", async () => {
+  document.body.innerHTML = await render(Wrapper);
+  let release = (): void => {};
+  const listMayMount = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await hydrate(async (name) => {
+    if (name === "List") await listMayMount;
+    return MODULES[name] as ComponentType<never>;
+  });
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+  await act(async () => {
+    release();
+  });
+
+  await click("#collapse");
+  await click("#collapse");
+
+  const restored = $('[data-card="A"]');
+  expect(restored.textContent).toBe("Anested 0");
+  expect(restored.innerHTML).not.toContain("data-pagedeck-hydrated");
 });
