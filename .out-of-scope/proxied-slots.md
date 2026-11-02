@@ -1,5 +1,10 @@
 # Proxied slots
 
+**Superseded.** The maintainer reopened this request on 2026-11-02, because its
+reopen trigger was met: a third-party design system ships both the server
+wrapper and the client half, so neither documented fix fits (#175). The work
+now runs as the wayfinder map #237. The record below is kept as written.
+
 A `"use client"` component handed JSX children by a server component is refused
 at build time (#168). Building it, so those children hydrate as slots, was
 issue #173. That issue was deferred until someone measured how often the
@@ -43,3 +48,4 @@ that this row does not meet the trigger and #173 stays closed.
 
 - #173
 - #256 (the measurement)
+- #175 (reopened it)
