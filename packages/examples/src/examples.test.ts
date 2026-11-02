@@ -287,7 +287,7 @@ test("the render example escapes content, keeps rich text raw, and refuses build
 });
 
 test("the client-reference example islands a component no entry names", async () => {
-  const { html, islands, refusedProp } =
+  const { html, islands, twicePlacedSlot } =
     await islandNestedClientComponent();
   const [like] = islands;
 
@@ -309,8 +309,8 @@ test("the client-reference example islands a component no entry names", async ()
       "</footer></div>",
   );
 
-  expect(refusedProp).toBe(
-    'Component "LikeButton": prop "onLike" is a function, and "BadFooter" renders it in entry /en/article — a client component\'s props are the code of whatever rendered it, and the build hands them to React unchanged and its marker carries them to the browser, so give it a value JSON can hold',
+  expect(twicePlacedSlot).toBe(
+    'Component "Teaser": prop "children" is an element the component renders in more than one place, and "BadFooter" renders it in entry /en/article — a prop slot has one region of server HTML and the browser keeps it where it is, so render the element once',
   );
 });
 

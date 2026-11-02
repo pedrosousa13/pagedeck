@@ -2,6 +2,7 @@
 // real site `pagedeck build` substitutes the stand-ins; this example does it by hand.
 import { clientReference, renderPage } from "@pagedeck/core";
 import { LikeButton, ThemeProvider } from "./site-components.js";
+import type { ReactNode } from "react";
 import type { ComponentRegistry } from "@pagedeck/islands";
 
 // `PageContext.path`, rooted; the store keys this page as `article`.
@@ -23,9 +24,25 @@ function ArticleFooter({ title }: { title: string }) {
   );
 }
 
-/** The same template, wrong on purpose: a function prop, which no marker can carry. */
+// Wrong on purpose: a client component that renders the element it is handed twice.
+function Teaser({ children }: { children?: ReactNode }) {
+  return (
+    <details>
+      <summary>{children}</summary>
+      {children}
+    </details>
+  );
+}
+
+const ProxiedTeaser = clientReference(Teaser, { name: "Teaser", mode: "load" });
+
+/** The same template, wrong on purpose: one prop slot placed in two places. */
 function BadFooter() {
-  return <ProxiedLikeButton count={12} onLike={() => undefined} />;
+  return (
+    <ProxiedTeaser>
+      <p>panel</p>
+    </ProxiedTeaser>
+  );
 }
 
 export interface NestedIsland {
@@ -39,7 +56,7 @@ export interface NestedIsland {
 export interface NestedClientComponentExample {
   html: string;
   islands: readonly NestedIsland[];
-  refusedProp: string;
+  twicePlacedSlot: string;
 }
 
 export async function islandNestedClientComponent(): Promise<NestedClientComponentExample> {
@@ -57,11 +74,11 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
     providers: [{ component: ThemeProvider, props: { theme: "dark" } }],
   });
 
-  let refusedProp = "no error";
+  let twicePlacedSlot = "no error";
   try {
     await renderPage({ page: PAGE, template: "BadFooter", registry });
   } catch (error) {
-    refusedProp = (error as Error).message;
+    twicePlacedSlot = (error as Error).message;
   }
 
   return {
@@ -72,6 +89,6 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
       mode: island.mode,
       path: island.path,
     })),
-    refusedProp,
+    twicePlacedSlot,
   };
 }
