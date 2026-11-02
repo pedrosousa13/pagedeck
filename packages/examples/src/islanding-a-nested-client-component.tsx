@@ -44,7 +44,7 @@ export interface NestedIsland {
 export interface NestedClientComponentExample {
   html: string;
   islands: readonly NestedIsland[];
-  refusedChildren: string;
+  unplacedPropSlot: string;
 }
 
 export async function islandNestedClientComponent(): Promise<NestedClientComponentExample> {
@@ -62,11 +62,11 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
     providers: [{ component: ThemeProvider, props: { theme: "dark" } }],
   });
 
-  let refusedChildren = "no error";
+  let unplacedPropSlot = "no error";
   try {
     await renderPage({ page: PAGE, template: "BadFooter", registry });
   } catch (error) {
-    refusedChildren = (error as Error).message;
+    unplacedPropSlot = (error as Error).message;
   }
 
   return {
@@ -77,6 +77,6 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
       mode: island.mode,
       path: island.path,
     })),
-    refusedChildren,
+    unplacedPropSlot,
   };
 }
