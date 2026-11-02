@@ -1372,7 +1372,7 @@ stays right for a finding a **Security sweep** actually filed)
 
 **Site audit**:
 The browser-driven pass over a built site: Lighthouse for scores and resource
-budgets, axe-core for accessibility violations, both against a local origin
+figures, axe-core for accessibility violations, both against a local origin
 serving the build (`packages/site/src/audit.ts`, #59). It runs a browser, so it
 is out of `pnpm test` and behind harnesses and a CI workflow of its own.
 
@@ -2319,6 +2319,16 @@ that the known-open findings cannot get worse while they are open, and each open
 finding is filed rather than rounded away. A floor is raised when its findings
 are closed, never nudged down to make a run pass. This binds any later site that
 grows an audit, not just this one. Ruled on #59.
+
+**Amended 2026-11-02 by #230: byte budgets are optional, and this repository
+holds its own sites to none.** The maintainer ruled that `build.budget` and
+`build.islandPropsBudget` stay as features a site opts into, and that no
+checked-in site declares either. So the site audit no longer asserts a byte
+count or a request count against a per-page limit: it records both and asserts
+the score floors. A byte count is still a deterministic figure, so a later
+site that opts into a budget may assert one under the decision above. The same
+ruling removed the islands modules' size ratchets and the framework-JavaScript
+ceiling that `docs/success-criteria.md` criterion 2 held.
 
 ### A failed color probe is retried, never cached as a failure
 

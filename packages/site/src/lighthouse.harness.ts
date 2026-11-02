@@ -11,7 +11,6 @@ import { auditVerdict, payloadReductions } from "./audit.js";
 import type { AuditVerdict, LighthouseRun, PayloadReduction } from "./audit.js";
 import {
   AUDIT_URLS,
-  BUDGETS,
   SCORE_FLOORS,
   TWIN_PAGE_KIND,
   TWIN_PAYLOAD,
@@ -195,7 +194,7 @@ beforeAll(async () => {
     await served.close();
   }
 
-  verdict = auditVerdict({ runs, budgets: BUDGETS, floors: SCORE_FLOORS });
+  verdict = auditVerdict({ urls: AUDIT_URLS, runs, floors: SCORE_FLOORS });
   write({ conditions, payload, reductions: reduction, runs, verdict });
 
   process.stdout.write(
@@ -222,11 +221,11 @@ afterAll(() => {
   rmSync(join(WORK, "site"), { recursive: true, force: true });
 });
 
-test("every page of the representative set is inside its script budget and over every score floor", () => {
+test("every page of the representative set is over every score floor", () => {
   expect(runs.map((one) => one.url)).toEqual([...AUDIT_URLS]);
   expect(verdict.failures.map((one) => `${one.url}: ${one.name} expected ${one.expected}, measured ${one.actual}`)).toEqual([]);
   expect(verdict.assertions).toHaveLength(
-    AUDIT_URLS.length * (2 + Object.keys(SCORE_FLOORS).length),
+    AUDIT_URLS.length * Object.keys(SCORE_FLOORS).length,
   );
 });
 

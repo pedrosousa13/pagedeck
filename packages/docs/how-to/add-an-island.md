@@ -1,13 +1,12 @@
 ---
 section: how-to
-title: Add an island and hold it to a budget
-description: Write a "use client" component, place it on one page, choose when it hydrates, and fail the build when a page ships more JavaScript than you allow.
+title: Add an island
+description: Write a "use client" component, place it on one page, and choose when it hydrates.
 ---
 
-# Add an island and hold it to a budget
+# Add an island
 
-This page adds an island to the site `npm create pagedeck` writes, and then
-makes the build check how much JavaScript each page ships. If you have no site
+This page adds an island to the site `npm create pagedeck` writes. If you have no site
 yet, [Your first site](../tutorials/your-first-site.md) makes one. Every file below
 is relative to the site's directory.
 
@@ -87,7 +86,7 @@ npx pagedeck build
 `site/greet/index.html` has a `<script>` tag, which loads the greeting.
 `site/about/index.html` and `site/index.html` have none.
 The build bundles an island's JavaScript for the pages that name it and for no
-other page. Step 4 makes the build check this for you.
+other page.
 
 ## 3. Choose when it hydrates
 
@@ -137,107 +136,5 @@ components: {
 },
 ```
 
-## 4. Set a budget
-
-A budget is a limit on the JavaScript one page transfers for first render, in
-Brotli-compressed bytes. Start by holding every page to nothing. Add this to
-`build` in `pagedeck.config.ts`:
-
-```ts
-budget: { "/**": "0b" },
-```
-
-Build again:
-
-```sh
-npx pagedeck build
-```
-
-The build fails with exit code 2, and prints:
-
-```
-pagedeck: JavaScript budget: 2 pages transfer more JavaScript for first render than their budget allows — ship fewer or smaller islands to each page, hydrate one on "visible" or "idle" instead of "load", or raise its limit in pagedeck.config.ts's build.budget:
-pagedeck:   en /counter/ — "/**" allows 0 B, the page transfers 53831 B over 4 chunks, the 3 largest:
-pagedeck:     /assets/pagedeck-core-Cns6bgET.js — 52215 B
-pagedeck:     /assets/pagedeck-startup-B3Ra50G7.js — 1120 B
-pagedeck:     /assets/counter-Cs6A6vJa.js — 257 B
-pagedeck:     fold strategy promoted "counter" at tree position 1 from "visible" to "load" — position 1 is above the fold threshold of 4
-pagedeck:   en /greet/ — "/**" allows 0 B, the page transfers 53661 B over 3 chunks:
-pagedeck:     /assets/pagedeck-core-Cns6bgET.js — 52215 B
-pagedeck:     /assets/pagedeck-startup-B3Ra50G7.js — 1120 B
-pagedeck:     /assets/entry-ce914658698880e6-C4BtvQy5.js — 326 B
-```
-
-The message names every page over its limit, the pattern that set the limit,
-what the page transfers, and its largest chunks. `/` and `/about/` are not in
-it, because they ship 0 B.
-
-Read the two pages against step 3. The counter has no `hydrate`, so fold
-strategy promoted it to `load`, and its chunk counts. The greeting hydrates on
-`idle`, so its own chunk is not on the list. Both pages pay for `pagedeck-core`,
-which holds React and the island runtime, and for `pagedeck-startup`, which waits for
-each island's trigger. `/counter/` loads `pagedeck-core` at once. `/greet/` has no
-`load` island, so it loads `pagedeck-core` only when the greeting's trigger fires,
-and the budget charges it all the same. Moving an island off `load` saves the
-island's own chunk, not React.
-
-Give each page with an island a limit of its own. Size it from the figure the
-build printed, plus room for drift: about 15% over 53831 B, rounded to a whole
-kilobyte, is `60kb`. Replace the budget in `pagedeck.config.ts`:
-
-```ts
-budget: {
-  "/**": "0b",
-  "/counter/": "60kb",
-  "/greet/": "60kb",
-},
-```
-
-```sh
-npx pagedeck build
-```
-
-The build passes. `"/counter/"` beats `"/**"` for `/counter/` because it is the
-more specific pattern; [which pattern wins](../reference/javascript-budgets.md#which-pattern-wins)
-has the rules. Every other page is still held to 0 B, so the next page that
-starts to ship JavaScript fails the build until you give it a key.
-[JavaScript budgets](../reference/javascript-budgets.md) covers what a page's cost
-includes and the size units.
-
-## 5. Read the report
-
-Every build of a site with a budget writes `.pagedeck/budget-report.json`,
-beside `pagedeck.config.ts` and outside `site/`. A failing build writes it too.
-It has one row per budgeted page. This is the row for the greeting's page:
-
-```json
-{
-  "locale": "en",
-  "path": "/greet/",
-  "pattern": "/greet/",
-  "limitText": "60kb",
-  "limit": 61440,
-  "actual": 53661,
-  "jsInlined": 0,
-  "css": 0,
-  "cssInlined": 0,
-  "html": 314,
-  "breach": false,
-  "chunks": [
-    { "path": "/assets/pagedeck-core-Cns6bgET.js", "bytes": 52215 },
-    { "path": "/assets/pagedeck-startup-B3Ra50G7.js", "bytes": 1120 },
-    { "path": "/assets/entry-ce914658698880e6-C4BtvQy5.js", "bytes": 326 }
-  ],
-  "causes": [],
-  "largestIslandProps": 2,
-  "islandPropsBreaches": []
-}
-```
-
-`actual` is what the page transfers for first render, and it is the sum of
-`chunks`. `breach` is `actual > limit`. `css` and `html` are reported beside
-it and never count against the budget. `causes` lists what fold strategy moved
-on the page, and is empty here because the greeting's `hydrate` is explicit.
-Two builds of the same site write the same rows, so you can keep the report
-from each build and compare a page's `actual` over time.
-[The report](../reference/javascript-budgets.md#the-report) describes every field.
+To fail the build when a page ships more JavaScript than you allow, declare a
+[JavaScript budget](../reference/javascript-budgets.md). A budget is optional.

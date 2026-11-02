@@ -220,15 +220,12 @@ Each name in the `components` list is a key of `build.components` in the
 config, and the layout renders it as a child. The counter is an island because
 `components/counter.tsx` starts with `"use client"`. The build bundles an
 island's JavaScript for the pages that name it and for no other page, which is
-why adding `/hello/` cost nothing. A
-[JavaScript budget](../reference/javascript-budgets.md) keeps it that way, by
-failing the build when a page ships more than you allow.
-[Add an island and hold it to a budget](../how-to/add-an-island.md) sets one up.
+why adding `/hello/` cost nothing.
 
 ## What happens next
 
-- [Add an island and hold it to a budget](../how-to/add-an-island.md) writes an
-  island of your own, chooses when it hydrates, and reads what each page ships.
+- [Add an island](../how-to/add-an-island.md) writes an island of your own
+  and chooses when it hydrates.
 - [Site config](../reference/site-config.md) covers layouts, frontmatter
   components, routes and every default this page relied on.
 - [The pagedeck command](../reference/cli.md) lists each verb and its flags,

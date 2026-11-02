@@ -1,4 +1,3 @@
-import { gzipSync } from "node:zlib";
 import { normalizeOutputPath } from "@pagedeck/core";
 import type { TrailingSlash } from "@pagedeck/core";
 
@@ -109,11 +108,6 @@ export interface LighthouseRun {
   readonly timings: Readonly<Record<string, number>>;
 }
 
-export interface AuditBudget {
-  readonly scriptBytes: number;
-  readonly scriptRequests: number;
-}
-
 export interface AuditAssertion {
   readonly url: string;
   readonly name: string;
@@ -138,13 +132,11 @@ function check(
 }
 
 export function auditVerdict(input: {
+  readonly urls: readonly string[];
   readonly runs: readonly LighthouseRun[];
-  readonly budgets: Readonly<Record<string, AuditBudget>>;
   readonly floors: Readonly<Record<string, number>>;
 }): AuditVerdict {
-  const urls = Object.keys(input.budgets);
-
-  const faults = urlFaults("Site audit", urls, input.runs.map((one) => one.url));
+  const faults = urlFaults("Site audit", input.urls, input.runs.map((one) => one.url));
   for (const [category] of Object.entries(input.floors)) {
     for (const run of input.runs) {
       if (!(category in run.scores)) {
@@ -158,25 +150,8 @@ export function auditVerdict(input: {
 
   const byUrl = new Map(input.runs.map((one) => [one.url, one]));
   const assertions: AuditAssertion[] = [];
-  for (const url of urls) {
+  for (const url of input.urls) {
     const run = byUrl.get(url) as LighthouseRun;
-    const budget = input.budgets[url] as AuditBudget;
-    assertions.push(
-      check(
-        url,
-        "script bytes",
-        `<= ${String(budget.scriptBytes)}`,
-        run.scriptBytes,
-        run.scriptBytes <= budget.scriptBytes,
-      ),
-      check(
-        url,
-        "script requests",
-        `<= ${String(budget.scriptRequests)}`,
-        run.scriptRequests,
-        run.scriptRequests <= budget.scriptRequests,
-      ),
-    );
     for (const [category, floor] of Object.entries(input.floors)) {
       const score = run.scores[category] as number;
       assertions.push(
@@ -246,87 +221,4 @@ export function totalBytes(chunks: readonly PayloadBytes[]): PayloadBytes {
     }),
     { raw: 0, gzip: 0, brotli: 0 },
   );
-}
-
-export interface RuntimeSplit {
-  readonly url: string;
-  readonly react: PayloadBytes;
-  readonly own: PayloadBytes;
-}
-
-export function runtimeSplit(input: {
-  readonly url: string;
-  readonly react: string;
-  readonly chunks: readonly (PayloadBytes & { readonly path: string })[];
-}): RuntimeSplit {
-  const named = new RegExp(
-    `/${input.react.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-[\\w-]{8}\\.js$`,
-  );
-  const react = input.chunks.filter((chunk) => named.test(chunk.path));
-  if (react.length !== 1) {
-    const found =
-      react.length === 0
-        ? `no chunk named "${input.react}"`
-        : `${String(react.length)} chunks named "${input.react}"`;
-    throw new Error(
-      `Runtime bytes "${input.url}": ${found} among the ${String(input.chunks.length)} this page loads (${input.chunks.map((chunk) => chunk.path).join(", ")}), so React's bytes cannot be told from the framework's — check that the measurement build's React group in packages/site/src/audit-site.ts still captures react, react-dom and scheduler`,
-    );
-  }
-  return {
-    url: input.url,
-    react: totalBytes(react),
-    own: totalBytes(input.chunks.filter((chunk) => !named.test(chunk.path))),
-  };
-}
-
-export function emittedHashes(fileNames: readonly string[]): string[] {
-  return fileNames.flatMap((name) => {
-    const match = /-([\w-]{8})\.(?:js|css)$/.exec(name);
-    return match === null ? [] : [match[1] as string];
-  });
-}
-
-// Only the build's own hashes: a pattern would also rewrite `./polyfill-promises.js`.
-export function normaliseAssetHashes(text: string, hashes: readonly string[]): string {
-  let fixed = text;
-  for (const hash of hashes) {
-    fixed = fixed.replaceAll(`-${hash}.`, "-00000000.");
-  }
-  return fixed;
-}
-
-// Normalised because a renamed hash moved gzip by a byte with no script byte
-// changed (#547).
-export function hashInsensitiveGzip(bytes: Uint8Array, hashes: readonly string[]): number {
-  const text = normaliseAssetHashes(Buffer.from(bytes).toString("utf8"), hashes);
-  return gzipSync(text, { level: 9 }).byteLength;
-}
-
-export interface RuntimeCeiling {
-  readonly raw: number;
-  readonly gzip: number;
-}
-
-export function runtimeVerdict(input: {
-  readonly split: RuntimeSplit;
-  readonly ceiling: RuntimeCeiling;
-}): AuditVerdict {
-  const { url, own } = input.split;
-  const assertions = [
-    check(
-      url,
-      "framework-own bytes, raw",
-      `<= ${String(input.ceiling.raw)}`,
-      own.raw,
-      own.raw <= input.ceiling.raw,
-    ),
-    check(
-      url,
-      "framework-own bytes, gzip",
-      `<= ${String(input.ceiling.gzip)}`,
-      own.gzip,
-      own.gzip <= input.ceiling.gzip,
-    ),
-  ];
-  return { assertions, failures: assertions.filter((one) => !one.ok) };
 }

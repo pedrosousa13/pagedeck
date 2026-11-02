@@ -210,11 +210,7 @@ packages/adapter-netlify/.pagedeck-removal-build-test/
 # `packages/core/src/retention.ts`) sits outside `outDir` so it is never
 # uploaded with the site.
 #
-# The `.pagedeck/` entry covers a second file since #336: this site declares
-# `build.budget`, and the budget report is written to
-# `.pagedeck/budget-report.json` rather than into `outDir`.
-#
-# `packages/site/src/site.build.test.ts` removes all four before and after its
+# `packages/site/src/site.build.test.ts` removes all three before and after its
 # run. These entries are so that a run interrupted before its cleanup cannot be
 # committed.
 packages/site/site/
@@ -293,13 +289,6 @@ packages/site/parity-report.json
 packages/site/.pagedeck-a11y-harness/
 packages/site/.pagedeck-site-audit/
 
-# The scratch site `packages/site/src/runtime.build.test.ts` builds (#292), with
-# React in a chunk of its own so the framework's own bytes can be read off a
-# file. Removed before and after the run; ignored so that an interrupted run
-# cannot be committed. A name of its own, for the parity scratch directory's
-# reason: a second file building one directory would race the first.
-packages/site/.pagedeck-runtime-build-test/
-
 # The fixture site `packages/search/src/multi-shard.build.test.ts` builds (#456)
 # — six pages naming 3,840 identifiers, which is a corpus whose index splits
 # across shards. Removed before and after each run, for the reason every entry
@@ -329,10 +318,6 @@ packages/search/.pagedeck-incremental-index-*/
 packages/cms-example/site/
 packages/cms-example/content.db
 packages/cms-example/.pagedeck/
-
-# The copy of the CMS example `packages/cms-example/src/connect-a-cms.build.test.ts` builds
-# (#697). The test removes it after each run.
-packages/cms-example/.pagedeck-how-to-cms-test-*/
 
 # The copy of the CMS example `packages/cms-example/src/publish.build.test.ts` publishes
 # from (#158). The test removes it after each run.

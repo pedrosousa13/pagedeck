@@ -22,7 +22,7 @@ settle it.
 | # | Spec §15 criterion | Verdict | The number it rests on |
 | --- | --- | --- | --- |
 | 1 | Content-only pages: **0 kB JS** | **met** | 0 B raw, gzip and Brotli on all three content pages; the twin's floor is 452,538 B raw / 133,120 B gzip |
-| 2 | Island pages: the framework's own JS at or under **7,432 B raw / 3,632 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95, #97, #89, #176, #139, #208 and #216) | **met** | 7,432 B raw / 3,632 B gzip on `/en/pricing`, React set apart: at the recorded ceiling, which is today's figure. From `pnpm build && npx vitest run packages/site/src/runtime.build.test.ts` |
+| 2 | Island pages: the framework's own JS at or under **7,432 B raw / 3,632 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95, #97, #89, #176, #139, #208 and #216) until #230 dropped it | **met** when last measured | 7,432 B raw / 3,632 B gzip on `/en/pricing`, React set apart, measured on #216 by `packages/site/src/runtime.build.test.ts`. #230 removed the ceiling and that test, so nothing measures it again |
 | 3 | Core Web Vitals better on every metric, in production (CrUX/RUM) | **not measurable here** | no production, no RUM, no CrUX — the comparison plan is below. The landing page's field data is #56 |
 | 4 | Publish-to-live for a content edit **< 60 s** | **met** | 15.2 s, 16.2 s and 17.3 s from `wrangler deploy` starting to the live landing page serving the edit, three runs on 2026-10-08 (#2). The build before the deploy is not in the figure |
 | 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **not measurable here** | Lighthouse mobile performance 99 or 100 on every run over the four live landing pages (#2), but the landing page loads no third-party script, so there is no loadout for the score to survive |
@@ -36,7 +36,6 @@ same Lighthouse run is what qualifies it.
 ```sh
 pnpm build && pnpm test:lighthouse-harness    # the Lighthouse pass and the byte counts
 pnpm build && pnpm test:a11y-harness          # the axe pass
-pnpm build && npx vitest run packages/site/src/runtime.build.test.ts   # criterion 2
 ```
 
 Criteria 4 and 5 were measured on the live landing page by two harnesses run
@@ -45,8 +44,8 @@ by hand, never by CI or `pnpm test`; criteria 4 and 5 say how each was taken.
 to deck-cool, so the figures below stand as #2 measured them. Everything
 else in this section is about the first three.
 
-The third needs no browser and is in `pnpm test`; criterion 2 below says what
-it measures. The first two build this site into a scratch directory with the
+Criterion 2 was measured by a third command, a test #230 removed; criterion 2
+below says what it measured. Both harnesses build this site into a scratch directory with the
 framework's own `pagedeck sync` and `pagedeck build`, serve the output from a `node:http`
 server bound to `127.0.0.1`, and drive the Chromium Playwright pins.
 The origin is local on the ruling on #57 — "if we need to test, let's test
@@ -95,9 +94,14 @@ agree about which pages ship any JavaScript at all. A build that emitted a
 `<script>` pointing at a file it had not charged to the page would satisfy the
 first and fail the second.
 
-It is also enforced rather than merely observed: `packages/site/src/site.ts`
-writes `0b` as those three pages' budget, so `pagedeck build` refuses the build rather
-than shipping a byte. Spec §15's phrasing is "0 kB"; the measurement is 0 B.
+Until #230 it was also enforced: `packages/site/src/site.ts` wrote `0b` as
+those three pages' budget, so `pagedeck build` refused the build rather than
+ship a byte. The maintainer's ruling of 2026-11-02 (#230) made byte budgets
+optional and dropped this repository's own, so the site declares none.
+`packages/site/src/site.build.test.ts` still fails when a content page carries
+a `<script>`, links a chunk or names an island. The Lighthouse harness's
+scratch build declares one catch-all budget that no page comes near, only so
+that the build writes the report the left column reads. Spec §15's phrasing is "0 kB"; the measurement is 0 B.
 
 **The twin cannot do this in any supported configuration.** The cited research
 built an App Router page with no client component anywhere in its subtree and
@@ -184,6 +188,12 @@ asks for on a Vite release, because the bytes are the floor's cost.
 CommonJS wrapper passes one more argument. Maintainer ruling 2026-11-02, #230:
 byte budgets are optional.
 
+**2026-11-02, #230: the ratchet is dropped.** The same ruling removed this
+repository's own byte budgets: `RUNTIME_CEILING`, the measurement build and
+`packages/site/src/runtime.build.test.ts` are gone. 7,432 B raw and 3,632 B
+gzip is the last figure measured, and no run measures it again. What follows
+records how the figure was taken while the test existed.
+
 **2026-09-28, #547: the gzip column is measured with content hashes
 normalised.** Before this date it read 3,154 B and 58,995 B. A CSS-only change
 renamed the stylesheet the entry chunk names, and the framework's gzip figure
@@ -193,16 +203,12 @@ which reads 61 B lower on the same build; the ceiling was lowered to match. The
 runtime did not shrink. Raw is unchanged, and Brotli is still the file as it
 is (2,754 B here against 2,773 B before is the renamed files, not the method).
 
-```sh
-pnpm build && npx vitest run packages/site/src/runtime.build.test.ts
-```
-
-That test builds this site into a scratch directory, prints the three rows
-above, and fails when either figure is over its ceiling. It needs no browser.
-It is a byte count off a build, so it answers the same on a loaded runner as on
+`packages/site/src/runtime.build.test.ts`, removed by #230, built this site into a scratch directory, printed
+the three rows above, and failed when either figure was over its ceiling. It needed no browser.
+It was a byte count off a build, so it answered the same on a loaded runner as on
 an idle one. That is the reasoning of `GLOSSARY.md`'s "A site audit asserts only
 what is deterministic", applied by analogy: this is not a site audit and needs
-no browser, so it runs in `pnpm test`. Two runs agreed to the byte.
+no browser, so it ran in `pnpm test`. Two runs agreed to the byte.
 
 **The page.** §15 names a class of page, and this site has no form page. The
 representative set `docs/dogfood-spot-check.md` fixes has one page with an
@@ -221,8 +227,8 @@ runtime, the page's entry, the billing toggle and Rolldown's interop helpers.
 Each chunk is minified by the production settings. Raw is the file as it is;
 gzip is the file with every content hash the build emitted in a file name
 rewritten to a same-length placeholder, so a renamed stylesheet cannot move
-it (`hashInsensitiveGzip` in `packages/site/src/audit.ts`). The method, in
-`buildRuntimeSite` in `packages/site/src/audit-site.ts`, was chosen over two
+it (`hashInsensitiveGzip`, which #230 removed). The method, `buildRuntimeSite`,
+also removed by #230, was chosen over two
 others: Rolldown's per-module sizes are taken before minification and cannot
 give a gzip figure, and a second bundle
 with React externalized would restate the client build's settings in a second
@@ -238,14 +244,14 @@ their own. Some of it is counted as the framework's, so 6,376 B is a little
 more than the framework's share of the production chunk. That is the direction
 that holds the framework to more. The measurement build is never shipped.
 
-**A ratchet, not a target.** The two ceilings are named constants,
-`RUNTIME_CEILING` in `packages/site/src/audit-site.ts`, set to the figures
-above. They go down when the runtime shrinks and are never raised, and that
-includes a toolchain bump: a Vite or Rolldown release that pushes either figure
-up is a finding to file, not something the ceiling absorbs. A React release does
+**A ratchet, not a target, until #230.** The two ceilings were named constants,
+`RUNTIME_CEILING`, set to the figures
+above. They went down when the runtime shrank and were never raised, and that
+included a toolchain bump: a Vite or Rolldown release that pushed either figure
+up was a finding to file, not something the ceiling absorbed. A React release did
 not move them. The comparison
-is `runtimeVerdict` in `packages/site/src/audit.ts`, and
-`packages/site/src/audit.test.ts` shows one byte over either ceiling failing.
+was `runtimeVerdict`, which #230 removed with
+the ceiling.
 
 ### Recorded context: the reduction against the twin
 
@@ -311,8 +317,8 @@ control, and they are what criterion 2 now holds.
 **Why the Lighthouse table below says 196,168 B for this same page.** That is
 the *transfer* figure — the two chunks plus 343 B of response headers, over the
 two of the page's three script requests that carried a body — and it is what the
-script budget is asserted against, because a budget is a claim about what a
-reader downloads. The third request is #212's placeholder consent manager, whose
+script budget was asserted against until #230, because a budget is a claim
+about what a reader downloads. The third request is #212's placeholder consent manager, whose
 host resolves nowhere: Lighthouse counts the request and there are no bytes to
 count, as measured. Every
 comparison against the twin uses the 195,825 B on-disk figure instead, because
@@ -630,8 +636,9 @@ below, and the performance column moved in those too: `/de` scored 99 in the
 second.
 
 **What is asserted and what is only recorded.** The Lighthouse harness asserts
-the raw script-byte budgets, the script request counts, and floors of 100 on
-accessibility, 96 on best practices and 100 on SEO. It asserts **nothing
+floors of 100 on accessibility, 96 on best practices and 100 on SEO. Until
+#230 it also asserted a raw script-byte budget and a script request count per
+page; it now records both. It asserts **nothing
 timing-derived** — not the performance score, not LCP, TBT, FCP, speed index or
 CLS — and
 `packages/site/src/audit.ts` has no code path that can. The ruling is #57's
@@ -774,6 +781,4 @@ record of what was.
   script layer — #212 landed one, and `packages/site` declares it against
   placeholder sources. Since #2, publish-to-live has its deploy and is met on
   the landing page, and the PageSpeed item waits only on a real loadout. The
-  harnesses' assertions and
-  `packages/site/src/runtime.build.test.ts` are the gate; this file is the
-  record.
+  harnesses' assertions are the gate; this file is the record.

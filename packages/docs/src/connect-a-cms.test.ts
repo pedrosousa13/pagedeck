@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import { expect, test } from "vitest";
-import { EXAMPLE, HOW_TO, REPORT } from "./connect-a-cms.test-support.js";
+import { EXAMPLE, HOW_TO } from "./connect-a-cms.test-support.js";
 import { fences, quotes } from "./tutorial.test-support.js";
 
 const BASE_CONFIG = join(import.meta.dirname, "..", "..", "..", "tsconfig.base.json");
@@ -20,7 +20,7 @@ test("every code sample names the example file it quotes, and is a run of that f
   let quoted = 0;
   for (const { code, file } of page()) {
     expect(file, `a fence whose lead names the example file it quotes:\n${code}`).toBeDefined();
-    if (file === REPORT || file === WRITTEN) continue;
+    if (file === WRITTEN) continue;
     const path = join(EXAMPLE, file as string);
     expect(existsSync(path), `${file}, in packages/cms-example`).toBe(true);
     expect(quotes(readFileSync(path, "utf8"), code), `${file} holds these lines, in order:\n${code}`).toBe(

@@ -34,13 +34,5 @@ export default defineConfig({
         { prefix: "/account/", dev: "http://127.0.0.1:8787", source: "src/app.ts" },
       ],
     },
-    // Measured, not chosen: re-measure rather than raise a limit (README.md, "Budgets").
-    budget: {
-      "/": "0b",
-      "/signup/": "63kb",
-      "/signup/thanks/": "0b",
-      "/signup/invalid/": "0b",
-      "/signup/failed/": "0b",
-    },
   },
 });

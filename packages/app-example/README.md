@@ -175,20 +175,3 @@ dashboard.
 (<https://developers.cloudflare.com/workers/static-assets/headers/>), so the
 app sets its own headers, and registers its middleware before `basePath` so a
 miss gets them too.
-
-## Budgets
-
-The limits in `pagedeck.config.ts` are measured. Each one is the measurement
-plus about 16%, rounded to a whole kilobyte. If a limit starts to fail, measure
-again and give the reason. Do not raise it to make the failure go away.
-
-| Page | Limit | Measured | Made of |
-| --- | --- | --- | --- |
-| `/` | `0b` | 0 B (#141) | no chunks |
-| `/signup/` | `63kb` (64512 B) | 55748 B (#208) | `pagedeck-core` 54494 B, `pagedeck-startup` 1024 B, entry 230 B |
-| `/signup/thanks/`, `/signup/invalid/`, `/signup/failed/` | `0b` | 0 B (#159) | no chunks |
-
-The island and Hono's client are in `pagedeck-core`, since the site has one island.
-The whole build's JavaScript is held to 64 kB Brotli (65536 B), against 56684 B
-measured (#208), counting the 936 B `slot` chunk. #159's pending, failure and retry
-states added 318 B to `/signup/` (55237 B on #141), and no limit changed.

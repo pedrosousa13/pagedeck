@@ -256,43 +256,13 @@ example's three pages hold different blocks:
 | `faq` | `/faq/` | `hero`, `faq` |
 | `signup` | `/signup/` | `hero`, `signup_form` |
 
-The example sets a budget for each page, so every build writes a report. These
-are its three rows, trimmed to the route, the Brotli bytes the page transfers
-for first render, and its chunks, from `.pagedeck/budget-report.json`:
-
-```json
-[
-  { "path": "/", "actual": 0, "chunks": [] },
-  {
-    "path": "/faq/",
-    "actual": 53823,
-    "chunks": [
-      { "path": "/assets/pagedeck-core-BUVA4pOP.js", "bytes": 52147 },
-      { "path": "/assets/pagedeck-startup-CMck48DV.js", "bytes": 1024 },
-      { "path": "/assets/faq-BVcU_6cD.js", "bytes": 415 },
-      { "path": "/assets/entry-837fbeaa886c70a7-C6wvvO5j.js", "bytes": 237 }
-    ]
-  },
-  {
-    "path": "/signup/",
-    "actual": 53973,
-    "chunks": [
-      { "path": "/assets/pagedeck-core-BUVA4pOP.js", "bytes": 52147 },
-      { "path": "/assets/pagedeck-startup-CMck48DV.js", "bytes": 1024 },
-      { "path": "/assets/signup_form-CBPYUEcU.js", "bytes": 558 },
-      { "path": "/assets/entry-3891e9689bdecc7b-D0kR07d3.js", "bytes": 244 }
-    ]
-  }
-]
-```
-
-`/` holds no island and ships nothing. `/faq/` ships the `faq` chunk and not
-`signup_form`'s, and `/signup/` ships the reverse. Both pay for `pagedeck-core`, which
-holds React and the island runtime, and for `pagedeck-startup`, which waits for each
-island's trigger. Change a page's blocks in the CMS, and the next build changes
-that page's chunks to match.
-[JavaScript budgets](../reference/javascript-budgets.md) covers the report and how
-to set a limit per page.
+`/` holds no island and ships no JavaScript. `/faq/` ships the `faq` chunk and
+not `signup_form`'s, and `/signup/` ships the reverse. Both pay for
+`pagedeck-core`, which holds React and the island runtime, and for
+`pagedeck-startup`, which waits for each island's trigger. Change a page's
+blocks in the CMS, and the next build changes that page's chunks to match.
+[JavaScript budgets](../reference/javascript-budgets.md) covers the optional
+report of each page's chunks and how to set a limit per page.
 
 ## Declare a schema, or `false`
 

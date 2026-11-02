@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -309,21 +309,27 @@ test("a page the schema refuses fails the run at sync, and the corrected page de
   expect(served("faq")).toContain("Mended after a bad block");
 }, 480_000);
 
-test("a build that fails its budget fails the run at build, and the corrected page deploys", async () => {
+test("a build that fails fails the run at build, and the corrected page deploys", async () => {
+  const component = join(SITE, "src", "components", "hero.tsx");
+  const working = readFileSync(component, "utf8");
   const { failed } = await failsAndRecovers(
     () => {
-      cms.put("home", {
-        title: "Welcome",
-        blocks: [{ type: "faq", questions: [{ question: "Why?", answer: "Because." }] }],
-      });
+      writeFileSync(
+        component,
+        'export default function Hero(): never {\n  throw new Error("hero is broken");\n}\n',
+      );
+      cms.put("home", hero("Welcome back"));
       return undefined;
     },
-    () => cms.put("home", hero("Welcome back")),
+    () => {
+      writeFileSync(component, working);
+      cms.put("home", hero("Welcome back, mended"));
+    },
     "build",
   );
 
-  expect(failed.steps.at(-1)?.stderr).toContain("budget");
-  expect(served("")).toContain("Welcome back");
+  expect(failed.steps.at(-1)?.stderr).toContain("hero is broken");
+  expect(served("")).toContain("Welcome back, mended");
 }, 480_000);
 
 // Root writes through a read-only directory, so the deploy could not fail this way.

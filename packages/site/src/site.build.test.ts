@@ -2,10 +2,8 @@ import { execFile } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
-  budgetReportPath,
   DIAGNOSTIC_MARKER,
   readManifest,
   RETENTION_DIR,
@@ -39,28 +37,6 @@ const TERMS = { locale: "en", path: "/legal/terms/" };
 const PRICING = { locale: "en", path: "/pricing/" };
 
 const CONTENT_PAGES = [EN_HOME, DE_HOME, TERMS];
-
-// Declared here: `BudgetReport` is internal to `@pagedeck/core`.
-interface BudgetRow {
-  locale: string;
-  path: string;
-  limitText?: string;
-  limit?: number;
-  actual: number;
-  jsInlined: number;
-  breach: boolean;
-  chunks: readonly { path: string; bytes: number }[];
-}
-
-const BUDGET_REPORT = budgetReportPath(SITE);
-
-// Values `../site` declares are spelled again in this file, not read from it: a value
-// quietly changed there has to fail something.
-const PAGE_LIMIT = 60 * 1024;
-
-// Every `js` file, the lazily-loaded `slot` chunk included, which no budget row
-// charges. Derivation in AGENTS.md, "The site port".
-const BUILD_CEILING = 61 * 1024;
 
 // Run `pnpm build` first: the spawned `pagedeck` resolves `@pagedeck/site` to `dist`, so a bare
 // `vitest run` tests the last build, not the working tree.
@@ -176,28 +152,12 @@ function page(id: { locale: string; path: string }): ManifestPage {
   return found;
 }
 
-function spend(id: { locale: string; path: string }): BudgetRow {
-  const found = budget.pages.find(
-    (row) => row.locale === id.locale && row.path === id.path,
-  );
-  if (found === undefined) {
-    throw new Error(
-      `Budget report: records no page ${id.locale} ${id.path} — it holds ${budget.pages
-        .map((row) => `${row.locale} ${row.path}`)
-        .join(", ")}`,
-    );
-  }
-  return found;
-}
-
 let manifest: Manifest;
-let budget: { pages: readonly BudgetRow[] };
 
 beforeAll(async () => {
   rmSync(OUT, { recursive: true, force: true });
   rmSync(STORE, { force: true });
   rmSync(RETAINED, { recursive: true, force: true });
-  rmSync(BUDGET_REPORT, { force: true });
 
   await run("sync");
   await run("build");
@@ -206,16 +166,12 @@ beforeAll(async () => {
     readFileSync(join(OUT, "manifest.json"), "utf8"),
     "manifest.json",
   );
-  budget = JSON.parse(readFileSync(BUDGET_REPORT, "utf8")) as {
-    pages: readonly BudgetRow[];
-  };
 }, 120_000);
 
 afterAll(() => {
   rmSync(OUT, { recursive: true, force: true });
   rmSync(STORE, { force: true });
   rmSync(RETAINED, { recursive: true, force: true });
-  rmSync(BUDGET_REPORT, { force: true });
 });
 
 test("the site is the published entries, at the URLs their entry ids imply", () => {
@@ -260,14 +216,6 @@ test("the content pages ship 0 bytes of JavaScript, with the island page in the 
     expect(nonFontAssetUrls(html)).toEqual([]);
     expect(page(id).entryChunk).toBeUndefined();
     expect(page(id).components).toEqual([]);
-
-    const row = spend(id);
-    expect(row.limitText).toBe("0b");
-    expect(row.limit).toBe(0);
-    expect(row.actual).toBe(0);
-    expect(row.breach).toBe(false);
-    expect(row.chunks).toEqual([]);
-    expect(row.jsInlined).toBe(0);
   }
 });
 
@@ -306,27 +254,6 @@ test("the island's cost is confined to the page that asked for it", () => {
 
   expect(jsClosure(deployKey(pricing.entryChunk as string))).toEqual(
     jsFiles().sort(),
-  );
-
-  const row = spend(PRICING);
-  expect(row.limitText).toBe("60kb");
-  expect(row.limit).toBe(PAGE_LIMIT);
-  expect(row.breach).toBe(false);
-  expect(row.actual).toBeLessThanOrEqual(PAGE_LIMIT);
-  expect(row.jsInlined).toBeGreaterThan(0);
-  expect(row.actual).toBeGreaterThan(0);
-
-  // Compressed one file at a time: a browser fetches them separately.
-  const total = jsFiles().reduce(
-    (bytes, key) =>
-      bytes + brotliCompressSync(readFileSync(join(OUT, key))).byteLength,
-    0,
-  );
-  expect(total).toBeLessThanOrEqual(BUILD_CEILING);
-  // Against `actual` minus `jsInlined`: the inline loader is in no `js` file (#346).
-  expect(total).toBeGreaterThanOrEqual(row.actual - row.jsInlined);
-  expect(row.actual - row.jsInlined).toBe(
-    row.chunks.reduce((bytes, chunk) => bytes + chunk.bytes, 0),
   );
 });
 

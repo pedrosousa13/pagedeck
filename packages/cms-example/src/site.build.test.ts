@@ -3,9 +3,8 @@ import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { promisify } from "node:util";
-import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { budgetReportPath, RETENTION_DIR } from "@pagedeck/core";
+import { RETENTION_DIR } from "@pagedeck/core";
 import { startCms } from "./server.js";
 import type { Cms } from "./server.js";
 
@@ -18,23 +17,11 @@ const BIN = join(SITE, "..", "core", "dist", "bin.js");
 
 const ISLANDS = ["faq", "signup_form"] as const;
 
-// Spelled again rather than imported, so a limit raised in the config fails here.
-const LIMITS = { "/": "0b", "/faq/": "60kb", "/signup/": "60kb" };
-
-// Every emitted `js` byte, Brotli, each file on its own: no budget row charges a lazy chunk.
-const BUILD_CEILING = 62 * 1024;
-
-// Restated: `BudgetReport` is internal to `@pagedeck/core`.
-interface BudgetRow {
-  path: string;
-  limitText?: string;
-  actual: number;
-  chunks: readonly { path: string; bytes: number }[];
-}
+const PAGES = ["/", "/faq/", "/signup/"] as const;
 
 let cms: Cms;
 let before: string | undefined;
-let firstReport: Map<string, BudgetRow>;
+let firstChunks: Map<string, string[]>;
 
 function clean(): void {
   for (const path of [OUT, STORE, join(SITE, RETENTION_DIR)]) {
@@ -50,17 +37,27 @@ async function pagedeck(...argv: string[]): Promise<string> {
   return stdout;
 }
 
-function report(): Map<string, BudgetRow> {
-  const { pages } = JSON.parse(readFileSync(budgetReportPath(SITE), "utf8")) as {
-    pages: BudgetRow[];
-  };
-  return new Map(pages.map((row) => [row.path, row]));
+// The page's entry and every chunk its text names, the islands it imports on demand
+// among them.
+function chunksOf(page: string): string[] {
+  const html = readFileSync(join(OUT, page, "index.html"), "utf8");
+  const entry = /<script type="module" src="\/(assets\/[^"]+\.js)">/.exec(html)?.[1];
+  if (entry === undefined) return [];
+  const text = readFileSync(join(OUT, entry), "utf8");
+  const named = readdirSync(join(OUT, "assets"))
+    .filter((file) => file.endsWith(".js") && text.includes(file))
+    .map((file) => `assets/${file}`);
+  return [entry, ...named].sort();
+}
+
+function pageChunks(): Map<string, string[]> {
+  return new Map(PAGES.map((page) => [page, chunksOf(page)]));
 }
 
 // Each block's component marks its root with `data-block`, so a chunk holding that
 // literal holds the island's code, whichever chunk the bundler put it in.
-function islandsOf(row: BudgetRow | undefined): string[] {
-  const code = (row?.chunks ?? []).map(({ path }) => readFileSync(join(OUT, path), "utf8"));
+function islandsOf(chunks: readonly string[] | undefined): string[] {
+  const code = (chunks ?? []).map((path) => readFileSync(join(OUT, path), "utf8"));
   return ISLANDS.filter((island) =>
     code.some((source) => new RegExp(`"data-block":[\`"]${island}[\`"]`).test(source)),
   );
@@ -82,7 +79,7 @@ beforeAll(async () => {
   cms = await startCms({ port: 0 });
   await pagedeck("sync");
   await pagedeck("build");
-  firstReport = report();
+  firstChunks = pageChunks();
   before = mkdtempSync(join(tmpdir(), "pagedeck-cms-example-"));
   cpSync(OUT, before, { recursive: true });
 }, 180_000);
@@ -94,26 +91,16 @@ afterAll(async () => {
 });
 
 test("the home page, built from static blocks alone, ships no JavaScript", () => {
-  expect(firstReport.get("/")).toMatchObject({ actual: 0, chunks: [] });
-});
-
-test("each page is held to the limit measured for it, and the whole build to its ceiling", () => {
-  expect(
-    Object.fromEntries([...firstReport].map(([path, row]) => [path, row.limitText])),
-  ).toEqual(LIMITS);
-  const assets = join(OUT, "assets");
-  const total = readdirSync(assets)
-    .filter((file) => file.endsWith(".js"))
-    .reduce((sum, file) => sum + brotliCompressSync(readFileSync(join(assets, file))).byteLength, 0);
-  expect(total).toBeLessThanOrEqual(BUILD_CEILING);
+  expect(readFileSync(join(OUT, "index.html"), "utf8")).not.toContain("<script");
+  expect(firstChunks.get("/")).toEqual([]);
 });
 
 test("the FAQ page ships the faq island and not the sign-up form's", () => {
-  expect(islandsOf(firstReport.get("/faq/"))).toEqual(["faq"]);
+  expect(islandsOf(firstChunks.get("/faq/"))).toEqual(["faq"]);
 });
 
 test("the sign-up page ships the sign-up form's island and not the faq's", () => {
-  expect(islandsOf(firstReport.get("/signup/"))).toEqual(["signup_form"]);
+  expect(islandsOf(firstChunks.get("/signup/"))).toEqual(["signup_form"]);
 });
 
 test("the sign-up form names no address to post to", () => {
@@ -163,10 +150,10 @@ test("a page edited in the CMS is the only page an incremental sync and build wr
 
   expect(changedDocuments()).toEqual([join("faq", "index.html")]);
   expect(readFileSync(join(OUT, "faq", "index.html"), "utf8")).toContain("Edited in the CMS.");
-  const second = report();
+  const second = pageChunks();
   expect(islandsOf(second.get("/faq/"))).toEqual(["faq"]);
-  expect(second.get("/")).toEqual(firstReport.get("/"));
-  expect(second.get("/signup/")).toEqual(firstReport.get("/signup/"));
+  expect(second.get("/")).toEqual(firstChunks.get("/"));
+  expect(second.get("/signup/")).toEqual(firstChunks.get("/signup/"));
 }, 180_000);
 
 test("a page whose faq block becomes a sign-up form switches islands in an incremental build", async () => {
@@ -189,9 +176,9 @@ test("a page whose faq block becomes a sign-up form switches islands in an incre
   );
 
   expect(changedDocuments()).toEqual([join("faq", "index.html")]);
-  const third = report();
+  const third = pageChunks();
   expect(islandsOf(third.get("/faq/"))).toEqual(["signup_form"]);
   expect(islandsOf(third.get("/signup/"))).toEqual(["signup_form"]);
-  expect(third.get("/")).toEqual(firstReport.get("/"));
-  expect(third.get("/signup/")).toEqual(firstReport.get("/signup/"));
+  expect(third.get("/")).toEqual(firstChunks.get("/"));
+  expect(third.get("/signup/")).toEqual(firstChunks.get("/signup/"));
 }, 180_000);
