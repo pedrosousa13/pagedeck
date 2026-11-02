@@ -129,12 +129,16 @@ legal and silent, as ADR-0005 pins. A prop slot's stand-in
 loses its subtree and the fallback rebuilds the HTML as new DOM. The content
 stays, but node identity is lost. A nested island inside the rebuilt region
 hydrates again from its server HTML, as a tree slot's does when it mounts
-anywhere but in place, so it works but starts from its initial state
-(measured in `packages/core/src/prop-slots.test.tsx`, #247). The framework
-states this and does not guard it, for the reason ADR-0005 gives: no build-time signal tells a legal
-handling of a slot from a faulty one. A later slice extends ADR-0005's harness to
-the stand-in, with and without the React Compiler, and to a nested island in a
-cloned region, so the silence is measured and not argued.
+anywhere but in place, so it works but starts from its initial state. The
+framework states this and does not guard it, for the reason ADR-0005 gives: no
+build-time signal tells a legal handling of a slot from a faulty one. ADR-0005's
+harness measures it on the real stand-in (#248): passing a prop slot through,
+reordering it, wrapping it or holding it in state never reaches the stand-in
+and keeps its node, while `cloneElement` rebuilds each region once, with no
+report on either error channel, plain, in `StrictMode` and under the React
+Compiler, which leaves the stand-in uncompiled. The nested-island case reads
+the same in all four configurations. The table is §7 of
+`docs/research/2026-08-26-slot-rerender-detection.md`.
 
 **A prop slot rendered from a list sits inside a keyed element.** A keyed
 wrapper (`<li key={id}>`) keeps each region's nodes across a reorder. Bare,

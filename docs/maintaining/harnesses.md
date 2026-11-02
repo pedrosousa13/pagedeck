@@ -92,7 +92,7 @@ installs, syncs, builds and runs `node src/release.ts prepare` there, then
 
 | Command | Runs | Re-run on |
 | --- | --- | --- |
-| `pnpm test:slot-harness`, then with `PAGEDECK_REACT_COMPILER=1` | `packages/islands/src/slot-rerender.harness.tsx`, the evidence for ADR-0005 | a React or React Compiler upgrade |
+| `pnpm test:slot-harness`, then with `PAGEDECK_REACT_COMPILER=1` | `packages/islands/src/slot-rerender.harness.tsx`, the evidence for ADR-0005 and for ADR-0011's prop-slot holding | a React or React Compiler upgrade, or a change to the prop-slot stand-in |
 | `pnpm test:aria-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/islands/src/aria-engine.harness.ts`, the evidence in `docs/research/2026-08-28-aria-snapshot-engine-blindness.md`; a failure reopens #92 | a Playwright release |
 | `pnpm test:compiler-crash-harness` | `packages/core/src/react-compiler.harness.ts`, what a build reports when React Compiler's process dies or runs past its time limit (#106, #164) | a Node, Rolldown or `oxc-transform-react` upgrade |
 
