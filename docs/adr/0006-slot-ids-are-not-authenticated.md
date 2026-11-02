@@ -1,6 +1,6 @@
 ---
 title: 6. Slot ids are not authenticated, and the content boundary is the defence
-description: Slot ids and island markers carry no authentication, and stripping the reserved names from content HTML is the defence instead.
+description: Slot ids and island markers carry no authentication, and neutralising the reserved names in content HTML is the defence instead.
 ---
 
 # 6. Slot ids are not authenticated, and the content boundary is the defence
@@ -13,7 +13,9 @@ Accepted. Decided on #109 and shipped in PR #122, which put the defence at the
 content boundary (`unescapedHtml`'s reserved-name strip) rather than at the
 read path. No code change is attached to this file: it records a decision
 already implemented. Binding on the wire format and on `unescapedHtml`'s
-contract. Raised by #137.
+contract. Raised by #137. Amended by #258, which changed how the strip
+neutralises a name (it renames the name and removes nothing) and not where the
+defence sits.
 
 ## Context
 
@@ -84,20 +86,39 @@ read path can be, because the wire format deliberately carries nothing to
 answer it with.
 
 **The defence is the door.** `unescapedHtml` is the single sanctioned entry for
-content-authored HTML, and since PR #122 it strips the framework's reserved
-vocabulary: `<fw-island>` and `<fw-slot>` in either tag form, and a named
-list of attributes with each one's value in all three forms HTML allows. The
-list is the six island attributes (`data-fw-prefix`, `-component`, `-mode`,
-`-props`, `-slot`, `-template`), since #394 `data-fw-facade`, and since #566
-the attribute `@fw/search` reads to leave an element out of its index. (That
-one is described rather than named: this ADR is published on the docs site
-through `unescapedHtml`, which would strip the name from the sentence.) It is an
-enumeration and not a `data-fw-` prefix match, so a `data-fw-*` name that is
-not on it, `data-fw-consent` among them, passes through unstripped. Content
-coming through it cannot mint a marker or a slot id at all, so the runtime
-needs no credential to refuse one. The sink splits in two and the split *is*
-the boundary: `rawHtml` takes the build's own composed markup unstripped,
-`unescapedHtml` strips and then calls it.
+content-authored HTML, and since PR #122 it neutralises the framework's reserved
+vocabulary: `<fw-island>` and `<fw-slot>` in either tag form, and a named list
+of attributes, whatever value form follows each. The list, `RESERVED_ATTRIBUTES`
+in `tree.tsx`, is the island attributes (`data-fw-prefix`, `-component`,
+`-export`, `-mode`, `-props`, `-slot`, `-slot-paths`, `-region`,
+`-region-stash`, `-template`), since #394 `data-fw-facade`, and since #566 the
+attribute `@fw/search` reads to leave an element out of its index. (That one is
+described rather than named: this ADR is published on the docs site through
+`unescapedHtml`, which would rename it in the sentence.) It is an enumeration
+and not a `data-fw-` prefix match, so a `data-fw-*` name that is not on it,
+`data-fw-consent` among them, passes through unchanged. Content coming through
+it cannot mint a marker or a slot id at all, so the runtime needs no credential
+to refuse one. The sink splits in two and the split *is* the boundary: `rawHtml`
+takes the build's own composed markup unstripped, `unescapedHtml` strips and
+then calls it.
+
+**A reserved name is renamed in place, and nothing is removed.** A tag name
+gains `x-` after its `<` or `</`, so `<fw-island` reads `<x-fw-island`. An
+attribute name gains `x-` after its `data-`, so `data-fw-slot` reads
+`data-x-fw-slot`. Every quote, value and `>` stays where it was, so the strip
+cannot change how sanitised HTML tokenises: the elements and attributes that
+come out are the ones that went in, with the reserved names renamed. Until #258
+the strip deleted each name with its value. The security sweep #250 measured a
+single-quoted value and a tag body each reaching past a closing `"`, which
+turned text the sanitiser had left inert into an event-handler attribute. The
+renamed spelling holds nothing the strip matches, so one pass is a fixed point.
+The runtime and every build-side scan read the exact names, so none of them
+takes a renamed one for a marker, a slot, a region or a stash. The match is
+still on bytes and not on a parse, so a reserved name spelled in prose, in a URL
+or in another attribute's value is renamed too. A tokeniser would rename only
+real tags and attributes, but it would put a second HTML parser at the content
+door, and that parser would have to agree with the browser on every malformed
+input. Renaming in place needs no such agreement.
 
 **The framework defends its own namespace, not the site's HTML.** Sanitising
 content is the CMS's job and stays there. What `unescapedHtml`'s contract
@@ -117,9 +138,9 @@ two directions already weighed are below.
 
 **Owner: the slot mechanism in `@fw/islands`.** Whoever changes `slot.ts` owns
 the read path this decision leaves unauthenticated, and whoever changes
-`stripReservedNames` owns the door that stands in for it. It was #109's finding
-and #109 is closed, so a reader looking for who holds the residual finds this
-file.
+`neutralizeReservedNames` owns the door that stands in for it. It was #109's
+finding and #109 is closed, so a reader looking for who holds the residual finds
+this file.
 
 ## Consequences
 
@@ -134,24 +155,22 @@ uncaught channel gets one hydration mismatch and regenerates the tree. The
 recoverable channel is empty in all five, which is where #128's body's
 "silently" came from, and the correction is on that issue.
 
-**#129's undercount errs safe on the scan's own arithmetic: a miss can only
-move the count down, never up.** The door is a second fact, not the reason.
+**#129's undercount errs safe on the scan's own arithmetic: a miss can only move
+the count down, never up.** The door is a second fact, not the reason.
 `slotCopies` matches literal bytes, so it is case-sensitive and sees a
 double-quoted value only, and it cannot see `<FW-SLOT DATA-FW-SLOT="0.1">`, an
 unquoted value, a single-quoted one, or a tag whose earlier attribute holds a
 `>`. Down means one of two things: to `0`, which stashes a child that was
 placed, or off a duplicate, which declines a refusal rather than making a wrong
 one. Neither drops a child. Separately, and because of this decision, none of
-those spellings reaches a page through the sanctioned door at all, by two routes
-rather than one. `RESERVED_NAMES` (`tree.tsx`) carries the `gi` that
-`stripReservedNames` runs, where the scan is bytes, and its value alternation
-takes unquoted and single-quoted values where the scan takes double-quoted ones
-only. The `title="a>b"` tag is not the value alternation's doing: that regex's
-tag alternative stops at the same inner `>` the scan stops at, and the
-` data-fw-slot="0.1"` left standing falls to the attribute alternative later in
-the same pass. The undercount is therefore reachable only from past the
-content boundary, which is the residual above arriving from the build side.
-Whether to widen the scan is a decision neither #129 nor this ADR makes.
+those spellings reaches a page through the sanctioned door at all.
+`RESERVED_NAMES` (`tree.tsx`) carries the `gi` that `neutralizeReservedNames`
+runs, where the scan is bytes, and it matches a name whatever value form follows
+it. The renamed tag and attribute hold neither of the scan's needles, so a slot
+spelled in content is never counted. The undercount is therefore reachable only
+from past the content boundary, which is the residual above arriving from the
+build side. Whether to widen the scan is a decision neither #129 nor this ADR
+makes.
 
 Determinism is untouched, and that is the point of taking the door instead of
 the credential. No marker carries a random value, no build reads a random

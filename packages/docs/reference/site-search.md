@@ -95,11 +95,12 @@ Only the value `"ignore"` has this effect. An empty value or any other value is
 indexed as usual.
 
 **The attribute is for a site's templates, not for content.** `unescapedHtml`
-from `@pagedeck/core/tree`, the way rich text reaches a page, removes the attribute
-from content whatever its value. A rich-text field therefore cannot hide its
-own text, or the rest of the page, from search. The same removal applies to
-text: a page rendered through `unescapedHtml`, like this one, cannot show the
-attribute's name. That is why this page names it through the constant.
+from `@pagedeck/core/tree`, the way rich text reaches a page, renames the attribute
+in content whatever its value, and search does not read the renamed spelling.
+A rich-text field therefore cannot hide its own text, or the rest of the page,
+from search. The same renaming applies to text: a page rendered through
+`unescapedHtml`, like this one, cannot show the attribute's name as written.
+That is why this page names it through the constant.
 
 Content that reaches a page another way, such as a site's own
 `dangerouslySetInnerHTML`, is not changed.

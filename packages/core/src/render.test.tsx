@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { JSDOM } from "jsdom";
+import type { ParsedDocument, ParsedElement, ParsedNode } from "jsdom";
 import { Suspense, use, useId } from "react";
 import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -19,7 +21,7 @@ import {
   useSocialCard,
 } from "./render.js";
 import type { EntryNode, RenderedIsland, RootProvider } from "./render.js";
-import { buildPageTree } from "./tree.js";
+import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_TAGS } from "./tree.js";
 import type { PlacedLocale } from "./locales.js";
 
 afterEach(() => {
@@ -310,7 +312,10 @@ test("a hydration marker typed into rich text does not reach the page", async ()
   );
 
   expect(html).toBe(
-    '<div class="rich"><p>Before</p><span>hi</span><p>After</p></div>',
+    '<div class="rich"><p>Before</p><x-pagedeck-island data-x-pagedeck-prefix="ideadbeef0000"' +
+      ' data-x-pagedeck-component="Counter" data-x-pagedeck-mode="load"' +
+      ' data-x-pagedeck-props="{&quot;evil&quot;:true}"><span>hi</span></x-pagedeck-island>' +
+      "<p>After</p></div>",
   );
 });
 
@@ -319,7 +324,7 @@ test("an export attribute typed into rich text does not reach the page", async (
     '<span data-pagedeck-export="HeaderIsland">x</span>',
   );
 
-  expect(html).toBe('<div class="rich"><span>x</span></div>');
+  expect(html).toBe('<div class="rich"><span data-x-pagedeck-export="HeaderIsland">x</span></div>');
 });
 
 test("a slot wrapper typed into rich text does not reach the page either", async () => {
@@ -330,9 +335,9 @@ test("a slot wrapper typed into rich text does not reach the page either", async
   );
 
   expect(html).toBe(
-    '<div class="rich"><p>decoy</p>' +
-      "<span>decoy</span>" +
-      "<template><p>decoy</p></template></div>",
+    '<div class="rich"><x-pagedeck-slot data-x-pagedeck-slot="0.0" role="presentation"><p>decoy</p></x-pagedeck-slot>' +
+      '<span data-x-pagedeck-slot="0.0">decoy</span>' +
+      '<template data-x-pagedeck-template="0.0"><p>decoy</p></template></div>',
   );
 });
 
@@ -345,7 +350,10 @@ test("a facade placeholder typed into rich text does not reach the page", async 
   );
 
   expect(html).toBe(
-    '<div class="rich"><span>x</span><span>x</span><span>x</span><span>x</span></div>',
+    '<div class="rich"><span data-x-pagedeck-facade="ab12cd34-1">x</span>' +
+      "<span data-x-pagedeck-facade='ab12cd34-1'>x</span>" +
+      "<span data-x-pagedeck-facade=ab12cd34-1>x</span>" +
+      "<span data-x-pagedeck-facade>x</span></div>",
   );
 });
 
@@ -358,7 +366,10 @@ test("a search-exclusion attribute typed into rich text does not reach the page"
   );
 
   expect(html).toBe(
-    '<div class="rich"><div>x</div><div>x</div><div>x</div><div>x</div></div>',
+    '<div class="rich"><div data-x-pagedeck-search="ignore">x</div>' +
+      "<div data-x-pagedeck-search='ignore'>x</div>" +
+      "<div data-x-pagedeck-search=ignore>x</div>" +
+      "<div DATA-x-PAGEDECK-SEARCH>x</div></div>",
   );
 });
 
@@ -371,7 +382,10 @@ test("a prop-slot path list typed into rich text does not reach the page", async
   );
 
   expect(html).toBe(
-    '<div class="rich"><span>x</span><span>x</span><span>x</span><span>x</span></div>',
+    '<div class="rich"><span data-x-pagedeck-slot-paths="[[&quot;children&quot;]]">x</span>' +
+      "<span data-x-pagedeck-slot-paths='[[\"children\"]]'>x</span>" +
+      "<span data-x-pagedeck-slot-paths=[]>x</span>" +
+      "<span DATA-x-PAGEDECK-SLOT-PATHS>x</span></div>",
   );
 });
 
@@ -384,7 +398,10 @@ test("a prop-slot region mark typed into rich text does not reach the page", asy
   );
 
   expect(html).toBe(
-    '<div class="rich"><template></template><template></template><template></template><template></template></div>',
+    '<div class="rich"><template data-x-pagedeck-region="0"></template>' +
+      "<template data-x-pagedeck-region='0'></template>" +
+      "<template data-x-pagedeck-region=0></template>" +
+      "<template DATA-x-PAGEDECK-REGION></template></div>",
   );
 });
 
@@ -397,11 +414,14 @@ test("a prop-slot stash typed into rich text does not reach the page", async () 
   );
 
   expect(html).toBe(
-    '<div class="rich"><template>x</template><template>x</template><template>x</template><template>x</template></div>',
+    '<div class="rich"><template data-x-pagedeck-region-stash="0">x</template>' +
+      "<template data-x-pagedeck-region-stash='0'>x</template>" +
+      "<template data-x-pagedeck-region-stash=0>x</template>" +
+      "<template DATA-x-PAGEDECK-REGION-STASH>x</template></div>",
   );
 });
 
-test("a data-pagedeck-* name the strip does not enumerate is left alone", async () => {
+test("a data-pagedeck-* name neutralizing does not enumerate is left alone", async () => {
   const html = await richText('<span data-pagedeck-consent="denied">x</span>');
 
   expect(html).toBe('<div class="rich"><span data-pagedeck-consent="denied">x</span></div>');
@@ -418,20 +438,22 @@ test("rich text that names the marker element in prose still says so", async () 
   );
 });
 
-test("an attribute name in prose goes, because the strip reads bytes not tags", async () => {
+test("an attribute name in prose is neutralized, because neutralizing reads bytes not tags", async () => {
   const html = await richText('<p>Set data-pagedeck-slot="0.0" to address it.</p>');
 
-  expect(html).toBe('<div class="rich"><p>Set to address it.</p></div>');
+  expect(html).toBe('<div class="rich"><p>Set data-x-pagedeck-slot="0.0" to address it.</p></div>');
 });
 
-test("a reserved name that removing another one would spell is removed too", async () => {
+test("neutralizing a reserved name never joins its neighbours into another", async () => {
   const html = await richText(
     '<pagedeck-isl<pagedeck-island data-pagedeck-mode="load">and role="x">' +
       '<span>data-pagedeck-sl<pagedeck-island>ot="0.0"</span>',
   );
 
-  expect(html).not.toContain("pagedeck-island");
-  expect(html).not.toContain("data-pagedeck-slot");
+  expect(html).toBe(
+    '<div class="rich"><pagedeck-isl<x-pagedeck-island data-x-pagedeck-mode="load">and role="x">' +
+      '<span>data-pagedeck-sl<x-pagedeck-island>ot="0.0"</span></div>',
+  );
 });
 
 test("a longer name a site owns is not the framework's and is left alone", async () => {
@@ -446,10 +468,133 @@ test("a reserved name that another word ends with is that word's, not ours", asy
   expect(html).toBe('<div class="rich"><p>my-data-pagedeck-mode</p></div>');
 });
 
-test("a whole reserved name inside a URL goes, and that is the stated limit", async () => {
+test("a whole reserved name inside a URL is neutralized, and that is the stated limit", async () => {
   const html = await richText('<a href="/docs/data-pagedeck-slot">doc</a>');
 
-  expect(html).toBe('<div class="rich"><a href="/docs/">doc</a></div>');
+  expect(html).toBe('<div class="rich"><a href="/docs/data-x-pagedeck-slot">doc</a></div>');
+});
+
+function neutralize(html: string): string {
+  return unescapedHtml(html).dangerouslySetInnerHTML.__html;
+}
+
+function parsedBody(html: string): ParsedElement {
+  return new JSDOM(`<body>${html}</body>`).window.document.body as ParsedElement;
+}
+
+/** What a CMS sanitiser hands over: a DOM it built, serialised. */
+function sanitised(
+  build: (document: ParsedDocument) => Array<ParsedNode | string>,
+): string {
+  const { document } = new JSDOM("<body></body>").window;
+  const body = document.body as ParsedElement;
+  body.append(...build(document));
+  return body.innerHTML;
+}
+
+type Shape = string | [string, string[], Shape[]];
+
+function shape(node: ParsedNode, rename: (name: string) => string): Shape {
+  if (node.nodeType !== 1) return `#${String(node.nodeType)}`;
+  const element = node as ParsedElement;
+  return [
+    rename(element.localName),
+    element.getAttributeNames().map(rename).sort(),
+    [...element.childNodes].map((child) => shape(child, rename)),
+  ];
+}
+
+function neutralizedName(name: string): string {
+  if (RESERVED_TAGS.includes(name)) return `x-${name}`;
+  if (RESERVED_ATTRIBUTES.includes(name)) return name.replace(/^data-/, "data-x-");
+  return name;
+}
+
+function expectSameTree(html: string): void {
+  const before = shape(parsedBody(html), neutralizedName);
+  const after = shape(parsedBody(neutralize(html)), (name) => name);
+  expect(after, html).toEqual(before);
+}
+
+test("a single-quoted reserved value in a title cannot pull text into the tag", () => {
+  const html = sanitised((document) => {
+    const p = document.createElement("p");
+    p.setAttribute("title", " data-pagedeck-region='");
+    p.textContent = `'" onmouseover="alert(1)" x="`;
+    const hr = document.createElement("hr");
+    hr.setAttribute("class", "rule");
+    return [p, hr];
+  });
+
+  expect(parsedBody(neutralize(html)).querySelector("p")?.getAttributeNames()).toEqual(["title"]);
+  expectSameTree(html);
+});
+
+test("a reserved tag opener in a title cannot pull text into the tag", () => {
+  const html = sanitised((document) => {
+    const p = document.createElement("p");
+    p.setAttribute("title", "<pagedeck-island ");
+    p.textContent = `" onmouseover="alert(1)" x="`;
+    const hr = document.createElement("hr");
+    hr.setAttribute("class", "rule");
+    return [p, hr];
+  });
+
+  expect(parsedBody(neutralize(html)).querySelector("p")?.getAttributeNames()).toEqual(["title"]);
+  expectSameTree(html);
+});
+
+/** mulberry32: a fixed seed gives the same cases on every run. */
+function seeded(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+test("no sanitised tree gains or loses an element or attribute to neutralizing", () => {
+  const random = seeded(258);
+  const pick = <T,>(items: readonly T[]): T =>
+    items[Math.floor(random() * items.length)] as T;
+  const pieces = [
+    "'", '"', ">", "<", "</", "=", " ", "/", "&", "\t", "x", "a>b",
+    ' onmouseover="alert(1)" ', "<script>", "<img src=x onerror=alert(1)>",
+    ...RESERVED_ATTRIBUTES.flatMap((name) => [name, name.toUpperCase()]),
+    ...RESERVED_TAGS.flatMap((tag) => [
+      `<${tag}`,
+      `<${tag} `,
+      `</${tag}>`,
+      `<${tag.toUpperCase()} `,
+    ]),
+  ];
+  const text = (): string =>
+    Array.from({ length: Math.floor(random() * 7) }, () => pick(pieces)).join("");
+  const tags = ["p", "span", "a", "em", "div", "hr", ...RESERVED_TAGS];
+  const attributes = ["title", "class", "alt", "data-note", ...RESERVED_ATTRIBUTES];
+  const node = (document: ParsedDocument, depth: number): ParsedNode | string => {
+    if (depth > 2 || random() < 0.3) return text();
+    const element = document.createElement(pick(tags));
+    for (let at = Math.floor(random() * 4); at > 0; at -= 1) {
+      element.setAttribute(pick(attributes), text());
+    }
+    if (element.localName !== "hr") {
+      for (let at = Math.floor(random() * 4); at > 0; at -= 1) {
+        element.append(node(document, depth + 1));
+      }
+    }
+    return element;
+  };
+
+  for (let run = 0; run < 400; run += 1) {
+    const html = sanitised((document) =>
+      Array.from({ length: 1 + Math.floor(random() * 3) }, () => node(document, 0)),
+    );
+    expectSameTree(html);
+    expect(neutralize(neutralize(html))).toBe(neutralize(html));
+  }
 });
 
 test("providers wrap the page outermost-first and receive the caller's props", async () => {

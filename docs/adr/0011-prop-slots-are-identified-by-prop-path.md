@@ -119,7 +119,7 @@ slot. The three new attributes join `RESERVED_NAMES`, so content that comes
 through `unescapedHtml` cannot write a marker's path list, a region mark or a
 stash. This file names the attributes by their constants and not by their
 values, because this page is published through `unescapedHtml`, which would
-strip the values from the text.
+rename the values in the text (#258).
 
 **ADR-0005 holds for the new kind, with one difference.** A container that
 re-renders around a prop slot drops what it meant to say, silently, because the

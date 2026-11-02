@@ -58,8 +58,8 @@ this repository:
     the test's lists and the page's with it.
   - `react-compiler.test.ts` holds `reference/react-compiler.md`'s output
     fences to what `compileIslands` prints.
-  - `reserved-names.test.ts` renders every page and fails on a byte core's
-    reserved-name strip would remove.
+  - `reserved-names.test.ts` renders every page and fails on a reserved name
+    core's strip would rename.
   - `samples.test.ts` holds the fonts page's second sample to
     `packages/site`. The fonts page's first sample and every sample on the
     site-search page are unchecked: they quoted the landing and docs sites,

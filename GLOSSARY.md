@@ -233,8 +233,8 @@ It is also not an authenticator, and calling it a token or a signature claims
 what `docs/adr/0006-slot-ids-are-not-authenticated.md` refuses. It is derived
 from bytes a site can read, so what it does is stop a facade's own markup from
 naming another facade's placeholder; a page's own JSX, and a `data-pagedeck-facade`
-typed into a rich-text field, are untouched by it. The second is stripped at
-the content door instead (`unescapedHtml`, #394).
+typed into a rich-text field, are untouched by it. The second is renamed at
+the content door instead (`unescapedHtml`, #394, #258).
 _Avoid_: facade id, facade token, facade nonce, facade hash (that is the digest
 it is cut from), key (unqualified, outside the script layer)
 

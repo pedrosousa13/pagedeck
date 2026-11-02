@@ -9,8 +9,14 @@ declare module "jsdom" {
 
   export interface ParsedElement extends ParsedNode {
     readonly tagName: string;
-    readonly textContent: string | null;
+    readonly localName: string;
+    textContent: string | null;
+    innerHTML: string;
     getAttribute(name: string): string | null;
+    getAttributeNames(): string[];
+    querySelector(selectors: string): ParsedElement | null;
+    setAttribute(name: string, value: string): void;
+    append(...nodes: Array<ParsedNode | string>): void;
     remove(): void;
   }
 
@@ -19,6 +25,7 @@ declare module "jsdom" {
     readonly body: ParsedElement | null;
     querySelector(selectors: string): ParsedElement | null;
     querySelectorAll(selectors: string): Iterable<ParsedElement>;
+    createElement(tagName: string): ParsedElement;
   }
 
   export class JSDOM {
