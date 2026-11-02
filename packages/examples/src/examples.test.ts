@@ -310,7 +310,7 @@ test("the client-reference example islands a component no entry names", async ()
   );
 
   expect(refusedChildren).toBe(
-    'Component "Tabs": is given JSX children, and "BadFooter" renders it in entry /en/article — a client component\'s children are slots, and a slot is identified by its position in the entry tree, which a component\'s own JSX has none of — place the component as a node in the entry tree, where its children become slots, or move "use client" down to the interactive leaves so the wrapper stays a server component',
+    'Component "Tabs": prop "children" is an element the component does not render on the server, and "BadFooter" renders it in entry /en/article — a prop slot reaches the browser only as the HTML its region rendered, so render the element in the component\'s server output, or pass it only when the component shows it',
   );
 });
 

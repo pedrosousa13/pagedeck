@@ -293,7 +293,7 @@ test("a proxied instance with JSON props builds", async () => {
   expect(html).toContain('data-pagedeck-props="{&quot;label&quot;:&quot;fine&quot;}"');
 });
 
-test("a proxied instance given JSX children is refused, naming both components", async () => {
+test("a proxied instance given JSX children it places builds them as a prop slot", async () => {
   function Template() {
     return (
       <ProxiedAccordion>
@@ -302,18 +302,19 @@ test("a proxied instance given JSX children is refused, naming both components",
     );
   }
 
-  const failure = await renderPage({
+  const { html, islands } = await renderPage({
     page: PAGE,
     template: "Template",
     registry: { Template: component(Template) },
-  }).catch((error: unknown) => error);
+  });
 
-  expect(failure).toBeInstanceOf(RenderError);
-  const message = (failure as Error).message;
-  expect(message).toContain('Component "Accordion"');
-  expect(message).toContain("Template");
-  expect(message).toContain("/en/home");
-  expect(message).toContain("use client");
+  expect(islands.map((island) => island.component)).toEqual(["Accordion"]);
+  expect(html).toContain(
+    'data-pagedeck-slot-paths="[[&quot;children&quot;]]"',
+  );
+  expect(html).toContain(
+    '<details><!--$--><template data-pagedeck-region="0"></template><span>child</span><!--/$--></details>',
+  );
 });
 
 test("a proxied instance given an empty array as children builds", async () => {
@@ -344,14 +345,18 @@ test("a proxied instance given null as children builds", async () => {
   expect(islands.map((island) => island.component)).toEqual(["Accordion"]);
 });
 
-test("a refused prop and a refused child are reported in one throw", async () => {
+test("a refused prop and an unplaced prop slot are reported in one throw", async () => {
+  function Closed({ children }: { children?: ReactNode }) {
+    return <details>{children === undefined ? "empty" : "closed"}</details>;
+  }
+  const ProxiedClosed = clientReference(Closed, { name: "Closed", mode: "load" });
   function Template() {
     return (
       <main>
         <ProxiedCounter onPress={() => undefined} />
-        <ProxiedAccordion>
+        <ProxiedClosed>
           <span>child</span>
-        </ProxiedAccordion>
+        </ProxiedClosed>
       </main>
     );
   }
@@ -365,13 +370,28 @@ test("a refused prop and a refused child are reported in one throw", async () =>
   expect(failure).toBeInstanceOf(RenderError);
   const message = (failure as Error).message;
   expect(message).toContain(
-    "Entry /en/home: the framework refuses 1 prop on client components",
-  );
-  expect(message).toContain(
-    "Entry /en/home: 1 client component is given JSX children",
+    "Entry /en/home: the framework refuses 2 props on client components",
   );
   expect(message).toContain("  Counter, rendered by Template: onPress");
-  expect(message).toContain("  Accordion, rendered by Template");
+  expect(message).toContain(
+    "  Closed, rendered by Template: children is an element the component does not render on the server",
+  );
+});
+
+test("an entry-tree island given an element in its props is still refused", async () => {
+  function Tabs({ icon }: { icon?: ReactNode }) {
+    return <div className="tabs">{icon}</div>;
+  }
+
+  const failure = await renderPage({
+    page: PAGE,
+    tree: [{ component: "Tabs", props: { icon: <i>icon</i> } }],
+    registry: { Tabs: { ...component(Tabs), hydrate: "load" } },
+  }).catch((error: unknown) => error);
+
+  expect(failure).toBeInstanceOf(RenderError);
+  expect((failure as Error).message).toContain("Tabs");
+  expect((failure as Error).message).toContain("icon.");
 });
 
 test("an entry node with entry children still slots rather than being refused", async () => {

@@ -24,7 +24,7 @@ function ArticleFooter({ title }: { title: string }) {
   );
 }
 
-/** The same template, wrong on purpose: JSX children on a client component. */
+/** The same template, wrong on purpose: a JSX child the client component never renders. */
 function BadFooter() {
   return (
     <ProxiedTabs open={0}>

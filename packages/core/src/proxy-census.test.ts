@@ -29,7 +29,7 @@ function row(overrides: Partial<ProxyCensusRow> = {}): ProxyCensusRow {
     component: "BillingToggle",
     renderedBy: "PricingPage",
     prefix: "i0",
-    refusedChildren: false,
+    propSlots: 0,
     ...overrides,
   };
 }
@@ -73,23 +73,23 @@ test("an enabled census records one JSON line per instance, nulls included", () 
       component: "BillingToggle",
       renderedBy: null,
       prefix: "i0",
-      refusedChildren: false,
+      propSlots: 0,
     },
   ]);
 });
 
-test("a refused instance is recorded beside the population it is drawn from", () => {
+test("an instance with prop slots is recorded beside the population it is drawn from", () => {
   const { path } = censusDir();
   process.env[CENSUS_PATH] = path;
 
   recordProxyInstance(row({ component: "Card", prefix: "i0" }));
   recordProxyInstance(
-    row({ component: "Accordion", prefix: "i1", refusedChildren: true }),
+    row({ component: "Accordion", prefix: "i1", propSlots: 2 }),
   );
 
   const rows = rowsIn(path) as ProxyCensusRow[];
   expect(rows.map((each) => each.component)).toEqual(["Card", "Accordion"]);
-  expect(rows.map((each) => each.refusedChildren)).toEqual([false, true]);
+  expect(rows.map((each) => each.propSlots)).toEqual([0, 2]);
 });
 
 test("rows accumulate, so a crashed build keeps what it measured", () => {

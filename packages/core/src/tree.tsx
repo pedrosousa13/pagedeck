@@ -428,6 +428,7 @@ export function islandInstances(
 export interface ComposedIsland {
   island: RenderedIsland;
   props: string;
+  slotPaths?: string;
 }
 
 export interface PropsFailure {
@@ -465,7 +466,7 @@ const REFUSED_PROP_NAMES: readonly string[] = [
 
 const DATA_FIX = "give it a value JSON can hold";
 
-const MAXIMUM_PROP_DEPTH = 32;
+export const MAXIMUM_PROP_DEPTH = 32;
 
 function refusal(
   at: readonly string[],
@@ -753,7 +754,7 @@ export function islandMarker(
   composed: ComposedIsland,
   key: string,
 ): ReactElement {
-  const { island, props } = composed;
+  const { island, props, slotPaths } = composed;
   return createElement(ISLAND_TAG, {
     key,
     [ISLAND_PREFIX_ATTRIBUTE]: island.prefix,
@@ -761,6 +762,7 @@ export function islandMarker(
     [ISLAND_EXPORT_ATTRIBUTE]: island.export,
     [ISLAND_MODE_ATTRIBUTE]: island.mode,
     [ISLAND_PROPS_ATTRIBUTE]: props,
+    [ISLAND_SLOT_PATHS_ATTRIBUTE]: slotPaths,
     role: "presentation",
     style: { display: "contents" },
     ...rawHtml(island.html),

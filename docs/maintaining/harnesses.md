@@ -208,8 +208,8 @@ Another site takes the same three commands. `census.jsonl` is not gitignored: wr
 after reading.
 
 **Take it again when a page renders a `"use client"` component from another
-component's code**, and reopen #173 (`.out-of-scope/proxied-slots.md`) on a row
-with `refusedChildren: true`.
+component's code.** A row's `propSlots` counts the elements the instance was
+handed as prop slots (`docs/adr/0011-prop-slots-are-identified-by-prop-path.md`).
 
 ## The build-twice check
 

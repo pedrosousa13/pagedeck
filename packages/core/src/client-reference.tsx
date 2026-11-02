@@ -1,15 +1,24 @@
-import { createContext, createElement, useContext, useId } from "react";
+import {
+  createContext,
+  createElement,
+  isValidElement,
+  Suspense,
+  useContext,
+  useId,
+} from "react";
 import type { ReactElement, ReactNode } from "react";
 import {
   entryId,
   hydrationContradiction,
   HYDRATION_CONTRADICTION_FIX,
+  ISLAND_REGION_ATTRIBUTE,
   RegistryError,
 } from "@pagedeck/islands";
 import type { HydrationMode, PageContext } from "@pagedeck/islands";
 import {
   CLIENT_REFERENCE_TARGET,
   islandMarker,
+  MAXIMUM_PROP_DEPTH,
   PROPS_FIX,
   RenderError,
 } from "./tree.js";
@@ -33,19 +42,168 @@ export interface ProxyInstance {
   mode: Exclude<HydrationMode, "none">;
   component: AnyComponent;
   props: Readonly<Record<string, unknown>>;
-  hasChildren: boolean;
+  serverProps: Readonly<Record<string, unknown>>;
+  slots: readonly PropPath[];
+  placed: ReadonlySet<number>;
+  misplaced: readonly Omit<RefusedProp, "component">[];
   renderedBy: string | undefined;
 }
 
+export type PropPath = readonly (string | number)[];
+
+interface PropSlotWalk {
+  slots: PropPath[];
+  placed: Set<number>;
+  misplaced: Omit<RefusedProp, "component">[];
+  ancestors: Map<object, PropHalves>;
+}
+
+interface PropHalves {
+  server: unknown;
+  json: unknown;
+}
+
+const MISPLACED_REASON =
+  "a prop slot is found only in plain objects and arrays, and serializing any other container would drop the element silently";
+
+const MISPLACED_FIX = "move the element into a plain object or array";
+
+const UNPLACED_REASON =
+  "a prop slot reaches the browser only as the HTML its region rendered";
+
+const UNPLACED_FIX =
+  "render the element in the component's server output, or pass it only when the component shows it";
+
+export function unplacedPropSlot(
+  path: PropPath,
+): Omit<RefusedProp, "component"> {
+  return {
+    path: path.join("."),
+    problem: "an element the component does not render on the server",
+    fix: UNPLACED_FIX,
+    reason: UNPLACED_REASON,
+  };
+}
+
+const isPlain = (value: object): boolean => {
+  if (Array.isArray(value)) return true;
+  const proto = Object.getPrototypeOf(value) as unknown;
+  return proto === Object.prototype || proto === null;
+};
+
+function holdsElement(value: unknown, depth: number, seen: Set<object>): boolean {
+  if (isValidElement(value)) return true;
+  if (typeof value !== "object" || value === null) return false;
+  if (depth > MAXIMUM_PROP_DEPTH || seen.has(value)) return false;
+  seen.add(value);
+  const inner: unknown[] =
+    value instanceof Map
+      ? [...value.keys(), ...value.values()]
+      : value instanceof Set
+        ? [...value]
+        : Object.values(Object.getOwnPropertyDescriptors(value)).map(
+            (descriptor) => descriptor.value as unknown,
+          );
+  return inner.some((item) => holdsElement(item, depth + 1, seen));
+}
+
+const containerKind = (value: object): string =>
+  value instanceof Map
+    ? "a Map"
+    : value instanceof Set
+      ? "a Set"
+      : "a class instance";
+
 /**
- * What React renders nothing for is not children: an empty list or a false
- * conditional must not be refused. `0` and `""` render, so they are children.
+ * Copies descriptors rather than values, so an accessor or a symbol key reaches
+ * `refusedProps` unread. A cycle closes onto the copy, so it still fails JSON.
  */
-function rendersChildren(children: unknown): boolean {
-  if (children === undefined || children === null) return false;
-  if (typeof children === "boolean") return false;
-  if (Array.isArray(children)) return children.some(rendersChildren);
-  return true;
+function splitPropSlots(
+  value: unknown,
+  path: PropPath,
+  walk: PropSlotWalk,
+): PropHalves {
+  if (isValidElement(value)) {
+    const index = walk.slots.push(path) - 1;
+    return { server: propSlotRegion(value, index, walk.placed), json: null };
+  }
+  if (typeof value !== "object" || value === null) {
+    return { server: value, json: value };
+  }
+  const ancestor = walk.ancestors.get(value);
+  if (ancestor !== undefined) return ancestor;
+  if (path.length > MAXIMUM_PROP_DEPTH) return { server: value, json: value };
+  if (!isPlain(value)) {
+    if (holdsElement(value, path.length, new Set())) {
+      walk.misplaced.push({
+        path: path.join("."),
+        problem: `${containerKind(value)} holding a React element`,
+        fix: MISPLACED_FIX,
+        reason: MISPLACED_REASON,
+      });
+    }
+    return { server: value, json: value };
+  }
+
+  const emptyLike = (): object =>
+    Array.isArray(value)
+      ? []
+      : (Object.create(Object.getPrototypeOf(value) as object | null) as object);
+  const halves = { server: emptyLike(), json: emptyLike() };
+  walk.ancestors.set(value, halves);
+  const server: PropertyDescriptorMap = {};
+  const json: PropertyDescriptorMap = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined) continue;
+    // React's development build puts non-enumerable `key` and `ref` warning
+    // getters on the props object itself.
+    if (path.length === 0 && descriptor.enumerable !== true) continue;
+    if (typeof key === "symbol" || !("value" in descriptor)) {
+      server[key] = descriptor;
+      json[key] = descriptor;
+      continue;
+    }
+    const segment =
+      Array.isArray(value) && /^(0|[1-9]\d*)$/.test(key) ? Number(key) : key;
+    const part = splitPropSlots(descriptor.value, [...path, segment], walk);
+    server[key] = { ...descriptor, value: part.server };
+    json[key] = { ...descriptor, value: part.json };
+  }
+  walk.ancestors.delete(value);
+  Object.defineProperties(halves.server, server);
+  Object.defineProperties(halves.json, json);
+  return halves;
+}
+
+function RegionMark({ index, placed }: { index: number; placed: Set<number> }) {
+  placed.add(index);
+  return createElement("template", { [ISLAND_REGION_ATTRIBUTE]: String(index) });
+}
+
+// A region's content is the server wrapper's, not the island's: a client
+// component inside it must become an island of its own.
+function RegionScope({ children }: { children: ReactNode }) {
+  const scope = useContext(ProxyScopeContext);
+  const outer = scope?.phase === "island" ? scope.outer : undefined;
+  return createElement(
+    ProxyScopeContext.Provider,
+    { value: outer ?? scope },
+    children,
+  );
+}
+
+function propSlotRegion(
+  element: ReactElement,
+  index: number,
+  placed: Set<number>,
+): ReactElement {
+  return createElement(
+    Suspense,
+    { key: element.key ?? undefined, fallback: null },
+    createElement(RegionMark, { index, placed }),
+    createElement(RegionScope, null, element),
+  );
 }
 
 export type ProxyScope = {
@@ -63,6 +221,7 @@ export type ProxyScope = {
   | {
       phase: "island";
       contradictions: Map<string, ContradictedHydration> | undefined;
+      outer: ProxyScope | undefined;
     }
 );
 
@@ -83,6 +242,7 @@ function IslandScope({ children }: { children: ReactNode }) {
               phase: "island",
               contradictions:
                 scope.phase === "compose" ? undefined : scope.contradictions,
+              outer: scope.phase === "island" ? scope.outer : scope,
             },
     },
     children,
@@ -179,15 +339,24 @@ export function clientReference<P extends Record<string, unknown>>(
       }
       return null;
     }
-    const { children, ...rest } = props;
+    const walk: PropSlotWalk = {
+      slots: [],
+      placed: new Set(),
+      misplaced: [],
+      ancestors: new Map(),
+    };
+    const halves = splitPropSlots(props, [], walk);
     scope.collected.set(prefix, {
       prefix,
       name,
       export: exported,
       mode,
       component: real,
-      props: rest,
-      hasChildren: rendersChildren(children),
+      props: halves.json as Record<string, unknown>,
+      serverProps: halves.server as Record<string, unknown>,
+      slots: walk.slots,
+      placed: walk.placed,
+      misplaced: walk.misplaced,
       renderedBy: scope.renderedBy,
     });
     // Renders nothing: this instance's own pass renders it.
@@ -200,23 +369,14 @@ export function clientReference<P extends Record<string, unknown>>(
   return ClientReferenceProxy as (props: P) => ReactElement | null;
 }
 
-export interface RefusedChildren {
-  component: string;
-  renderedBy: string | undefined;
-}
-
 export interface ProxyFaults {
   duplicates: DuplicateProxy[];
   unserializable: PropsFailure[];
   refused: RefusedProp[];
-  children: RefusedChildren[];
 }
 
 const PROXY_REFUSED_FIX =
   "a client component's props are the code of whatever rendered it, and the build hands them to React unchanged and its marker carries them to the browser";
-
-const PROXY_CHILDREN_FIX =
-  'a client component\'s children are slots, and a slot is identified by its position in the entry tree, which a component\'s own JSX has none of — place the component as a node in the entry tree, where its children become slots, or move "use client" down to the interactive leaves so the wrapper stays a server component';
 
 const proxyWhere = (
   renderedBy: string | undefined,
@@ -274,8 +434,7 @@ const paragraph = (
 const proxyFaultCount = (faults: ProxyFaults): number =>
   faults.duplicates.length +
   faults.unserializable.length +
-  faults.refused.length +
-  faults.children.length;
+  faults.refused.length;
 
 function proxySentence(faults: ProxyFaults, page: PageContext): RenderError {
   const [duplicate] = faults.duplicates;
@@ -291,15 +450,9 @@ function proxySentence(faults: ProxyFaults, page: PageContext): RenderError {
       { cause: unserializable.error },
     );
   }
-  const [refused] = faults.refused;
-  if (refused !== undefined) {
-    return new RenderError(
-      `Component "${refused.component}": prop "${refused.path}" is ${refused.problem}, and ${proxyWhere(refused.renderedBy, page)} — ${refused.reason ?? PROXY_REFUSED_FIX}, so ${refused.fix}`,
-    );
-  }
-  const child = faults.children[0] as RefusedChildren;
+  const refused = faults.refused[0] as RefusedProp;
   return new RenderError(
-    `Component "${child.component}": is given JSX children, and ${proxyWhere(child.renderedBy, page)} — ${PROXY_CHILDREN_FIX}`,
+    `Component "${refused.component}": prop "${refused.path}" is ${refused.problem}, and ${proxyWhere(refused.renderedBy, page)} — ${refused.reason ?? PROXY_REFUSED_FIX}, so ${refused.fix}`,
   );
 }
 
@@ -346,19 +499,6 @@ export function throwProxyFaults(faults: ProxyFaults, page: PageContext): void {
         faults.refused.map(
           (prop) =>
             `${proxyNamed(prop.component, prop.renderedBy)}: ${prop.path} is ${prop.problem} — ${prop.reason === undefined ? prop.fix : `${prop.reason}, so ${prop.fix}`}`,
-        ),
-      ),
-    );
-  }
-  if (faults.children.length > 0) {
-    const many = faults.children.length > 1;
-    sections.push(
-      paragraph(
-        page,
-        `${String(faults.children.length)} client ${many ? "components are" : "component is"} given JSX children`,
-        PROXY_CHILDREN_FIX,
-        faults.children.map((child) =>
-          proxyNamed(child.component, child.renderedBy),
         ),
       ),
     );
