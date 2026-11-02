@@ -260,6 +260,16 @@ test("an element inside a Map is refused, naming the path and the fix", async ()
   );
 });
 
+test("an element inside a Set is refused, naming the path and the fix", async () => {
+  function Template() {
+    return <ProxiedList title="Set" items={[]} {...{ chosen: new Set([<i key="a" />]) }} />;
+  }
+
+  expect((await refusal(Template)).message).toBe(
+    'Component "List": prop "chosen" is a Set holding a React element, and "Template" renders it in entry /en/home — a prop slot is found only in plain objects and arrays, and serializing any other container would drop the element silently, so move the element into a plain object or array',
+  );
+});
+
 test("an element inside a class instance is refused, naming the path and the fix", async () => {
   class Holder {
     constructor(readonly node: ReactNode) {}

@@ -390,8 +390,12 @@ test("an entry-tree island given an element in its props is still refused", asyn
   }).catch((error: unknown) => error);
 
   expect(failure).toBeInstanceOf(RenderError);
-  expect((failure as Error).message).toContain("Tabs");
-  expect((failure as Error).message).toContain("icon.");
+  expect((failure as Error).message).toBe(
+    "Entry /en/home: the framework refuses 3 component props — an entry's props are content and the build hands them to React unchanged, so rename, replace or flatten each one below:\n" +
+      "  Tabs: icon.key is a name the framework refuses — rename the field\n" +
+      "  Tabs: icon.ref is a name the framework refuses — rename the field\n" +
+      "  Tabs: icon._debugStack.stack is an accessor — give it a value JSON can hold",
+  );
 });
 
 test("an entry node with entry children still slots rather than being refused", async () => {
