@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, useState } from "react";
+import { act, cloneElement, useState } from "react";
+import type { ReactElement } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { ComponentDefinition } from "@pagedeck/islands";
@@ -470,7 +471,6 @@ test("a prop slot's HTML is read before any island mounts, so a nested island's 
 
   const restored = $('[data-card="A"]');
   expect(restored.textContent).toBe("Anested 0");
-  expect(restored.innerHTML).not.toContain("data-pagedeck-hydrated");
 });
 
 function BareList({ items }: { items: readonly { id: string; node: ReactNode }[] }) {
@@ -562,4 +562,73 @@ test("the stash is gone from the DOM before any island mounts", async () => {
   expect(resolve).toHaveBeenCalled();
   expect(document.body.querySelector("[data-pagedeck-region-stash]")).toBe(null);
   expect($('[data-pagedeck-component="Hidden"]').getAttribute("data-pagedeck-hydrated")).toBe(null);
+});
+
+async function settle(): Promise<void> {
+  await act(async () => new Promise((done) => setTimeout(done, 20)));
+}
+
+test("a nested island inside a prop slot placed after hydration hydrates and counts", async () => {
+  function Template() {
+    return <ProxiedHidden aside={<Card name="Z" nested />} />;
+  }
+  document.body.innerHTML = await render(Template);
+  const resolve = async (name: string) =>
+    (name === "Hidden" ? Hidden : Counter) as ComponentType<never>;
+  await import("@pagedeck/islands/slot");
+
+  const complaints = await hydrate(resolve);
+  await click("#show");
+  await settle();
+
+  const nested = $('aside [data-pagedeck-component="Counter"]');
+  expect(nested.getAttribute("data-pagedeck-hydrated")).toBe("");
+  await click("aside [data-nested]");
+  expect($("aside [data-nested]").textContent).toBe("nested 1");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+function Cloner({ children }: { children: ReactElement }) {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <button id="clone" type="button" onClick={() => setCount(count + 1)}>
+        {`clones ${String(count)}`}
+      </button>
+      {cloneElement(children)}
+    </div>
+  );
+}
+
+const ProxiedCloner = clientReference(Cloner, { name: "Cloner", mode: "load" });
+
+test("a cloneElement rebuild of a placed prop slot hydrates the nested island in its fresh DOM", async () => {
+  function Template() {
+    return (
+      <ProxiedCloner>
+        <Card name="C" nested />
+      </ProxiedCloner>
+    );
+  }
+  document.body.innerHTML = await render(Template);
+  const serverCard = $('[data-card="C"]');
+  const resolve = async (name: string) =>
+    (name === "Cloner" ? Cloner : Counter) as ComponentType<never>;
+  await import("@pagedeck/islands/slot");
+
+  const complaints = await hydrate(resolve);
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+
+  await click("#clone");
+  await settle();
+
+  const rebuilt = $('[data-card="C"]');
+  expect(rebuilt).not.toBe(serverCard);
+  expect($("[data-nested]").textContent).toBe("nested 0");
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
 });

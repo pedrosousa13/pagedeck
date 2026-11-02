@@ -418,10 +418,17 @@ async function mount(
     island.name,
     marker.getAttribute(ISLAND_EXPORT_ATTRIBUTE),
   );
+  const hydrate = (root: IslandElement): void => {
+    hydrateIslands({ ...options, root });
+  };
   const props =
     island.propSlots === undefined
       ? island.props
-      : (await import("./slot.js")).propSlotProps(island.props, island.propSlots);
+      : (await import("./slot.js")).propSlotProps(
+          island.props,
+          island.propSlots,
+          hydrate,
+        );
   const container =
     stashed !== undefined || marker.querySelector(ISLAND_SLOT_TAG) !== null;
   const children = container
@@ -431,9 +438,7 @@ async function mount(
         slots,
         stashed,
         owns: (element) => nearestMarker(element) === marker,
-        hydrate: (root) => {
-          hydrateIslands({ ...options, root });
-        },
+        hydrate,
       })
     : [];
   // A transition is time-sliced, so a large island yields to input as it

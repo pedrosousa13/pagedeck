@@ -96,7 +96,7 @@ export default function Wrapper() {
     <List
       title="Cards"
       items={["A", "B"].map((name) => ({ id: name, node: <Card name={name} nested={name === "A"} /> }))}
-      aside={<p data-aside="">server aside</p>}
+      aside={<Card name="Z" nested />}
     >
       <p data-children="">server children</p>
     </List>
@@ -179,7 +179,7 @@ test("pagedeck build writes prop slots that hydrate in place, and an unplaced on
     'data-pagedeck-slot-paths="[[&quot;items&quot;,0,&quot;node&quot;],[&quot;items&quot;,1,&quot;node&quot;],[&quot;aside&quot;],[&quot;children&quot;]]"',
   );
   expect(body).toContain(
-    '<template data-pagedeck-region-stash="2">&lt;p data-aside="">server aside&lt;/p></template>',
+    '<template data-pagedeck-region-stash="2">&lt;article data-card="Z">&lt;h3>Z&lt;/h3>&lt;pagedeck-island ',
   );
   expect(body).toContain('data-pagedeck-component="counter"');
   expect(body).not.toContain("<!--$?-->");
@@ -226,9 +226,17 @@ test("pagedeck build writes prop slots that hydrate in place, and an unplaced on
   expect($("[data-nested]").textContent).toBe("nested 2");
 
   await click("#show-aside");
-  expect($("aside").innerHTML).toBe(
-    '<pagedeck-slot role="presentation" style="display: contents;"><p data-aside="">server aside</p></pagedeck-slot>',
+  await act(async () => new Promise((done) => setTimeout(done, 50)));
+  expect($("aside").innerHTML).toMatch(
+    /^<pagedeck-slot role="presentation" style="display: contents;"><article data-card="Z"><h3>Z<\/h3><pagedeck-island /,
   );
+  expect(
+    $('aside [data-pagedeck-component="counter"]').getAttribute(
+      "data-pagedeck-hydrated",
+    ),
+  ).toBe("");
+  await click("aside [data-nested]");
+  expect($("aside [data-nested]").textContent).toBe("nested 1");
   await click("#inc");
   expect($("#inc").textContent).toBe("count 3");
   expect($('[data-card="A"]')).toBe(cardA);
