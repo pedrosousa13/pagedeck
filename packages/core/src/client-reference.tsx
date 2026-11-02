@@ -12,6 +12,7 @@ import {
   hydrationContradiction,
   HYDRATION_CONTRADICTION_FIX,
   ISLAND_REGION_ATTRIBUTE,
+  propSlotKey,
   RegistryError,
 } from "@pagedeck/islands";
 import type { HydrationMode, PageContext, PropPath } from "@pagedeck/islands";
@@ -211,7 +212,7 @@ function propSlotRegion(
 ): ReactElement {
   return createElement(
     Suspense,
-    { key: `pagedeck-prop-slot:${String(index)}`, fallback: null },
+    { key: propSlotKey(index), fallback: null },
     createElement(RegionMark, { index, placed }),
     createElement(RegionScope, null, element),
   );

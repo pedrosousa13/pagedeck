@@ -11,18 +11,21 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ComponentType, ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { prerender } from "react-dom/static";
 import { expect, test, vi } from "vitest";
 import {
   ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_HYDRATED_ATTRIBUTE,
   ISLAND_MODE_ATTRIBUTE,
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
   ISLAND_REGION_ATTRIBUTE,
   ISLAND_SLOT_PATHS_ATTRIBUTE,
+  ISLAND_SLOT_TAG,
   ISLAND_TAG,
+  propSlotKey,
 } from "./marker.js";
 import type { RootProvider } from "./providers.js";
 import { hydrateIslands } from "./runtime.js";
@@ -72,7 +75,7 @@ interface SlotReplicaProps {
 const SlotReplica = memo(
   function SlotReplica({ html, ref }: SlotReplicaProps): ReactElement {
     bodies += 1;
-    return createElement("pagedeck-slot", { ref }, html);
+    return createElement(ISLAND_SLOT_TAG, { ref }, html);
   },
   (prev, next) => {
     comparatorCalls.push({ prev, next });
@@ -359,7 +362,7 @@ const PROP_SLOT_HTML = ["<p>slot 0</p>", "<p>slot 1</p>"];
 function serverRegion(index: number): ReactElement {
   return createElement(
     Suspense,
-    { key: `pagedeck-prop-slot:${String(index)}`, fallback: null },
+    { key: propSlotKey(index), fallback: null },
     createElement("template", { [ISLAND_REGION_ATTRIBUTE]: String(index) }),
     createElement("p", null, `slot ${String(index)}`),
   );
@@ -468,7 +471,7 @@ async function measurePropSlot(
   const tree = createElement(shape.render, null, ...standIns(html, hydrate));
   let root: { unmount(): void } | undefined;
   await act(async () => {
-    root = hydrateRoot(host as never, strict ? createElement(StrictMode, null, tree) : tree, {
+    root = hydrateRoot(host, strict ? createElement(StrictMode, null, tree) : tree, {
       onRecoverableError: (error) => {
         complaints.push(String(error));
       },
@@ -484,7 +487,7 @@ async function measurePropSlot(
     fallbacksPerRerender: fallbacks,
     nodeKept: host.querySelector("p") === first,
     contentChanged: content(host) !== before,
-    rebuilt: [...host.querySelectorAll("pagedeck-slot")].length,
+    rebuilt: [...host.querySelectorAll(ISLAND_SLOT_TAG)].length,
     complaints,
   };
 
@@ -544,13 +547,14 @@ const NESTED_MARKER = {
 function nestedRegion(): ReactElement {
   return createElement(
     Suspense,
-    { key: "pagedeck-prop-slot:0", fallback: null },
+    { key: propSlotKey(0), fallback: null },
     createElement("template", { [ISLAND_REGION_ATTRIBUTE]: "0" }),
     createElement(ISLAND_TAG, NESTED_MARKER, createElement(NestedCounter)),
   );
 }
 
 interface NestedClone {
+  originalCounted: string | null | undefined;
   rootSurvives: boolean;
   hydratedAgain: boolean;
   textAfter: string | null | undefined;
@@ -577,36 +581,46 @@ async function measureNestedClone(strict: boolean): Promise<NestedClone> {
     complaints.push(args.map(String).join(" "));
   });
   const nestedSelector = `[${ISLAND_COMPONENT_ATTRIBUTE}="NestedCounter"]`;
-  const settle = () =>
-    act(async () => new Promise((done) => setTimeout(done, 20)));
-  const modules: Record<string, ComponentType<never>> = {
-    Recloned: Recloned as ComponentType<never>,
-    NestedCounter: NestedCounter as ComponentType<never>,
-  };
+  const hydratedNested = (): HarnessElement | null =>
+    document.body.querySelector(`${nestedSelector}[${ISLAND_HYDRATED_ATTRIBUTE}]`);
+  const until = (condition: () => boolean) =>
+    act(async () => {
+      await vi.waitFor(() => {
+        if (!condition()) throw new Error("not yet");
+      });
+    });
   const providers: readonly RootProvider[] = strict
-    ? [{ component: StrictMode as ComponentType<never> }]
+    ? [{ component: StrictMode }]
     : [];
 
   await act(async () => {
-    hydrateIslands({ resolve: async (name) => modules[name] as ComponentType<never>, providers });
+    hydrateIslands({
+      resolve: async (name) => (name === "Recloned" ? Recloned : NestedCounter),
+      providers,
+    });
   });
-  await settle();
-  const original = document.body.querySelector(nestedSelector);
+  await until(
+    () =>
+      [...document.body.querySelectorAll(`[${ISLAND_HYDRATED_ATTRIBUTE}]`)].length === 2,
+  );
+  const original = hydratedNested();
   await act(async () => {
     original?.querySelector("button")?.click();
   });
+  const originalCounted = original?.textContent;
   await act(async () => {
     document.body.querySelector("button")?.click();
   });
-  await settle();
+  await until(() => hydratedNested() !== null && hydratedNested() !== original);
   const rebuilt = document.body.querySelector(nestedSelector);
   const textAfter = rebuilt?.textContent;
   await act(async () => {
     rebuilt?.querySelector("button")?.click();
   });
   const result: NestedClone = {
+    originalCounted,
     rootSurvives: rebuilt === original,
-    hydratedAgain: rebuilt?.getAttribute("data-pagedeck-hydrated") === "",
+    hydratedAgain: rebuilt?.getAttribute(ISLAND_HYDRATED_ATTRIBUTE) === "",
     textAfter,
     countsAfter: rebuilt?.textContent,
     complaints,
@@ -621,6 +635,7 @@ test.each([[false], [true]])(
   "prop slot: cloneElement over a region holding a nested island hydrates it again, reset (StrictMode %s)",
   async (strict) => {
     expect(await measureNestedClone(strict)).toEqual({
+      originalCounted: "nested 1",
       rootSurvives: false,
       hydratedAgain: true,
       textAfter: "nested 0",

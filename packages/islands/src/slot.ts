@@ -4,6 +4,7 @@ import {
   ISLAND_ID_PATTERN,
   ISLAND_SLOT_ATTRIBUTE,
   ISLAND_SLOT_TAG,
+  propSlotKey,
 } from "./marker.js";
 import { RegistryError } from "./registry.js";
 import type { IslandElement, PropSlots } from "./runtime.js";
@@ -196,7 +197,7 @@ function standIn(
   return createElement(
     Suspense,
     {
-      key: `pagedeck-prop-slot:${String(index)}`,
+      key: propSlotKey(index),
       fallback: createElement(PropSlotFallback, { html, hydrate }),
     },
     createElement(Unsettled),

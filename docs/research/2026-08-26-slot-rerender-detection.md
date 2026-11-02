@@ -137,8 +137,11 @@ client replaces with a stand-in, a `<Suspense>` whose child never settles and
 whose fallback carries the slot's HTML. The same harness now runs the **real**
 stand-in, built by `propSlotProps` in `packages/islands/src/slot.ts`, not a
 replica. It hydrates each shape with `hydrateRoot` over server HTML that
-`prerender` wrote with real regions, so the dehydrated boundary the stand-in
-depends on is the one under test, which §6 notes §1's table never was.
+`prerender` wrote with regions, so the dehydrated boundary the stand-in depends
+on is the one under test, which §6 notes §1's table never was. The server
+region is a hand copy of core's `propSlotRegion`, a `<Suspense>` opened by the
+region mark: `@pagedeck/core` depends on `@pagedeck/islands`, so a harness in
+islands cannot import it.
 
 There is no comparator in the stand-in's path, so "what reaches it" is counted
 differently: a fallback mount, observed through the `hydrate` callback the
@@ -176,11 +179,14 @@ kept and node identity is lost, silently. A container building its own
 stand-in is a shape no framework path emits, as for `SlotContent` in §4: the
 island never receives anything it could build one from.
 
-**The React Compiler compiles nothing in the stand-in.** It skips
-`PropSlotFallback` for the reason it skips `AdoptedSlot`, "Cannot access refs
-during render", and the stand-in's other parts hold no memoizable work, so
-`slot.ts` is emitted with no memo cache. Measured by running `compileIslands()`
-over `slot.ts`. The containers themselves are compiled, and change nothing.
+**The React Compiler compiled nothing in the stand-in on 2026-11-02.** It
+skipped `PropSlotFallback` for the reason it skips `AdoptedSlot`, "Cannot
+access refs during render", and the stand-in's other parts hold no memoizable
+work, so `slot.ts` came out with no memo cache. That is a one-off observation,
+made by running `compileIslands()` over `slot.ts` once, and the harness does not
+assert it: it would have to import core's compiler, which the same dependency
+direction rules out outside the harness's config. The containers themselves
+are compiled, and change nothing.
 
 **A nested island in a cloned region hydrates again, reset.** The harness's last
 case runs the whole runtime: `hydrateIslands` over a hand-written marker whose
