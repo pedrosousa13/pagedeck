@@ -35,6 +35,11 @@ export const ISLAND_SLOT_PATHS_ATTRIBUTE = "data-pagedeck-slot-paths";
 // index into the marker's path list.
 export const ISLAND_REGION_ATTRIBUTE = "data-pagedeck-region";
 
+// A prop slot's key on both sides, namespaced so it cannot collide with a key
+// the island gives its own children.
+export const propSlotKey = (index: number): string =>
+  `pagedeck-prop-slot:${String(index)}`;
+
 // On the `<template>` holding the escaped HTML of a prop slot the island did
 // not place; the value is an index into the marker's path list.
 export const ISLAND_REGION_STASH_ATTRIBUTE = "data-pagedeck-region-stash";

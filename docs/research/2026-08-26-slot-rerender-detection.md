@@ -10,7 +10,7 @@
 
 ```
 pnpm test:slot-harness
-FW_REACT_COMPILER=1 pnpm test:slot-harness
+PAGEDECK_REACT_COMPILER=1 pnpm test:slot-harness
 ```
 
 `packages/islands/src/slot-rerender.harness.tsx` is the file, and the two commands are the two halves of §3. It is under `src/`, so `pnpm typecheck` compiles it against the module it replicates; the root `vitest.config.ts` includes `*.test.tsx` only, so it does not run in `pnpm test` and costs a normal suite nothing. §4 has no harness and cannot have one — it is a temporary edit to `slot.ts` plus the whole workspace suite, and committing it would mean committing a comparator that is not the one that ships.
@@ -128,3 +128,77 @@ Neither is what #158 asked for, and neither is opened by this document.
 - **A real browser.** All of it is jsdom 30.0.1. The bailout under test is React's own reconciler and has no DOM in it, so a browser is unlikely to differ — but it was not run in one.
 - **`hydrateRoot` rather than `createRoot`** in the replica harness. The real path hydrates. The §4 measurement, which is the one that touches `slot.ts`, went through `hydrateIslands` and therefore through `hydrateRoot`; §1's table did not.
 - **React beyond 19.2.8.** The props-identity bailout is not an API React documents as a guarantee. It is an optimisation, and a release is free to stop taking it — at which point §1's first four rows would start producing calls. That is the event [ADR-0005](../adr/0005-slot-re-render-is-not-detectable.md) names as reopening the decision, and the harness in the method note is how it is checked: the four zero rows are assertions, so a React that stopped taking the bailout fails them rather than going unnoticed.
+
+## 7. The prop slot (ADR-0011), measured on the real stand-in
+
+**Date:** 2026-11-02 (#248). [ADR-0011](../adr/0011-prop-slots-are-identified-by-prop-path.md)
+adds a second kind of slot: an element in a proxied island's props, which the
+client replaces with a stand-in, a `<Suspense>` whose child never settles and
+whose fallback carries the slot's HTML. The same harness now runs the **real**
+stand-in, built by `propSlotProps` in `packages/islands/src/slot.ts`, not a
+replica. It hydrates each shape with `hydrateRoot` over server HTML that
+`prerender` wrote with regions, so the dehydrated boundary the stand-in depends
+on is the one under test, which §6 notes §1's table never was. The server
+region is a hand copy of core's `propSlotRegion`, a `<Suspense>` opened by the
+region mark: `@pagedeck/core` depends on `@pagedeck/islands`, so a harness in
+islands cannot import it.
+
+There is no comparator in the stand-in's path, so "what reaches it" is counted
+differently: a fallback mount, observed through the `hydrate` callback the
+fallback calls each time it mounts. Beside it, the harness records whether the
+first region's DOM node is the same object after one container re-render,
+whether the slot content changed, and how many regions were rebuilt inside a
+`pagedeck-slot` wrapper.
+
+The four configurations produced **identical** numbers again:
+
+| Container shape | Fallback mounts on hydrate | Fallback mounts per re-render | Region node kept | Content changed | Regions rebuilt |
+| --- | --- | --- | --- | --- | --- |
+| `Restyled` | 0 | **0** | yes | no | 0 |
+| `Reversible` | 0 | **0** | yes | no | 0 |
+| `Framed` | 0 | **0** | yes | no | 0 |
+| `Held` | 0 | **0** | yes | no | 0 |
+| `Recloned` (`cloneElement`, no new props) | 0 | 1 per child | **no** | no | 1 per child |
+| Builds its own stand-in, same HTML (`DirectSame`) | 0 | 1 | **no** | no | 1 |
+| Builds its own stand-in, new HTML (`DirectSlot`) | 0 | 1 | **no** | **yes** | 1 |
+
+No configuration reported anything on `console.error` or `onRecoverableError`.
+
+**The first four rows match §1 and for the same reason.** The stand-in is one
+element per path for the island's life, so React's props-identity bailout
+skips the dehydrated boundary and its server DOM stays exactly as served.
+`Reversible` keeps the nodes and also keeps server order: a dehydrated region
+does not move, and nothing reports it, which is ADR-0011's keyed-wrapper rule.
+
+**The last three rows differ from the tree slot in kind.** A tree slot under
+`cloneElement` keeps its node (`AdoptedSlot` only swaps the string its memo
+ignores). A prop slot does not: a new element at a dehydrated boundary makes
+React give up the server DOM and render the fallback, so the region comes back
+as new DOM with the same content inside a `pagedeck-slot`. The content is
+kept and node identity is lost, silently. A container building its own
+stand-in is a shape no framework path emits, as for `SlotContent` in §4: the
+island never receives anything it could build one from.
+
+**The React Compiler compiled nothing in the stand-in on 2026-11-02.** It
+skipped `PropSlotFallback` for the reason it skips `AdoptedSlot`, "Cannot
+access refs during render", and the stand-in's other parts hold no memoizable
+work, so `slot.ts` came out with no memo cache. That is a one-off observation,
+made by running `compileIslands()` over `slot.ts` once, and the harness does not
+assert it: it would have to import core's compiler, which the same dependency
+direction rules out outside the harness's config. The containers themselves
+are compiled, and change nothing.
+
+**A nested island in a cloned region hydrates again, reset.** The harness's last
+case runs the whole runtime: `hydrateIslands` over a hand-written marker whose
+one prop slot holds a nested island, inside a `Recloned` container, with
+`StrictMode` supplied as a root provider in its strict run. After the nested
+island counts once and the container re-renders, the nested marker is a new
+element, its first root is gone with the old DOM, the fallback hydrates the new
+marker, and it reads `nested 0` and counts again. That holds in all four
+configurations, and it confirms what #247 measured in
+`packages/core/src/prop-slots.test.tsx`.
+
+So ADR-0005's holding carries over with one stated difference: every legal
+shape leaves a prop slot silent and in place, and `cloneElement` rebuilds it
+silently as new DOM with its content, and with any nested island hydrated again
+from its initial state.
