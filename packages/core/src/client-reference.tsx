@@ -200,7 +200,7 @@ function propSlotRegion(
 ): ReactElement {
   return createElement(
     Suspense,
-    { key: element.key ?? undefined, fallback: null },
+    { key: String(index), fallback: null },
     createElement(RegionMark, { index, placed }),
     createElement(RegionScope, null, element),
   );

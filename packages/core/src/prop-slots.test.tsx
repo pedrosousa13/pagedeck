@@ -180,6 +180,30 @@ test("a client component inside a prop slot is an island of its own", async () =
   );
 });
 
+test("two JSX children are two prop slots, rendered without a key warning", async () => {
+  const complaints: string[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    complaints.push(args.map(String).join(" "));
+  });
+  function Template() {
+    return (
+      <ProxiedList title="Two" items={[]}>
+        <p>one</p>
+        <p>two</p>
+      </ProxiedList>
+    );
+  }
+
+  const html = await render(Template);
+  expect(markerTag(html, "List")).toContain(
+    'data-pagedeck-slot-paths="[[&quot;children&quot;,0],[&quot;children&quot;,1]]"',
+  );
+  expect(html).toContain(
+    '<footer><!--$--><template data-pagedeck-region="0"></template><p>one</p><!--/$--><!--$--><template data-pagedeck-region="1"></template><p>two</p><!--/$--></footer>',
+  );
+  expect(complaints).toEqual([]);
+});
+
 test("a proxied island given no element has no path list", async () => {
   function Template() {
     return <ProxiedList title="Empty" items={[]} />;
