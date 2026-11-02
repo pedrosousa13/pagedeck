@@ -203,21 +203,6 @@ Each component marks its root element with `data-block` and its type. The
 build test looks for that attribute in a page's chunks to find out which
 islands the page ships.
 
-## Budgets
-
-The limits in `pagedeck.config.ts` are measured. Each one is the measurement
-plus about 16%, rounded to a whole kilobyte. If a limit starts to fail, measure
-again and give the reason. Do not raise it to make the failure go away.
-
-| Page | Limit | Measured | Made of |
-| --- | --- | --- | --- |
-| `/` | `0b` | 0 B (#694) | no chunks |
-| `/faq/` | `60kb` (61440 B) | 53823 B (#208) | `pagedeck-core` 52147 B, `pagedeck-startup` 1024 B, `faq` 415 B, entry 237 B |
-| `/signup/` | `60kb` (61440 B) | 53973 B (#208) | `pagedeck-core` 52147 B, `pagedeck-startup` 1024 B, `signup_form` 558 B, entry 244 B |
-
-The whole build's JavaScript is held to 62 kB Brotli (63488 B), against 55561 B
-measured on #208, each file compressed on its own.
-
 ## Tests
 
 - `src/server.test.ts` and `src/loader.test.ts` run the CMS and the loader in
@@ -230,13 +215,13 @@ measured on #208, each file compressed on its own.
   and checks the workflow "Publish from a CMS" describes: a fresh run and
   incremental runs; a created, an edited and a removed page at the origin; a
   burst of eight edits; a scheduled page published and retracted; a CMS
-  outage, a refused page, a failed budget, a deploy the origin refuses and a
+  outage, a refused page, a failed build, a deploy the origin refuses and a
   lost state, each recovered without `--force`; and an edit made after a run's
   sync, deployed by the run waiting behind it. The job reads the store path and
   `outDir` from the site's config.
 - `src/site.build.test.ts` starts the CMS on a port the system picks, then runs
-  `pagedeck sync` and `pagedeck build` in this directory. It checks the budget
-  report for each page. It then edits the `faq` page in the CMS, runs an
+  `pagedeck sync` and `pagedeck build` in this directory. It checks which
+  chunks each page loads. It then edits the `faq` page in the CMS, runs an
   incremental sync and build, and checks that only `/faq` was written again.
   Last, it replaces the `faq` block with a `signup_form` block, runs an
   incremental sync and build again, and checks that `/faq` now ships the

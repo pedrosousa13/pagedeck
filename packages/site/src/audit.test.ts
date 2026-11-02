@@ -2,13 +2,8 @@ import { describe, expect, test } from "vitest";
 import {
   auditVerdict,
   axeVerdict,
-  emittedHashes,
-  hashInsensitiveGzip,
-  normaliseAssetHashes,
   payloadReductions,
   reductionPercent,
-  runtimeSplit,
-  runtimeVerdict,
   servedUrl,
   totalBytes,
 } from "./audit.js";
@@ -83,73 +78,49 @@ describe("axeVerdict", () => {
 });
 
 describe("auditVerdict", () => {
-  const budgets = {
-    "/en": { scriptBytes: 0, scriptRequests: 0 },
-    "/en/pricing": { scriptBytes: 60_000, scriptRequests: 2 },
-  };
+  const urls = ["/en", "/en/pricing"];
   const floors = { accessibility: 100, seo: 90 };
 
-  const run = (
-    url: string,
-    over: { scriptBytes?: number; scriptRequests?: number; scores?: Record<string, number> } = {},
-  ) => ({
+  const run = (url: string, scores?: Record<string, number>) => ({
     url,
-    scriptBytes: over.scriptBytes ?? 0,
-    scriptRequests: over.scriptRequests ?? 0,
-    scores: over.scores ?? { accessibility: 100, seo: 100, performance: 41 },
+    scriptBytes: 0,
+    scriptRequests: 0,
+    scores: scores ?? { accessibility: 100, seo: 100, performance: 41 },
     timings: { largestContentfulPaint: 700, totalBlockingTime: 0 },
   });
 
-  test("a build inside every budget and over every floor fails nothing", () => {
-    const verdict = auditVerdict({
-      runs: [run("/en"), run("/en/pricing", { scriptBytes: 52_000, scriptRequests: 2 })],
-      budgets,
-      floors,
-    });
+  test("a build over every floor fails nothing", () => {
+    const verdict = auditVerdict({ urls, runs: [run("/en"), run("/en/pricing")], floors });
     expect(verdict.failures).toEqual([]);
-    expect(verdict.assertions).toHaveLength(8);
+    expect(verdict.assertions).toHaveLength(4);
     expect(verdict.assertions.every((one) => one.ok)).toBe(true);
-  });
-
-  test("a page over its script-byte budget fails, naming the budget and the spend", () => {
-    const verdict = auditVerdict({
-      runs: [run("/en", { scriptBytes: 900, scriptRequests: 1 }), run("/en/pricing", { scriptRequests: 2 })],
-      budgets,
-      floors,
-    });
-    expect(verdict.failures.map((one) => `${one.url} ${one.name} ${one.expected} ${one.actual}`)).toEqual([
-      "/en script bytes <= 0 900",
-      "/en script requests <= 0 1",
-    ]);
   });
 
   test("a category under its floor fails, and one with no floor is recorded rather than asserted", () => {
     const verdict = auditVerdict({
+      urls,
       runs: [
-        run("/en", { scores: { accessibility: 92, seo: 100, performance: 3 } }),
-        run("/en/pricing", { scriptRequests: 2 }),
+        run("/en", { accessibility: 92, seo: 100, performance: 3 }),
+        run("/en/pricing"),
       ],
-      budgets,
       floors,
     });
     expect(verdict.failures.map((one) => one.name)).toEqual(["accessibility score"]);
     expect(verdict.assertions.some((one) => one.name === "performance score")).toBe(false);
   });
 
-  test("a run for a page with no budget is refused, and a budget with no run too", () => {
-    expect(() => auditVerdict({ runs: [run("/en")], budgets, floors })).toThrow(
-      /\/en\/pricing/,
-    );
+  test("a run for a page not in the set is refused, and a page in the set with no run too", () => {
+    expect(() => auditVerdict({ urls, runs: [run("/en")], floors })).toThrow(/\/en\/pricing/);
     expect(() =>
-      auditVerdict({ runs: [run("/en"), run("/en/pricing"), run("/de")], budgets, floors }),
+      auditVerdict({ urls, runs: [run("/en"), run("/en/pricing"), run("/de")], floors }),
     ).toThrow(/\/de/);
   });
 
   test("a floor no run carries a score for is refused rather than skipped", () => {
     expect(() =>
       auditVerdict({
-        runs: [run("/en"), run("/en/pricing", { scriptRequests: 2 })],
-        budgets,
+        urls,
+        runs: [run("/en"), run("/en/pricing")],
         floors: { ...floors, "best-practices": 90 },
       }),
     ).toThrow(/best-practices/);
@@ -233,159 +204,6 @@ describe("reductionPercent", () => {
     expect(() => reductionPercent(0, 1234)).toThrow(
       /^Payload reduction against 0 B: .* the 1234 B measured here .* TWIN_PAYLOAD in packages\/site\/src\/audit-site\.ts/s,
     );
-  });
-});
-
-describe("hashInsensitiveGzip", () => {
-  const entry = (css: string, core: string) =>
-    Buffer.from(
-      `const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/pagedeck-core-${core}.js","assets/rolldown-runtime-BpQH8Ho1.js","assets/pagedeck-measure-react-DxHXGJIq.js","assets/pagedeck-core-${css}.css"])))=>i.map(i=>d[i]);import{n as e,r as t}from"./pagedeck-core-${core}.js";e(t,()=>import("./slot-y2iDUnVn.js"),__vite__mapDeps([0,1,2,3]));`,
-    );
-  const emitted = (css: string, core: string) =>
-    emittedHashes([
-      `pagedeck-core-${core}.js`,
-      "rolldown-runtime-BpQH8Ho1.js",
-      "pagedeck-measure-react-DxHXGJIq.js",
-      `pagedeck-core-${css}.css`,
-      "slot-y2iDUnVn.js",
-    ]);
-
-  test("two chunks that differ only in a referenced hash measure the same", () => {
-    const before = entry("BbHxMLsE", "BNZ1wc_V");
-    const after = entry("G2979gDk", "I8L5-rxT");
-    expect(after.byteLength).toBe(before.byteLength);
-    expect(hashInsensitiveGzip(after, emitted("G2979gDk", "I8L5-rxT"))).toBe(
-      hashInsensitiveGzip(before, emitted("BbHxMLsE", "BNZ1wc_V")),
-    );
-  });
-
-  test("a real byte change still counts", () => {
-    const hashes = emitted("BbHxMLsE", "BNZ1wc_V");
-    const before = entry("BbHxMLsE", "BNZ1wc_V");
-    const grown = Buffer.concat([before, Buffer.from("console.log(`a real change`);")]);
-    expect(hashInsensitiveGzip(grown, hashes)).toBeGreaterThan(
-      hashInsensitiveGzip(before, hashes),
-    );
-  });
-
-  test("a name shaped like a hash but not one the build emitted is left alone", () => {
-    // `-promises.js` is a dash, eight characters of the hash alphabet and an
-    // extension: the shape alone cannot tell it from `-BpQH8Ho1.js`.
-    const hashes = emitted("BbHxMLsE", "BNZ1wc_V");
-    const text = 'import"./polyfill-promises.js";import"./pagedeck-core-BNZ1wc_V.js";';
-    expect(normaliseAssetHashes(text, hashes)).toBe(
-      'import"./polyfill-promises.js";import"./pagedeck-core-00000000.js";',
-    );
-  });
-
-  test("an emitted file's hash is the eight characters before its extension, dashes included", () => {
-    expect(
-      emittedHashes(["pagedeck-core-I8L5-rxT.js", "pagedeck-core-G2979gDk.css", "favicon.ico"]),
-    ).toEqual(["I8L5-rxT", "G2979gDk"]);
-  });
-});
-
-describe("runtimeSplit", () => {
-  const chunk = (path: string, raw: number, gzip: number, brotli: number) => ({
-    path,
-    raw,
-    gzip,
-    brotli,
-  });
-
-  test("the React chunk is set apart and every other chunk the page loads is the framework's own", () => {
-    expect(
-      runtimeSplit({
-        url: "/en/pricing",
-        react: "pagedeck-measure-react",
-        chunks: [
-          chunk("/assets/pagedeck-measure-react-DxHXGJIq.js", 189_881, 59_000, 50_789),
-          chunk("/assets/pagedeck-core-CZK97gOy.js", 5_719, 2_600, 2_345),
-          chunk("/assets/entry-7b7f141ef145a3d4-DHGyDJFu.js", 397, 280, 252),
-          chunk("/assets/rolldown-runtime-BpQH8Ho1.js", 227, 170, 152),
-        ],
-      }),
-    ).toEqual({
-      url: "/en/pricing",
-      react: { raw: 189_881, gzip: 59_000, brotli: 50_789 },
-      own: { raw: 6_343, gzip: 3_050, brotli: 2_749 },
-    });
-  });
-
-  test("a page with no React chunk is refused, because React would be counted as the framework's", () => {
-    expect(() =>
-      runtimeSplit({
-        url: "/en/pricing",
-        react: "pagedeck-measure-react",
-        chunks: [chunk("/assets/pagedeck-core-nhIt6jgf.js", 195_495, 61_302, 52_888)],
-      }),
-    ).toThrow(/^Runtime bytes "\/en\/pricing": .*no chunk named "pagedeck-measure-react"/s);
-  });
-
-  test("a chunk is matched by its whole name, so a component that merely starts with it is the framework's", () => {
-    expect(() =>
-      runtimeSplit({
-        url: "/en/pricing",
-        react: "pagedeck-measure-react",
-        chunks: [chunk("/assets/pagedeck-measure-reactions-AAAAAAAA.js", 10, 10, 10)],
-      }),
-    ).toThrow(/no chunk named "pagedeck-measure-react"/);
-  });
-
-  test("two React chunks are refused rather than summed, since the group is meant to be one chunk", () => {
-    expect(() =>
-      runtimeSplit({
-        url: "/en/pricing",
-        react: "pagedeck-measure-react",
-        chunks: [
-          chunk("/assets/pagedeck-measure-react-AAAAAAAA.js", 10, 10, 10),
-          chunk("/assets/pagedeck-measure-react-BBBBBBBB.js", 10, 10, 10),
-        ],
-      }),
-    ).toThrow(/2 chunks named "pagedeck-measure-react"/);
-  });
-});
-
-describe("runtimeVerdict", () => {
-  const ceiling = { raw: 6_343, gzip: 3_050 };
-  const split = (raw: number, gzip: number) => ({
-    url: "/en/pricing",
-    react: { raw: 189_881, gzip: 59_000, brotli: 50_789 },
-    own: { raw, gzip, brotli: 1 },
-  });
-
-  test("a figure at its ceiling passes, raw and gzip alike", () => {
-    const verdict = runtimeVerdict({ split: split(6_343, 3_050), ceiling });
-    expect(verdict.failures).toEqual([]);
-    expect(verdict.assertions.map((one) => one.name)).toEqual([
-      "framework-own bytes, raw",
-      "framework-own bytes, gzip",
-    ]);
-  });
-
-  test("one byte over the raw ceiling fails, naming the ceiling and the figure", () => {
-    const verdict = runtimeVerdict({ split: split(6_344, 3_050), ceiling });
-    expect(
-      verdict.failures.map((one) => `${one.url} ${one.name} ${one.expected} ${one.actual}`),
-    ).toEqual(["/en/pricing framework-own bytes, raw <= 6343 6344"]);
-  });
-
-  test("one byte over the gzip ceiling fails on its own", () => {
-    const verdict = runtimeVerdict({ split: split(6_343, 3_051), ceiling });
-    expect(
-      verdict.failures.map((one) => `${one.url} ${one.name} ${one.expected} ${one.actual}`),
-    ).toEqual(["/en/pricing framework-own bytes, gzip <= 3050 3051"]);
-  });
-
-  test("React's own bytes are not compared against anything", () => {
-    const verdict = runtimeVerdict({
-      split: {
-        ...split(6_343, 3_050),
-        react: { raw: 999_999, gzip: 999_999, brotli: 999_999 },
-      },
-      ceiling,
-    });
-    expect(verdict.failures).toEqual([]);
   });
 });
 

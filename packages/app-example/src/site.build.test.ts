@@ -4,25 +4,13 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { brotliCompressSync } from "node:zlib";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { budgetReportPath } from "@pagedeck/core";
 import { CONTENT_SECURITY_POLICY } from "./csp.js";
 import { cookieOf as cookieIn, tokenOf } from "./cookie.test-support.js";
 import { build, clean, DEV_VARS, OUT, serve, SITE, stop, WRANGLER, wranglerEnv } from "./wrangler.test-support.js";
 import type { Served } from "./wrangler.test-support.js";
 
-// Spelled again rather than imported, so a limit raised in the config fails here.
-const LIMITS = {
-  "/": "0b",
-  "/signup/": "63kb",
-  "/signup/thanks/": "0b",
-  "/signup/invalid/": "0b",
-  "/signup/failed/": "0b",
-};
-
-// Every emitted `js` byte, Brotli, each file on its own: no budget row charges a lazy chunk.
-const BUILD_CEILING = 64 * 1024;
+const PAGES = ["/", "/signup/", "/signup/thanks/", "/signup/invalid/", "/signup/failed/"];
 
 // A string only the app holds: found in `site/`, it means an island shipped server code.
 const SERVER_ONLY = "Enter an email address.";
@@ -57,22 +45,9 @@ afterAll(async () => {
   clean();
 });
 
-test("each page keeps its measured budget", () => {
-  const { pages } = JSON.parse(readFileSync(budgetReportPath(SITE), "utf8")) as {
-    pages: { path: string; limitText: string; actual: number }[];
-  };
-  expect(Object.fromEntries(pages.map((row) => [row.path, row.limitText]))).toEqual(LIMITS);
-  for (const path of ["/", "/signup/thanks/", "/signup/invalid/", "/signup/failed/"]) {
-    expect(pages.find((row) => row.path === path)?.actual, path).toBe(0);
-  }
-});
-
-test("the whole build's JavaScript stays under its ceiling", () => {
-  const assets = join(OUT, "assets");
-  const total = readdirSync(assets)
-    .filter((name) => name.endsWith(".js"))
-    .reduce((sum, name) => sum + brotliCompressSync(readFileSync(join(assets, name))).length, 0);
-  expect(total).toBeLessThanOrEqual(BUILD_CEILING);
+test("every page but the sign-up form ships no JavaScript", () => {
+  const scripted = PAGES.filter((path) => readFileSync(join(OUT, path, "index.html"), "utf8").includes("<script"));
+  expect(scripted).toEqual(["/signup/"]);
 });
 
 test("no emitted file carries the app's code", () => {
@@ -118,7 +93,7 @@ test("the build routes the prefixes for Cloudflare Pages, and the upload leaves 
 });
 
 test("a built page is served from site/ with the build's headers", async () => {
-  for (const path of Object.keys(LIMITS)) {
+  for (const path of PAGES) {
     const response = await fetch(`${origin}${path}`);
     expect(response.status, path).toBe(200);
     expect(response.headers.get("Content-Type"), path).toMatch(/^text\/html/);

@@ -354,23 +354,6 @@ same load. Do not chase the named file (#183). The root `vitest.config.ts`
 `testTimeout: 15_000` is a floor for worker starvation (#640), not the timeout
 of a spawning case.
 
-### Budgets
-
-Each checked-in site declares `build.budget`, so a
-regression fails `pagedeck build`.
-
-- **A limit that starts failing is re-measured and re-justified, never
-  raised.** A page set that starts spending gets its own key.
-- **Every figure is measured**: `pagedeck sync && pagedeck build` in the site,
-  then `.pagedeck/budget-report.json`.
-- **Headroom is room for drift, never for a regression.** `0b` has none.
-  The site port sizes it for a `react-dom` patch release walking
-  the shared `pagedeck-core` chunk.
-- **Each site's `site.build.test.ts` spells the limits again** instead of
-  importing them, so a raised limit fails the suite, and holds the whole
-  build's JavaScript to a ceiling, because no `build.budget` row charges a
-  lazily loaded chunk.
-
 ## Sites
 
 Three packages are also sites, each with a `pagedeck.config.ts` at the package
@@ -386,6 +369,10 @@ Each writes `site/`, `content.db` and `.pagedeck/`, all gitignored. The
 landing page and the docs are not among them: they are one site in
 pedrosousa13/deck-cool, `sites/pagedeck`, served at `https://page.deck.cool`
 (#124).
+
+No checked-in site declares `build.budget` or `build.islandPropsBudget`, and
+no test holds a site or a module to a byte limit: budgets are a feature a site
+opts into (maintainer ruling 2026-11-02, #230).
 
 Each site sets a `Content-Security-Policy` on its `/` header rule (#557, #577),
 in its `src/csp.ts`. The CMS example is the exception: it is never deployed and
@@ -412,19 +399,6 @@ catalog (#56).
 Its fonts (#45) are static `ofl/firasans/` files from `google/fonts` at
 `e345593da2a4d596212542edbd28f2ed08fe6cbe`; a variable binary would serve one
 weight.
-
-**Budgets.** `0b` for each content page, `60kb` for `/en/pricing`, 13.5% over
-its figure. Every locale is keyed: a page no pattern matches is unbudgeted, not
-free.
-
-| Page | Limit | Measured | Made of |
-| --- | --- | --- | --- |
-| `de /`, `en /`, `en /legal/terms` | `0b` | 0 B | no chunks |
-| `en /pricing` | `60kb` (61440 B) | 54120 B (#208) | `pagedeck-core` chunk 52469 B, `pagedeck-startup` chunk 1024 B, entry chunk 260 B, the inline script loader 367 B |
-
-The whole-build ceiling is 61 kB Brotli (62464 B) against 54688 B of `js`
-measured (#208), 14.2% over it, counting the 935 B `slot` chunk and not the inline
-loader.
 
 **Deploy** (#57, #652), which lives here and not in core (spec decision #10):
 
@@ -461,7 +435,7 @@ rules and the procedure.
 contract (#694). Its sync needs the CMS running: `node dist/serve.js` first,
 or set `PAGEDECK_CMS_EXAMPLE_URL` to where it serves. It names no CMS vendor:
 it is the model a site author copies for their own CMS. Its `README.md` holds
-the wire shape, the loader's choices and the budget table.
+the wire shape and the loader's choices.
 
 ### The app example
 
@@ -479,8 +453,7 @@ requires, refuses or allows `url`, and an adapter that declares no policy
 refuses every upstream. `docs/deploy-recipe.md`, "An app beside the site",
 holds each host's steps and the host facts a first deploy still has to check. `src/site.build.test.ts` builds the site in place, serves it
 with `wrangler dev`, and requests both halves; it also fails if any file the
-build writes holds the app's error message. Its `README.md` holds the budget
-table.
+build writes holds the app's error message.
 
 ### The shared brand
 
@@ -586,18 +559,10 @@ pages say about Pagedeck's own starter, examples, CLI and repository live here:
 - **`packages/create-pagedeck/src/add-an-island.build.test.ts`** follows
   `how-to/add-an-island.md` from a copy of the starter template (#696): it
   writes each file the page names, splices each `build` key it shows into the
-  config, runs each `npx pagedeck` line, and requires the quoted budget
-  failure and report row to be what the build printed and wrote, with chunk
-  hashes and byte figures normalised. Every word, page, pattern, limit and
-  chunk name stays exact. Each island page must stay under its `60kb`, and
-  `/greet`'s real `actual` within 5% of the figure the page quotes: past that,
-  build the page's site again and copy the new figures in. It lives beside
-  the starter's dependencies; under `packages/docs`, its copy's markdown
-  would be packed.
-- **`packages/cms-example/src/connect-a-cms.build.test.ts`** builds a copy of
-  the CMS example and holds the budget report rows `connect-a-cms.md` quotes
-  to its report, with chunk hashes and byte figures normalised and each
-  `actual` within 5%.
+  config, runs each `npx pagedeck` line, and requires the first build to put
+  a `<script>` on `/greet` and none on `/` or `/about`. It lives beside the
+  starter's dependencies; under `packages/docs`, its copy's markdown would be
+  packed.
 
 ## Runnable examples
 
@@ -607,38 +572,6 @@ example with it.** `defining-pages.ts` gives `dependsOn` and `relatesTo` no ref
 in common on purpose (#42): overlapping lists would let a join over the
 dependencies pass. A new public contract gets an example or joins the list in
 `packages/examples/README.md`.
-
-## Module budgets
-
-### The islands runtime budgets
-
-`packages/islands/src/runtime.size.test.ts` holds `runtime.ts` to 2048 B,
-`slot.size.test.ts` holds `slot.ts` to 1280 B, `startup.size.test.ts`
-holds `startup.ts` to 640 B, and `island-errors.size.test.ts` holds
-`island-errors.ts` to 640 B, each bundled with `react` and `react-dom/client`
-external, Brotli at quality 11. The runtime's 2 kB is spec §8's product
-decision; the slot, startup and island-errors ceilings are ratchets.
-`island-errors.js` ships only on a site that declares `build.islandErrors`
-(#157). The runtime imports the
-startup module's triggers, so its figure includes them. A page whose islands
-are all `idle` or `visible` loads only the startup module at first, and the
-runtime on the first trigger (#95).
-
-| Module | Limit | Measured |
-| --- | --- | --- |
-| `runtime.js` | 2048 B | 1691 B (#139) |
-| `slot.js` | 1280 B | 1067 B (#89) |
-| `startup.js` | 640 B | 508 B (#89) |
-| `island-errors.js` | 640 B | 541 B (#157), only with `build.islandErrors` |
-
-Re-measure before editing any of them. A ratchet on one module cannot see bytes
-moved into the other, and every page with an island pays `runtime.js`.
-
-### The island props budget
-
-`build.islandPropsBudget` limits one island's serialized props in UTF-8 bytes
-before HTML escaping (#653). It applies only to a site that declares it: with
-no `islandPropsBudget`, no island's props are checked (#229).
 
 ## Harnesses
 
@@ -796,20 +729,11 @@ never fails on timing** (`GLOSSARY.md`, #59): the performance metrics go to
 `packages/site/.pagedeck-site-audit/lighthouse-report.json`, asserted against
 nothing.
 
-`BUDGETS` in `packages/site/src/audit-site.ts` are Lighthouse transfer figures
-over the uncompressed local origin, not the Brotli of `build.budget`:
-
-| Page | Bytes limit | Measured | Requests |
-| --- | --- | --- | --- |
-| `/de/`, `/en/`, `/en/legal/terms/` | 0 | 0 | 0 |
-| `/en/pricing/` | 230400 | 197406 (#208; 196892 B of chunk on disk, `pagedeck-core` 194081 B, `pagedeck-startup` 2370 B, plus 514 B of headers) | 4 |
-
-Zeros and request counts take no headroom: a request is a decision.
-`/en/pricing`'s 16.7% is for a `react-dom` patch release walking `pagedeck-core`.
-`pagedeck-startup` is one more request, the cost of #95's chunk split, which the
-maintainer ruled accepted. Another request is the consent manager at
-`consent.example`, which resolves nowhere; a real vendor there means
-re-measuring the row.
+The Lighthouse harness asserts the score floors in
+`packages/site/src/audit-site.ts`, and records each page's script bytes and
+requests without a limit (#230). Its scratch build declares one catch-all
+budget no page comes near, only so the build writes the budget report the
+payload figures read, as the pack harness does.
 
 ### The origin harness
 

@@ -88,7 +88,7 @@ from markdown in this repository:
 - [Write a loader](https://page.deck.cool/docs/how-to/write-a-loader/)
   reads content from a source of your own.
 - [Add an island](https://page.deck.cool/docs/how-to/add-an-island/)
-  ships one component's JavaScript and holds each page to a budget.
+  ships one component's JavaScript and chooses when it hydrates.
 - [Connect a CMS](https://page.deck.cool/docs/how-to/connect-a-cms/)
   builds a site from a headless CMS through a loader.
 - [Deploy a site](https://page.deck.cool/docs/how-to/deploy-a-site/)

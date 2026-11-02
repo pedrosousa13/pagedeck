@@ -356,6 +356,9 @@ The findings below marked **(#68)** are that prototype's, not inference.
   strategies, root providers, id prefixes) holding the ~2 kB Brotli budget,
   plus a separate **slot module** loaded only on pages that contain slotted
   containers — pages without them never pay for slot machinery.
+  *Note, 2026-11-02 (#230):* the ~2 kB is a design target. The maintainer
+  ruled byte budgets optional, and the size tests that held the runtime and
+  slot modules to a ceiling are removed.
 - The registry is the agnostic replacement for a design-system dependency:
   a design-system team ships a package fulfilling this contract; any design
   system can.
@@ -757,14 +760,18 @@ Documentation is a first-class deliverable, not an afterthought:
    with the twin. The two figures are a ratchet: they are what the build
    measured when #292 restated the criterion, they go down when the runtime
    shrinks, and they are never raised, not even for a toolchain bump; a figure
-   that rises is a finding to file. They are `RUNTIME_CEILING` in
-   `packages/site/src/audit-site.ts`, and
-   `packages/site/src/runtime.build.test.ts` builds the site and fails when
-   either is exceeded.
+   that rises is a finding to file. They were `RUNTIME_CEILING`, and
+   `packages/site/src/runtime.build.test.ts` built the site and failed when
+   either was exceeded.
    *Note, 2026-09-28 (#547):* the gzip figure is now measured with the
    build's content hashes normalised to a same-length placeholder, so a
    renamed stylesheet cannot move it. The same build reads 3,093 B that way,
    and that is the ceiling now; the 61 B drop is the method, not the runtime.
+   *Note, 2026-11-02 (#230):* the maintainer ruled byte budgets optional and
+   dropped this repository's own. `RUNTIME_CEILING` and
+   `packages/site/src/runtime.build.test.ts` are removed, so nothing holds
+   these figures any more; `docs/success-criteria.md` records the last one
+   measured.
 3. Core Web Vitals: better on every metric, measured in production (CrUX/RUM).
 4. Publish-to-live for a content edit: **< 60 s** via incremental deploy.
 5. **PageSpeed/Lighthouse mobile ≥ 90 with the full production third-party

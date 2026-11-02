@@ -1,38 +1,18 @@
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, normalize as normalizePath } from "node:path";
 import { promisify } from "node:util";
 import { brotliCompressSync, gzipSync } from "node:zlib";
 import { budgetReportPath, readManifest } from "@pagedeck/core";
-import {
-  emittedHashes,
-  hashInsensitiveGzip,
-  runtimeSplit,
-  servedUrl,
-  totalBytes,
-} from "./audit.js";
+import { servedUrl, totalBytes } from "./audit.js";
 import { BASELINE_URLS } from "./parity-baseline.js";
-import type {
-  AuditBudget,
-  PayloadBytes,
-  RuntimeCeiling,
-  RuntimeSplit,
-} from "./audit.js";
+import type { PayloadBytes } from "./audit.js";
 
 const execFileAsync = promisify(execFile);
 
 export const AUDIT_URLS: readonly string[] = BASELINE_URLS;
-
-// Transfer bytes over the uncompressed local origin, measured; derivation in
-// AGENTS.md, "The site audit harnesses".
-export const BUDGETS: Readonly<Record<string, AuditBudget>> = {
-  "/de/": { scriptBytes: 0, scriptRequests: 0 },
-  "/en/": { scriptBytes: 0, scriptRequests: 0 },
-  "/en/legal/terms/": { scriptBytes: 0, scriptRequests: 0 },
-  "/en/pricing/": { scriptBytes: 225 * 1024, scriptRequests: 4 },
-};
 
 // Cited from `docs/research/2026-08-23-app-router-static-export.md`, never
 // re-measured: no twin is reachable from this repository (#53).
@@ -63,29 +43,32 @@ export const SCORE_FLOORS: Readonly<Record<string, number>> = {
 const FW = join(import.meta.dirname, "..", "..", "core", "dist", "bin.js");
 
 // A scratch directory: `site.build.test.ts` builds this package's root, and Vitest
-// runs files in parallel.
+// runs files in parallel. The budget is there only so the build writes the budget
+// report `measurePayload` reads, and no page comes near it.
 export async function buildAuditSite(site: string): Promise<string> {
-  return buildScratchSite(site, [
-    'import { siteConfig } from "@pagedeck/site";',
-    "",
-    "export default siteConfig();",
-  ]);
-}
-
-async function buildScratchSite(
-  site: string,
-  config: readonly string[],
-): Promise<string> {
   mkdirSync(site, { recursive: true });
-  writeFileSync(join(site, "pagedeck.config.ts"), [...config, ""].join("\n"));
+  writeFileSync(
+    join(site, "pagedeck.config.ts"),
+    [
+      'import { siteConfig } from "@pagedeck/site";',
+      "",
+      "const site = siteConfig();",
+      "",
+      "export default {",
+      "  ...site,",
+      '  build: { ...site.build, budget: { "/**": "1mb" } },',
+      "};",
+      "",
+    ].join("\n"),
+  );
   for (const verb of ["sync", "build"]) {
     await execFileAsync(process.execPath, [FW, verb], { cwd: site });
   }
   return join(site, "site");
 }
 
-// No default: a chunk served as `application/octet-stream` does not run, and a page
-// that does not hydrate passes a script budget.
+// No default: a chunk served as `application/octet-stream` does not run, and the
+// audit would score a page whose islands never hydrated.
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -106,8 +89,7 @@ export interface ServedOrigin {
   close(): Promise<void>;
 }
 
-// Uncompressed on purpose: `BUDGETS` is written in uncompressed transfer bytes, and
-// a host's compression is the host's choice.
+// Uncompressed on purpose: a host's compression is the host's choice.
 export function serveBuild(root: string): Promise<ServedOrigin> {
   const server: Server = createServer((request, response) => {
     const path = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -189,74 +171,4 @@ export function measurePayload(root: string, out: string): readonly PagePayload[
       total: totalBytes(chunks),
     };
   });
-}
-
-export const RUNTIME_URL = "/en/pricing/";
-
-export const REACT_CHUNK = "pagedeck-measure-react";
-
-// A ratchet: lowered when the runtime shrinks, and raised only by a ruling
-// recorded under criterion 2 of `docs/success-criteria.md`.
-export const RUNTIME_CEILING: RuntimeCeiling = { raw: 7_432, gzip: 3_632 };
-
-// React in a chunk of its own, so the framework's bytes read off files (#292). The
-// plugin is source text: a generated config resolves only published exports (#182).
-// Site plugins also run in the component resolution and the island scan, which
-// declare no split groups (#172).
-export async function buildRuntimeSite(site: string): Promise<string> {
-  return buildScratchSite(site, [
-    'import { siteConfig } from "@pagedeck/site";',
-    "",
-    "const site = siteConfig();",
-    "const react = {",
-    `  name: ${JSON.stringify(REACT_CHUNK)},`,
-    "  priority: Number.MAX_SAFE_INTEGER,",
-    "  minSize: 0,",
-    "  minShareCount: 1,",
-    "  test: /[\\\\/]node_modules[\\\\/](?:react|react-dom|scheduler)[\\\\/]/,",
-    "};",
-    "",
-    "export default {",
-    "  ...site,",
-    "  build: {",
-    "    ...site.build,",
-    "    vite: {",
-    "      plugins: [",
-    "        ...(site.build.vite?.plugins ?? []),",
-    "        {",
-    `          name: ${JSON.stringify(REACT_CHUNK)},`,
-    "          outputOptions: (options) =>",
-    "            options.codeSplitting?.groups === undefined",
-    "              ? options",
-    "              : {",
-    "                  ...options,",
-    "                  codeSplitting: {",
-    "                    ...options.codeSplitting,",
-    "                    groups: [react, ...options.codeSplitting.groups],",
-    "                  },",
-    "                },",
-    "        },",
-    "      ],",
-    "    },",
-    "  },",
-    "};",
-  ]);
-}
-
-export function measureRuntime(root: string, out: string): RuntimeSplit {
-  const page = measurePayload(root, out).find((one) => one.url === RUNTIME_URL);
-  if (page === undefined) {
-    throw new Error(
-      `Runtime bytes "${RUNTIME_URL}": the build's budget report has no row for this page, so there is nothing to measure — check that packages/site/src/site.ts still publishes it`,
-    );
-  }
-  const hashes = emittedHashes(readdirSync(join(out, "assets")));
-  const chunks = page.chunks.map((chunk) => ({
-    ...chunk,
-    gzip: hashInsensitiveGzip(
-      readFileSync(join(out, chunk.path.startsWith("/") ? chunk.path.slice(1) : chunk.path)),
-      hashes,
-    ),
-  }));
-  return runtimeSplit({ url: page.url, react: REACT_CHUNK, chunks });
 }

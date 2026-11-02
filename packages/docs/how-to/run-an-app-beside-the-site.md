@@ -327,7 +327,7 @@ The app answers that post with a `303` to a built page: `/signup/thanks/` on
 success, `/signup/invalid/` on a refusal, and `/signup/failed/` on any other
 error, such as a post from another site or a body it could not read. No URL
 holds the address, and a reload of the page does not post the form again. The
-pages are static files in `content/signup/`, with a `0b` budget each.
+pages are static files in `content/signup/`, and ship no JavaScript.
 
 One limit remains. The pages are the same for every visitor, so they cannot
 say which address was signed up or quote the app's message. After a refusal

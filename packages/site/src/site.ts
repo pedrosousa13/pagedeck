@@ -77,15 +77,6 @@ const ROUTING: RoutingConfig = {
   ],
 };
 
-// Measured off a build, not targets. Re-measure rather than raise a failing limit
-// (AGENTS.md, "The site port").
-const BUDGET: Readonly<Record<string, string>> = {
-  "en:/": "0b",
-  "de:/": "0b",
-  "en:/legal/terms/": "0b",
-  "en:/pricing/": "60kb",
-};
-
 // Absolute, as are `FAVICON`'s and `FONTS_DIR`'s: three files build `siteConfig` from a
 // scratch `pagedeck.config.ts` elsewhere, and these paths resolve against it (#240).
 const GLOBAL_CSS = join(import.meta.dirname, "..", "styles", "global.css");
@@ -292,7 +283,6 @@ export function siteConfig(): SiteConfig {
       // Rolldown drops a shared group below `minSize`, and `checkClientGraph` refuses a
       // core tier that captured nothing.
       tierPolicy: { minSize: 0 },
-      budget: BUDGET,
       fonts: FONTS,
       favicon: FAVICON,
       passthrough: { root: PUBLIC_DIR },
