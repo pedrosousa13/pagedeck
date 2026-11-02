@@ -1,7 +1,7 @@
 "use client";
 
-// Registered `interaction`, and fetches nothing until touched (#62): focus warms the shard
-// ranges, and typing fetches shards.
+// Fetches nothing until touched (#62): focus warms the shard ranges, and typing fetches
+// shards.
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { reportBrowserFault } from "@pagedeck/islands/browser-report";
 import { createSearchClient } from "./query.js";

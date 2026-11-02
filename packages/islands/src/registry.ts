@@ -49,7 +49,8 @@ const HYDRATION_MODES: readonly HydrationMode[] = [
   "interaction",
 ];
 
-const MODE_LIST = '"none", "load", "visible", "idle" or "interaction"';
+const QUOTED_MODES = HYDRATION_MODES.map((mode) => `"${mode}"`);
+const MODE_LIST = `${QUOTED_MODES.slice(0, -1).join(", ")} or ${String(QUOTED_MODES.at(-1))}`;
 
 const PATH_FIX =
   'name its module by a path relative to the config file, such as "./components/<module>.tsx", or by a package specifier, such as "<package>/<module>"';

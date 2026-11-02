@@ -29,14 +29,14 @@ const IDLE_FALLBACK_MS = 200;
 // A marker with no element children has nothing to observe or interact with,
 // so `visible` and `interaction` fall back to `idle` for it.
 export const schedule: Schedule = (marker, mode, hydrate) => {
-  if (mode === "load") {
-    hydrate();
-    return;
+  if (mode === "load") hydrate();
+  else if (mode === "idle") whenIdle(hydrate);
+  else {
+    const targets = observableTargets(marker);
+    if (targets.length === 0) whenIdle(hydrate);
+    else if (mode === "interaction") whenInteracted(marker, hydrate);
+    else whenVisible(targets, hydrate);
   }
-  const targets = observableTargets(marker);
-  if (mode === "idle" || targets.length === 0) whenIdle(hydrate);
-  else if (mode === "interaction") whenInteracted(marker, hydrate);
-  else whenVisible(targets, hydrate);
 };
 
 function whenIdle(hydrate: () => void): void {
@@ -79,8 +79,7 @@ function observableTargets(
 
 const INTERACTIONS = ["focusin", "pointerdown"];
 
-// Listens on the marker, so only events from inside the island reach it. The
-// event that fires it is not replayed: replaying a press could act twice.
+// The event that fires it is not replayed: replaying a press could act twice (#75).
 function whenInteracted(marker: IslandElement, hydrate: () => void): void {
   const fire = (): void => {
     for (const type of INTERACTIONS) marker.removeEventListener(type, fire);
