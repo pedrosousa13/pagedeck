@@ -20,6 +20,8 @@ export type {
   NestedClientComponentExample,
   NestedIsland,
 } from "./islanding-a-nested-client-component.js";
+export { passElementsToAnIsland } from "./passing-elements-to-a-card-list.js";
+export type { PropSlotExample } from "./passing-elements-to-a-card-list.js";
 export { renderSiteImages } from "./rendering-images.js";
 export type { RenderedImages } from "./rendering-images.js";
 export { SITE_IMAGES } from "./site-images.js";

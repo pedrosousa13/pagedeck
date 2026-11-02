@@ -75,7 +75,19 @@ test("the island how-to, followed fence by fence from the starter, builds as the
         expect(run.code, run.output).toBe(0);
         if (verb === "build") {
           builds += 1;
-          expect([scripts("/"), scripts("/about"), scripts("/greet")]).toEqual([0, 0, 1]);
+          if (builds === 1) {
+            expect([scripts("/"), scripts("/about"), scripts("/greet")]).toEqual([0, 0, 1]);
+          } else {
+            expect([scripts("/"), scripts("/about"), scripts("/greet"), scripts("/cards")]).toEqual([0, 0, 1, 1]);
+            const cards = readFileSync(join(SITE, "site", "cards", "index.html"), "utf8");
+            expect([...cards.matchAll(/data-pagedeck-component="([^"]+)"/g)].map((match) => match[1])).toEqual([
+              "card-list",
+            ]);
+            expect(/data-pagedeck-slot-paths="([^"]*)"/.exec(cards)?.[1]).toBe(
+              "[[&quot;items&quot;,0,&quot;node&quot;],[&quot;items&quot;,1,&quot;node&quot;],[&quot;children&quot;]]",
+            );
+            expect(cards).toContain("<h3>Alpha</h3>");
+          }
         }
       }
     } else if (file === "pagedeck.config.ts" && !code.startsWith("import ")) {
@@ -89,5 +101,5 @@ test("the island how-to, followed fence by fence from the starter, builds as the
     }
   }
 
-  expect(builds).toBe(1);
-}, 180_000);
+  expect(builds).toBe(2);
+}, 300_000);
