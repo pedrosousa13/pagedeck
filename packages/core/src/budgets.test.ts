@@ -44,7 +44,7 @@ const STYLES = new Map([
 ]);
 
 const NO_ISLAND_PROPS: IslandPropsBudget = {
-  limit: undefined,
+  declared: undefined,
   byPage: new Map(),
 };
 
@@ -877,7 +877,7 @@ test("each row carries its largest island props, and a breaching page gets a row
     { locale: "en", path: "/quiet" },
   ], undefined, {
     islandProps: {
-      limit: PROPS_LIMIT,
+      declared: PROPS_LIMIT,
       byPage: new Map([
         ["en /pricing", { largest: 300, breaches: [] }],
         [
@@ -906,7 +906,7 @@ test("each row carries its largest island props, and a breaching page gets a row
 test("an island props breach fails the build naming the page, the island, its size against the limit and its largest props", () => {
   const breaching = report({}, [{ locale: "en", path: "/server-data" }], undefined, {
     islandProps: {
-      limit: { limitText: "3kb", limit: 3072 },
+      declared: { limitText: "3kb", limit: 3072 },
       byPage: new Map([
         [
           "en /server-data",
@@ -950,7 +950,7 @@ test("an island props breach fails the build naming the page, the island, its si
 test("a JavaScript breach and an island props breach are reported in one throw", () => {
   const both = report({ "/pricing": "1b" }, undefined, undefined, {
     islandProps: {
-      limit: PROPS_LIMIT,
+      declared: PROPS_LIMIT,
       byPage: new Map([
         [
           "en /pricing",

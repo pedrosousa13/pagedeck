@@ -524,14 +524,15 @@ const CMS_ENTRY = {
   ],
 };
 
-test("a site that declares no island props budget builds an island handed a whole CMS entry, and writes no report", async () => {
+test("a site that declares no island props budget builds an island whose props breached the former 3 kB default, and writes no report", async () => {
+  const FORMER_DEFAULT_BYTES = 3 * 1024;
   const props = { entry: CMS_ENTRY, label: "Size" };
   const dir = site(undefined, { widgetProps: props });
   expect((await run(dir, "sync")).code).toBe(EXIT_CODES.success);
 
   const result = await run(dir, "build");
 
-  expect(Buffer.byteLength(JSON.stringify(props), "utf8")).toBeGreaterThan(3 * 1024);
+  expect(Buffer.byteLength(JSON.stringify(props), "utf8")).toBeGreaterThan(FORMER_DEFAULT_BYTES);
   expect(result.err).toBe(ABSENT_FAVICON);
   expect(result.code).toBe(EXIT_CODES.success);
   expect(existsSync(budgetReportPath(dir))).toBe(false);

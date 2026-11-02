@@ -640,11 +640,6 @@ moved into the other, and every page with an island pays `runtime.js`.
 before HTML escaping (#653). It applies only to a site that declares it: with
 no `islandPropsBudget`, no island's props are checked (#229).
 
-| Site | Largest island props (#653) | Island and page |
-| --- | --- | --- |
-| the landing site, measured on #653 before #124 moved it to deck-cool | 2296 B | `variant_picker` on `/server-data` (`variants` 2250 B) |
-| `packages/site` | 163 B | `pricing_page` on `/en/pricing` |
-
 ## Harnesses
 
 `pnpm test` runs none of these, though it runs each `*.harness.test.ts`,

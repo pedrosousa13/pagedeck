@@ -1473,7 +1473,7 @@ async function stageSite(input: {
   ) {
     const report = planBudgets({
       build: input.stamp,
-      islandProps: { limit: propsLimit, byPage: islandProps },
+      islandProps: { declared: propsLimit, byPage: islandProps },
       budget: section.budget ?? {},
       inlinedPages: inlining,
       pages: identities,

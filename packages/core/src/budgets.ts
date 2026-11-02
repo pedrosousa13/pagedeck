@@ -77,7 +77,7 @@ export interface IslandPropsLimit {
 }
 
 export interface IslandPropsBudget {
-  limit: IslandPropsLimit | undefined;
+  declared: IslandPropsLimit | undefined;
   byPage: ReadonlyMap<string, PageIslandProps>;
 }
 
@@ -346,9 +346,9 @@ export function planBudgets(input: {
   return {
     version: 2,
     build: input.build,
-    ...(input.islandProps.limit === undefined
+    ...(input.islandProps.declared === undefined
       ? {}
-      : { islandPropsLimit: input.islandProps.limit }),
+      : { islandPropsLimit: input.islandProps.declared }),
     pages,
   };
 }

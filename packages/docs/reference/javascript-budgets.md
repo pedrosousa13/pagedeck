@@ -26,8 +26,9 @@ build with exit code 2, naming each breaching page, its limit, what it spends
 and its largest chunks. Every breaching page is reported, not the first.
 
 The field is optional. A site that declares no `budget` is not weighed and pays
-nothing for the check. The [island props](#island-props) limit is optional in
-the same way.
+nothing for the check. The [island props](#island-props) limit is checked only
+when declared: a site that declares no `islandPropsBudget` is never refused for
+its props.
 
 ## What a page costs
 
