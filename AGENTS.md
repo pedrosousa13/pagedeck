@@ -690,7 +690,9 @@ alone its markdown, `nav.json` and `assets/`, or a test, harness, source map
 or build cache inside `dist`, on a tarball with no `README.md` or `LICENSE`,
 on a packed manifest that still says
 `workspace:`, names a private package, or exports a file the tarball lacks,
-and on an install that holds more than one `rolldown` version (#216).
+on an install that holds more than one `rolldown` version, and on a core
+`rolldown` pin outside the `rolldown` range of the newest vite core's range
+admits on the npm registry (#216).
 `.pnpmfile.mjs` drops `devDependencies` and every `source` condition from a
 manifest as `pnpm pack` writes it, so pack with pnpm, not npm. The install is
 `pnpm install --prefer-offline --no-frozen-lockfile` with `hoist: false`, so a

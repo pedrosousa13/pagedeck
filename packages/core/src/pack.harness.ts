@@ -20,7 +20,11 @@ import {
   PUBLIC_PACKAGES,
   PUBLIC_VERSION,
 } from "./public-packages.test-support.js";
-import { rolldownVersionsFault, type WhyEntry } from "./pack-install.test-support.js";
+import {
+  rolldownVersionsFault,
+  viteRolldownFault,
+  type WhyEntry,
+} from "./pack-install.test-support.js";
 import { fences, TUTORIAL } from "../../docs/src/tutorial.test-support.js";
 
 const run = promisify(execFile);
@@ -163,6 +167,22 @@ beforeAll(async () => {
 afterAll(async () => {
   if (root !== "") await rm(root, { recursive: true, force: true });
 });
+
+test("core's rolldown pin is inside the rolldown range of the newest vite core's vite range admits", async () => {
+  const core = JSON.parse(
+    readFileSync(join(REPO, "packages", "core", "package.json"), "utf8"),
+  ) as Manifest;
+  const viteRange = core.dependencies?.vite ?? "";
+  const pin = core.dependencies?.rolldown ?? "";
+  const admitted = JSON.parse(
+    (await spawn("npm", ["view", `vite@${viteRange}`, "version", "--json"], root)).stdout,
+  ) as string | string[];
+  const vite = [admitted].flat().at(-1) as string;
+  const rolldownRange = JSON.parse(
+    (await spawn("npm", ["view", `vite@${vite}`, "dependencies.rolldown", "--json"], root)).stdout,
+  ) as string;
+  expect(viteRolldownFault({ viteRange, vite, rolldownRange, pin })).toBeUndefined();
+}, 60_000);
 
 test("every public package packs one tarball", () => {
   expect(packed.map(({ manifest }) => manifest.name).sort()).toEqual(
