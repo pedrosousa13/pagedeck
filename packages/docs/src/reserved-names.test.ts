@@ -6,33 +6,33 @@ import { createMarkdownRenderer, parseFrontmatter } from "@pagedeck/markdown-loa
 import { guides, PACKAGE } from "./pages.test-support.js";
 import { docsRenderer } from "./render.test-support.js";
 
-test("no docs page has a reserved name for the strip to rename", async () => {
+test("no docs page has a reserved name to neutralize", async () => {
   const render = await docsRenderer();
-  const renamed: string[] = [];
+  const neutralized: string[] = [];
   for (const file of guides()) {
     const { body } = parseFrontmatter(readFileSync(join(PACKAGE, file), "utf8"), file);
     const { html } = await render.render(body, file);
-    const stripped = unescapedHtml(html).dangerouslySetInnerHTML.__html;
-    if (stripped === html) continue;
+    const after = unescapedHtml(html).dangerouslySetInnerHTML.__html;
+    if (after === html) continue;
     let start = 0;
-    while (html[start] === stripped[start]) start += 1;
+    while (html[start] === after[start]) start += 1;
     let end = 0;
     while (
       end < html.length - start &&
-      html[html.length - 1 - end] === stripped[stripped.length - 1 - end]
+      html[html.length - 1 - end] === after[after.length - 1 - end]
     ) {
       end += 1;
     }
-    renamed.push(
-      `${file}: the strip renames ${JSON.stringify(html.slice(start, html.length - end))}` +
-        ` to ${JSON.stringify(stripped.slice(start, stripped.length - end))}`,
+    neutralized.push(
+      `${file}: neutralizing turns ${JSON.stringify(html.slice(start, html.length - end))}` +
+        ` into ${JSON.stringify(after.slice(start, after.length - end))}`,
     );
   }
 
-  expect(renamed).toEqual([]);
+  expect(neutralized).toEqual([]);
 });
 
-test("a heading spelling a framework-reserved name still anchors after the strip", async () => {
+test("a heading spelling a framework-reserved name still anchors after neutralizing", async () => {
   // Checked here, not in `@pagedeck/markdown-loader`, which must not depend on
   // `@pagedeck/core`.
   const renderer = await createMarkdownRenderer({ languages: [] });
@@ -40,14 +40,12 @@ test("a heading spelling a framework-reserved name still anchors after the strip
     "## data-pagedeck-slot\n\n## Data Pagedeck Props\n\n## data-pagedeck\n\n## data-pagedeck\n",
     "d.md",
   );
-  const stripped = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
+  const neutralizedHtml = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
 
   expect(
-    [...stripped.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
+    [...neutralizedHtml.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
   ).toEqual(rendered.toc.map((entry) => entry.slug));
-  // The strip also renames reserved names in prose, so the heading's own text
-  // changes; its anchor still lands.
-  expect(stripped).toContain('<h2 id="slot">data-x-pagedeck-slot</h2>');
+  expect(neutralizedHtml).toContain('<h2 id="slot">data-x-pagedeck-slot</h2>');
 });
 
 test("a heading spelling a reserved name after a non-ASCII letter still anchors", async () => {
@@ -58,17 +56,17 @@ test("a heading spelling a reserved name after a non-ASCII letter still anchors"
     "## エdata-pagedeck-slot\n\n## 属性data-pagedeck-props\n\n## édata-pagedeck-mode\n\n## ページdata-pagedeck-template\n\n## エdata-pagedeck-slotédata-pagedeck-props\n",
     "d.md",
   );
-  const stripped = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
+  const neutralizedHtml = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
 
   expect(
-    [...stripped.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
+    [...neutralizedHtml.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
   ).toEqual(rendered.toc.map((entry) => entry.slug));
   expect(rendered.toc.map((entry) => entry.slug)).toEqual([
     "エslot",
     "属性props",
     "émode",
     "ページtemplate",
-    // Two in one slug, so a strip that stopped after one removal would fail here.
+    // Two in one slug, so a pass that caught only one would fail here.
     "エslotéprops",
   ]);
 });

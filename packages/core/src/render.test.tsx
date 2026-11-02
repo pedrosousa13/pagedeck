@@ -21,7 +21,7 @@ import {
   useSocialCard,
 } from "./render.js";
 import type { EntryNode, RenderedIsland, RootProvider } from "./render.js";
-import { buildPageTree } from "./tree.js";
+import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_TAGS } from "./tree.js";
 import type { PlacedLocale } from "./locales.js";
 
 afterEach(() => {
@@ -421,7 +421,7 @@ test("a prop-slot stash typed into rich text does not reach the page", async () 
   );
 });
 
-test("a data-pagedeck-* name the strip does not enumerate is left alone", async () => {
+test("a data-pagedeck-* name neutralizing does not enumerate is left alone", async () => {
   const html = await richText('<span data-pagedeck-consent="denied">x</span>');
 
   expect(html).toBe('<div class="rich"><span data-pagedeck-consent="denied">x</span></div>');
@@ -438,13 +438,13 @@ test("rich text that names the marker element in prose still says so", async () 
   );
 });
 
-test("an attribute name in prose is renamed, because the strip reads bytes not tags", async () => {
+test("an attribute name in prose is neutralized, because neutralizing reads bytes not tags", async () => {
   const html = await richText('<p>Set data-pagedeck-slot="0.0" to address it.</p>');
 
   expect(html).toBe('<div class="rich"><p>Set data-x-pagedeck-slot="0.0" to address it.</p></div>');
 });
 
-test("renaming a reserved name never joins its neighbours into another", async () => {
+test("neutralizing a reserved name never joins its neighbours into another", async () => {
   const html = await richText(
     '<pagedeck-isl<pagedeck-island data-pagedeck-mode="load">and role="x">' +
       '<span>data-pagedeck-sl<pagedeck-island>ot="0.0"</span>',
@@ -468,29 +468,13 @@ test("a reserved name that another word ends with is that word's, not ours", asy
   expect(html).toBe('<div class="rich"><p>my-data-pagedeck-mode</p></div>');
 });
 
-test("a whole reserved name inside a URL is renamed, and that is the stated limit", async () => {
+test("a whole reserved name inside a URL is neutralized, and that is the stated limit", async () => {
   const html = await richText('<a href="/docs/data-pagedeck-slot">doc</a>');
 
   expect(html).toBe('<div class="rich"><a href="/docs/data-x-pagedeck-slot">doc</a></div>');
 });
 
-const RESERVED_TAGS = ["pagedeck-island", "pagedeck-slot"];
-const RESERVED_ATTRIBUTES = [
-  "data-pagedeck-prefix",
-  "data-pagedeck-component",
-  "data-pagedeck-export",
-  "data-pagedeck-mode",
-  "data-pagedeck-props",
-  "data-pagedeck-slot",
-  "data-pagedeck-slot-paths",
-  "data-pagedeck-region",
-  "data-pagedeck-region-stash",
-  "data-pagedeck-template",
-  "data-pagedeck-facade",
-  "data-pagedeck-search",
-];
-
-function strip(html: string): string {
+function neutralize(html: string): string {
   return unescapedHtml(html).dangerouslySetInnerHTML.__html;
 }
 
@@ -520,16 +504,15 @@ function shape(node: ParsedNode, rename: (name: string) => string): Shape {
   ];
 }
 
-function neutralised(name: string): string {
+function neutralizedName(name: string): string {
   if (RESERVED_TAGS.includes(name)) return `x-${name}`;
   if (RESERVED_ATTRIBUTES.includes(name)) return name.replace(/^data-/, "data-x-");
   return name;
 }
 
-/** The strip may rename a reserved name, and change nothing else about the tree. */
 function expectSameTree(html: string): void {
-  const before = shape(parsedBody(html), neutralised);
-  const after = shape(parsedBody(strip(html)), (name) => name);
+  const before = shape(parsedBody(html), neutralizedName);
+  const after = shape(parsedBody(neutralize(html)), (name) => name);
   expect(after, html).toEqual(before);
 }
 
@@ -543,7 +526,7 @@ test("a single-quoted reserved value in a title cannot pull text into the tag", 
     return [p, hr];
   });
 
-  expect(parsedBody(strip(html)).querySelector("p")?.getAttributeNames()).toEqual(["title"]);
+  expect(parsedBody(neutralize(html)).querySelector("p")?.getAttributeNames()).toEqual(["title"]);
   expectSameTree(html);
 });
 
@@ -557,7 +540,7 @@ test("a reserved tag opener in a title cannot pull text into the tag", () => {
     return [p, hr];
   });
 
-  expect(parsedBody(strip(html)).querySelector("p")?.getAttributeNames()).toEqual(["title"]);
+  expect(parsedBody(neutralize(html)).querySelector("p")?.getAttributeNames()).toEqual(["title"]);
   expectSameTree(html);
 });
 
@@ -572,16 +555,20 @@ function seeded(seed: number): () => number {
   };
 }
 
-test("no sanitised tree gains or loses an element or attribute to the strip", () => {
+test("no sanitised tree gains or loses an element or attribute to neutralizing", () => {
   const random = seeded(258);
   const pick = <T,>(items: readonly T[]): T =>
     items[Math.floor(random() * items.length)] as T;
   const pieces = [
     "'", '"', ">", "<", "</", "=", " ", "/", "&", "\t", "x", "a>b",
     ' onmouseover="alert(1)" ', "<script>", "<img src=x onerror=alert(1)>",
-    ...RESERVED_ATTRIBUTES,
-    ...RESERVED_TAGS.flatMap((tag) => [`<${tag}`, `<${tag} `, `</${tag}>`]),
-    "DATA-PAGEDECK-SLOT", "<PAGEDECK-ISLAND ",
+    ...RESERVED_ATTRIBUTES.flatMap((name) => [name, name.toUpperCase()]),
+    ...RESERVED_TAGS.flatMap((tag) => [
+      `<${tag}`,
+      `<${tag} `,
+      `</${tag}>`,
+      `<${tag.toUpperCase()} `,
+    ]),
   ];
   const text = (): string =>
     Array.from({ length: Math.floor(random() * 7) }, () => pick(pieces)).join("");
@@ -598,7 +585,7 @@ test("no sanitised tree gains or loses an element or attribute to the strip", ()
         element.append(node(document, depth + 1));
       }
     }
-    return element as ParsedNode;
+    return element;
   };
 
   for (let run = 0; run < 400; run += 1) {
@@ -606,7 +593,7 @@ test("no sanitised tree gains or loses an element or attribute to the strip", ()
       Array.from({ length: 1 + Math.floor(random() * 3) }, () => node(document, 0)),
     );
     expectSameTree(html);
-    expect(strip(strip(html))).toBe(strip(html));
+    expect(neutralize(neutralize(html))).toBe(neutralize(html));
   }
 });
 

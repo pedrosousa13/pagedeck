@@ -176,11 +176,12 @@ function slugify(text: string): string {
 const FALLBACK_SLUG = "section";
 
 // `(?<![-\w])` is core's ASCII name boundary (`NAME_CHARACTER`), so a reserved name after a
-// non-ASCII letter is caught, as `neutraliseReservedNames` would rename it.
+// non-ASCII letter is caught, as `neutralizeReservedNames` would rename it.
 const RESERVED = /(?<![-\w])(?:data-pagedeck(?:-|$))+/g;
 
-// `neutraliseReservedNames` renames `data-pagedeck-*` names in content, `id`s included, so a
-// heading spelling one would lose its anchor. One pass is a fixed point.
+// `neutralizeReservedNames` renames `data-pagedeck-*` names in content, `id`s included, so a
+// heading's `id` would no longer match the slug its table-of-contents link uses. One pass is a
+// fixed point.
 function unreserved(slug: string): string {
   return slug.replace(RESERVED, "");
 }

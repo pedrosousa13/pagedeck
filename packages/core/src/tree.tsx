@@ -137,7 +137,7 @@ export const PageLocaleContext = createContext<PageLocale | undefined>(undefined
 export function unescapedHtml(html: string): {
   dangerouslySetInnerHTML: { __html: string };
 } {
-  return rawHtml(neutraliseReservedNames(html));
+  return rawHtml(neutralizeReservedNames(html));
 }
 
 /**
@@ -156,41 +156,40 @@ const NAME_CHARACTER = "[-\\w]";
 
 export const IS_NAME_CHARACTER = new RegExp(NAME_CHARACTER);
 
-/**
- * An enumeration, not a `data-pagedeck-` prefix (#394, #566). Bytes, not a parse, so
- * a whole reserved name is caught wherever it is spelled. A match is the part
- * after `<`, `</` or `data-`, where the `x-` goes.
- */
+export const RESERVED_TAGS: readonly string[] = [ISLAND_TAG, ISLAND_SLOT_TAG];
+
+/** An enumeration, not a `data-pagedeck-` prefix (#394, #566). */
+export const RESERVED_ATTRIBUTES: readonly string[] = [
+  ISLAND_PREFIX_ATTRIBUTE,
+  ISLAND_COMPONENT_ATTRIBUTE,
+  ISLAND_EXPORT_ATTRIBUTE,
+  ISLAND_MODE_ATTRIBUTE,
+  ISLAND_PROPS_ATTRIBUTE,
+  ISLAND_SLOT_ATTRIBUTE,
+  ISLAND_SLOT_PATHS_ATTRIBUTE,
+  ISLAND_REGION_ATTRIBUTE,
+  ISLAND_REGION_STASH_ATTRIBUTE,
+  ISLAND_TEMPLATE_ATTRIBUTE,
+  ISLAND_FACADE_ATTRIBUTE,
+  SEARCH_ATTRIBUTE,
+];
+
 const RESERVED_NAMES = new RegExp(
   [
-    `(?<=</?)(?:${[ISLAND_TAG, ISLAND_SLOT_TAG].join("|")})(?=[\\s/>]|$)`,
-    `(?<=(?<!${NAME_CHARACTER})data-)(?:${[
-      ISLAND_PREFIX_ATTRIBUTE,
-      ISLAND_COMPONENT_ATTRIBUTE,
-      ISLAND_EXPORT_ATTRIBUTE,
-      ISLAND_MODE_ATTRIBUTE,
-      ISLAND_PROPS_ATTRIBUTE,
-      ISLAND_SLOT_ATTRIBUTE,
-      ISLAND_SLOT_PATHS_ATTRIBUTE,
-      ISLAND_REGION_ATTRIBUTE,
-      ISLAND_REGION_STASH_ATTRIBUTE,
-      ISLAND_TEMPLATE_ATTRIBUTE,
-      ISLAND_FACADE_ATTRIBUTE,
-      SEARCH_ATTRIBUTE,
-    ]
-      .map((name) => name.slice("data-".length))
-      .join("|")})(?!${NAME_CHARACTER})`,
+    `(?<=</?)(?:${RESERVED_TAGS.join("|")})(?=[\\s/>]|$)`,
+    `(?<=(?<!${NAME_CHARACTER})data-)(?:${RESERVED_ATTRIBUTES.map((name) =>
+      name.slice("data-".length),
+    ).join("|")})(?!${NAME_CHARACTER})`,
   ].join("|"),
   "gi",
 );
 
 /**
- * Inserts `x-` and removes nothing (#258): a removal can take a quote or `>`
- * with it and retokenise sanitised HTML. The renamed spelling holds nothing
- * `RESERVED_NAMES` matches, so one pass is a fixed point. Case-insensitive, as
- * the parser lowercases names.
+ * Bytes, not a parse, so a reserved name is caught wherever it is spelled.
+ * Case-insensitive, as the parser lowercases names. Renames rather than removes:
+ * ADR-0006.
  */
-function neutraliseReservedNames(html: string): string {
+function neutralizeReservedNames(html: string): string {
   return html.replace(RESERVED_NAMES, "x-$&");
 }
 
