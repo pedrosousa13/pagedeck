@@ -227,6 +227,29 @@ test("a prop slot the island does not place is refused, naming the component and
   );
 });
 
+test("a prop slot the island renders twice is refused, naming the component and the path", async () => {
+  function Twice({ children }: { children?: ReactNode }) {
+    return (
+      <div>
+        {children}
+        {children}
+      </div>
+    );
+  }
+  const ProxiedTwice = clientReference(Twice, { name: "Twice", mode: "load" });
+  function Template() {
+    return (
+      <ProxiedTwice>
+        <span>once</span>
+      </ProxiedTwice>
+    );
+  }
+
+  expect((await refusal(Template)).message).toBe(
+    'Component "Twice": prop "children" is an element the component renders in more than one place, and "Template" renders it in entry /en/home — a prop slot has one region of server HTML and the browser keeps it where it is, so render the element once',
+  );
+});
+
 test("an element inside a Map is refused, naming the path and the fix", async () => {
   function Template() {
     return <ProxiedList title="Map" items={[]} {...{ lookup: new Map([["a", <i key="a" />]]) }} />;

@@ -865,6 +865,8 @@ test.each([
   ["an out-of-range region index", '{"children":null}', '[["children"]]', "1", NOT_INDEX],
   ["a region index that is not a number", '{"children":null}', '[["children"]]', "x", NOT_INDEX],
   ["a region but no path list", '{"children":null}', undefined, "0", NOT_INDEX],
+  ["a region index with a leading zero", '{"items":[null,null]}', '[["items",0],["items",1]]', "01", NOT_INDEX],
+  ["a region index of two zeros", '{"children":null}', '[["children"]]', "00", NOT_INDEX],
 ])("a marker with %s is refused at the read path without mounting", async (_, props, paths, region, reason) => {
   fakeBrowser();
   document.body.innerHTML = forgedPropSlots(props, paths, region);
@@ -885,6 +887,33 @@ test.each([
   );
   expect(resolve).not.toHaveBeenCalled();
   expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+});
+
+test("a marker with two regions under one index is refused at the read path without mounting", async () => {
+  fakeBrowser();
+  document.body.innerHTML = forgedPropSlots(
+    '{"items":[null,null]}',
+    '[["items",0],["items",1]]',
+    "0",
+  ).replace(
+    "</div>",
+    `<!--$--><template ${ISLAND_REGION_ATTRIBUTE}="0"></template><p>again</p><!--/$--></div>`,
+  );
+  const resolve = vi.fn(async () => Reveal as ComponentType<never>);
+
+  let thrown: unknown;
+  await act(async () => {
+    try {
+      hydrateIslands({ resolve });
+    } catch (error) {
+      thrown = error;
+    }
+  });
+
+  expect((thrown as Error).message).toBe(
+    `Island "Reveal" (iforged): holds two regions whose ${ISLAND_REGION_ATTRIBUTE} is the same index, so its prop slots cannot be placed — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
+  );
+  expect(resolve).not.toHaveBeenCalled();
 });
 
 test("a well-formed prop slot hydrates over its region, which stays the server's", async () => {

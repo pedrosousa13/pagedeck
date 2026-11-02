@@ -44,7 +44,7 @@ export interface ProxyInstance {
   props: Readonly<Record<string, unknown>>;
   serverProps: Readonly<Record<string, unknown>>;
   slots: readonly PropPath[];
-  placed: ReadonlySet<number>;
+  placed: ReadonlyMap<number, ReadonlySet<string>>;
   misplaced: readonly Omit<RefusedProp, "component">[];
   renderedBy: string | undefined;
 }
@@ -53,7 +53,7 @@ export type PropPath = readonly (string | number)[];
 
 interface PropSlotWalk {
   slots: PropPath[];
-  placed: Set<number>;
+  placed: Map<number, Set<string>>;
   misplaced: Omit<RefusedProp, "component">[];
   ancestors: Map<object, PropHalves>;
 }
@@ -73,6 +73,20 @@ const UNPLACED_REASON =
 
 const UNPLACED_FIX =
   "render the element in the component's server output, or pass it only when the component shows it";
+
+const TWICE_REASON =
+  "a prop slot has one region of server HTML and the browser keeps it where it is";
+
+export function twicePlacedPropSlot(
+  path: PropPath,
+): Omit<RefusedProp, "component"> {
+  return {
+    path: path.join("."),
+    problem: "an element the component renders in more than one place",
+    fix: "render the element once",
+    reason: TWICE_REASON,
+  };
+}
 
 export function unplacedPropSlot(
   path: PropPath,
@@ -176,8 +190,19 @@ function splitPropSlots(
   return halves;
 }
 
-function RegionMark({ index, placed }: { index: number; placed: Set<number> }) {
-  placed.add(index);
+// Counted by `useId`, which repeats across a pass's two runs and differs
+// between two places in one tree.
+function RegionMark({
+  index,
+  placed,
+}: {
+  index: number;
+  placed: Map<number, Set<string>>;
+}) {
+  const id = useId();
+  const places = placed.get(index);
+  if (places === undefined) placed.set(index, new Set([id]));
+  else places.add(id);
   return createElement("template", { [ISLAND_REGION_ATTRIBUTE]: String(index) });
 }
 
@@ -196,7 +221,7 @@ function RegionScope({ children }: { children: ReactNode }) {
 function propSlotRegion(
   element: ReactElement,
   index: number,
-  placed: Set<number>,
+  placed: Map<number, Set<string>>,
 ): ReactElement {
   return createElement(
     Suspense,
@@ -341,7 +366,7 @@ export function clientReference<P extends Record<string, unknown>>(
     }
     const walk: PropSlotWalk = {
       slots: [],
-      placed: new Set(),
+      placed: new Map(),
       misplaced: [],
       ancestors: new Map(),
     };

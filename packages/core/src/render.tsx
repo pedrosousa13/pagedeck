@@ -44,6 +44,7 @@ import {
   openProxyScope,
   throwContradictedHydration,
   throwProxyFaults,
+  twicePlacedPropSlot,
   unplacedPropSlot,
 } from "./client-reference.js";
 import { recordProxyInstance } from "./proxy-census.js";
@@ -976,15 +977,17 @@ export async function renderPage(
         }
         continue;
       }
-      const unplaced = instance.slots.filter(
-        (_, index) => !instance.placed.has(index),
-      );
-      if (unplaced.length > 0) {
-        for (const path of unplaced) {
+      const misrendered = instance.slots.flatMap((path, index) => {
+        const places = instance.placed.get(index)?.size ?? 0;
+        if (places === 1) return [];
+        return [places === 0 ? unplacedPropSlot(path) : twicePlacedPropSlot(path)];
+      });
+      if (misrendered.length > 0) {
+        for (const prop of misrendered) {
           proxyFaults.refused.push({
             component: instance.name,
             renderedBy: instance.renderedBy,
-            ...unplacedPropSlot(path),
+            ...prop,
           });
         }
         continue;

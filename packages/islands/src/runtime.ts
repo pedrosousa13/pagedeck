@@ -88,16 +88,19 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     ownedBy(stash, marker).set(id, template.content?.textContent ?? "");
     template.remove();
   }
-  const regions = new Map<IslandElement, Map<string, string>>();
+  const regions = new Map<IslandElement, Region[]>();
   for (const mark of root.querySelectorAll(
     `${ISLAND_TEMPLATE_TAG}[${ISLAND_REGION_ATTRIBUTE}]`,
   )) {
     const marker = nearestMarker(mark);
     if (marker === null) continue;
-    ownedBy(regions, marker).set(
-      mark.getAttribute(ISLAND_REGION_ATTRIBUTE) ?? "",
-      regionHtml(mark),
-    );
+    const region = {
+      index: mark.getAttribute(ISLAND_REGION_ATTRIBUTE) ?? "",
+      html: regionHtml(mark),
+    };
+    const owned = regions.get(marker);
+    if (owned === undefined) regions.set(marker, [region]);
+    else owned.push(region);
   }
   const unreadable: UnreadableMarker[] = [];
   let position = 0;
@@ -160,6 +163,11 @@ export interface PropSlots {
   html: ReadonlyMap<number, string>;
 }
 
+interface Region {
+  index: string;
+  html: string;
+}
+
 interface RegionNode {
   readonly nodeType: number;
   readonly data?: string;
@@ -203,7 +211,7 @@ function regionHtml(mark: IslandElement): string {
   return html;
 }
 
-const REGION_INDEX_PATTERN = /^\d+$/;
+const REGION_INDEX_PATTERN = /^(0|[1-9]\d*)$/;
 
 const isSegment = (segment: unknown): segment is string | number =>
   typeof segment === "string" ||
@@ -226,7 +234,7 @@ function holdsNullAt(props: unknown, path: readonly unknown[]): boolean {
 function readPropSlots(
   marker: IslandElement,
   props: Record<string, unknown>,
-  regions: ReadonlyMap<string, string> | undefined,
+  regions: readonly Region[] | undefined,
 ): PropSlots | { reason: string; consequence: string; cause?: unknown } {
   const listed = marker.getAttribute(ISLAND_SLOT_PATHS_ATTRIBUTE);
   const consequence = "so its prop slots cannot be placed";
@@ -250,10 +258,16 @@ function readPropSlots(
     };
   }
   const html = new Map<number, string>();
-  for (const [index, markup] of regions ?? []) {
+  for (const { index, html: markup } of regions ?? []) {
     if (!REGION_INDEX_PATTERN.test(index) || Number(index) >= paths.length) {
       return {
         reason: `holds a region whose ${ISLAND_REGION_ATTRIBUTE} is not an index into its ${ISLAND_SLOT_PATHS_ATTRIBUTE}`,
+        consequence,
+      };
+    }
+    if (html.has(Number(index))) {
+      return {
+        reason: `holds two regions whose ${ISLAND_REGION_ATTRIBUTE} is the same index`,
         consequence,
       };
     }
@@ -289,7 +303,7 @@ function identify(
 function read(
   marker: IslandElement,
   position: number,
-  regions: ReadonlyMap<string, string> | undefined,
+  regions: readonly Region[] | undefined,
 ): MarkerRead {
   const name = marker.getAttribute(ISLAND_COMPONENT_ATTRIBUTE);
   const prefix = marker.getAttribute(ISLAND_PREFIX_ATTRIBUTE);
