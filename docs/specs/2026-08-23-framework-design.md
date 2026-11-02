@@ -760,9 +760,9 @@ Documentation is a first-class deliverable, not an afterthought:
    with the twin. The two figures are a ratchet: they are what the build
    measured when #292 restated the criterion, they go down when the runtime
    shrinks, and they are never raised, not even for a toolchain bump; a figure
-   that rises is a finding to file. They are `RUNTIME_CEILING`, and
-   `packages/site/src/runtime.build.test.ts` builds the site and fails when
-   either is exceeded.
+   that rises is a finding to file. They were `RUNTIME_CEILING`, and
+   `packages/site/src/runtime.build.test.ts` built the site and failed when
+   either was exceeded.
    *Note, 2026-09-28 (#547):* the gzip figure is now measured with the
    build's content hashes normalised to a same-length placeholder, so a
    renamed stylesheet cannot move it. The same build reads 3,093 B that way,

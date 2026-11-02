@@ -37,8 +37,7 @@ async function pagedeck(...argv: string[]): Promise<string> {
   return stdout;
 }
 
-// The page's entry and every chunk its text names, the islands it imports on demand
-// among them.
+// The islands it imports on demand among them.
 function chunksOf(page: string): string[] {
   const html = readFileSync(join(OUT, page, "index.html"), "utf8");
   const entry = /<script type="module" src="\/(assets\/[^"]+\.js)">/.exec(html)?.[1];

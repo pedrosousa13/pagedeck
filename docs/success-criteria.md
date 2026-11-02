@@ -101,7 +101,8 @@ optional and dropped this repository's own, so the site declares none.
 `packages/site/src/site.build.test.ts` still fails when a content page carries
 a `<script>`, links a chunk or names an island. The Lighthouse harness's
 scratch build declares one catch-all budget that no page comes near, only so
-that the build writes the report the left column reads. Spec §15's phrasing is "0 kB"; the measurement is 0 B.
+that the build writes the report the left column reads. Spec §15's phrasing is
+"0 kB"; the measurement is 0 B.
 
 **The twin cannot do this in any supported configuration.** The cited research
 built an App Router page with no client component anywhere in its subtree and
@@ -132,7 +133,7 @@ this criterion's verdict, and 80 % is no longer a target.
 | --- | ---: | ---: | ---: |
 | the framework's own | **6,376 B** | **3,093 B** | 2,754 B |
 | React (`react`, `react-dom`, `scheduler`) | 189,881 B | 58,990 B | 50,789 B |
-| ceiling (`RUNTIME_CEILING`) | 6,376 B | 3,093 B | — |
+| ceiling (`RUNTIME_CEILING`, until #230) | 6,376 B | 3,093 B | — |
 
 **2026-10-09, #95: the ceiling is re-measured to 6,685 B raw and 3,389 B gzip
 (3,039 B Brotli).** Moving the hydrate triggers and Vite's preload helper into
@@ -203,12 +204,13 @@ which reads 61 B lower on the same build; the ceiling was lowered to match. The
 runtime did not shrink. Raw is unchanged, and Brotli is still the file as it
 is (2,754 B here against 2,773 B before is the renamed files, not the method).
 
-`packages/site/src/runtime.build.test.ts`, removed by #230, built this site into a scratch directory, printed
-the three rows above, and failed when either figure was over its ceiling. It needed no browser.
-It was a byte count off a build, so it answered the same on a loaded runner as on
-an idle one. That is the reasoning of `GLOSSARY.md`'s "A site audit asserts only
-what is deterministic", applied by analogy: this is not a site audit and needs
-no browser, so it ran in `pnpm test`. Two runs agreed to the byte.
+`packages/site/src/runtime.build.test.ts`, removed by #230, built this site
+into a scratch directory, printed the three rows above, and failed when either
+figure was over its ceiling. It needed no browser. It was a byte count off a
+build, so it answered the same on a loaded runner as on an idle one. That is
+the reasoning of `GLOSSARY.md`'s "A site audit asserts only what is
+deterministic", applied by analogy: this is not a site audit and needs no
+browser, so it ran in `pnpm test`. Two runs agreed to the byte.
 
 **The page.** §15 names a class of page, and this site has no form page. The
 representative set `docs/dogfood-spot-check.md` fixes has one page with an
@@ -226,14 +228,14 @@ page, that chunk is React's and the rest are the framework's: the islands
 runtime, the page's entry, the billing toggle and Rolldown's interop helpers.
 Each chunk is minified by the production settings. Raw is the file as it is;
 gzip is the file with every content hash the build emitted in a file name
-rewritten to a same-length placeholder, so a renamed stylesheet cannot move
-it (`hashInsensitiveGzip`, which #230 removed). The method, `buildRuntimeSite`,
-also removed by #230, was chosen over two
-others: Rolldown's per-module sizes are taken before minification and cannot
-give a gzip figure, and a second bundle
-with React externalized would restate the client build's settings in a second
-place. Sourcemaps are not used (ADR-0002). The test calls no bundler itself:
-`pagedeck build` reaches Rolldown through `packages/core/src/bundler.ts`.
+rewritten to a same-length placeholder, so a renamed stylesheet cannot move it
+(`hashInsensitiveGzip`, which #230 removed). The method, `buildRuntimeSite`,
+also removed by #230, was chosen over two others: Rolldown's per-module sizes
+are taken before minification and cannot give a gzip figure, and a second
+bundle with React externalized would restate the client build's settings in a
+second place. Sourcemaps are not used (ADR-0002). The test calls no bundler
+itself: `pagedeck build` reaches Rolldown through
+`packages/core/src/bundler.ts`.
 
 **The split costs a little, and the framework carries it.** The measurement
 build's two halves total 196,257 B raw. The production build of the same site

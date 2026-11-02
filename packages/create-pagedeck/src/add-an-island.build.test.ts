@@ -64,28 +64,17 @@ test("the island how-to, followed fence by fence from the starter, builds as the
   cpSync(STARTER_TEMPLATE, SITE, { recursive: true });
 
   const page = fences(readFileSync(HOW_TO, "utf8"));
-  let build: Run | undefined;
   let builds = 0;
-  const settle = (): void => {
-    if (build !== undefined) expect(build.code, build.output).toBe(0);
-    build = undefined;
-  };
 
   for (const { lang, code, file } of page) {
     if (lang === "sh") {
-      settle();
       for (const line of code.trim().split("\n")) {
         const verb = /^npx pagedeck (sync|build)$/.exec(line)?.[1];
         expect(verb, `a shell line this test knows how to run: ${line}`).toBeDefined();
         const run = await pagedeck(verb as string);
-        if (verb === "sync") {
-          expect(run.code, run.output).toBe(0);
-          continue;
-        }
-        builds += 1;
-        build = run;
-        if (builds === 1) {
-          expect(run.code, run.output).toBe(0);
+        expect(run.code, run.output).toBe(0);
+        if (verb === "build") {
+          builds += 1;
           expect([scripts("/"), scripts("/about"), scripts("/greet")]).toEqual([0, 0, 1]);
         }
       }
@@ -99,7 +88,6 @@ test("the island how-to, followed fence by fence from the starter, builds as the
       throw new Error(`a fence this test cannot check, in ${lang}:\n${code}`);
     }
   }
-  settle();
 
   expect(builds).toBe(1);
 }, 180_000);
