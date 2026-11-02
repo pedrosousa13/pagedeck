@@ -1,7 +1,7 @@
 ---
 section: how-to
 title: Add an island
-description: Write a "use client" component, place it on one page, and choose when it hydrates.
+description: Write a "use client" component, place it on one page, choose when it hydrates, and pass it server-rendered elements.
 ---
 
 # Add an island
@@ -142,3 +142,112 @@ components: {
 
 To fail the build when a page ships more JavaScript than you allow, declare a
 [JavaScript budget](../reference/javascript-budgets.md). A budget is optional.
+
+## 4. Pass server-rendered elements to an island
+
+A server component can render an island and hand it elements: as `children`,
+or anywhere inside a prop made of plain objects and arrays. Each element is a
+**prop slot**. The build renders it once, on the server, and the browser keeps
+that HTML. The island places the slot, but never renders what is inside it.
+
+Save this as `components/card-list.tsx`:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import type { ReactNode } from "react";
+
+export default function CardList({
+  items,
+  children,
+}: {
+  items: { id: string; node: ReactNode }[];
+  children?: ReactNode;
+}) {
+  const [reversed, setReversed] = useState(false);
+  const shown = reversed ? [...items].reverse() : items;
+  return (
+    <section>
+      <button type="button" onClick={() => setReversed(!reversed)}>
+        Reverse
+      </button>
+      <ul>
+        {shown.map((item) => (
+          <li key={item.id}>{item.node}</li>
+        ))}
+      </ul>
+      {children}
+    </section>
+  );
+}
+```
+
+A server component renders it. Save this as `components/cards.tsx`:
+
+```tsx
+import CardList from "./card-list.tsx";
+
+function Card({ name }: { name: string }) {
+  return (
+    <article>
+      <h3>{name}</h3>
+    </article>
+  );
+}
+
+export default function Cards() {
+  return (
+    <CardList items={["Alpha", "Beta"].map((name) => ({ id: name, node: <Card name={name} /> }))}>
+      <p>Two cards</p>
+    </CardList>
+  );
+}
+```
+
+Name `cards` in a page's `components` list, as step 2 did for `greeting`, and
+register both components in `pagedeck.config.ts`:
+
+```ts
+components: {
+  layout: "./components/layout.tsx",
+  counter: "./components/counter.tsx",
+  greeting: { path: "./components/greeting.tsx", hydrate: "idle" },
+  cards: "./components/cards.tsx",
+  "card-list": "./components/card-list.tsx",
+},
+```
+
+`Card` ships no JavaScript. Its HTML reaches the browser inside the list's
+three prop slots: `items[0].node`, `items[1].node` and `children`. A client
+component inside a prop slot becomes an island of its own.
+
+Follow these rules for a prop slot:
+
+- **Put a slot rendered from a list inside a keyed element**, as `<li key>`
+  above. A keyed wrapper moves the slot's HTML when the list reorders. Bare
+  sibling slots stay in server order, and nothing reports it.
+- **The island cannot change a slot's content.** Re-rendering the island with
+  new data for a slot does nothing, and nothing reports it. To show different
+  content, pass a different element from the server.
+- **`cloneElement` over a slot rebuilds it.** The content stays, but as new DOM
+  nodes. An island inside the rebuilt slot hydrates again and starts from its
+  initial state.
+- **A slot the island does not render on the server still works.** The build
+  stores its HTML, and the slot shows that HTML when the island places it
+  later, after a state change. An island inside it hydrates when it appears.
+- **Render each slot once.** The build refuses an island that renders the same
+  slot in two places.
+
+A prop slot is found only in plain objects and arrays. The build refuses an
+element inside a `Map`, a `Set` or a class instance, because serializing that
+container would drop the element. Move the element into a plain object or an
+array. Every other prop must still be data that JSON can hold. The build
+refuses a function, a symbol key, an accessor, a value nested more than 32
+levels deep, and a prop named `__proto__`, `constructor`,
+`dangerouslySetInnerHTML`, `key` or `ref`.
+
+Prop slots belong only to an island that another component renders. An island
+the page places itself, by a name in its `components` list or as a node of the
+tree `build.content` returns, takes its node's children as **tree slots**, and
+the build refuses an element in any of its other props.
