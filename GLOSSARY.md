@@ -1276,8 +1276,9 @@ what one could ship belongs in the tarball)
 A site whose config is in this repository to be copied — it is here to
 demonstrate the framework, so a reader arrives at it looking for how to write
 their own. The site port and the CMS and app examples are the ones so far, and
-`docs/maintaining/sites.md` describes each. A site published under its own name is not
-one, however much of the framework it exercises and wherever its config lives:
+`docs/maintaining/sites.md` describes each. A site published under its own
+name is not one, however much of the framework it exercises and wherever its
+config lives:
 what a reader finds there is one deployment's answers, chosen for that
 deployment, and nobody starts a site from them.
 
@@ -1573,9 +1574,9 @@ reports a tarball's every stowaway.
 It binds a package added tomorrow, which is what puts it here rather than in
 the section below: `packages/core/src/publishable-packages.test.ts` walks
 `packages/` off disk and packs whatever it finds, so a new package is held to
-all of it the day it lands, with no list to add itself to. `docs/maintaining/packaging.md`
-under "The published tarball" carries the three fields and the argument for each; do
-not restate them here. Ruled on #185.
+all of it the day it lands, with no list to add itself to.
+`docs/maintaining/packaging.md` under "The published tarball" carries the three
+fields and the argument for each; do not restate them here. Ruled on #185.
 
 Each package's `tsconfig.build.json` holds to the same rule. Only `references`
 differs between packages; `extends`, `compilerOptions`, `include` and `exclude`
@@ -1602,8 +1603,8 @@ markdown, `nav.json` and `assets/` and no code. So it emits nothing, has no
 and its `prepack` copies the published part of `docs/` in rather than running
 `tsc -b`, because `npm pack` cannot reach a file outside the package and
 `docs/` stays the one copy in git. The exception is named once, by package
-name, and admits nothing to any other package; `docs/maintaining/packaging.md`
-under "The published tarball" carries it.
+name, and admits nothing to any other package;
+`docs/maintaining/packaging.md` under "The published tarball" carries it.
 
 ### The bundler is reached through one door, and every hook it is handed is guarded
 

@@ -5,7 +5,8 @@ of the repository's `docs/`. deck-cool's `sites/pagedeck` builds them and
 serves them at `https://page.deck.cool/docs` (#124); its build test checks
 the figures the pages quote about that site. A page links another by its
 relative `.md` path, as the docs contract requires. The tests of what the
-pages say about Pagedeck's own starter, examples, CLI and repository live here:
+pages say about Pagedeck's own starter, examples, CLI and repository live in
+this repository:
 
 - **In `packages/docs/src`**, with the workspace packages a sample imports as
   `devDependencies`, which `.pnpmfile.mjs` drops from the tarball:

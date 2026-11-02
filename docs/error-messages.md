@@ -4588,7 +4588,8 @@ kills with SIGSEGV. The real crash, a module that segfaults the compiler
 (oxc-project/oxc#27995), sits in a window
 `packages/core/src/react-compiler.harness.ts` measures under
 `pnpm test:compiler-crash-harness` rather than under `pnpm test`:
-`docs/maintaining/harnesses.md` gives the placement and the trigger to re-measure on.
+`docs/maintaining/harnesses.md` gives the placement and the trigger to
+re-measure on.
 
 ```
 Module "/site/components/Chart.tsx": React Compiler crashed — its process exited on SIGSEGV while compiling the module. That is a fault in the compiler rather than a rule a component broke, so report it as a React Compiler bug; "use no memo" does not silence it, because the crash happens whether or not the directive is present. The module renders as written, without automatic memoization.

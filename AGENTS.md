@@ -85,8 +85,6 @@ imports, written from the imports. A test-only edge stays out of `references`.
   `types` first the typecheck reads whatever `dist` is on disk. A new subpath,
   wildcards included, needs all three.
 
-The reasons, and what checks each, are in `docs/maintaining/packaging.md`.
-
 ### The published tarball
 
 A tarball holds the emitted `dist`, the manifest, the README and the LICENSE,
@@ -100,14 +98,12 @@ every other package stays `private`. An exact pin stays exact, and core's
 `rolldown` pin sits inside the rolldown range of the newest vite that core's
 `vite` range admits.
 Raise an `engines.node` floor when new code needs a newer API, and say which.
-The exceptions, pins and floors are in `docs/maintaining/packaging.md`.
 
 ### Releasing
 
 A pushed `v<version>` tag publishes the public set (#7), and only the
 `publish` job holds `id-token: write`. Never bump the version over a
-half-published set to get past a failure. The steps, the first publish and the
-recovery are in `docs/maintaining/releasing.md`.
+half-published set to get past a failure.
 
 ### Imports between packages
 
@@ -166,7 +162,8 @@ Read the doc before the work it covers:
 - **Releasing**, before cutting a release or editing `release.yml`:
   `docs/maintaining/releasing.md`.
 - **Sites**, before changing one of the three sites, a site's CSP, the shared
-  brand or a search test: `docs/maintaining/sites.md`.
+  brand or a search test, or changing an inline loader core composes (each
+  site's CSP pins its hash): `docs/maintaining/sites.md`.
 - **Documentation tests**, before editing a page, or an example, starter file,
   CLI flag or message a page quotes: `docs/maintaining/documentation-tests.md`.
 - **Harnesses**, before running or changing a harness, or when one fails:
