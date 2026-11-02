@@ -632,3 +632,16 @@ test("a cloneElement rebuild of a placed prop slot hydrates the nested island in
   expect(complaints).toEqual([]);
   expect(reported).toEqual([]);
 });
+
+test("an island nested in an unplaced prop slot counts toward islandPropsBudget", async () => {
+  function Label({ text }: { text: string }) {
+    return <b>{text.length}</b>;
+  }
+  const ProxiedLabel = clientReference(Label, { name: "Label", mode: "load" });
+  function Template() {
+    return <ProxiedHidden aside={<ProxiedLabel text={"x".repeat(5_000)} />} />;
+  }
+
+  const weighed = weighIslandProps(await render(Template), 1_000);
+  expect(weighed.breaches.map((island) => island.component)).toEqual(["Label"]);
+});
