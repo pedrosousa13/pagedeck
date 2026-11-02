@@ -10,6 +10,7 @@ import {
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
   ISLAND_REGION_ATTRIBUTE,
+  ISLAND_REGION_STASH_ATTRIBUTE,
   ISLAND_SLOT_ATTRIBUTE,
   ISLAND_SLOT_PATHS_ATTRIBUTE,
   ISLAND_SLOT_TAG,
@@ -71,6 +72,20 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     const marker = nearestMarker(slot);
     if (marker !== null) ownedBy(slots, marker).set(id, slot.innerHTML);
   }
+  // Before any stash comes out: a fallback rebuilt from this HTML hydrates the
+  // nested islands in it, which read their own stashes from it.
+  const regions = new Map<IslandElement, Region[]>();
+  for (const mark of root.querySelectorAll(
+    `${ISLAND_TEMPLATE_TAG}[${ISLAND_REGION_ATTRIBUTE}]`,
+  )) {
+    const marker = nearestMarker(mark);
+    if (marker === null) continue;
+    ownRegion(regions, marker, {
+      index: mark.getAttribute(ISLAND_REGION_ATTRIBUTE) ?? "",
+      html: regionHtml(mark),
+      stashed: false,
+    });
+  }
   const stash = new Map<IslandElement, Map<string, string>>();
   for (const template of root.querySelectorAll(
     `[${ISLAND_TEMPLATE_ATTRIBUTE}]`,
@@ -90,19 +105,17 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     ownedBy(stash, marker).set(id, template.content?.textContent ?? "");
     template.remove();
   }
-  const regions = new Map<IslandElement, Region[]>();
-  for (const mark of root.querySelectorAll(
-    `${ISLAND_TEMPLATE_TAG}[${ISLAND_REGION_ATTRIBUTE}]`,
+  for (const template of root.querySelectorAll(
+    `${ISLAND_TEMPLATE_TAG}[${ISLAND_REGION_STASH_ATTRIBUTE}]`,
   )) {
-    const marker = nearestMarker(mark);
-    if (marker === null) continue;
-    const region = {
-      index: mark.getAttribute(ISLAND_REGION_ATTRIBUTE) ?? "",
-      html: regionHtml(mark),
-    };
-    const owned = regions.get(marker);
-    if (owned === undefined) regions.set(marker, [region]);
-    else owned.push(region);
+    const marker = template.parentElement;
+    if (marker === null || marker.localName !== ISLAND_TAG) continue;
+    ownRegion(regions, marker, {
+      index: template.getAttribute(ISLAND_REGION_STASH_ATTRIBUTE) ?? "",
+      html: template.content?.textContent ?? "",
+      stashed: true,
+    });
+    template.remove();
   }
   const unreadable: UnreadableMarker[] = [];
   let position = 0;
@@ -123,6 +136,16 @@ export function hydrateIslands(options: HydrateIslandsOptions): void {
     });
   }
   if (unreadable.length > 0) throw markerFailure(unreadable);
+}
+
+function ownRegion(
+  regions: Map<IslandElement, Region[]>,
+  marker: IslandElement,
+  region: Region,
+): void {
+  const owned = regions.get(marker);
+  if (owned === undefined) regions.set(marker, [region]);
+  else owned.push(region);
 }
 
 function ownedBy<Entry>(
@@ -166,6 +189,7 @@ export interface PropSlots {
 interface Region {
   index: string;
   html: string;
+  stashed: boolean;
 }
 
 interface RegionNode {
@@ -256,16 +280,21 @@ function readPropSlots(
     };
   }
   const html = new Map<number, string>();
-  for (const { index, html: markup } of regions ?? []) {
+  for (const { index, html: markup, stashed } of regions ?? []) {
+    const kind = stashed
+      ? `a stash whose ${ISLAND_REGION_STASH_ATTRIBUTE}`
+      : `a region whose ${ISLAND_REGION_ATTRIBUTE}`;
     if (!REGION_INDEX_PATTERN.test(index) || Number(index) >= paths.length) {
       return {
-        reason: `holds a region whose ${ISLAND_REGION_ATTRIBUTE} is not an index into its ${ISLAND_SLOT_PATHS_ATTRIBUTE}`,
+        reason: `holds ${kind} is not an index into its ${ISLAND_SLOT_PATHS_ATTRIBUTE}`,
         consequence,
       };
     }
     if (html.has(Number(index))) {
       return {
-        reason: `holds two regions whose ${ISLAND_REGION_ATTRIBUTE} is the same index`,
+        reason: stashed
+          ? `holds ${kind} is an index another region or stash already holds`
+          : `holds two regions whose ${ISLAND_REGION_ATTRIBUTE} is the same index`,
         consequence,
       };
     }
@@ -389,10 +418,17 @@ async function mount(
     island.name,
     marker.getAttribute(ISLAND_EXPORT_ATTRIBUTE),
   );
+  const hydrate = (root: IslandElement): void => {
+    hydrateIslands({ ...options, root });
+  };
   const props =
     island.propSlots === undefined
       ? island.props
-      : (await import("./slot.js")).propSlotProps(island.props, island.propSlots);
+      : (await import("./slot.js")).propSlotProps(
+          island.props,
+          island.propSlots,
+          hydrate,
+        );
   const container =
     stashed !== undefined || marker.querySelector(ISLAND_SLOT_TAG) !== null;
   const children = container
@@ -402,9 +438,7 @@ async function mount(
         slots,
         stashed,
         owns: (element) => nearestMarker(element) === marker,
-        hydrate: (root) => {
-          hydrateIslands({ ...options, root });
-        },
+        hydrate,
       })
     : [];
   // A transition is time-sliced, so a large island yields to input as it

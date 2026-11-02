@@ -165,16 +165,39 @@ function Unsettled(): null {
   return null;
 }
 
-function standIn(html: string, index: number): ReactElement {
+interface PropSlotFallbackProps {
+  html: string;
+  hydrate: (root: IslandElement) => void;
+}
+
+// Never mounted over the in-place region, which stays dehydrated, so every
+// mount is fresh DOM whose island markers nothing has hydrated yet.
+const PropSlotFallback = memo(function PropSlotFallback({
+  html,
+  hydrate,
+}: PropSlotFallbackProps): ReactElement {
+  const element = useRef<IslandElement | null>(null);
+  useEffect(() => {
+    if (element.current !== null) hydrate(element.current);
+  }, [hydrate]);
+  return createElement(ISLAND_SLOT_TAG, {
+    role: "presentation",
+    style: { display: "contents" },
+    dangerouslySetInnerHTML: { __html: html },
+    ref: element,
+  });
+}, () => true);
+
+function standIn(
+  html: string,
+  index: number,
+  hydrate: (root: IslandElement) => void,
+): ReactElement {
   return createElement(
     Suspense,
     {
       key: `pagedeck-prop-slot:${String(index)}`,
-      fallback: createElement(ISLAND_SLOT_TAG, {
-        role: "presentation",
-        style: { display: "contents" },
-        dangerouslySetInnerHTML: { __html: html },
-      }),
+      fallback: createElement(PropSlotFallback, { html, hydrate }),
     },
     createElement(Unsettled),
   );
@@ -182,9 +205,12 @@ function standIn(html: string, index: number): ReactElement {
 
 // Each stand-in is built once: a new element at a dehydrated boundary makes
 // React replace its server DOM. `hydrateIslands` checked every path already.
+// `hydrate` is passed in, as to `adoptSlots`, so this module stays out of the
+// bundle every page loads.
 export function propSlotProps(
   props: Record<string, unknown>,
   { paths, html }: PropSlots,
+  hydrate: (root: IslandElement) => void,
 ): Record<string, unknown> {
   const next = structuredClone(props);
   paths.forEach((path, index) => {
@@ -192,7 +218,11 @@ export function propSlotProps(
     for (const segment of path.slice(0, -1)) {
       at = at[segment] as Record<string | number, unknown>;
     }
-    at[path.at(-1) as string | number] = standIn(html.get(index) ?? "", index);
+    at[path.at(-1) as string | number] = standIn(
+      html.get(index) ?? "",
+      index,
+      hydrate,
+    );
   });
   return next;
 }

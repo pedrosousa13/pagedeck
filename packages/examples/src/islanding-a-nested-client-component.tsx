@@ -1,7 +1,8 @@
 // Example: island a `"use client"` component no entry names, through `clientReference`. In a
 // real site `pagedeck build` substitutes the stand-ins; this example does it by hand.
 import { clientReference, renderPage } from "@pagedeck/core";
-import { LikeButton, Tabs, ThemeProvider } from "./site-components.js";
+import { LikeButton, ThemeProvider } from "./site-components.js";
+import type { ReactNode } from "react";
 import type { ComponentRegistry } from "@pagedeck/islands";
 
 // `PageContext.path`, rooted; the store keys this page as `article`.
@@ -12,7 +13,6 @@ const ProxiedLikeButton = clientReference(LikeButton, {
   name: "LikeButton",
   mode: "visible",
 });
-const ProxiedTabs = clientReference(Tabs, { name: "Tabs", mode: "load" });
 
 // In a site this would import `LikeButton`; the build's loader makes that import the stand-in.
 function ArticleFooter({ title }: { title: string }) {
@@ -24,12 +24,24 @@ function ArticleFooter({ title }: { title: string }) {
   );
 }
 
-/** The same template, wrong on purpose: a JSX child the client component never renders. */
+// Wrong on purpose: a client component that renders the element it is handed twice.
+function Teaser({ children }: { children?: ReactNode }) {
+  return (
+    <details>
+      <summary>{children}</summary>
+      {children}
+    </details>
+  );
+}
+
+const ProxiedTeaser = clientReference(Teaser, { name: "Teaser", mode: "load" });
+
+/** The same template, wrong on purpose: one prop slot placed in two places. */
 function BadFooter() {
   return (
-    <ProxiedTabs open={0}>
+    <ProxiedTeaser>
       <p>panel</p>
-    </ProxiedTabs>
+    </ProxiedTeaser>
   );
 }
 
@@ -44,7 +56,7 @@ export interface NestedIsland {
 export interface NestedClientComponentExample {
   html: string;
   islands: readonly NestedIsland[];
-  unplacedPropSlot: string;
+  twicePlacedSlot: string;
 }
 
 export async function islandNestedClientComponent(): Promise<NestedClientComponentExample> {
@@ -62,11 +74,11 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
     providers: [{ component: ThemeProvider, props: { theme: "dark" } }],
   });
 
-  let unplacedPropSlot = "no error";
+  let twicePlacedSlot = "no error";
   try {
     await renderPage({ page: PAGE, template: "BadFooter", registry });
   } catch (error) {
-    unplacedPropSlot = (error as Error).message;
+    twicePlacedSlot = (error as Error).message;
   }
 
   return {
@@ -77,6 +89,6 @@ export async function islandNestedClientComponent(): Promise<NestedClientCompone
       mode: island.mode,
       path: island.path,
     })),
-    unplacedPropSlot,
+    twicePlacedSlot,
   };
 }

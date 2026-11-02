@@ -43,14 +43,19 @@ export interface ProxyInstance {
   component: AnyComponent;
   props: Readonly<Record<string, unknown>>;
   serverProps: Readonly<Record<string, unknown>>;
-  slots: readonly PropPath[];
+  slots: readonly PropSlot[];
   placed: ReadonlyMap<number, ReadonlySet<string>>;
   misplaced: readonly Omit<RefusedProp, "component">[];
   renderedBy: string | undefined;
 }
 
+export interface PropSlot {
+  path: PropPath;
+  element: ReactElement;
+}
+
 interface PropSlotWalk {
-  slots: PropPath[];
+  slots: PropSlot[];
   placed: Map<number, Set<string>>;
   misplaced: Omit<RefusedProp, "component">[];
   ancestors: Map<object, PropHalves>;
@@ -66,12 +71,6 @@ const MISPLACED_REASON =
 
 const MISPLACED_FIX = "move the element into a plain object or array";
 
-const UNPLACED_REASON =
-  "a prop slot reaches the browser only as the HTML its region rendered";
-
-const UNPLACED_FIX =
-  "render the element in the component's server output, or pass it only when the component shows it";
-
 const TWICE_REASON =
   "a prop slot has one region of server HTML and the browser keeps it where it is";
 
@@ -83,17 +82,6 @@ export function twicePlacedPropSlot(
     problem: "an element the component renders in more than one place",
     fix: "render the element once",
     reason: TWICE_REASON,
-  };
-}
-
-export function unplacedPropSlot(
-  path: PropPath,
-): Omit<RefusedProp, "component"> {
-  return {
-    path: path.join("."),
-    problem: "an element the component does not render on the server",
-    fix: UNPLACED_FIX,
-    reason: UNPLACED_REASON,
   };
 }
 
@@ -136,7 +124,7 @@ function splitPropSlots(
   walk: PropSlotWalk,
 ): PropHalves {
   if (isValidElement(value)) {
-    const index = walk.slots.push(path) - 1;
+    const index = walk.slots.push({ path, element: value }) - 1;
     return { server: propSlotRegion(value, index, walk.placed), json: null };
   }
   if (typeof value !== "object" || value === null) {

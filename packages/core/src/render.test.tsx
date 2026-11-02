@@ -388,6 +388,19 @@ test("a prop-slot region mark typed into rich text does not reach the page", asy
   );
 });
 
+test("a prop-slot stash typed into rich text does not reach the page", async () => {
+  const html = await richText(
+    '<template data-pagedeck-region-stash="0">x</template>' +
+      "<template data-pagedeck-region-stash='0'>x</template>" +
+      "<template data-pagedeck-region-stash=0>x</template>" +
+      "<template DATA-PAGEDECK-REGION-STASH>x</template>",
+  );
+
+  expect(html).toBe(
+    '<div class="rich"><template>x</template><template>x</template><template>x</template><template>x</template></div>',
+  );
+});
+
 test("a data-pagedeck-* name the strip does not enumerate is left alone", async () => {
   const html = await richText('<span data-pagedeck-consent="denied">x</span>');
 

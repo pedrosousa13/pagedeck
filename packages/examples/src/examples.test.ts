@@ -287,7 +287,7 @@ test("the render example escapes content, keeps rich text raw, and refuses build
 });
 
 test("the client-reference example islands a component no entry names", async () => {
-  const { html, islands, unplacedPropSlot } =
+  const { html, islands, twicePlacedSlot } =
     await islandNestedClientComponent();
   const [like] = islands;
 
@@ -309,8 +309,8 @@ test("the client-reference example islands a component no entry names", async ()
       "</footer></div>",
   );
 
-  expect(unplacedPropSlot).toBe(
-    'Component "Tabs": prop "children" is an element the component does not render on the server, and "BadFooter" renders it in entry /en/article — a prop slot reaches the browser only as the HTML its region rendered, so render the element in the component\'s server output, or pass it only when the component shows it',
+  expect(twicePlacedSlot).toBe(
+    'Component "Teaser": prop "children" is an element the component renders in more than one place, and "BadFooter" renders it in entry /en/article — a prop slot has one region of server HTML and the browser keeps it where it is, so render the element once',
   );
 });
 

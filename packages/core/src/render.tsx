@@ -8,6 +8,7 @@ import {
   ISLAND_SLOT_ATTRIBUTE,
   ISLAND_SLOT_TAG,
   ISLAND_TAG,
+  ISLAND_REGION_STASH_ATTRIBUTE,
   ISLAND_TEMPLATE_ATTRIBUTE,
   ISLAND_TEMPLATE_TAG,
   SlotContent,
@@ -45,7 +46,6 @@ import {
   throwContradictedHydration,
   throwProxyFaults,
   twicePlacedPropSlot,
-  unplacedPropSlot,
 } from "./client-reference.js";
 import { recordProxyInstance } from "./proxy-census.js";
 import type {
@@ -208,12 +208,13 @@ function slotCopies(html: string, id: string): number {
  * Escapes each panel as text (#108): a `</template>` in content would otherwise
  * end the stash. The client reads it back from `textContent`.
  */
+function stashTemplate(attribute: string, id: string, html: string): string {
+  return `<${ISLAND_TEMPLATE_TAG} ${attribute}="${id}">${escapeStash(html)}</${ISLAND_TEMPLATE_TAG}>`;
+}
+
 function stashMarkup(slots: readonly RenderedSlot[]): string {
   return slots
-    .map(
-      (slot) =>
-        `<${ISLAND_TEMPLATE_TAG} ${ISLAND_TEMPLATE_ATTRIBUTE}="${slot.id}">${escapeStash(slot.html)}</${ISLAND_TEMPLATE_TAG}>`,
-    )
+    .map((slot) => stashTemplate(ISLAND_TEMPLATE_ATTRIBUTE, slot.id, slot.html))
     .join("");
 }
 
@@ -956,13 +957,6 @@ export async function renderPage(
       );
       if (own.html === undefined) return own;
 
-      const island: RenderedIsland = {
-        component: instance.name,
-        ...(instance.export === undefined ? {} : { export: instance.export }),
-        mode: instance.mode,
-        prefix: instance.prefix,
-        html: own.html,
-      };
       const payload = islandProps(instance.props, instance.name);
       if ("failure" in payload) {
         proxyFaults.unserializable.push({
@@ -977,27 +971,51 @@ export async function renderPage(
         }
         continue;
       }
-      const misrendered = instance.slots.flatMap((path, index) => {
-        const places = instance.placed.get(index)?.size ?? 0;
-        if (places === 1) return [];
-        return [places === 0 ? unplacedPropSlot(path) : twicePlacedPropSlot(path)];
-      });
-      if (misrendered.length > 0) {
-        for (const prop of misrendered) {
+      const twice = instance.slots.filter(
+        (_, index) => (instance.placed.get(index)?.size ?? 0) > 1,
+      );
+      if (twice.length > 0) {
+        for (const slot of twice) {
           proxyFaults.refused.push({
             component: instance.name,
             renderedBy: instance.renderedBy,
-            ...prop,
+            ...twicePlacedPropSlot(slot.path),
           });
         }
         continue;
       }
+      let stash = "";
+      for (const [index, slot] of instance.slots.entries()) {
+        if (instance.placed.has(index)) continue;
+        const alone = await pass(
+          slot.element,
+          `${instance.prefix}s${String(index)}`,
+          instance.name,
+        );
+        if (alone.html === undefined) return alone;
+        stash += stashTemplate(
+          ISLAND_REGION_STASH_ATTRIBUTE,
+          String(index),
+          alone.html,
+        );
+      }
+      const island: RenderedIsland = {
+        component: instance.name,
+        ...(instance.export === undefined ? {} : { export: instance.export }),
+        mode: instance.mode,
+        prefix: instance.prefix,
+        html: own.html + stash,
+      };
       composed.set(instance.prefix, {
         island,
         props: payload.props,
         ...(instance.slots.length === 0
           ? {}
-          : { slotPaths: JSON.stringify(instance.slots) }),
+          : {
+              slotPaths: JSON.stringify(
+                instance.slots.map((slot) => slot.path),
+              ),
+            }),
       });
       byPrefix.set(island.prefix, island);
       proxyIslands.push(island);

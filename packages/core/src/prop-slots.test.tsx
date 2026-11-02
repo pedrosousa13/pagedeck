@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, useState } from "react";
+import { act, cloneElement, useState } from "react";
+import type { ReactElement } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { ComponentDefinition } from "@pagedeck/islands";
@@ -213,17 +214,54 @@ test("a proxied island given no element has no path list", async () => {
   expect(markerTag(html, "List")).not.toContain("data-pagedeck-slot-paths");
 });
 
-test("a prop slot the island does not place is refused, naming the component and the path", async () => {
-  function Hidden({ aside }: { aside?: ReactNode }) {
-    return <p>{aside === undefined ? "none" : "hidden"}</p>;
-  }
-  const ProxiedHidden = clientReference(Hidden, { name: "Hidden", mode: "load" });
+function Hidden({ aside }: { aside?: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div>
+      <button id="show" type="button" onClick={() => setShown(true)}>
+        show
+      </button>
+      {shown ? <aside>{aside}</aside> : null}
+    </div>
+  );
+}
+
+const ProxiedHidden = clientReference(Hidden, { name: "Hidden", mode: "load" });
+
+test("a prop slot the island does not place is stashed, escaped, under its index", async () => {
   function Template() {
-    return <ProxiedHidden aside={<span>later</span>} />;
+    return <ProxiedHidden aside={<span data-aside="">later &amp; more</span>} />;
   }
 
-  expect((await refusal(Template)).message).toBe(
-    'Component "Hidden": prop "aside" is an element the component does not render on the server, and "Template" renders it in entry /en/home — a prop slot reaches the browser only as the HTML its region rendered, so render the element in the component\'s server output, or pass it only when the component shows it',
+  const html = await render(Template);
+  const hidden = markerTag(html, "Hidden");
+  expect(hidden).toContain('data-pagedeck-slot-paths="[[&quot;aside&quot;]]"');
+  expect(hidden).toContain('data-pagedeck-props="{&quot;aside&quot;:null}"');
+  expect(html).toContain(
+    '<template data-pagedeck-region-stash="0">&lt;span data-aside="">later &amp;amp; more&lt;/span></template></pagedeck-island>',
+  );
+  expect(html).not.toContain("data-pagedeck-region=");
+});
+
+test("a client component inside an unplaced prop slot is an island of its own in the stash", async () => {
+  function Template() {
+    return <ProxiedHidden aside={<Card name="Z" nested />} />;
+  }
+
+  const { html, islands } = await renderPage({
+    page: PAGE,
+    template: "Template",
+    registry: { Template: component(Template) },
+  });
+  const stash =
+    /<template data-pagedeck-region-stash="0">([^<]*)<\/template>/.exec(html)?.[1] ?? "";
+
+  expect(islands.map((island) => island.component).sort()).toEqual([
+    "Counter",
+    "Hidden",
+  ]);
+  expect(stash).toMatch(
+    /^&lt;article data-card="Z">&lt;h3>Z&lt;\/h3>&lt;pagedeck-island [^>]*data-pagedeck-component="Counter"[^>]*>&lt;button data-nested="" type="button">nested 0&lt;\/button>&lt;\/pagedeck-island>&lt;\/article>$/,
   );
 });
 
@@ -433,7 +471,6 @@ test("a prop slot's HTML is read before any island mounts, so a nested island's 
 
   const restored = $('[data-card="A"]');
   expect(restored.textContent).toBe("Anested 0");
-  expect(restored.innerHTML).not.toContain("data-pagedeck-hydrated");
 });
 
 function BareList({ items }: { items: readonly { id: string; node: ReactNode }[] }) {
@@ -496,4 +533,140 @@ test("a prop slot's key cannot collide with a key the island gives its own sibli
 
   expect(hydrating.filter((line) => line.includes("same key"))).toEqual([]);
   expect($("[data-children]")).toBe(slot);
+});
+
+function HiddenTemplate() {
+  return <ProxiedHidden aside={<span data-aside="">later &amp; more</span>} />;
+}
+
+test("an unplaced prop slot shows its server HTML once the island places it", async () => {
+  document.body.innerHTML = await render(HiddenTemplate);
+
+  const complaints = await hydrate(async () => Hidden as ComponentType<never>);
+  await click("#show");
+
+  expect($("aside").innerHTML).toBe(
+    '<pagedeck-slot role="presentation" style="display: contents;"><span data-aside="">later &amp; more</span></pagedeck-slot>',
+  );
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+test("the stash is gone from the DOM before any island mounts", async () => {
+  document.body.innerHTML = await render(HiddenTemplate);
+  expect(document.body.querySelector("[data-pagedeck-region-stash]")).not.toBe(null);
+  const resolve = vi.fn(() => new Promise<ComponentType<never>>(() => {}));
+
+  await hydrate(resolve);
+
+  expect(resolve).toHaveBeenCalled();
+  expect(document.body.querySelector("[data-pagedeck-region-stash]")).toBe(null);
+  expect($('[data-pagedeck-component="Hidden"]').getAttribute("data-pagedeck-hydrated")).toBe(null);
+});
+
+async function settle(): Promise<void> {
+  await act(async () => new Promise((done) => setTimeout(done, 20)));
+}
+
+test("a nested island inside a prop slot placed after hydration hydrates and counts", async () => {
+  function Template() {
+    return <ProxiedHidden aside={<Card name="Z" nested />} />;
+  }
+  document.body.innerHTML = await render(Template);
+  const resolve = async (name: string) =>
+    (name === "Hidden" ? Hidden : Counter) as ComponentType<never>;
+  await import("@pagedeck/islands/slot");
+
+  const complaints = await hydrate(resolve);
+  await click("#show");
+  await settle();
+
+  const nested = $('aside [data-pagedeck-component="Counter"]');
+  expect(nested.getAttribute("data-pagedeck-hydrated")).toBe("");
+  await click("aside [data-nested]");
+  expect($("aside [data-nested]").textContent).toBe("nested 1");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+function Cloner({ children }: { children: ReactElement }) {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <button id="clone" type="button" onClick={() => setCount(count + 1)}>
+        {`clones ${String(count)}`}
+      </button>
+      {cloneElement(children)}
+    </div>
+  );
+}
+
+const ProxiedCloner = clientReference(Cloner, { name: "Cloner", mode: "load" });
+
+test("a cloneElement rebuild of a placed prop slot hydrates the nested island in its fresh DOM", async () => {
+  function Template() {
+    return (
+      <ProxiedCloner>
+        <Card name="C" nested />
+      </ProxiedCloner>
+    );
+  }
+  document.body.innerHTML = await render(Template);
+  const serverCard = $('[data-card="C"]');
+  const resolve = async (name: string) =>
+    (name === "Cloner" ? Cloner : Counter) as ComponentType<never>;
+  await import("@pagedeck/islands/slot");
+
+  const complaints = await hydrate(resolve);
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+
+  await click("#clone");
+  await settle();
+
+  const rebuilt = $('[data-card="C"]');
+  expect(rebuilt).not.toBe(serverCard);
+  expect($("[data-nested]").textContent).toBe("nested 0");
+  await click("[data-nested]");
+  expect($("[data-nested]").textContent).toBe("nested 1");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
+});
+
+test("an island nested in an unplaced prop slot counts toward islandPropsBudget", async () => {
+  function Label({ text }: { text: string }) {
+    return <b>{text.length}</b>;
+  }
+  const ProxiedLabel = clientReference(Label, { name: "Label", mode: "load" });
+  function Template() {
+    return <ProxiedHidden aside={<ProxiedLabel text={"x".repeat(5_000)} />} />;
+  }
+
+  const weighed = weighIslandProps(await render(Template), 1_000);
+  expect(weighed.breaches.map((island) => island.component)).toEqual(["Label"]);
+});
+
+test("a nested island rebuilt by cloneElement still finds its own stash", async () => {
+  function Template() {
+    return (
+      <ProxiedCloner>
+        <div>
+          <ProxiedHidden aside={<span data-aside="">stashed</span>} />
+        </div>
+      </ProxiedCloner>
+    );
+  }
+  document.body.innerHTML = await render(Template);
+  const resolve = async (name: string) =>
+    (name === "Cloner" ? Cloner : Hidden) as ComponentType<never>;
+  await import("@pagedeck/islands/slot");
+
+  const complaints = await hydrate(resolve);
+  await click("#clone");
+  await settle();
+  await click("#show");
+
+  expect($("aside").textContent).toBe("stashed");
+  expect(complaints).toEqual([]);
+  expect(reported).toEqual([]);
 });

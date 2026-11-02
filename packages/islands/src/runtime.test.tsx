@@ -18,6 +18,7 @@ import {
   ISLAND_PREFIX_ATTRIBUTE,
   ISLAND_PROPS_ATTRIBUTE,
   ISLAND_REGION_ATTRIBUTE,
+  ISLAND_REGION_STASH_ATTRIBUTE,
   ISLAND_SLOT_PATHS_ATTRIBUTE,
   ISLAND_TAG,
 } from "./marker.js";
@@ -913,6 +914,76 @@ test("a marker with two regions under one index is refused at the read path with
   expect((thrown as Error).message).toBe(
     `Island "Reveal" (iforged): holds two regions whose ${ISLAND_REGION_ATTRIBUTE} is the same index, so its prop slots cannot be placed — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
   );
+  expect(resolve).not.toHaveBeenCalled();
+});
+
+function withStashes(html: string, ...indexes: string[]): string {
+  return html.replace(
+    `</${ISLAND_TAG}>`,
+    indexes
+      .map(
+        (index) =>
+          `<template ${ISLAND_REGION_STASH_ATTRIBUTE}="${index}">&lt;p>stashed&lt;/p></template>`,
+      )
+      .join("") + `</${ISLAND_TAG}>`,
+  );
+}
+
+const NOT_STASH = `holds a stash whose ${ISLAND_REGION_STASH_ATTRIBUTE} is not an index into its ${ISLAND_SLOT_PATHS_ATTRIBUTE}`;
+const SAME_STASH = `holds a stash whose ${ISLAND_REGION_STASH_ATTRIBUTE} is an index another region or stash already holds`;
+const TWO_PATHS = '{"items":[null,null]}';
+const TWO_LISTED = '[["items",0],["items",1]]';
+
+test.each([
+  ["a stash index with a leading zero", ["01"], NOT_STASH],
+  ["a negative stash index", ["-1"], NOT_STASH],
+  ["an out-of-range stash index", ["2"], NOT_STASH],
+  ["a stash index that is not a number", ["x"], NOT_STASH],
+  ["two stashes under one index", ["1", "1"], SAME_STASH],
+  ["a stash under a placed region's index", ["0"], SAME_STASH],
+])("a marker with %s is refused at the read path without mounting", async (_, indexes, reason) => {
+  fakeBrowser();
+  document.body.innerHTML = withStashes(
+    forgedPropSlots(TWO_PATHS, TWO_LISTED, "0"),
+    ...indexes,
+  );
+  const resolve = vi.fn(async () => Reveal as ComponentType<never>);
+
+  let thrown: unknown;
+  await act(async () => {
+    try {
+      hydrateIslands({ resolve });
+    } catch (error) {
+      thrown = error;
+    }
+  });
+
+  expect((thrown as Error).message).toBe(
+    `Island "Reveal" (iforged): ${reason}, so its prop slots cannot be placed — a marker is written by the build, so remove the hand-written <${ISLAND_TAG}> from the content`,
+  );
+  expect(resolve).not.toHaveBeenCalled();
+});
+
+test("a stash on a marker with no path list is refused at the read path without mounting", async () => {
+  fakeBrowser();
+  document.body.innerHTML = withStashes(
+    handWritten(
+      `${ISLAND_PREFIX_ATTRIBUTE}="iforged" ${ISLAND_COMPONENT_ATTRIBUTE}="Reveal" ${ISLAND_MODE_ATTRIBUTE}="load" ${ISLAND_PROPS_ATTRIBUTE}="{}"`,
+    ),
+    "0",
+  );
+  const resolve = vi.fn(async () => Reveal as ComponentType<never>);
+
+  let thrown: unknown;
+  await act(async () => {
+    try {
+      hydrateIslands({ resolve });
+    } catch (error) {
+      thrown = error;
+    }
+  });
+
+  expect((thrown as Error).message).toContain(NOT_STASH);
   expect(resolve).not.toHaveBeenCalled();
 });
 

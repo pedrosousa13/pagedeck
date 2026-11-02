@@ -127,10 +127,11 @@ stand-in keeps its identity and never renders slot content. Under
 `cloneElement`, a tree slot and a prop slot behave differently. A tree slot is
 legal and silent, as ADR-0005 pins. A prop slot's stand-in
 loses its subtree and the fallback rebuilds the HTML as new DOM. The content
-stays, but node identity is lost, and a nested island inside the rebuilt region
-is not hydrated again. That last point is inferred from the prototype, not
-measured. The framework states this and does not
-guard it, for the reason ADR-0005 gives: no build-time signal tells a legal
+stays, but node identity is lost. A nested island inside the rebuilt region
+hydrates again from its server HTML, as a tree slot's does when it mounts
+anywhere but in place, so it works but starts from its initial state
+(measured in `packages/core/src/prop-slots.test.tsx`, #247). The framework
+states this and does not guard it, for the reason ADR-0005 gives: no build-time signal tells a legal
 handling of a slot from a faulty one. A later slice extends ADR-0005's harness to
 the stand-in, with and without the React Compiler, and to a nested island in a
 cloned region, so the silence is measured and not argued.
@@ -159,8 +160,8 @@ data. That remains the flight-payload direction ADR-0005 leaves open, and it is
 out of scope for map #237.
 
 Two boundaries are stated, not closed. `cloneElement` over a prop slot rebuilds
-its HTML and leaves a nested island inert. Unkeyed sibling regions keep server
-order. The island how-to documents both.
+its HTML, and a nested island in it hydrates again with its state reset.
+Unkeyed sibling regions keep server order. The island how-to documents both.
 
 The build gains one `prerender` pass per unplaced prop slot. A page with no
 proxied instances pays nothing.
@@ -179,9 +180,10 @@ island's own layout.
 **Give entry-tree islands prop slots too.** Rejected for now. One marker could
 then carry both kinds, and no request asks for it.
 
-**Hydrate nested islands again after a `cloneElement` rebuild.** Not taken
-here. It would keep a nested island alive under `cloneElement`, but it is an
-unmeasured runtime path and a piece of work of its own.
+**Leave a nested island inert after a `cloneElement` rebuild.** Rejected
+(#247). The stand-in's fallback hydrates the island markers in any DOM it
+mounts, which a slot placed after hydration needs anyway, so a rebuilt region's
+nested island hydrates again by the same rule tree slots follow.
 
 **Warn in preview when sibling regions reorder without moving.** Rejected.
 ADR-0005 bounds preview by what production does, and preview being more capable
