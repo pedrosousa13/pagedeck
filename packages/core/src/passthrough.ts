@@ -216,6 +216,12 @@ export function contentReferenceRefusal(address: string): string | undefined {
   if (dotted !== undefined) {
     return `the segment ${quote(dotted)} starts with a dot`;
   }
+  const backslashed = segments.find(
+    (segment) => segment.includes("\\") || /%5c/i.test(segment),
+  );
+  if (backslashed !== undefined) {
+    return `the segment ${quote(backslashed)} holds a backslash`;
+  }
   const name = segments.at(-1) ?? "";
   const dot = name.lastIndexOf(".");
   if (dot === -1) {
