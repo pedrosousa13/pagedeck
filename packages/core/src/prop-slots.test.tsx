@@ -213,17 +213,54 @@ test("a proxied island given no element has no path list", async () => {
   expect(markerTag(html, "List")).not.toContain("data-pagedeck-slot-paths");
 });
 
-test("a prop slot the island does not place is refused, naming the component and the path", async () => {
-  function Hidden({ aside }: { aside?: ReactNode }) {
-    return <p>{aside === undefined ? "none" : "hidden"}</p>;
-  }
-  const ProxiedHidden = clientReference(Hidden, { name: "Hidden", mode: "load" });
+function Hidden({ aside }: { aside?: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div>
+      <button id="show" type="button" onClick={() => setShown(true)}>
+        show
+      </button>
+      {shown ? <aside>{aside}</aside> : null}
+    </div>
+  );
+}
+
+const ProxiedHidden = clientReference(Hidden, { name: "Hidden", mode: "load" });
+
+test("a prop slot the island does not place is stashed, escaped, under its index", async () => {
   function Template() {
-    return <ProxiedHidden aside={<span>later</span>} />;
+    return <ProxiedHidden aside={<span data-aside="">later &amp; more</span>} />;
   }
 
-  expect((await refusal(Template)).message).toBe(
-    'Component "Hidden": prop "aside" is an element the component does not render on the server, and "Template" renders it in entry /en/home — a prop slot reaches the browser only as the HTML its region rendered, so render the element in the component\'s server output, or pass it only when the component shows it',
+  const html = await render(Template);
+  const hidden = markerTag(html, "Hidden");
+  expect(hidden).toContain('data-pagedeck-slot-paths="[[&quot;aside&quot;]]"');
+  expect(hidden).toContain('data-pagedeck-props="{&quot;aside&quot;:null}"');
+  expect(html).toContain(
+    '<template data-pagedeck-region-stash="0">&lt;span data-aside="">later &amp;amp; more&lt;/span></template></pagedeck-island>',
+  );
+  expect(html).not.toContain("data-pagedeck-region=");
+});
+
+test("a client component inside an unplaced prop slot is an island of its own in the stash", async () => {
+  function Template() {
+    return <ProxiedHidden aside={<Card name="Z" nested />} />;
+  }
+
+  const { html, islands } = await renderPage({
+    page: PAGE,
+    template: "Template",
+    registry: { Template: component(Template) },
+  });
+  const stash =
+    /<template data-pagedeck-region-stash="0">([^<]*)<\/template>/.exec(html)?.[1] ?? "";
+
+  expect(islands.map((island) => island.component).sort()).toEqual([
+    "Counter",
+    "Hidden",
+  ]);
+  expect(stash).toMatch(
+    /^&lt;article data-card="Z">&lt;h3>Z&lt;\/h3>&lt;pagedeck-island [^>]*data-pagedeck-component="Counter"[^>]*>&lt;button data-nested="" type="button">nested 0&lt;\/button>&lt;\/pagedeck-island>&lt;\/article>$/,
   );
 });
 

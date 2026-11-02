@@ -345,9 +345,14 @@ test("a proxied instance given null as children builds", async () => {
   expect(islands.map((island) => island.component)).toEqual(["Accordion"]);
 });
 
-test("a refused prop and an unplaced prop slot are reported in one throw", async () => {
+test("a refused prop and a prop slot placed twice are reported in one throw", async () => {
   function Closed({ children }: { children?: ReactNode }) {
-    return <details>{children === undefined ? "empty" : "closed"}</details>;
+    return (
+      <details>
+        {children}
+        {children}
+      </details>
+    );
   }
   const ProxiedClosed = clientReference(Closed, { name: "Closed", mode: "load" });
   function Template() {
@@ -374,7 +379,7 @@ test("a refused prop and an unplaced prop slot are reported in one throw", async
   );
   expect(message).toContain("  Counter, rendered by Template: onPress");
   expect(message).toContain(
-    "  Closed, rendered by Template: children is an element the component does not render on the server",
+    "  Closed, rendered by Template: children is an element the component renders in more than one place",
   );
 });
 
