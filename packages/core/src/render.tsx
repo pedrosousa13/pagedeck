@@ -208,12 +208,13 @@ function slotCopies(html: string, id: string): number {
  * Escapes each panel as text (#108): a `</template>` in content would otherwise
  * end the stash. The client reads it back from `textContent`.
  */
+function stashTemplate(attribute: string, id: string, html: string): string {
+  return `<${ISLAND_TEMPLATE_TAG} ${attribute}="${id}">${escapeStash(html)}</${ISLAND_TEMPLATE_TAG}>`;
+}
+
 function stashMarkup(slots: readonly RenderedSlot[]): string {
   return slots
-    .map(
-      (slot) =>
-        `<${ISLAND_TEMPLATE_TAG} ${ISLAND_TEMPLATE_ATTRIBUTE}="${slot.id}">${escapeStash(slot.html)}</${ISLAND_TEMPLATE_TAG}>`,
-    )
+    .map((slot) => stashTemplate(ISLAND_TEMPLATE_ATTRIBUTE, slot.id, slot.html))
     .join("");
 }
 
@@ -992,7 +993,11 @@ export async function renderPage(
           instance.name,
         );
         if (alone.html === undefined) return alone;
-        stash += `<${ISLAND_TEMPLATE_TAG} ${ISLAND_REGION_STASH_ATTRIBUTE}="${String(index)}">${escapeStash(alone.html)}</${ISLAND_TEMPLATE_TAG}>`;
+        stash += stashTemplate(
+          ISLAND_REGION_STASH_ATTRIBUTE,
+          String(index),
+          alone.html,
+        );
       }
       const island: RenderedIsland = {
         component: instance.name,
