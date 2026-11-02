@@ -673,6 +673,15 @@ the first `focusin` or `pointerdown` inside its marker; the strategy appends a
 script on the first `pointerdown`, `keydown` or `wheel` anywhere on the page.
 _Avoid_: widget, interactive component
 
+**Slot**:
+Server-rendered content an **Island** carries as static HTML that the client
+keeps and never renders. A **tree slot** is a child placed by the entry tree,
+identified by its entry-tree position. A **prop slot** is an element passed in
+the props of an island that another component's code renders, identified by its
+island marker and a prop path such as `["items", 0, "node"]` (ADR-0011).
+_Avoid_: proxied slot ("proxied" names the island instance, not the slot),
+hole, placeholder
+
 **Shell**:
 The frame every page of one site renders inside: the markup, and the class
 strings that carry it. It belongs to a site and never to the framework — the
