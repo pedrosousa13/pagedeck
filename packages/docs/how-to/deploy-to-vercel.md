@@ -78,10 +78,11 @@ Vercel's build container does not carry over.
 
 If a full sync is too slow for your content source, keep `content.db` between
 builds with `npx pagedeck store pull` and `npx pagedeck store push`.
-`PAGEDECK_SNAPSHOT_URL` is a credential (see
-[PAGEDECK_SNAPSHOT_URL](../reference/cli.md#pagedeck-snapshot-url)), and any build
-that has it can overwrite the snapshot production builds start from. In the
-project's Environment Variables settings, add it with the type **Secret**,
+`PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL` are credentials
+(see [the snapshot variables](../reference/cli.md#the-snapshot-variables)), and
+any build that has the push URL can overwrite the snapshot production builds
+start from. In the project's Environment Variables settings, add both with the
+type **Secret**,
 which Vercel describes as "write-only after saving", and with Production as
 its only target environment
 ([Config and Secret environment variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables)).
@@ -109,9 +110,9 @@ fi
 ```
 
 The build itself stays a full build, but a production sync no longer
-re-fetches every entry from the content source. A preview build gets no
-`PAGEDECK_SNAPSHOT_URL` and takes the `else` branch, which syncs every entry
-and touches no snapshot. On the first production run there is no snapshot to
+re-fetches every entry from the content source. A preview build gets neither
+variable and takes the `else` branch, which syncs every entry and touches no
+snapshot. On the first production run there is no snapshot to
 pull and no cursor for `--incremental` to start from: run `pagedeck sync` and
 `pagedeck store push` once first.
 
