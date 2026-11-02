@@ -392,6 +392,19 @@ test("an address with a segment that starts with a dot is refused, an escaped do
   );
 });
 
+test("an address with a segment that holds a backslash is refused, an escaped backslash included", () => {
+  expect(contentReferenceRefusal("/en/a\\..\\..\\secret.png")).toBe(
+    'the segment "a\\\\..\\\\..\\\\secret.png" holds a backslash',
+  );
+  expect(contentReferenceRefusal("/en/a%5C..%5Csecret.png")).toBe(
+    'the segment "a%5C..%5Csecret.png" holds a backslash',
+  );
+  expect(contentReferenceRefusal("/en/a%5c..%5csecret.png")).toBe(
+    'the segment "a%5c..%5csecret.png" holds a backslash',
+  );
+  expect(contentReferenceRefusal("/en/posts/photo.png")).toBeUndefined();
+});
+
 test("an address whose extension is off the list is refused, and so is one with none", () => {
   expect(contentReferenceRefusal("/components/Secret.tsx")).toBe(
     'its extension ".tsx" is not one a content tree publishes',
