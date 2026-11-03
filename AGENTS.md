@@ -127,6 +127,15 @@ no employer, design system or CMS vendor (`GLOSSARY.md`, **A recorded corpus
 keeps the names it recorded**). `docs/dogfood-parity.md` says what the clean
 room rules out for the dogfood site: there is no production origin to record.
 
+### An attack-surface change gets an adversarial diff review
+
+**A change that touches the attack surface lands only after an adversarial
+review of its diff, and every finding is fixed or filed before the merge
+(#274).** Here that means a change to content HTML or its sanitising, to
+headers or the CSP, to an adapter's routing or redirects, to a third-party
+call, or to anything that fetches or serves untrusted input. It is per change,
+and the milestone's security sweep (`docs/agents/triage-labels.md`) still runs.
+
 ### Every test that spawns a process declares its own timeout
 
 **A test case that spawns a process (`pagedeck build`, another verb, a bin,
