@@ -16,7 +16,9 @@ contract gets an example or joins this list:
   `loadFixtureStore`, `readDelta` (#28), `RootProviderStack` (#66), the
   snapshot verbs, `PageChrome` (#409), the paged list (`paginate` and its
   types, #323), the script layer and consent (`defineScripts`,
-  `resolveScriptStrategy`, `ScriptRuntimeAdapter`, `ConsentSource`,
+  `resolveScriptStrategy`, `ScriptRuntimeAdapter`, its `files` and
+  `ScriptRuntimeFile`, `scriptRuntimeBase`, `inlineScriptFault` (#275),
+  `ConsentSource`,
   `resolveConsentDefault`, the five consent names; #46, #47, #460), drift
   (`checkDrift`, `driftWarnings`, `compileSupplements`,
   `DEFAULT_DRIFT_THRESHOLD`, their types, `FullRebuildRequest`,
@@ -56,6 +58,9 @@ contract gets an example or joins this list:
 - `@pagedeck/search`: `defineSearch`, `QUERY_CAP` (#457), `createSearchClient`
   and the search island (#62).
 - `@pagedeck/font-subset`: `defineFontSubset`.
+- `@pagedeck/script-worker`: `definePartytown`, `PartytownOptions` and
+  `PartytownRuntime` (#275), a claim about a build's output that
+  `src/partytown.build.test.ts` makes by building the reference page's module.
 - `@pagedeck/edge`: `defineAdapter`, `EdgeAdapter`, `AdapterDefinition` and the
   artifact types, and each adapter package's factory (#19). `build.adapter`
   (#20) is where a config first calls one, and runs it on every

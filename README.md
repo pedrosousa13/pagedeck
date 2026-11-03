@@ -65,6 +65,7 @@ other two pages ship no JavaScript.
 | [`@pagedeck/search`](packages/search) | A search index written at build time, and a search box island that reads it |
 | [`@pagedeck/social-image`](packages/social-image) | Draws a social card for each page at build time |
 | [`@pagedeck/font-subset`](packages/font-subset) | Subsets each font to the characters you list, as WOFF2 |
+| [`@pagedeck/script-worker`](packages/script-worker) | Loads `worker` scripts off the main thread, on Partytown |
 | [`@pagedeck/adapter-cloudfront`](packages/adapter-cloudfront) | Compiles the site's redirects, headers and experiment splits into CloudFront Functions |
 | [`@pagedeck/adapter-netlify`](packages/adapter-netlify) | Compiles the site's redirects and headers into Netlify's `_redirects` and `_headers` |
 | [`@pagedeck/adapter-nginx`](packages/adapter-nginx) | Compiles the site's redirects and headers into an nginx config fragment |

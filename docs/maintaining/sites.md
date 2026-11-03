@@ -22,7 +22,11 @@ Each site sets a `Content-Security-Policy` on its `/` header rule (#557, #577),
 in its `src/csp.ts`. The CMS example is the exception: it is never deployed and
 declares no header rule (#694). A site that is deployed follows the rule. The
 hash of an inline loader core composes is pinned, copied from the manifest:
-when core changes a loader, copy the new hash.
+when core changes a loader, copy the new hash. No site here declares a script
+runtime. One that declares `@pagedeck/script-worker` pins its snippet's hash
+from `runtime.inlineScriptHash`, not from the manifest, which records only the
+inline scripts core writes, and copies it again when the runtime's options or
+the package's version change (#275).
 `site.build.test.ts` fails on a page hash the policy lacks or a policy hash no
 page carries.
 

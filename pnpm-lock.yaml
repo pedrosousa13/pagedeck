@@ -528,6 +528,15 @@ importers:
         specifier: ^8.3.3
         version: 8.3.5(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)
 
+  packages/script-worker:
+    dependencies:
+      '@pagedeck/core':
+        specifier: workspace:*
+        version: link:../core
+      '@qwik.dev/partytown':
+        specifier: 1.0.3
+        version: 1.0.3
+
   packages/search:
     dependencies:
       '@pagedeck/core':
@@ -1527,6 +1536,11 @@ packages:
         optional: true
       yauzl:
         optional: true
+
+  '@qwik.dev/partytown@1.0.3':
+    resolution: {integrity: sha512-fJuU5lNA8Gr09q18f3y+chCp4etnStVI5ctv87rFnVJ/mDVdZKHeI+BBNmopa/WEXOKAzmvapwIYlwy0nBXM/w==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     resolution: {integrity: sha512-FrJibrAk6v29eabIPgcTUMPXiEz8ssrAk7TXxsiZzww9UTQ1Z5KAbFJs+Z0Ez+VZTYgnE5IQJqBcoSiMebtPHA==}
@@ -4048,6 +4062,8 @@ snapshots:
     dependencies:
       modern-tar: 0.8.4
       yargs: 18.1.0
+
+  '@qwik.dev/partytown@1.0.3': {}
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     optional: true

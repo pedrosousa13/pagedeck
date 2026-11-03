@@ -112,14 +112,19 @@ own error, with the plugin's as the `cause`, marked `code: "PLUGIN_ERROR"` and
 must sit inside the rolldown range of the newest vite that core's `vite` range
 admits on the npm registry. Otherwise a consumer installs two rolldowns, and the pin no longer
 covers the one vite builds with. The pack harness fails on an install that
-holds two (#216). Core pins
+holds two (#216). `@pagedeck/script-worker`
+pins **`@qwik.dev/partytown`** exactly (#275): the package inlines Partytown's
+snippet into every page that keeps a `worker` script and writes Partytown's
+files beside the pages, so a new Partytown changes a page's bytes, the
+snippet's CSP hash and the runtime's directory. Core pins
 **`oxc-transform-react`** exactly (#164): it is the React Compiler that
 `compileIslands` runs over every island, it is `0.x`, it calls itself
 experimental and publishes almost daily, and a release may change what a
 component compiles to or segfault on a module the last one took.
 
-**The public set** is seventeen packages: the fifteen a site author installs
-(#690), the six edge adapters among them (#19); `create-pagedeck`, which
+**The public set** is eighteen packages: the sixteen a site author installs
+(#690), the six edge adapters among them (#19) and `@pagedeck/script-worker`
+(#275); `create-pagedeck`, which
 writes a new site (#691); and `@pagedeck/docs`, Pagedeck's documentation as
 markdown, which deck.cool's docs site reads at build time (#108). They are
 listed in

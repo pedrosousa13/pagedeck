@@ -150,7 +150,16 @@ image, thumbnail
 The site-supplied function that backs the `worker` strategy of the third-party
 script layer: in, one page's `worker` loadout; out, the finished elements that
 load it off the main thread (`ScriptRuntimeAdapter`, spec §12, #46). Core ships
-none and names no vendor.
+none and names no vendor. `@pagedeck/script-worker` is a **publishable
+package** beside it, on Partytown (#275), the arrangement
+`@pagedeck/font-subset` has.
+
+Since #275 an adapter may also declare `files`, each a name and its bytes, for
+what its elements load from the site's own origin. The build writes them under
+`/script-runtime/<hash>/`, a directory named by a hash of every file's name and
+bytes, which `scriptRuntimeBase` returns before any build runs, so an adapter's
+markup can name it. The request is unchanged: the adapter still gets one page's
+`worker` loadout and nothing else.
 
 It earns an entry because **Image adapter**, above, says a future contract
 needing the noun does, and this is that contract. The two are the same

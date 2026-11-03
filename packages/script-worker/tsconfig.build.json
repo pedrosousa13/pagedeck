@@ -1,0 +1,23 @@
+// `references` names `@pagedeck/core`, whose declarations this package's emitted
+// source reads: `ScriptRuntimeAdapter`, `ScriptRuntimeFile`, `ConfigError`,
+// `inlineScriptFault` and `scriptRuntimeBase`.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-support.ts",
+    "src/**/*.harness.ts",
+    "src/**/*.harness.tsx"
+  ],
+  "references": [{ "path": "../core/tsconfig.build.json" }]
+}

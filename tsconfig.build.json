@@ -41,6 +41,7 @@
     { "path": "./packages/islands/tsconfig.build.json" },
     { "path": "./packages/markdown-loader/tsconfig.build.json" },
     { "path": "./packages/preview/tsconfig.build.json" },
+    { "path": "./packages/script-worker/tsconfig.build.json" },
     { "path": "./packages/search/tsconfig.build.json" },
     { "path": "./packages/site/tsconfig.build.json" },
     { "path": "./packages/social-image/tsconfig.build.json" }

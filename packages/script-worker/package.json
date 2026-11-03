@@ -1,0 +1,37 @@
+{
+  "name": "@pagedeck/script-worker",
+  "version": "0.3.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrosousa13/pagedeck.git",
+    "directory": "packages/script-worker"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=23.7.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@pagedeck/core": "workspace:*",
+    "@qwik.dev/partytown": "1.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -203,21 +203,10 @@ answer is whether *that* page loads the script, which is not this one.
 
 ## The `worker` strategy needs a mechanism, and you supply it
 
-**Nothing in this framework moves a script off the main thread.** `worker` is a
-request the build records and routes; the code that honours it is an adapter
-the site configures:
-
-```ts
-defineScripts({
-  scripts: [{ name: "tags", src: "https://example.com/gtm.js" }],
-  runtime: ({ scripts }) => [
-    '<script src="/~partytown/partytown.js"></script>',
-    ...scripts.map(
-      (script) => `<script type="text/partytown" src="${script.src}"></script>`,
-    ),
-  ],
-});
-```
+**Nothing in `@pagedeck/core` moves a script off the main thread.** `worker` is a
+request the build records and routes. An adapter that the site configures does
+the work. `@pagedeck/script-worker` is the reference adapter, on
+[Partytown](https://partytown.qwik.dev/), and the next section shows it.
 
 The adapter is handed **one page's `worker` loadout** and returns the finished
 HTML elements that load it, which the build writes into that page in the order
@@ -230,11 +219,154 @@ It is a list per page rather than a URL per script because every plausible
 mechanism needs something emitted once per document (Partytown its snippet, a
 hand-rolled worker its bootstrap) as well as something per script.
 
+An adapter can also declare `files`, each a `name` and its `contents`, for the
+files its elements load from the site's own origin. The build writes them into
+one directory, `/script-runtime/<hash>/`, where the hash covers every file's
+name and bytes, and marks them as hashed, so a host may cache them for good.
+`scriptRuntimeBase(files)`, from `@pagedeck/core`, returns that directory, so an
+adapter knows the address before any build runs:
+
+```ts
+import { defineScripts, scriptRuntimeBase } from "@pagedeck/core";
+
+const files = [{ name: "boot.js", contents: "/* the worker's bootstrap */" }];
+
+defineScripts({
+  scripts: [{ name: "tags", src: "https://example.com/gtm.js" }],
+  runtime: Object.assign(
+    ({ scripts }) => [
+      `<script src="${scriptRuntimeBase(files)}boot.js"></script>`,
+      ...scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+    ],
+    { files },
+  ),
+});
+```
+
+A file name is one path segment: letters, digits, `.`, `_` and `-`. A name
+outside that set, two files with one name, or contents that are neither a
+string nor bytes are refused when the config loads. A site that declares no
+runtime, or a runtime with no `files`, gets the files it always got.
+
 Core ships no adapter of its own, and that is not an oversight. It ships a
 generic URL-template adapter for [images](./images.md) because every image CDN
 answers the same four parameters at a URL; off-main-thread runtimes have no such
 common shape, and a "generic" one would be one vendor's runtime with a neutral
 name in front of it.
+
+### Run worker scripts on Partytown
+
+```sh
+npm install @pagedeck/script-worker
+```
+
+Declare the runtime in a module of its own, here `src/scripts.ts`:
+
+```ts
+import { defineScripts } from "@pagedeck/core";
+import { definePartytown } from "@pagedeck/script-worker";
+
+export const runtime = definePartytown({
+  forward: ["dataLayer.push"],
+  resolveUrl: { "https://collector.example": "/vendor/collector/" },
+});
+
+export const scripts = defineScripts({
+  scripts: [{ name: "tags", src: "https://example.com/gtm.js" }],
+  runtime,
+});
+```
+
+Then give it to the build in `pagedeck.config.ts`:
+
+```ts
+import { defineConfig } from "@pagedeck/core";
+import { scripts } from "./src/scripts.ts";
+
+export default defineConfig({
+  build: {
+    scripts,
+    routing: {
+      upstreams: [{ prefix: "/vendor/collector/", dev: "http://127.0.0.1:8787" }],
+    },
+    // ...
+  },
+});
+```
+
+Each page that keeps a `worker` script then carries Partytown's inline snippet
+and one `<script type="text/partytown">` per script, last in the `<body>`. The
+build writes Partytown's service worker and its two other files under
+`/script-runtime/<hash>/`, and the snippet loads them from there, so nothing
+Partytown needs comes from another origin. The warning below, that `worker`
+became `idle`, is gone.
+
+`definePartytown` takes these options, each passed to Partytown as its
+[configuration](https://partytown.qwik.dev/configuration) describes:
+`forward`, `globalFns`, `mainWindowAccessors`, `loadScriptsOnMainThread`,
+`fallbackTimeout` and `strictProxyHas`, and `resolveUrl`, which is the next
+section. It sets `lib` itself, to the runtime's directory.
+
+Four things to know before you choose it:
+
+- **Service-worker mode only.** Partytown's other mode needs a page that is
+  cross-origin isolated, which breaks most third-party embeds, so its file is
+  not written. On a page that is cross-origin isolated anyway, Partytown looks
+  for that file, does not find it, and runs the scripts on the main thread
+  after `fallbackTimeout`.
+- **A `worker` script that declares `integrity` fails the build.** Partytown
+  fetches the script from inside its worker without an integrity check, so the
+  hash you pinned would not be checked. Declare `strategy: "idle"` for that
+  script, which keeps the check.
+- **The snippet runs at the end of the `<body>`**, because nothing this layer
+  writes goes in the `<head>`. A function you `forward` exists from there on, and
+  an inline script above it that calls one fails.
+- **`pagedeck dev` does not serve the runtime's files.** In development
+  Partytown cannot register its service worker, and after `fallbackTimeout`
+  runs the scripts on the main thread.
+
+### Send a vendor endpoint through your own origin with `resolveUrl`
+
+Some vendor endpoints refuse a request from a worker, or send no CORS headers.
+Partytown's answer is to proxy them. `resolveUrl` is a map from the vendor's
+`https` origin to a path prefix on your site. A request from a worker script to
+that exact origin goes to the prefix instead, with the path and query appended:
+`https://collector.example/g/collect?v=2` becomes
+`/vendor/collector/g/collect?v=2` on your origin. A request to any other origin
+is left alone.
+
+The prefix is answered by an [upstream](../how-to/run-an-app-beside-the-site.md),
+an app you run beside the site, which forwards each request to the one origin it
+was declared for. Pagedeck ships no proxy. Write the app so that it forwards
+only to that origin and never to a URL taken from the request: the map is fixed
+when the config loads, so a page cannot add an origin to it, and an app that
+read its target from the request would undo that.
+
+A key that is not an `https` origin with nothing after the host, and a value
+that is not a path starting and ending with `/`, are refused when the config
+loads.
+
+### The snippet's hash for a Content-Security-Policy
+
+The snippet is an inline script, and it is yours rather than one of the four
+the build records in `manifest.json` (see
+[the CSP section](#allowing-inline-scripts-under-a-strict-content-security-policy)). Its text is
+the same on every page and is fixed when the config loads, so the runtime knows
+its hash: `runtime.inlineScriptHash` is the CSP source expression, quotes
+included. Add it to the policy of every page that carries a `worker` script:
+
+```js
+import { runtime } from "./src/scripts.ts";
+
+const policy = `script-src 'self' https://example.com ${runtime.inlineScriptHash}`;
+```
+
+The hash changes when your options change or when a new
+`@pagedeck/script-worker` brings a new Partytown, so compute it on every
+build, as the manifest's hashes are. Partytown also starts a worker from a
+`blob:` URL and an iframe from your origin, so a strict policy needs
+`worker-src 'self' blob:` and `frame-src 'self'` as well. We have not run that
+policy in a browser.
 
 ### With no adapter, `worker` becomes `idle`, and the build says so
 
@@ -609,6 +741,8 @@ The list does not include:
 - an inline script you wrote yourself. A `worker` script's elements are the
   ones your `runtime` adapter returns, a facade's `html` is yours, and so is any
   script in your page content. Hash those yourself and add them to the policy.
+  `@pagedeck/script-worker` hashes its own snippet for you, as
+  [`runtime.inlineScriptHash`](#the-snippets-hash-for-a-content-security-policy).
 
 The framework does not write the header. A CSP has to be read before it ships,
 and [Routing](./routing.md) explains why no policy comes by default. Your
