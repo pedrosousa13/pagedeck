@@ -6,8 +6,9 @@ numbers vs the Next.js twin". This is that report: one row per criterion, each
 marked met, not met or not measurable here, each carrying its measurement and
 where the measurement came from.
 
-**Three of the five are met on numbers taken here. Two cannot be settled, and
-they are named rather than omitted.** When #59 wrote this report, the reason was
+**Four of the five are met on numbers taken here, criterion 5 on a synthetic
+loadout and not on PageSpeed. One cannot be settled, and it is named rather
+than omitted.** When #59 wrote this report, the reason was
 one fact, the same every time: there was no production, no live twin and no
 third-party measurement service in reach. `docs/dogfood-parity.md` is bounded by
 it, `docs/deploy-recipe.md` is bounded by it, and this file was the third. The
@@ -25,7 +26,7 @@ settle it.
 | 2 | Island pages: the framework's own JS at or under **7,432 B raw / 3,632 B gzip**, a ratchet (#292, gzip re-based by #547, re-measured by #95, #97, #89, #176, #139, #208 and #216) until #230 dropped it | **met** when last measured | 7,432 B raw / 3,632 B gzip on `/en/pricing`, React set apart, measured on #216 by `packages/site/src/runtime.build.test.ts`. #230 removed the ceiling and that test, so nothing measures it again |
 | 3 | Core Web Vitals better on every metric, in production (CrUX/RUM) | **not measurable here** | no production, no RUM, no CrUX — the comparison plan is below. The landing page's field data is #56 |
 | 4 | Publish-to-live for a content edit **< 60 s** | **met** | 15.2 s, 16.2 s and 17.3 s from `wrangler deploy` starting to the live landing page serving the edit, three runs on 2026-10-08 (#2). The build before the deploy is not in the figure |
-| 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **not measurable here** | Lighthouse mobile performance 99 or 100 on every run over the four live landing pages (#2), but the landing page loads no third-party script, so there is no loadout for the score to survive |
+| 5 | **PageSpeed/Lighthouse mobile ≥ 90 with the full third-party loadout** | **met on a synthetic loadout** | Lighthouse mobile performance 100 on all three runs on default script-layer settings, against a local loadout of six scripts declaring 250 ms of work (#277). The same loadout on `idle` scores 82, a miss. Loopback, not PageSpeed |
 
 Issue #59's own second criterion — an axe pass with zero serious or critical
 violations — is **met**, and is reported below beside criterion 5 because the
@@ -36,16 +37,18 @@ same Lighthouse run is what qualifies it.
 ```sh
 pnpm build && pnpm test:lighthouse-harness    # the Lighthouse pass and the byte counts
 pnpm build && pnpm test:a11y-harness          # the axe pass
+pnpm bench:loadout-lighthouse                 # criterion 5, over a synthetic loadout
 ```
 
-Criteria 4 and 5 were measured on the live landing page by two harnesses run
-by hand, never by CI or `pnpm test`; criteria 4 and 5 say how each was taken.
-#124 retired the landing package and both harnesses when the landing page moved
-to deck-cool, so the figures below stand as #2 measured them. Everything
+Criterion 4 was measured on the live landing page by a harness run by hand,
+never by CI or `pnpm test`, and criterion 4 says how. #124 retired the landing
+package and that harness when the landing page moved to deck-cool, so its
+figures stand as #2 measured them. Criterion 5 was measured there too, and is
+now measured by the third command above, which criterion 5 describes. Everything
 else in this section is about the first three.
 
-Criterion 2 was measured by a third command, a test #230 removed; criterion 2
-below says what it measured. Both harnesses build this site into a scratch directory with the
+Criterion 2 was measured by another command, a test #230 removed; criterion 2
+below says what it measured. The first two harnesses build this site into a scratch directory with the
 framework's own `pagedeck sync` and `pagedeck build`, serve the output from a `node:http`
 server bound to `127.0.0.1`, and drive the Chromium Playwright pins.
 The origin is local on the ruling on #57 — "if we need to test, let's test
@@ -476,7 +479,144 @@ The pipeline that would produce the real figure is prepared and unrun:
 maintainer supplies `PAGEDECK_SNAPSHOT_PULL_URL` and `PAGEDECK_SNAPSHOT_PUSH_URL`
 and passes `apply: true`.
 
-## 5. PageSpeed mobile ≥ 90 with the full third-party loadout — **not measurable here**
+## 5. PageSpeed mobile ≥ 90 with the full third-party loadout — **met on a synthetic loadout**
+
+**On default script-layer settings the page scores 100 with the loadout. With
+every script on `idle` it scores 82, which misses 90.** Measured on #277,
+against a synthetic loadout served from this machine, by Lighthouse and not by
+PageSpeed.
+
+**The method.** `pnpm bench:loadout-lighthouse` runs
+`packages/site/src/loadout-lighthouse.harness.ts`
+(`docs/maintaining/harnesses.md`). It serves the loadout from a second loopback
+origin, builds one fixture site per strategy mix with `pagedeck sync` and
+`pagedeck build`, and runs Lighthouse three times over each mix, one run at a
+time, in Lighthouse's default configuration, which is mobile. The fixture page
+is a heading and three paragraphs, with no island. It records the performance
+score, TBT, LCP and CLS of each run.
+
+**The loadout and its declared cost.** Six scripts, written for this harness,
+named for their shape and for no product:
+
+| Script | How it reaches the page | Declared cost | What it does after the spin |
+| --- | --- | ---: | --- |
+| `tag-manager` | declared in `build.scripts` | 40 ms | injects `tag-1` and `tag-2`, then fetches its origin |
+| `tag-1` | injected by `tag-manager` | 20 ms | fetches its origin |
+| `tag-2` | injected by `tag-manager` | 20 ms | fetches its origin |
+| `analytics` | declared in `build.scripts` | 60 ms | sends a beacon with `navigator.sendBeacon` |
+| `pixel` | declared in `build.scripts` | 30 ms | requests a 1×1 GIF with `new Image()` |
+| `chat` | declared in `build.scripts` | 80 ms | appends a fixed-position button to the body, then fetches its origin |
+
+The total is 250 ms of work on whichever thread runs the script. Lighthouse's
+simulated throttling multiplies the main-thread time it observes by 4, so on
+the main thread the loadout is 1,000 ms of simulated work. The costs were set
+before the first run and were not changed after it.
+
+Each cost is a spin of fixed duration, not a fixed iteration count: each script
+loops on `Date.now()` until its cost has passed, so it holds its thread for at
+least the declared time and less than 1 ms more. The duration is the same on
+every machine, and an iteration count would cost more on a slow runner than on a
+fast one. Lighthouse multiplies what it observes, so a fixed observed duration
+gives the same simulated cost on any machine. A change in the figure then comes
+from the framework, the runtime or Lighthouse, not from the CPU.
+
+**The three mixes.** No script declares a consent category: a categorized
+`worker` script falls back to `idle` (#47), and a denied default would keep it
+off the page, so consent is not part of this measurement. Every mix declares
+`runtime: definePartytown()` from `@pagedeck/script-worker` (#275).
+
+- **idle**: every declared script says `strategy: "idle"`.
+- **default**: no script declares a strategy, so each takes `worker` and runs
+  in Partytown's worker. These are the default script-layer settings that §15
+  names.
+- **facade**: `chat` says `strategy: "facade"` behind a fixed-position "Chat"
+  button. The other three take the default. Lighthouse presses nothing, so
+  `chat` never loads.
+
+**The conditions.** Linux x64, 4 cores, 16 GB, Node v24.18.1, Lighthouse
+13.4.1, Chrome for Testing 151.0.7922.34 as pinned by `playwright@1.62.1`,
+Partytown 1.0.3. Lighthouse's default configuration: mobile form factor,
+simulated throttling at 150 ms RTT, 1,638.4 kbps and a 4× CPU slowdown.
+Lighthouse's benchmark index was 1795. The page is served from
+`http://127.0.0.1:<port>` and the loadout from `http://localhost:<port>`. The
+hosts differ, so the loadout is cross-site to the page, as a vendor's origin is.
+**It is not PageSpeed Insights.** This is loopback on this machine, with no
+network path, no Google infrastructure and no CrUX field data.
+
+**The figures**, 2026-11-03, at commit `7702ab8`. Timings in milliseconds; CLS
+is unitless.
+
+| Mix | Run | Perf | TBT | LCP | CLS |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| idle | 1 | 82 | 757 | 1394 | 0.000 |
+| idle | 2 | 82 | 753 | 678 | 0.000 |
+| idle | 3 | 82 | 729 | 1451 | 0.000 |
+| **idle** | median | **82** | **753** | **1394** | **0.000** |
+| default | 1 | 100 | 0 | 754 | 0.000 |
+| default | 2 | 100 | 0 | 621 | 0.000 |
+| default | 3 | 100 | 0 | 617 | 0.000 |
+| **default** | median | **100** | **0** | **621** | **0.000** |
+| facade | 1 | 100 | 0 | 754 | 0.000 |
+| facade | 2 | 100 | 0 | 621 | 0.000 |
+| facade | 3 | 100 | 0 | 615 | 0.000 |
+| **facade** | median | **100** | **0** | **621** | **0.000** |
+
+A run of the same loadout minutes earlier, before a change to comments only,
+read differently on the default mix: scores 100, 98 and 97, with TBT 9, 167 and
+201 ms. Its idle runs scored 82, 81 and 82 with TBT 736, 821 and 746 ms, and its
+facade runs scored 100 three times with TBT 15, 68 and 12 ms. The worker mixes'
+TBT moves between runs and the idle mix's TBT stays high in all of them.
+Nothing asserts on these figures, as below.
+
+**What every run showed.** Every request in Lighthouse's `network-requests`
+audit went to one of the two loopback origins, and the harness fails the run
+otherwise. That includes Partytown's sandbox page, its `proxytown` requests and
+its worker's `blob:` URL on the page's origin, and every script, beacon, image
+and fetch on the loadout's origin. Each script ends by requesting its origin
+with its own name and the thread it ran on, and the harness fails a run whose
+reports differ from what the mix calls for. In every run, each script under
+`idle` reported from the main thread. Each script under `worker` reported from
+Partytown's worker, and `chat` behind its facade did not report at all.
+
+**What the number proves.** On default script-layer settings, a loadout that
+declares 250 ms of work keeps the page at 97 or above in all six runs of the
+two harness runs, because none of the loadout's spins runs on the main thread.
+The default page carries no other script, so the TBT that remains, 0 to
+201 ms, is Partytown's own main-thread work, which includes carrying out the DOM
+calls the scripts make from the worker. The same loadout on `idle` costs about
+750 ms of TBT and 18 points, and misses 90. So the criterion holds on default
+settings and fails for a site that puts its whole loadout on `idle`. A facade on `chat` changes nothing measurable
+here, because under the default `chat` already runs in the worker.
+
+**What it does not prove.**
+
+- **That PageSpeed would agree.** No PageSpeed API call, no Google
+  infrastructure and no field data are in these figures.
+- **Anything about a real vendor's script.** These scripts are a few hundred
+  bytes each, so the loadout's transfer, parse and compile costs are close to
+  zero. A vendor's script is often tens or hundreds of kilobytes, and on a
+  mobile network that weighs on LCP even when the script runs off the main
+  thread. Each spin is also one long task. A vendor's work is often spread over
+  many tasks and timers.
+- **That a vendor's script works in Partytown.** These scripts were written to
+  work there: they create and append elements and send requests, and read
+  nothing from the page. A vendor script that reads layout or relies on an API
+  Partytown does not proxy may break or slow down in the worker.
+- **That a vendor answers CORS.** Partytown's worker fetches a cross-origin
+  script, so the origin must send `Access-Control-Allow-Origin`, and the
+  loadout's origin sends `*`. A vendor that does not send it needs `resolveUrl`
+  to route the request through the site's own origin, and this run does not
+  exercise that route.
+- **That the loadout's work finishes sooner.** TBT counts only the main
+  thread. The 250 ms still runs, in the worker, and no metric here records when
+  it ends.
+- **Consent, or more than one page.** No script is categorized, and each run is
+  one cold load of one page: Lighthouse clears storage, so Partytown registers
+  its service worker on every run.
+
+### Before #277: the live landing page (#2)
+
+Until #277 the verdict here was **not measurable here**, for the reasons below.
 
 **The score half is met. The loadout half cannot be measured, because the page
 has no loadout.** Measured on #2, against the live landing page, on the
@@ -738,9 +878,10 @@ acceptance criterion. They are, in the order they appear here:
 - publish-to-live, already carried on #57 (criterion 4), with the 36 ms / 9 ms
   local publish attached and the reason it is not the figure. #2 measured it
   on the live landing page and it is met there;
-- PageSpeed with the third-party loadout, which #212's placeholder sources do
-  not supply and no run here can call (criterion 5). #2 ran Lighthouse against
-  the live landing page, which has no third-party loadout either.
+- PageSpeed with the third-party loadout (criterion 5). #277 measured
+  Lighthouse mobile over a synthetic loadout on this machine and it is met
+  there on default settings. PageSpeed itself, and a real vendor's scripts,
+  stay out of reach for the reasons criterion 5 gives.
 
 `meta-description` on every page was on this list too, holding the SEO floor
 at 91. It was filed as #405 and is **closed** by it: each page now carries a
@@ -784,5 +925,6 @@ record of what was.
   vendor loadout it must not name. That last one is no longer waiting on a
   script layer — #212 landed one, and `packages/site` declares it against
   placeholder sources. Since #2, publish-to-live has its deploy and is met on
-  the landing page, and the PageSpeed item waits only on a real loadout. The
-  harnesses' assertions are the gate; this file is the record.
+  the landing page. Since #277 the loadout half is measured on a synthetic
+  loadout, and the PageSpeed item waits only on PageSpeed and a real loadout.
+  The harnesses' assertions are the gate; this file is the record.
