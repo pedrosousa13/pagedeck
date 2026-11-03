@@ -96,8 +96,8 @@ in `tree.tsx`, is the island attributes (`data-fw-prefix`, `-component`,
 `-export`, `-mode`, `-props`, `-slot`, `-slot-paths`, `-region`,
 `-region-stash`, `-template`), since #394 `data-fw-facade`, and since #566 the
 attribute `@fw/search` reads to leave an element out of its index. (That one is
-described rather than named: this ADR is published on the docs site through
-`unescapedHtml`, which would rename it in the sentence.) It is an enumeration
+described rather than named: this ADR ships in `@pagedeck/docs`, and a site
+that renders it through `unescapedHtml` would rename it in the sentence.) It is an enumeration
 and not a `data-fw-` prefix match, so a `data-fw-*` name that is not on it,
 `data-fw-consent` among them, passes through unchanged. Content coming through
 it cannot mint a marker or a slot id at all, so the runtime needs no credential
