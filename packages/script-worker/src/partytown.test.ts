@@ -244,11 +244,37 @@ test("every resolveUrl route that is not an https origin to a path prefix on thi
       '  "https://f.example" → "/vendor/../f/" — not a path prefix on this site',
       '  "https://g.example" → "https://evil.example/" — not a path prefix on this site',
       '  "http://h.example" → "vendor/h" — not an https origin with nothing after the host, and not a path prefix on this site',
-      '  "https://i.example." — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
-      '  "https://127.0.0.1" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
-      '  "https://[::1]" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
-      '  "https://localhost" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
-      '  "https://m.localhost" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
+      '  "https://i.example." — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://127.0.0.1" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://[::1]" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://localhost" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://m.localhost" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+    ].join("\n"),
+  );
+});
+
+test("a key the URL parser respells is refused for what it names, or told the origin to write", () => {
+  const call = (): unknown =>
+    definePartytown({
+      resolveUrl: {
+        "https://LOCALHOST": "/vendor/a/",
+        "https://127.1": "/vendor/b/",
+        "https://0x7f.1": "/vendor/c/",
+        "https://2130706433": "/vendor/d/",
+        "https://Collector.example": "/vendor/e/",
+        "https://intranet": "/vendor/f/",
+      },
+    });
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow(
+    [
+      '  "https://LOCALHOST" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://127.1" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://0x7f.1" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://2130706433" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://Collector.example" — not written as the origin it names — write it as "https://collector.example"',
+      '  "https://intranet" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
     ].join("\n"),
   );
 });

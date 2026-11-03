@@ -122,17 +122,10 @@ function routesFaultReport(routes: PartytownRoutes): string | undefined {
     const shown = prefixFault
       ? `${JSON.stringify(origin)} → ${JSON.stringify(prefix)}`
       : JSON.stringify(origin);
-    if (!isHttpsOrigin(origin)) {
+    const reason = originFault(origin);
+    if (reason !== undefined) {
       faults.push(
-        `  ${shown} — not an https origin with nothing after the host${
-          prefixFault ? ", and not a path prefix on this site" : ""
-        }`,
-      );
-    } else if (!isDnsName(new URL(origin).hostname)) {
-      faults.push(
-        `  ${shown} — names a host ending in ".", an IP address or localhost, which is not a vendor's DNS name${
-          prefixFault ? ", and not a path prefix on this site" : ""
-        }`,
+        `  ${shown} — ${reason}${prefixFault ? ", and not a path prefix on this site" : ""}`,
       );
     } else if (prefixFault) {
       faults.push(`  ${shown} — not a path prefix on this site`);
@@ -144,19 +137,36 @@ function routesFaultReport(routes: PartytownRoutes): string | undefined {
   } this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin of a vendor's DNS name, with no path, and each value as a path prefix that starts and ends with "/", such as ${ROUTES_FIX}:\n${faults.join("\n")}`;
 }
 
-function isHttpsOrigin(value: string): boolean {
-  if (!URL.canParse(value)) return false;
-  const url = new URL(value);
-  return url.protocol === "https:" && url.origin === value;
+/** The parsed host, not the key: the URL parser respells `127.1`, `0x7f.1` and `LOCALHOST`. */
+function originFault(key: string): string | undefined {
+  const url = URL.canParse(key) ? new URL(key) : undefined;
+  if (
+    url === undefined ||
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    !/^https:\/\/[^/?#]*\/?$/i.test(key)
+  ) {
+    return "not an https origin with nothing after the host";
+  }
+  if (!isDnsName(url.hostname)) {
+    return 'names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name';
+  }
+  if (url.origin !== key) {
+    return `not written as the origin it names — write it as ${JSON.stringify(url.origin)}`;
+  }
+  return undefined;
 }
 
 /** The URL parser has already normalized every IPv4 spelling to dotted decimal. */
 function isDnsName(host: string): boolean {
   return (
+    host.includes(".") &&
     !host.endsWith(".") &&
     !host.startsWith("[") &&
     !/^\d+\.\d+\.\d+\.\d+$/.test(host) &&
-    host !== "localhost" &&
     !host.endsWith(".localhost")
   );
 }

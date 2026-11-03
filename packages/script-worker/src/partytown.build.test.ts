@@ -243,7 +243,7 @@ test("an incremental build after only resolveUrl changes renders again every pag
     expect(html).toContain("/vendor/collector-v2/");
     expect(html).not.toContain('"/vendor/collector/"');
     expect(readFileSync(join(dist, libOf(snippetOf(html)), "partytown-sw.js")).length).toBeGreaterThan(0);
-    // #47: the categorized script is on the idle loader, behind the gate, and never on the worker.
+    // #47
     expect(html).not.toContain('type="text/partytown" src="https://example.com/pixel.js"');
     expect(html).toContain('"https://example.com/pixel.js","analytics"');
   }
