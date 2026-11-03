@@ -134,9 +134,16 @@ export default defineConfig({
           category: "analytics",
           attributes: { "data-site": "harness" },
         },
+        {
+          name: "embed",
+          src: ${JSON.stringify(`${vendor}/embed.js`)},
+          strategy: "facade",
+          facade: { html: ${JSON.stringify(`<script>${forwardedCall("body")}</script>`)} },
+        },
       ],
-      runtime: definePartytown(),
+      runtime: definePartytown({ forward: ["dataLayer.push"] }),
     }),
+    prePaint: [${JSON.stringify(forwardedCall("pre-paint"))}],
     pages: definePages({
       trailingSlash: "never",
       locales: defineLocales({ en: { label: "English", direction: "ltr" } }),
@@ -148,6 +155,11 @@ export default defineConfig({
 });
 `,
   );
+}
+
+/** Counts only a call that returned: one that threw leaves the count where it was (#283). */
+function forwardedCall(caller: string): string {
+  return `dataLayer.push({ event: ${JSON.stringify(caller)} });window.forwardedCalls=(window.forwardedCalls||0)+1;`;
 }
 
 async function run(verb: string): Promise<void> {
@@ -232,6 +244,23 @@ test("the built page carries the held script in the loader and nowhere Partytown
   expect(document).toContain('<script type="text/partytown" src="http://localhost:');
   expect(document).not.toMatch(/<script[^>]*pixel\.js/);
   expect(document).toContain('"analytics",0]');
+});
+
+test("the snippet is in the <head>, ahead of the pre-paint script and the body's inline call", () => {
+  const head = document.slice(0, document.indexOf("</head>"));
+  const snippet = head.search(/<script>[^<]*serviceWorker/);
+  expect(snippet).toBeGreaterThan(-1);
+  expect(snippet).toBeLessThan(head.indexOf(forwardedCall("pre-paint")));
+  expect(document.indexOf(forwardedCall("body"))).toBeGreaterThan(document.indexOf("<body>"));
+});
+
+test("a forwarded function exists for the pre-paint script and an inline call in the body", async () => {
+  const { page, errors, finish } = await open();
+  await workerRan();
+
+  expect(await page.evaluate(() => (globalThis as { forwardedCalls?: number }).forwardedCalls)).toBe(2);
+  expect(errors).toEqual([]);
+  await finish();
 });
 
 test("before a grant the held script makes no request and is not in the document", async () => {

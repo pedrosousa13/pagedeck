@@ -4,8 +4,9 @@ The script runtime adapter for `build.scripts.runtime`, on
 [Partytown](https://partytown.qwik.dev/). It loads each page's `worker`
 scripts in a web worker, off the main thread. The build writes Partytown's
 service worker and its other files under `/script-runtime/<hash>/` on the
-site's own origin, and each page carries Partytown's inline snippet and one
-`<script type="text/partytown">` per script.
+site's own origin, and each page carries Partytown's inline snippet in its
+`<head>`, so a function named in `forward` exists before any page code calls
+it, and one `<script type="text/partytown">` per script in its `<body>`.
 
 ```sh
 npm install @pagedeck/script-worker
