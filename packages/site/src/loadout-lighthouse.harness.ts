@@ -3,9 +3,14 @@ import { createServer } from "node:http";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { inspect, promisify } from "node:util";
 import type { ScriptDeclaration } from "@pagedeck/core";
 // `.ts`: Node loads this file with types stripped, and no `.js` sits beside the source.
+import {
+  NoLighthouseResult,
+  launchLighthouse,
+  machineConditions,
+} from "./lighthouse-run.test-support.ts";
 import type { LighthouseResult } from "./lighthouse-run.test-support.ts";
 
 const execFileAsync = promisify(execFile);
@@ -18,17 +23,20 @@ const RUNS = 3;
 export const MIXES = ["idle", "default", "facade"] as const;
 export type Mix = (typeof MIXES)[number];
 
-const REPORTS = {
-  beacon: { path: "/collect", call: (target: string) => `navigator.sendBeacon(${target});` },
-  image: { path: "/pixel.gif", call: (target: string) => `new Image().src=${target};` },
-  fetch: { path: "/hit", call: (target: string) => `fetch(${target});` },
-} as const;
+const REPORT_KINDS = ["beacon", "image", "fetch"] as const;
+type ReportKind = (typeof REPORT_KINDS)[number];
+
+const REPORTS: Readonly<Record<ReportKind, { path: string; call: (target: string) => string }>> = {
+  beacon: { path: "/collect", call: (target) => `navigator.sendBeacon(${target});` },
+  image: { path: "/pixel.gif", call: (target) => `new Image().src=${target};` },
+  fetch: { path: "/hit", call: (target) => `fetch(${target});` },
+};
 
 export interface LoadoutScript {
   readonly name: string;
   readonly costMs: number;
   readonly injectedBy?: string;
-  readonly report: keyof typeof REPORTS;
+  readonly report: ReportKind;
   /** The one script the facade mix puts behind a placeholder. */
   readonly widget?: true;
 }
@@ -156,6 +164,13 @@ export interface RunFigures {
   readonly urls: readonly string[];
 }
 
+export class MissingFigure extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingFigure";
+  }
+}
+
 export function readRun(
   lhr: Pick<LighthouseResult, "categories" | "audits" | "runtimeError">,
 ): RunFigures {
@@ -165,7 +180,7 @@ export function readRun(
       lhr.runtimeError === undefined
         ? "and gave no runtime error"
         : `and gave the runtime error ${lhr.runtimeError.code}: ${lhr.runtimeError.message}`;
-    throw new Error(
+    throw new MissingFigure(
       `Loadout harness: Lighthouse reported no "performance" score for this run, ${reason} — so the run has no figure to record; re-run, and if it repeats fix what the runtime error names`,
     );
   }
@@ -173,7 +188,7 @@ export function readRun(
   const metric = (name: string): number => {
     const value = metrics[name];
     if (typeof value !== "number") {
-      throw new Error(
+      throw new MissingFigure(
         `Loadout harness: Lighthouse's "metrics" audit has no "${name}" for this run, so it would read as zero — re-run, and if it repeats the page did not finish loading in the run`,
       );
     }
@@ -242,9 +257,7 @@ function serveLoadout(): Promise<LoadoutOrigin> {
   const sources = new Map<string, LoadoutScript>(
     LOADOUT.map((script) => [`/${script.name}.js`, script]),
   );
-  const reports = new Map<string, keyof typeof REPORTS>(
-    Object.entries(REPORTS).map(([kind, { path }]) => [path, kind as keyof typeof REPORTS]),
-  );
+  const reports = new Map(REPORT_KINDS.map((kind) => [REPORTS[kind].path, kind]));
   let origin = "";
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", origin);
@@ -323,7 +336,14 @@ export function runFailures(input: {
   readonly origins: readonly string[];
 }): string[] {
   const at = `mix "${input.mix}" run ${String(input.run)}`;
-  if (input.outcome instanceof Error) return [`${at}: ${input.outcome.message}`];
+  if (input.outcome instanceof NoLighthouseResult || input.outcome instanceof MissingFigure) {
+    return [`${at}: ${input.outcome.message}`];
+  }
+  if (input.outcome instanceof Error) {
+    return [
+      `${at}: an error the harness did not expect, which is a fault in the harness — fix it:\n${inspect(input.outcome)}`,
+    ];
+  }
   const failures: string[] = [];
   const left = offMachine(input.outcome.urls, input.origins);
   if (left.length > 0) {
@@ -342,9 +362,6 @@ export function runFailures(input: {
 
 async function main(): Promise<number> {
   const { serveBuild } = await import("@pagedeck/site/audit-site");
-  const { launchLighthouse, machineConditions } = await import(
-    "./lighthouse-run.test-support.ts"
-  );
 
   rmSync(WORK, { recursive: true, force: true });
   mkdirSync(WORK, { recursive: true });
@@ -371,7 +388,7 @@ async function main(): Promise<number> {
             loadout.hits.length = 0;
             let outcome: RunFigures | Error;
             try {
-              const lhr = await browser.audit(`${served.origin}/`, `Loadout harness, mix "${mix}"`);
+              const lhr = await browser.audit(`${served.origin}/`, "Loadout harness");
               lighthouse ??= lhr;
               outcome = readRun(lhr);
               entry.runs.push(outcome);

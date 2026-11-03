@@ -15,6 +15,7 @@ import {
   siteConfigSource,
   table,
 } from "./loadout-lighthouse.harness.js";
+import { NoLighthouseResult } from "./lighthouse-run.test-support.js";
 
 const LOADOUT_ORIGIN = "http://localhost:4100";
 const SITE_ORIGIN = "http://127.0.0.1:4200";
@@ -329,16 +330,40 @@ describe("a run's failures", () => {
     ).toEqual([]);
   });
 
-  test("name the mix and run of a run Lighthouse could not finish, and keep its reason", () => {
+  test("name the mix and run of a run Lighthouse could not finish once, and keep its reason", () => {
     expect(
       runFailures({
         mix: "idle",
         run: 2,
-        outcome: new Error("Site audit: Lighthouse returned no result"),
+        outcome: new NoLighthouseResult("Loadout harness", "http://127.0.0.1:4200/"),
         hits: [],
         origins,
       }),
-    ).toEqual(['mix "idle" run 2: Site audit: Lighthouse returned no result']);
+    ).toEqual([
+      'mix "idle" run 2: Loadout harness: Lighthouse returned no result, so this page contributed nothing to the report — re-run, and if it repeats the page is not loading at http://127.0.0.1:4200/',
+    ]);
+  });
+
+  test("keep a run with no figure to the message readRun gives it", () => {
+    let thrown: unknown;
+    try {
+      readRun({ categories: { performance: { score: null } }, audits: {} });
+    } catch (error) {
+      thrown = error;
+    }
+    const [failure] = runFailures({ mix: "idle", run: 1, outcome: thrown as Error, hits: [], origins });
+    expect(failure).toMatch(/^mix "idle" run 1: Loadout harness: Lighthouse reported no "performance" score/);
+    expect(failure).not.toContain("    at ");
+  });
+
+  test("keep the stack and cause of an error the harness did not expect", () => {
+    const cause = new RangeError("inner fault");
+    const outcome = new TypeError("lhr.audits is undefined", { cause });
+    const [failure] = runFailures({ mix: "default", run: 1, outcome, hits: [], origins });
+    expect(failure).toMatch(/^mix "default" run 1: an error the harness did not expect, which is a fault in the harness — fix it:\n/);
+    expect(failure).toContain("TypeError: lhr.audits is undefined");
+    expect(failure).toContain("    at ");
+    expect(failure).toContain("RangeError: inner fault");
   });
 
   test("list a request to another origin and a script that reported from the wrong thread, both", () => {

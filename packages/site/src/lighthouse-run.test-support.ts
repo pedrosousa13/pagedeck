@@ -1,7 +1,4 @@
 import { cpus, totalmem } from "node:os";
-import { launch } from "chrome-launcher";
-import { chromium } from "playwright";
-import lighthouse from "lighthouse";
 
 // Declared here: `lighthouse`'s types reach `lib.dom` (#289).
 export interface LighthouseResult {
@@ -45,12 +42,25 @@ export function machineConditions(): MachineConditions {
   };
 }
 
+export class NoLighthouseResult extends Error {
+  constructor(subject: string, url: string) {
+    super(
+      `${subject}: Lighthouse returned no result, so this page contributed nothing to the report — re-run, and if it repeats the page is not loading at ${url}`,
+    );
+    this.name = "NoLighthouseResult";
+  }
+}
+
 export interface LighthouseBrowser {
   audit(url: string, subject: string): Promise<LighthouseResult>;
   close(): Promise<void>;
 }
 
+/** Imported here, not at the top: a logic test imports this module for its error class. */
 export async function launchLighthouse(): Promise<LighthouseBrowser> {
+  const { launch } = await import("chrome-launcher");
+  const { chromium } = await import("playwright");
+  const { default: lighthouse } = await import("lighthouse");
   const chrome = await launch({
     chromePath: chromium.executablePath(),
     // `--no-sandbox`: a runner's container has no user namespace to build one in.
@@ -71,12 +81,7 @@ export async function launchLighthouse(): Promise<LighthouseBrowser> {
         output: "json",
         logLevel: "error",
       });
-      if (result === undefined) {
-        // A bare `Error`: no caller branches on a class.
-        throw new Error(
-          `${subject}: Lighthouse returned no result, so this page contributed nothing to the report — re-run, and if it repeats the page is not loading at ${url}`,
-        );
-      }
+      if (result === undefined) throw new NoLighthouseResult(subject, url);
       return result.lhr as unknown as LighthouseResult;
     },
     async close() {

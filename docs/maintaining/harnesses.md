@@ -183,7 +183,10 @@ Each script ends by requesting its origin with its name and the thread it ran on
 so a script that did not run, or a `worker` script that ran on the main thread,
 fails the run instead of scoring well. `.github/workflows/lighthouse.yml` runs
 it after the site audit harnesses on each pull request that touches the site or
-a package it builds with, and keeps `loadout-report.json` as an artifact. Re-run
+a package it builds with, and keeps `loadout-report.json` as an artifact. There it fails only on those two
+checks, never on a score. The figures in `docs/success-criteria.md` were taken
+on the four-core machine that section names, so a CI report's figures will
+differ from them and are not a re-measurement of them. Re-run
 it by hand when the script layer, the Partytown runtime, Lighthouse or Chromium
 changes, and record what it prints in `docs/success-criteria.md`.
 
