@@ -765,6 +765,46 @@ test("a runtime that is not a function is refused at construction", () => {
   );
 });
 
+test("a runtime's files are each refused by name when the build could not write them", () => {
+  const runtime = Object.assign(() => [], {
+    files: [
+      { name: "../sw.js", contents: "x" },
+      { name: "sw.js", contents: 42 },
+      { name: "sw.js", contents: "y" },
+      "boot.js",
+    ],
+  });
+
+  expect(scriptsFaultReport({ scripts: [ANALYTICS], runtime }, "Script settings")).toBe(
+    [
+      'Script settings: declares 4 script runtime files this build cannot write — the build writes every file into one directory of its own and hands the adapter its path, so give each a plain file name, unique among them, and its contents as a string or bytes, such as { name: "worker.js", contents: "…" }:',
+      '  runtime.files[0] — "name" — "../sw.js" — not a plain file name',
+      '  runtime.files[1] — "contents" — 42 — not a string or bytes',
+      '  runtime.files[2] — "name" — "sw.js" — runtime.files[1] has the same name',
+      '  runtime.files[3] — "boot.js" — not a file declaration',
+    ].join("\n"),
+  );
+});
+
+test("a runtime's files that are not a list are refused", () => {
+  const runtime = Object.assign(() => [], { files: "sw.js" });
+
+  expect(scriptsFaultReport({ scripts: [ANALYTICS], runtime }, "Script settings")).toBe(
+    'Script settings: declares script runtime files this build cannot write — "sw.js" — declare them as a list, such as files: [{ name: "worker.js", contents: "…" }]',
+  );
+});
+
+test("a runtime declaring well-formed files passes construction", () => {
+  const runtime = Object.assign(() => [], {
+    files: [
+      { name: "sw.js", contents: "x" },
+      { name: "frame.html", contents: new Uint8Array([60]) },
+    ],
+  });
+
+  expect(defineScripts({ scripts: [ANALYTICS], runtime }).runtime).toBe(runtime);
+});
+
 test("a credential nested inside a refused value is cut with the rest", () => {
   expect(
     scriptsFaultReport(

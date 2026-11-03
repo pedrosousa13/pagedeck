@@ -52,11 +52,19 @@ export interface ScriptFacade {
 
 export interface ScriptRuntimeRequest {
   readonly scripts: readonly ScriptDeclaration[];
+  /** Present only when the adapter declares `files`. */
+  readonly fileBase?: string;
 }
 
-export type ScriptRuntimeAdapter = (
-  request: ScriptRuntimeRequest,
-) => readonly string[];
+export interface ScriptRuntimeFile {
+  readonly name: string;
+  readonly contents: string | Uint8Array;
+}
+
+export interface ScriptRuntimeAdapter {
+  (request: ScriptRuntimeRequest): readonly string[];
+  readonly files?: readonly ScriptRuntimeFile[];
+}
 
 export type ScriptAttributes = Readonly<Record<`data-${string}`, string>>;
 
@@ -341,6 +349,12 @@ export function scriptsFaultReport(
     sections.push(
       `${heading}: declares a script runtime this build cannot call — ${quote(runtime)} — ${RUNTIME_FIX}`,
     );
+  } else if (typeof runtime === "function") {
+    const files = runtimeFilesSection(
+      (runtime as { files?: unknown }).files,
+      heading,
+    );
+    if (files !== undefined) sections.push(files);
   }
 
   for (const name of ["pageTypes", "pages"] as const) {
@@ -361,6 +375,53 @@ export function scriptsFaultReport(
   }
 
   return sections.length === 0 ? undefined : sections.join("\n\n");
+}
+
+const RUNTIME_FILE_FIX = '{ name: "worker.js", contents: "…" }';
+/** One path segment a URL and a file system read alike. */
+const RUNTIME_FILE_NAME = /^(?!\.\.?$)[A-Za-z0-9._-]+$/;
+
+function runtimeFilesSection(
+  files: unknown,
+  heading: string,
+): string | undefined {
+  if (files === undefined) return undefined;
+  if (!Array.isArray(files)) {
+    return `${heading}: declares script runtime files this build cannot write — ${quote(files)} — declare them as a list, such as files: [${RUNTIME_FILE_FIX}]`;
+  }
+  const declared: readonly unknown[] = files;
+  const lines: string[] = [];
+  const faulty = new Set<number>();
+  const named = new Map<string, string>();
+  declared.forEach((file, index) => {
+    const before = lines.length;
+    const at = `  runtime.files[${String(index)}]`;
+    if (typeof file !== "object" || file === null || Array.isArray(file)) {
+      lines.push(`${at} — ${quote(file)} — not a file declaration`);
+      faulty.add(index);
+      return;
+    }
+    const fields = file as Record<string, unknown>;
+    const name = Object.hasOwn(fields, "name") ? fields["name"] : undefined;
+    const contents = Object.hasOwn(fields, "contents")
+      ? fields["contents"]
+      : undefined;
+    if (typeof name !== "string" || !RUNTIME_FILE_NAME.test(name)) {
+      lines.push(`${at} — "name" — ${quote(name)} — not a plain file name`);
+    } else if (named.has(name)) {
+      lines.push(
+        `${at} — "name" — ${quote(name)} — ${named.get(name) ?? ""} has the same name`,
+      );
+    } else {
+      named.set(name, at.trim());
+    }
+    if (typeof contents !== "string" && !(contents instanceof Uint8Array)) {
+      lines.push(`${at} — "contents" — ${quote(contents)} — not a string or bytes`);
+    }
+    if (lines.length > before) faulty.add(index);
+  });
+  if (lines.length === 0) return undefined;
+  return `${heading}: declares ${count(faulty.size, "script runtime file")} this build cannot write — the build writes every file into one directory of its own and hands the adapter its path, so give each a plain file name, unique among them, and its contents as a string or bytes, such as ${RUNTIME_FILE_FIX}:\n${lines.join("\n")}`;
 }
 
 function count(n: number, noun: string): string {
