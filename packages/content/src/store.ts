@@ -80,7 +80,10 @@ export interface ContentStoreReader {
    */
   getImageColor(src: string): string | undefined;
   hasImageColor(src: string): boolean;
-  /** As `getImageColor`, for the blur-up preview; `hasImagePreview` tells them apart. */
+  /**
+   * `undefined` both when unprobed and when probed with no preview; `hasImagePreview`
+   * tells them apart.
+   */
   getImagePreview(src: string): string | undefined;
   hasImagePreview(src: string): boolean;
   /** Most-used first, ties broken on `avgFoldScore` then name, so the order is total. */
@@ -199,8 +202,8 @@ function rowToEntry<T>(row: EntryRow): Entry<T> {
 }
 
 function makeReader(db: DatabaseSync): ContentStoreReader {
-  // Store files from before #44 (colors) or #276 (previews) lack the table, and a read-only
-  // open cannot create it; no table means nothing was ever cached in it.
+  // An older store file lacks an image table, and a read-only open cannot create it; no
+  // table means nothing was ever cached in it.
   const hasTable = (name: string): boolean =>
     db
       .prepare(

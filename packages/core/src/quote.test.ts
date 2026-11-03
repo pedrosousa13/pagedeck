@@ -104,7 +104,7 @@ const DECLARATIONS: readonly (readonly [string, RegExp])[] = [
 
 const REPO = fileURLToPath(new URL("../../..", import.meta.url));
 const CORE = "packages/core/src/quote.ts";
-const CONTENT = "packages/content/src/colors.ts";
+const CONTENT = "packages/content/src/probing.ts";
 
 interface Declaration {
   readonly line: number;

@@ -651,7 +651,8 @@ It claims the word *probe* on the terms **External link probe** sets, and is
 told apart from that one the way **Script loader** is told apart from *loader*:
 by compounding. Write "dominant-color probe" in any sentence that could be about
 either, and the bare noun only inside `packages/content/src/colors.ts` and its
-sibling `previews.ts`, where there is nothing else a probe could be. Both carry the sense the word has —
+siblings `previews.ts` and `probing.ts`, where there is nothing else a probe
+could be. Both carry the sense the word has —
 something that goes and asks a host about one thing — and this is the second, so
 the exception is scoped rather than a race to claim it.
 
@@ -689,7 +690,7 @@ The one thing it adds is a check on the answer before it is cached:
 `imagePreviewFault` (`packages/content/src/preview.ts`) admits only a base64
 png, jpeg, webp, avif or gif data URI of at most `MAX_PREVIEW_BYTES`, and
 anything else fails the sync naming the collection, each entry holding the
-source, the source, the cap and the fix. A colour answer goes into a `style`
+source, the source, the cap and the fix. A color answer goes into a `style`
 property as text React escapes; a preview goes into a CSS `url()` inside that
 property, so it is held to an alphabet that cannot close either.
 _Avoid_: LQIP generator, thumbnail adapter (it is not an adapter, for the
@@ -706,7 +707,7 @@ filter. `imageAttributes` runs `imagePreviewFault` again before it writes one,
 because a store is a file that is pushed and pulled and a site may pass any
 string.
 _Avoid_: LQIP, thumbnail, placeholder image (the placeholder is the whole
-`style`, colour included)
+`style`, color included)
 
 **Island**:
 A component the build marks in the emitted HTML so the client runtime can

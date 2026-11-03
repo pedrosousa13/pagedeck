@@ -107,7 +107,6 @@ export interface ImageColorsSetting<T> {
   concurrency?: number;
 }
 
-// Probed after the colors, on the same terms; a refused answer fails the sync (rule 7).
 export interface ImagePreviewsSetting<T> {
   /** Every image source one entry holds, in any order, duplicates allowed. */
   extractSources: (entry: Entry<T>) => readonly string[];
@@ -416,21 +415,19 @@ async function runSync<TOut, TIn>(
   }
 
   // After the commit: a probe is network I/O, and a transaction body may not await.
-  try {
-    await writeImageColors(store, collection, options);
-  } catch (error) {
-    const message = `Collection "${collection.name}": ${operation} stored every entry it was given, then failed fetching dominant colors`;
-    throw error instanceof CollectionError
-      ? new CollectionError(message, { cause: error })
-      : new Error(message, { cause: error });
-  }
-  try {
-    await writeImagePreviews(store, collection, options);
-  } catch (error) {
-    const message = `Collection "${collection.name}": ${operation} stored every entry it was given, then failed fetching image previews`;
-    throw error instanceof CollectionError
-      ? new CollectionError(message, { cause: error })
-      : new Error(message, { cause: error });
+  const probes = [
+    ["dominant colors", writeImageColors],
+    ["image previews", writeImagePreviews],
+  ] as const;
+  for (const [fetched, write] of probes) {
+    try {
+      await write(store, collection, options);
+    } catch (error) {
+      const message = `Collection "${collection.name}": ${operation} stored every entry it was given, then failed fetching ${fetched}`;
+      throw error instanceof CollectionError
+        ? new CollectionError(message, { cause: error })
+        : new Error(message, { cause: error });
+    }
   }
   return result;
 }
@@ -460,7 +457,8 @@ async function writeImageColors<TOut, TIn>(
   });
 }
 
-// Over every entry, for `writeImageColors`'s reason.
+// Every entry of the collection, not only this sync's: a failed probe is not cached, and
+// a source reached only through unchanged entries would never be asked again.
 async function writeImagePreviews<TOut, TIn>(
   store: ContentStore,
   collection: Collection<TOut, TIn>,
