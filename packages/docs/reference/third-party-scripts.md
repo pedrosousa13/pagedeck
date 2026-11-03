@@ -1200,7 +1200,13 @@ only `worker` scripts are held still carries the runtime's own elements, so
 the adapter is called with an empty list.
 
 The gate is the one the other strategies use: a grant that arrives later loads
-the script then, and a revocation before it means it never loads.
+the script then, and a revocation before it means it never loads. A revocation
+after the grant does not stop a script already appended.
+
+The runtime itself is not gated. A page whose only `worker` scripts are held
+still carries Partytown's snippet, so before any consent Partytown registers its
+service worker and loads its sandbox, both from your own origin; no request
+reaches a vendor.
 
 ### Otherwise a categorized script is never loaded on `worker`
 

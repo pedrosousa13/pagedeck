@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 337 messages fenced
-below, 260 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 338 messages fenced
+below, 261 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 260 checked messages pin 38800 of the 108356 fenced characters, and
+below**: the 261 checked messages pin 38952 of the 108882 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1319,13 +1319,20 @@ Script settings: declares a script runtime this build cannot call — "partytown
 ```
 
 A runtime's `latePickup` (#281) is refused the same way when the loader could
-not write it, because the loader puts both strings into the page: one line per
-field, under the runtime's own path:
+not write it, or when what it would write runs a held script on the main thread
+or fires the page's own listeners again: one line per field, under the
+runtime's own path:
 
 ```
-Script settings: declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write both as non-empty strings, such as latePickup: { type: "text/partytown", event: "ptupdate" }:
-  runtime.latePickup.type — "" — not a non-empty string
-  runtime.latePickup.event — 7 — not a non-empty string
+Script settings: declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write a type the browser does not run itself and an event nothing else on the page listens for, such as latePickup: { type: "text/x-worker", event: "x-worker:update" }:
+  runtime.latePickup.type — "text/javascript" — a type the browser runs itself, on the main thread, so a held worker script would run there after a grant — write a type only your runtime reads
+  runtime.latePickup.event — "load" — an event the page's own code or this build's loader already listens for, so each grant would fire it again — write an event only your runtime listens for
+```
+
+A `latePickup` that is not an object at all is one line, naming the field:
+
+```
+Script settings: declares a late pickup the script loader cannot write — runtime.latePickup — "ptupdate" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }
 ```
 
 Three paragraphs are about consent, and they arrive by the two doors above with
