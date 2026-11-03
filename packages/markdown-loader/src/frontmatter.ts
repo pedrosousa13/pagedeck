@@ -11,6 +11,8 @@ export interface ParsedMarkdown {
 
 const DELIMITER = "---";
 
+const BOM = "\uFEFF";
+
 // Not `split`, which would cut the value too.
 const FIELD = /^([^:]+):(.*)$/;
 
@@ -87,8 +89,11 @@ export function parseFrontmatter(
   source: string,
   file: string,
 ): ParsedMarkdown {
-  const lines = source.split("\n");
-  if (lines[0] !== DELIMITER) return { frontmatter: {}, body: source };
+  const unmarked = source.startsWith(BOM) ? source.slice(BOM.length) : source;
+  // `written` keeps each `\r`, so the body rejoined on `\n` keeps its line endings as written.
+  const written = unmarked.split("\n");
+  const lines = written.map((line) => line.replace(/\r$/, ""));
+  if (lines[0] !== DELIMITER) return { frontmatter: {}, body: unmarked };
 
   const end = lines.indexOf(DELIMITER, 1);
   if (end === -1) {
@@ -140,5 +145,5 @@ export function parseFrontmatter(
   if (bad.length > 0) throw new Error(badLineReport(file, bad));
   if (repeated.length > 0) throw new Error(repeatedFieldReport(file, repeated));
 
-  return { frontmatter, body: lines.slice(end + 1).join("\n") };
+  return { frontmatter, body: written.slice(end + 1).join("\n") };
 }

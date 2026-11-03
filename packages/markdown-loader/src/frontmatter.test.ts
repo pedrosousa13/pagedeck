@@ -139,3 +139,40 @@ test("a repeated field is still refused when the second is a list", () => {
     'Markdown "docs/a.md": 1 frontmatter field is declared twice — delete the line that is not wanted:\n  "tags" on lines 2 and 3',
   );
 });
+
+test("a block written with CRLF line endings is read as fields", () => {
+  const parsed = parseFrontmatter(
+    "---\r\ntitle: Guide\r\ntags:\r\n  - a\r\n  - b\r\n---\r\n# Heading\r\n",
+    "d.md",
+  );
+  expect(parsed.frontmatter).toEqual({ title: "Guide", tags: ["a", "b"] });
+  expect(parsed.body).toBe("# Heading\r\n");
+});
+
+test("no field value or item keeps the carriage return of a CRLF line", () => {
+  const parsed = parseFrontmatter(
+    "---\r\nsummary: \"quoted\"\r\nplain: text\r\nempty:\r\nlist: [a, b]\r\nitems:\r\n  - 'one'\r\n  - two\r\n---\r\n",
+    "d.md",
+  );
+  const values = Object.values(parsed.frontmatter).flat();
+  expect(values.filter((value) => value.endsWith("\r"))).toEqual([]);
+  expect(parsed.frontmatter).toEqual({
+    summary: "quoted",
+    plain: "text",
+    empty: "",
+    list: ["a", "b"],
+    items: ["one", "two"],
+  });
+});
+
+test("a leading byte-order mark does not hide the block", () => {
+  const parsed = parseFrontmatter("\uFEFF---\ntitle: Guide\n---\nText.\n", "d.md");
+  expect(parsed.frontmatter).toEqual({ title: "Guide" });
+  expect(parsed.body).toBe("Text.\n");
+});
+
+test("an unreadable CRLF line is reported without its carriage return", () => {
+  expect(() => parseFrontmatter("---\r\nbogus\r\n---\r\n", "d.md")).toThrow(
+    /line 2: bogus$/,
+  );
+});

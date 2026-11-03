@@ -137,6 +137,48 @@ test("a file with nothing after its frontmatter has an empty body", async () => 
   ).toBe("");
 });
 
+const LF_BODY =
+  "# Guide\n\n## Install it\n\nText with `code`.\n\n" +
+  "```ts\nconst a = 1;\nconst b = 2;\n```\n\n- one\n- two\n";
+const LF_SOURCE = `---\nsection: how-to\ntags:\n  - a\n  - b\n---\n${LF_BODY}`;
+const CRLF_BODY =
+  "# Guide\r\n\r\n## Install it\r\n\r\nText with `code`.\r\n\r\n" +
+  "```ts\r\nconst a = 1;\r\nconst b = 2;\r\n```\r\n\r\n- one\r\n- two\r\n";
+const CRLF_SOURCE =
+  `---\r\nsection: how-to\r\ntags:\r\n  - a\r\n  - b\r\n---\r\n${CRLF_BODY}`;
+
+for (const [name, source, body] of [
+  ["CRLF line endings", CRLF_SOURCE, CRLF_BODY],
+  ["a byte-order mark", `\uFEFF${LF_SOURCE}`, LF_BODY],
+  ["a byte-order mark and CRLF line endings", `\uFEFF${CRLF_SOURCE}`, CRLF_BODY],
+] as const) {
+  test(`a file with ${name} gives its frontmatter, its title and its body as written`, async () => {
+    const { root, store } = siteWith({ "guide.md": source });
+    const collection = docs(root);
+    await syncCollection(store, collection);
+
+    const entry = getEntry(store, collection, { locale: "en", path: "guide" });
+    expect(entry?.data.frontmatter).toEqual({ section: "how-to", tags: ["a", "b"] });
+    expect(entry?.data.title).toBe("Guide");
+    expect(entry?.data.body).toBe(body);
+  });
+}
+
+test("a CRLF file renders the same HTML and outline as its LF twin", async () => {
+  const { root, store } = siteWith({
+    "lf.md": LF_SOURCE,
+    "crlf.md": CRLF_SOURCE,
+  });
+  const collection = docs(root);
+  await syncCollection(store, collection);
+
+  const lf = getEntry(store, collection, { locale: "en", path: "lf" });
+  const crlf = getEntry(store, collection, { locale: "en", path: "crlf" });
+  expect(lf?.data.html).toContain('<h2 id="install-it">');
+  expect(crlf?.data.html).toBe(lf?.data.html);
+  expect(crlf?.data.toc).toEqual(lf?.data.toc);
+});
+
 test("a frontmatter title wins over the body's first heading", async () => {
   const { root, store } = siteWith({
     "guide.md": "---\ntitle: The written title\n---\n# The heading\n",
