@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { cpus, totalmem } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { ScriptDeclaration } from "@pagedeck/core";
+// `.ts`: Node loads this file with types stripped, and no `.js` sits beside the source.
+import type { LighthouseResult } from "./lighthouse-run.test-support.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -17,11 +18,19 @@ const RUNS = 3;
 export const MIXES = ["idle", "default", "facade"] as const;
 export type Mix = (typeof MIXES)[number];
 
+const REPORTS = {
+  beacon: { path: "/collect", call: (target: string) => `navigator.sendBeacon(${target});` },
+  image: { path: "/pixel.gif", call: (target: string) => `new Image().src=${target};` },
+  fetch: { path: "/hit", call: (target: string) => `fetch(${target});` },
+} as const;
+
 export interface LoadoutScript {
   readonly name: string;
   readonly costMs: number;
   readonly injectedBy?: string;
-  readonly report: "beacon" | "image" | "fetch";
+  readonly report: keyof typeof REPORTS;
+  /** The one script the facade mix puts behind a placeholder. */
+  readonly widget?: true;
 }
 
 export const LOADOUT: readonly LoadoutScript[] = [
@@ -30,7 +39,7 @@ export const LOADOUT: readonly LoadoutScript[] = [
   { name: "tag-2", costMs: 20, injectedBy: "tag-manager", report: "fetch" },
   { name: "analytics", costMs: 60, report: "beacon" },
   { name: "pixel", costMs: 30, report: "image" },
-  { name: "chat", costMs: 80, report: "fetch" },
+  { name: "chat", costMs: 80, report: "fetch", widget: true },
 ];
 
 const CHAT_STYLE = "position:fixed;right:16px;bottom:16px";
@@ -48,24 +57,19 @@ export function loadoutSource(script: LoadoutScript, origin: string): string {
     )
     .join("");
   const widget =
-    script.name === "chat"
+    script.widget === true
       ? `var b=document.createElement("button");b.textContent="Chat";b.style.cssText=${JSON.stringify(CHAT_STYLE)};document.body.appendChild(b);`
       : "";
-  const path = { beacon: "/collect", image: "/pixel.gif", fetch: "/hit" }[script.report];
-  const target = `${url(`${path}?script=${script.name}&where=`)}+where`;
-  const report = {
-    beacon: `navigator.sendBeacon(${target});`,
-    image: `new Image().src=${target};`,
-    fetch: `fetch(${target});`,
-  }[script.report];
+  const { path, call } = REPORTS[script.report];
+  const report = call(`${url(`${path}?script=${script.name}&where=`)}+where`);
   return `(function(){var where=typeof DedicatedWorkerGlobalScope==="function"?"worker":"main";var t=Date.now();while(Date.now()-t<=${String(script.costMs)}){}${injected}${widget}${report}})();\n`;
 }
 
 export function declaredScripts(mix: Mix, origin: string): ScriptDeclaration[] {
-  return LOADOUT.filter(({ injectedBy }) => injectedBy === undefined).map(({ name }) => {
+  return LOADOUT.filter(({ injectedBy }) => injectedBy === undefined).map(({ name, widget }) => {
     const src = `${origin}/${name}.js`;
     if (mix === "idle") return { name, src, strategy: "idle" };
-    if (mix === "facade" && name === "chat") {
+    if (mix === "facade" && widget === true) {
       return {
         name,
         src,
@@ -79,7 +83,7 @@ export function declaredScripts(mix: Mix, origin: string): ScriptDeclaration[] {
 
 export function expectedHits(mix: Mix): string[] {
   const where = mix === "idle" ? "main" : "worker";
-  return LOADOUT.filter(({ name }) => !(mix === "facade" && name === "chat"))
+  return LOADOUT.filter(({ widget }) => !(mix === "facade" && widget === true))
     .map(({ name }) => `${name}@${where}`)
     .sort();
 }
@@ -152,23 +156,17 @@ export interface RunFigures {
   readonly urls: readonly string[];
 }
 
-// Declared here: `lighthouse`'s types reach `lib.dom` (#289).
-interface LighthouseResult {
-  readonly categories: Readonly<Record<string, { readonly score: number | null }>>;
-  readonly audits: Readonly<
-    Record<
-      string,
-      | { readonly details?: { readonly items?: readonly Readonly<Record<string, unknown>>[] } }
-      | undefined
-    >
-  >;
-}
-
-export function readRun(lhr: LighthouseResult): RunFigures {
+export function readRun(
+  lhr: Pick<LighthouseResult, "categories" | "audits" | "runtimeError">,
+): RunFigures {
   const score = lhr.categories["performance"]?.score;
   if (typeof score !== "number") {
+    const reason =
+      lhr.runtimeError === undefined
+        ? "and gave no runtime error"
+        : `and gave the runtime error ${lhr.runtimeError.code}: ${lhr.runtimeError.message}`;
     throw new Error(
-      'Loadout harness: Lighthouse reported no "performance" score for this run, so it has no figure to record — re-run, and if it repeats read the run\'s runtimeError in the JSON Lighthouse returns',
+      `Loadout harness: Lighthouse reported no "performance" score for this run, ${reason} — so the run has no figure to record; re-run, and if it repeats fix what the runtime error names`,
     );
   }
   const metrics = lhr.audits["metrics"]?.details?.items?.[0] ?? {};
@@ -244,6 +242,9 @@ function serveLoadout(): Promise<LoadoutOrigin> {
   const sources = new Map<string, LoadoutScript>(
     LOADOUT.map((script) => [`/${script.name}.js`, script]),
   );
+  const reports = new Map<string, keyof typeof REPORTS>(
+    Object.entries(REPORTS).map(([kind, { path }]) => [path, kind as keyof typeof REPORTS]),
+  );
   let origin = "";
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", origin);
@@ -254,9 +255,10 @@ function serveLoadout(): Promise<LoadoutOrigin> {
       response.end(loadoutSource(script, origin));
       return;
     }
-    if (["/hit", "/collect", "/pixel.gif"].includes(url.pathname)) {
+    const report = reports.get(url.pathname);
+    if (report !== undefined) {
       hits.push(`${url.searchParams.get("script") ?? "?"}@${url.searchParams.get("where") ?? "?"}`);
-      if (url.pathname === "/pixel.gif") {
+      if (report === "image") {
         response.setHeader("content-type", "image/gif");
         response.end(PIXEL);
       } else {
@@ -287,129 +289,127 @@ function serveLoadout(): Promise<LoadoutOrigin> {
   });
 }
 
+export function buildFailure(mix: Mix, verb: string, site: string, cause: unknown): Error {
+  const stderr =
+    typeof cause === "object" && cause !== null && "stderr" in cause
+      ? String(cause.stderr).trim()
+      : "";
+  return new Error(
+    `Loadout harness, mix "${mix}": \`pagedeck ${verb}\` failed in ${site}, so this mix has no site to measure — fix what it reports below, and run pnpm build first if packages/core/dist is older than the source${stderr === "" ? "" : `:\n${stderr}`}`,
+    { cause },
+  );
+}
+
 async function buildMix(mix: Mix, origin: string): Promise<string> {
   const site = join(WORK, mix);
   mkdirSync(join(site, "components"), { recursive: true });
   writeFileSync(join(site, "pagedeck.config.ts"), siteConfigSource(mix, origin));
   writeFileSync(join(site, "components", "Article.js"), ARTICLE);
   for (const verb of ["sync", "build"]) {
-    await execFileAsync(process.execPath, [BIN, verb], { cwd: site });
+    try {
+      await execFileAsync(process.execPath, [BIN, verb], { cwd: site });
+    } catch (cause) {
+      throw buildFailure(mix, verb, site, cause);
+    }
   }
   return join(site, "site");
 }
 
-interface Conditions {
-  at: string;
-  cores: number;
-  totalMemoryBytes: number;
-  node: string;
-  platform: string;
-  lighthouse: string;
-  userAgent: string;
-  benchmarkIndex: number | null;
-  formFactor: string;
-  throttlingMethod: string;
-  throttling: unknown;
-}
-
-interface FullResult extends LighthouseResult {
-  readonly lighthouseVersion: string;
-  readonly environment: { readonly hostUserAgent: string; readonly benchmarkIndex?: number };
-  readonly configSettings: {
-    readonly formFactor: string;
-    readonly throttlingMethod: string;
-    readonly throttling: unknown;
-  };
+export function runFailures(input: {
+  readonly mix: Mix;
+  readonly run: number;
+  readonly outcome: RunFigures | Error;
+  readonly hits: readonly string[];
+  readonly origins: readonly string[];
+}): string[] {
+  const at = `mix "${input.mix}" run ${String(input.run)}`;
+  if (input.outcome instanceof Error) return [`${at}: ${input.outcome.message}`];
+  const failures: string[] = [];
+  const left = offMachine(input.outcome.urls, input.origins);
+  if (left.length > 0) {
+    failures.push(
+      `${at}: ${String(left.length)} ${left.length === 1 ? "request" : "requests"} went to neither ${input.origins.join(" nor ")} — find what on the page or in the loadout names ${left.length === 1 ? "it" : "them"}:\n${left.map((url) => `  ${url}`).join("\n")}`,
+    );
+  }
+  const expected = expectedHits(input.mix);
+  if (JSON.stringify(input.hits) !== JSON.stringify(expected)) {
+    failures.push(
+      `${at}: the loadout reported ${JSON.stringify(input.hits)}, and the mix's strategies call for ${JSON.stringify(expected)} — a script that did not report did not run inside the measurement, and one reporting "main" under a worker strategy ran on the main thread, so the run measured another loadout than the one declared`,
+    );
+  }
+  return failures;
 }
 
 async function main(): Promise<number> {
   const { serveBuild } = await import("@pagedeck/site/audit-site");
-  const { launch } = await import("chrome-launcher");
-  const { chromium } = await import("playwright");
-  const { default: lighthouse } = await import("lighthouse");
+  const { launchLighthouse, machineConditions } = await import(
+    "./lighthouse-run.test-support.ts"
+  );
 
   rmSync(WORK, { recursive: true, force: true });
   mkdirSync(WORK, { recursive: true });
+  const machine = machineConditions();
+  let lighthouse:
+    | Pick<LighthouseResult, "lighthouseVersion" | "environment" | "configSettings">
+    | undefined;
   const loadout = await serveLoadout();
   const failures: string[] = [];
   const measured: { mix: Mix; runs: RunFigures[]; hits: string[][] }[] = [];
-  const conditions: Conditions = {
-    at: new Date().toISOString(),
-    cores: cpus().length,
-    totalMemoryBytes: totalmem(),
-    node: process.version,
-    platform: `${process.platform} ${process.arch}`,
-    lighthouse: "",
-    userAgent: "",
-    benchmarkIndex: null,
-    formFactor: "",
-    throttlingMethod: "",
-    throttling: null,
-  };
 
   try {
-    const outs = new Map<Mix, string>();
-    for (const mix of MIXES) outs.set(mix, await buildMix(mix, loadout.origin));
+    const builds: { mix: Mix; out: string }[] = [];
+    for (const mix of MIXES) builds.push({ mix, out: await buildMix(mix, loadout.origin) });
 
-    const chrome = await launch({
-      chromePath: chromium.executablePath(),
-      chromeFlags: ["--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
-    });
+    const browser = await launchLighthouse();
     try {
-      for (const mix of MIXES) {
-        const served = await serveBuild(outs.get(mix) as string);
+      for (const { mix, out } of builds) {
+        const served = await serveBuild(out);
         const entry = { mix, runs: [] as RunFigures[], hits: [] as string[][] };
         measured.push(entry);
         try {
           for (let run = 1; run <= RUNS; run++) {
             loadout.hits.length = 0;
-            // Default flags, Lighthouse's mobile configuration: criterion 5 is about mobile.
-            const result = await lighthouse(`${served.origin}/`, {
-              port: chrome.port,
-              output: "json",
-              logLevel: "error",
-            });
-            if (result === undefined) {
-              throw new Error(
-                `Loadout harness, mix "${mix}" run ${String(run)}: Lighthouse returned no result — re-run, and if it repeats the page is not loading at ${served.origin}/`,
-              );
+            let outcome: RunFigures | Error;
+            try {
+              const lhr = await browser.audit(`${served.origin}/`, `Loadout harness, mix "${mix}"`);
+              lighthouse ??= lhr;
+              outcome = readRun(lhr);
+              entry.runs.push(outcome);
+            } catch (error) {
+              outcome = error instanceof Error ? error : new Error(String(error));
             }
-            const lhr = result.lhr as unknown as FullResult;
-            conditions.lighthouse = lhr.lighthouseVersion;
-            conditions.userAgent = lhr.environment.hostUserAgent;
-            conditions.benchmarkIndex = lhr.environment.benchmarkIndex ?? null;
-            conditions.formFactor = lhr.configSettings.formFactor;
-            conditions.throttlingMethod = lhr.configSettings.throttlingMethod;
-            conditions.throttling = lhr.configSettings.throttling;
-            const figures = readRun(lhr);
             const hits = [...loadout.hits].sort();
-            entry.runs.push(figures);
             entry.hits.push(hits);
-
-            const left = offMachine(figures.urls, [served.origin, loadout.origin]);
-            if (left.length > 0) {
-              failures.push(
-                `mix "${mix}" run ${String(run)}: ${String(left.length)} requests went to neither ${served.origin} nor ${loadout.origin} — find what on the page or in the loadout names them:\n${left.map((url) => `  ${url}`).join("\n")}`,
-              );
-            }
-            const expected = expectedHits(mix);
-            if (JSON.stringify(hits) !== JSON.stringify(expected)) {
-              failures.push(
-                `mix "${mix}" run ${String(run)}: the loadout reported ${JSON.stringify(hits)}, and the mix's strategies call for ${JSON.stringify(expected)} — a script that did not report did not run inside the measurement, and one reporting "main" under a worker strategy ran on the main thread, so the run measured another loadout than the one declared`,
-              );
-            }
+            failures.push(
+              ...runFailures({
+                mix,
+                run,
+                outcome,
+                hits,
+                origins: [served.origin, loadout.origin],
+              }),
+            );
           }
         } finally {
           await served.close();
         }
       }
     } finally {
-      await chrome.kill();
+      await browser.close();
     }
   } finally {
     await loadout.close();
   }
 
+  const conditions = {
+    ...machine,
+    lighthouse: lighthouse?.lighthouseVersion ?? null,
+    userAgent: lighthouse?.environment.hostUserAgent ?? null,
+    benchmarkIndex: lighthouse?.environment.benchmarkIndex ?? null,
+    formFactor: lighthouse?.configSettings.formFactor ?? null,
+    throttlingMethod: lighthouse?.configSettings.throttlingMethod ?? null,
+    throttling: lighthouse?.configSettings.throttling ?? null,
+  };
   writeFileSync(
     REPORT,
     `${JSON.stringify({ conditions, loadout: LOADOUT, mixes: measured, failures }, null, 2)}\n`,
@@ -417,10 +417,10 @@ async function main(): Promise<number> {
   process.stdout.write(
     [
       "",
-      `Lighthouse ${conditions.lighthouse}, ${conditions.formFactor}, ${conditions.throttlingMethod} throttling, ${String(conditions.cores)} cores, node ${conditions.node}`,
-      conditions.userAgent,
+      `Lighthouse ${String(conditions.lighthouse)}, ${String(conditions.formFactor)}, ${String(conditions.throttlingMethod)} throttling, ${String(conditions.cores)} cores, node ${conditions.node}`,
+      String(conditions.userAgent),
       "",
-      table(measured),
+      table(measured.filter(({ runs }) => runs.length > 0)),
       "",
       `report: ${REPORT}`,
       "",
@@ -428,7 +428,7 @@ async function main(): Promise<number> {
   );
   if (failures.length === 0) return 0;
   process.stderr.write(
-    `Loadout harness: ${String(failures.length)} ${failures.length === 1 ? "run" : "runs"} measured something other than the declared loadout on this machine alone:\n${failures.join("\n")}\n`,
+    `Loadout harness: ${String(failures.length)} ${failures.length === 1 ? "failure" : "failures"}, so these figures are not a measurement of the declared loadout on this machine alone:\n${failures.join("\n")}\n`,
   );
   return 1;
 }

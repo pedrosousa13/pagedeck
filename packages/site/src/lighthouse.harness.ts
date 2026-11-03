@@ -1,12 +1,8 @@
 // A Vitest harness, not a node runnable: Node cannot resolve `./audit.js`, which only
 // `tsc` emits, and publishing `./audit` as a subpath for one harness is a bad trade.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { cpus, totalmem } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { launch } from "chrome-launcher";
-import { chromium } from "playwright";
-import lighthouse from "lighthouse";
 import { auditVerdict, payloadReductions } from "./audit.js";
 import type { AuditVerdict, LighthouseRun, PayloadReduction } from "./audit.js";
 import {
@@ -19,26 +15,11 @@ import {
   serveBuild,
 } from "./audit-site.js";
 import type { PagePayload } from "./audit-site.js";
+import { launchLighthouse, machineConditions } from "./lighthouse-run.test-support.js";
+import type { LighthouseResult, MachineConditions } from "./lighthouse-run.test-support.js";
 
 const WORK = join(import.meta.dirname, "..", ".pagedeck-site-audit");
 const REPORT = join(WORK, "lighthouse-report.json");
-
-// Declared here: `lighthouse`'s types reach `lib.dom` (#289).
-interface LighthouseResult {
-  readonly lighthouseVersion: string;
-  readonly categories: Readonly<Record<string, { readonly score: number | null }>>;
-  readonly audits: Readonly<
-    Record<
-      string,
-      | {
-          readonly details?: {
-            readonly items?: readonly Readonly<Record<string, unknown>>[];
-          };
-        }
-      | undefined
-    >
-  >;
-}
 
 const TIMINGS = [
   "firstContentfulPaint",
@@ -50,12 +31,7 @@ const TIMINGS = [
 ] as const;
 
 interface AuditReport {
-  readonly conditions: {
-    readonly at: string;
-    readonly cores: number;
-    readonly totalMemoryBytes: number;
-    readonly node: string;
-    readonly platform: string;
+  readonly conditions: MachineConditions & {
     readonly lighthouse: string;
     readonly origin: string;
   };
@@ -143,24 +119,10 @@ beforeAll(async () => {
   reductions = reduction;
   const served = await serveBuild(out);
 
-  const chrome = await launch({
-    chromePath: chromium.executablePath(),
-    // `--no-sandbox`: a runner's container has no user namespace to build one in.
-    // `--disable-dev-shm-usage`: a container's 64 MB `/dev/shm` crashes Chromium mid-run.
-    chromeFlags: [
-      "--headless=new",
-      "--no-sandbox",
-      "--disable-gpu",
-      "--disable-dev-shm-usage",
-    ],
-  });
+  const browser = await launchLighthouse();
 
   const conditions = {
-    at: new Date().toISOString(),
-    cores: cpus().length,
-    totalMemoryBytes: totalmem(),
-    node: process.version,
-    platform: `${process.platform} ${process.arch}`,
+    ...machineConditions(),
     lighthouse: "",
     origin: served.origin,
   };
@@ -171,26 +133,13 @@ beforeAll(async () => {
   runs = [];
   try {
     for (const url of AUDIT_URLS) {
-      // Default flags, Lighthouse's mobile configuration: spec §15's criterion 5 is about
-      // mobile.
-      const result = await lighthouse(served.origin + url, {
-        port: chrome.port,
-        output: "json",
-        logLevel: "error",
-      });
-      if (result === undefined) {
-        // A bare `Error`: inside a Vitest hook, no caller branches on a class.
-        throw new Error(
-          `Site audit "${url}": Lighthouse returned no result, so this page contributed nothing to the report — re-run, and if it repeats the page is not loading at ${served.origin}${url}`,
-        );
-      }
-      const lhr = result.lhr as unknown as LighthouseResult;
+      const lhr = await browser.audit(served.origin + url, `Site audit "${url}"`);
       conditions.lighthouse = lhr.lighthouseVersion;
       runs.push(readRun(url, lhr));
       write({ conditions, payload, reductions: reduction, runs, verdict: null });
     }
   } finally {
-    await chrome.kill();
+    await browser.close();
     await served.close();
   }
 

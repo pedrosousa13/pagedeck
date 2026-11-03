@@ -4,12 +4,14 @@ import { describe, expect, test } from "vitest";
 import {
   LOADOUT,
   MIXES,
+  buildFailure,
   declaredScripts,
   expectedHits,
   loadoutSource,
   median,
   offMachine,
   readRun,
+  runFailures,
   siteConfigSource,
   table,
 } from "./loadout-lighthouse.harness.js";
@@ -73,13 +75,15 @@ function runScript(name: string): {
 
 describe("the loadout", () => {
   test("declares six scripts, four on the page and two the tag manager injects", () => {
-    expect(LOADOUT.map(({ name, costMs, injectedBy }) => ({ name, costMs, injectedBy }))).toEqual([
-      { name: "tag-manager", costMs: 40, injectedBy: undefined },
-      { name: "tag-1", costMs: 20, injectedBy: "tag-manager" },
-      { name: "tag-2", costMs: 20, injectedBy: "tag-manager" },
-      { name: "analytics", costMs: 60, injectedBy: undefined },
-      { name: "pixel", costMs: 30, injectedBy: undefined },
-      { name: "chat", costMs: 80, injectedBy: undefined },
+    expect(
+      LOADOUT.map(({ name, costMs, injectedBy, widget }) => ({ name, costMs, injectedBy, widget })),
+    ).toEqual([
+      { name: "tag-manager", costMs: 40, injectedBy: undefined, widget: undefined },
+      { name: "tag-1", costMs: 20, injectedBy: "tag-manager", widget: undefined },
+      { name: "tag-2", costMs: 20, injectedBy: "tag-manager", widget: undefined },
+      { name: "analytics", costMs: 60, injectedBy: undefined, widget: undefined },
+      { name: "pixel", costMs: 30, injectedBy: undefined, widget: undefined },
+      { name: "chat", costMs: 80, injectedBy: undefined, widget: true },
     ]);
   });
 
@@ -264,6 +268,16 @@ describe("a Lighthouse run", () => {
       /performance/,
     );
   });
+
+  test("that failed says why, in Lighthouse's own words", () => {
+    expect(() =>
+      readRun({
+        ...lhr,
+        categories: { performance: { score: null } },
+        runtimeError: { code: "NO_FCP", message: "The page did not paint any content." },
+      }),
+    ).toThrow(/NO_FCP: The page did not paint any content\./);
+  });
 });
 
 test("the median of an odd count is the middle value, of an even count the mean of the two", () => {
@@ -297,4 +311,55 @@ test("the table prints every run, then each mix's median", () => {
       "default   med    98      40    1500  0.000",
     ].join("\n"),
   );
+});
+
+describe("a run's failures", () => {
+  const origins = [SITE_ORIGIN, LOADOUT_ORIGIN];
+  const figures = {
+    performance: 100,
+    tbt: 0,
+    lcp: 600,
+    cls: 0,
+    urls: [`${SITE_ORIGIN}/`, `${LOADOUT_ORIGIN}/tag-manager.js`],
+  };
+
+  test("are none when every request stays home and every script reports as the mix calls for", () => {
+    expect(
+      runFailures({ mix: "default", run: 1, outcome: figures, hits: expectedHits("default"), origins }),
+    ).toEqual([]);
+  });
+
+  test("name the mix and run of a run Lighthouse could not finish, and keep its reason", () => {
+    expect(
+      runFailures({
+        mix: "idle",
+        run: 2,
+        outcome: new Error("Site audit: Lighthouse returned no result"),
+        hits: [],
+        origins,
+      }),
+    ).toEqual(['mix "idle" run 2: Site audit: Lighthouse returned no result']);
+  });
+
+  test("list a request to another origin and a script that reported from the wrong thread, both", () => {
+    const failures = runFailures({
+      mix: "default",
+      run: 3,
+      outcome: { ...figures, urls: [...figures.urls, "https://collector.example/collect"] },
+      hits: expectedHits("idle"),
+      origins,
+    });
+    expect(failures).toHaveLength(2);
+    expect(failures[0]).toMatch(/^mix "default" run 3: 1 request went to neither/);
+    expect(failures[0]).toContain("  https://collector.example/collect");
+    expect(failures[1]).toMatch(/^mix "default" run 3: the loadout reported/);
+  });
+});
+
+test("a fixture build that fails names the mix and the verb, and carries the failure as its cause", () => {
+  const cause = Object.assign(new Error("Command failed"), { stderr: "pagedeck: Config fault\n" });
+  const error = buildFailure("facade", "build", "/work/facade", cause);
+  expect(error.message).toMatch(/^Loadout harness, mix "facade": `pagedeck build` failed in \/work\/facade/);
+  expect(error.message).toContain("pagedeck: Config fault");
+  expect(error.cause).toBe(cause);
 });
