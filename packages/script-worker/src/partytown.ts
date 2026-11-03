@@ -6,6 +6,7 @@ import type {
   ScriptDeclaration,
   ScriptRuntimeAdapter,
   ScriptRuntimeFile,
+  ScriptRuntimeLatePickup,
   ScriptRuntimeRequest,
 } from "@pagedeck/core";
 import { partytownSnippet } from "@qwik.dev/partytown/integration";
@@ -32,6 +33,7 @@ export interface PartytownOptions {
 export interface PartytownRuntime extends ScriptRuntimeAdapter {
   readonly files: readonly ScriptRuntimeFile[];
   readonly checksIntegrity: false;
+  readonly latePickup: ScriptRuntimeLatePickup;
   /** The CSP source expression for the snippet every worker page carries. */
   readonly inlineScriptHash: string;
 }
@@ -40,6 +42,12 @@ export interface PartytownRuntime extends ScriptRuntimeAdapter {
 const LIB_FILES = ["partytown-sw.js", "partytown-media.js", "partytown-sandbox-sw.html"];
 
 const WHERE = 'Partytown runtime "build.scripts.runtime"';
+
+/**
+ * Partytown 1.0.3 reads the next unclaimed `text/partytown` script on
+ * `ptupdate`, and on a `MutationObserver` that sees one added (#281).
+ */
+const LATE_PICKUP: ScriptRuntimeLatePickup = { type: "text/partytown", event: "ptupdate" };
 
 /**
  * The snippet with no `lib`, written beside the lib files so that a change to
@@ -92,6 +100,7 @@ export function definePartytown(options: PartytownOptions = {}): PartytownRuntim
   return Object.assign(runtime, {
     files,
     checksIntegrity: false as const,
+    latePickup: LATE_PICKUP,
     inlineScriptHash: `'sha256-${createHash("sha256").update(snippet, "utf8").digest("base64")}'`,
   });
 }

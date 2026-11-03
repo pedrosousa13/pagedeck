@@ -738,3 +738,67 @@ test("a runtime is handed the request it always was, whether or not it declares 
 
   expect(requests.map((request) => Object.keys(request))).toEqual([["scripts"], ["scripts"]]);
 });
+
+const LATE_PICKUP = { type: "text/partytown", event: "ptupdate" };
+
+function lateRuntime(requests: (readonly string[])[]): NonNullable<ScriptsSetting["runtime"]> {
+  return Object.assign(
+    ({ scripts }: { scripts: readonly { src: string }[] }): readonly string[] => {
+      requests.push(scripts.map(({ src }) => src));
+      return [
+        "<script>/* snippet */</script>",
+        ...scripts.map(({ src }) => `<script type="text/partytown" src="${src}"></script>`),
+      ];
+    },
+    { latePickup: LATE_PICKUP },
+  );
+}
+
+test("a held worker script never reaches the runtime, and its page still carries the runtime (#281)", () => {
+  const requests: (readonly string[])[] = [];
+  const elements = emitted(
+    settings({
+      scripts: [
+        { name: "tags", src: "https://example.com/t.js" },
+        {
+          name: "pixel",
+          src: "https://example.com/px.js",
+          category: "analytics",
+          attributes: { "data-site": "1" },
+        },
+      ],
+      runtime: lateRuntime(requests),
+    }),
+    HOME,
+  );
+
+  expect(requests).toEqual([["https://example.com/t.js"]]);
+  expect(elements.slice(0, 2)).toEqual([
+    "<script>/* snippet */</script>",
+    '<script type="text/partytown" src="https://example.com/t.js"></script>',
+  ]);
+  expect(elements).toHaveLength(3);
+  const loader = elements[2] ?? "";
+  expect(loader).not.toContain('src="https://example.com/px.js"');
+  expect(loader).toContain('[["https://example.com/px.js","data-site","1"],"analytics",0]');
+  expect(loader).toContain('["text/partytown","ptupdate"]');
+  expect(isScriptLoaderText(loader.slice("<script>".length, -"</script>".length))).toBe(true);
+});
+
+test("a page whose only worker script is held still hands the runtime its empty loadout", () => {
+  const requests: (readonly string[])[] = [];
+  const elements = emitted(
+    settings({
+      scripts: [{ name: "pixel", src: "https://example.com/px.js", category: "marketing" }],
+      runtime: lateRuntime(requests),
+    }),
+    HOME,
+  );
+
+  expect(requests).toEqual([[]]);
+  expect(elements[0]).toBe("<script>/* snippet */</script>");
+  expect(elements).toHaveLength(2);
+  expect(isScriptLoaderText((elements[1] ?? "").slice("<script>".length, -"</script>".length))).toBe(
+    true,
+  );
+});

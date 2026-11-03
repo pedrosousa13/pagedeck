@@ -143,11 +143,25 @@ test("every worker script that declares integrity is refused when the config loa
   );
 });
 
-test("a categorized worker script still falls back to idle with Partytown configured (#47)", () => {
+test("Partytown picks up a late script, so a categorized worker script stays on worker behind the gate (#281)", () => {
+  const runtime = definePartytown();
   const gated: ScriptDeclaration = { ...TAGS, category: "analytics" };
-  const settings = defineScripts({ scripts: [gated], runtime: definePartytown() });
+  const settings = defineScripts({ scripts: [gated], runtime });
 
-  expect(loadedScriptStrategy(settings, gated, { locale: "en", path: "/" })).toBe("idle");
+  expect(runtime.latePickup).toEqual({ type: "text/partytown", event: "ptupdate" });
+  expect(loadedScriptStrategy(settings, gated, { locale: "en", path: "/" })).toBe("worker");
+});
+
+test("a categorized worker script that declares integrity is refused under Partytown, as an uncategorized one is", () => {
+  const call = (): unknown =>
+    defineScripts({
+      scripts: [{ ...TAGS, category: "analytics", integrity: "sha384-abc" }],
+      runtime: definePartytown(),
+    });
+
+  expect(call).toThrow(
+    'Script settings: "runtime" loads a worker script without checking its integrity, and 1 script that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:\n  "tags" — declares no strategy, so it takes the worker default',
+  );
 });
 
 test("resolveUrl sends a declared vendor origin to the path prefix this site proxies it under", () => {

@@ -12,6 +12,7 @@ import type {
   ConsentDefault,
   ScriptAttributes,
   ScriptDeclaration,
+  ScriptRuntimeLatePickup,
   ScriptsSetting,
 } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
@@ -45,6 +46,7 @@ export function scriptElements(
   if (settings === undefined) return { placeholders: [], elements: [] };
 
   const worker: ScriptDeclaration[] = [];
+  const held: LoadedScript[] = [];
   const idle: LoadedScript[] = [];
   const interaction: LoadedScript[] = [];
   const facades: {
@@ -73,7 +75,8 @@ export function scriptElements(
     };
     switch (strategy) {
       case "worker":
-        worker.push(script);
+        if (gate === undefined) worker.push(script);
+        else held.push(loaded);
         break;
       case "idle":
         idle.push(loaded);
@@ -95,7 +98,7 @@ export function scriptElements(
   }
 
   const runtime =
-    worker.length === 0 || settings.runtime === undefined
+    (worker.length === 0 && held.length === 0) || settings.runtime === undefined
       ? []
       : settings.runtime({ scripts: worker });
   const key = facadeKey(facades);
@@ -106,11 +109,13 @@ export function scriptElements(
       ...(mount === undefined ? {} : { mount }),
     }),
   );
+  const latePickup = settings.runtime?.latePickup;
   const loader = loaderElement(
     idle,
     interaction,
     facades.map(({ script }) => script),
     key,
+    latePickup === undefined ? undefined : { scripts: held, pickup: latePickup },
   );
   return {
     placeholders,
@@ -225,13 +230,26 @@ function triggerStatements(
   return statements;
 }
 
+interface HeldWorkerScripts {
+  readonly scripts: readonly LoadedScript[];
+  readonly pickup: ScriptRuntimeLatePickup;
+}
+
+/** The type before `src`, and both before `appendChild`: an untyped script in the document is the browser's to run. */
+function lateStatements({ scripts, pickup }: HeldWorkerScripts): string {
+  return `var gw=${listText(scripts.map((script) => gateTriple(script, true)))},pickup=${listText([pickup.type, pickup.event])},late=function(g){var t=g[0],s=document.createElement("script");s.type=pickup[0];s.src=t[0];for(var a=1;a<t.length;a+=2)s.setAttribute(t[a],t[a+1]);document.head.appendChild(s);dispatchEvent(new Event(pickup[1]))};for(var w=0;w<gw.length;w++)gate(gw[w],late);`;
+}
+
 function loaderElement(
   idle: readonly LoadedScript[],
   interaction: readonly LoadedScript[],
   facades: readonly LoadedScript[],
   key: string,
+  held?: HeldWorkerScripts,
 ): string | undefined {
-  if (idle.length === 0 && interaction.length === 0 && facades.length === 0) {
+  const late = held !== undefined && held.scripts.length > 0 ? held : undefined;
+  const holding = late !== undefined;
+  if (idle.length === 0 && interaction.length === 0 && facades.length === 0 && !holding) {
     return undefined;
   }
   const attributed = [...idle, ...interaction].some(
@@ -255,10 +273,10 @@ function loaderElement(
   if (idle.length > 0 || interaction.length > 0) {
     body.push(attributed ? APPEND_ATTRIBUTES : APPEND);
   }
-  if (idleGated.length > 0 || interactionGated.length > 0 || facadesGated) {
+  if (idleGated.length > 0 || interactionGated.length > 0 || facadesGated || holding) {
     body.push(OK);
   }
-  if (idleGated.length > 0 || interactionGated.length > 0) body.push(GATE);
+  if (idleGated.length > 0 || interactionGated.length > 0 || holding) body.push(GATE);
   if (idleGated.length > 0 || interactionGated.length > 0) body.push(GATE_LOAD);
   if (idle.length > 0) {
     const statements = [
@@ -304,6 +322,7 @@ function loaderElement(
       `var facades=${list};for(var j=0;j<facades.length;j++)(function(el,${argument}){if(!el)return;${track}var e=${listText(FACADE_EVENTS)},go=function(){${guard}for(var k=0;k<e.length;k++)el.removeEventListener(e[k],go);var s=document.createElement("script");s.src=${source};${attributes}s.async=true;s.addEventListener("load",function(){el.remove()});document.head.appendChild(s)};for(var k=0;k<e.length;k++)el.addEventListener(e[k],go,{passive:true})})(document.querySelector('[${ISLAND_FACADE_ATTRIBUTE}="${key}-'+j+'"]'),facades[j]);`,
     );
   }
+  if (late !== undefined) body.push(lateStatements(late));
   return `<script>(function(){${body.join("")}})();</script>`;
 }
 

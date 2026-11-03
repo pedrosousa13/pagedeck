@@ -1,6 +1,7 @@
 // `references` names `@pagedeck/core`, whose declarations this package's emitted
-// source reads: `ScriptRuntimeAdapter`, `ScriptRuntimeFile`, `ConfigError`,
-// `inlineScriptFault` and `scriptRuntimeBase`.
+// source reads: `ScriptRuntimeAdapter`, `ScriptRuntimeFile`,
+// `ScriptRuntimeLatePickup`, `ConfigError`, `inlineScriptFault` and
+// `scriptRuntimeBase`.
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {

@@ -475,3 +475,80 @@ test("a record this browser cannot read leaves the market default in charge", as
 
   expect(loaded(PIXEL_SRC)).toBe(1);
 });
+
+const HELD: ScriptsSetting = {
+  scripts: [
+    {
+      name: "pixel",
+      src: PIXEL_SRC,
+      category: "analytics",
+      attributes: { "data-site": "1" },
+    },
+  ],
+  runtime: Object.assign(() => ["<script>/* snippet */</script>"], {
+    latePickup: { type: "text/partytown", event: "ptupdate" },
+  }),
+};
+
+const COUNT_PICKUPS = `window.addEventListener("ptupdate",function(){var b=document.documentElement;b.setAttribute("data-pickups",String(Number(b.getAttribute("data-pickups")||0)+1))})`;
+
+function pickups(): number {
+  return Number(document.querySelector("html")?.getAttribute("data-pickups") ?? 0);
+}
+
+function held(): TestElement | null {
+  return document.querySelector(`script[src="${PIXEL_SRC}"]`);
+}
+
+test("a held worker script is nowhere in the page before a grant, and the runtime hears nothing (#281)", async () => {
+  render(HELD, HOME, [COUNT_PICKUPS]);
+  await idle();
+
+  expect(loaded(PIXEL_SRC)).toBe(0);
+  expect(pickups()).toBe(0);
+});
+
+test("a grant appends a held worker script in the runtime's form and notifies the runtime", async () => {
+  render(HELD, HOME, [COUNT_PICKUPS]);
+  await idle();
+
+  consent("analytics");
+
+  expect(loaded(PIXEL_SRC)).toBe(1);
+  expect(held()?.getAttribute("type")).toBe("text/partytown");
+  expect(held()?.getAttribute("data-site")).toBe("1");
+  expect(pickups()).toBe(1);
+});
+
+test("a denied held worker script is never appended, whatever answer moves", async () => {
+  render(HELD, HOME, [COUNT_PICKUPS]);
+  await idle();
+
+  consent("marketing");
+  consent();
+
+  expect(loaded(PIXEL_SRC)).toBe(0);
+  expect(pickups()).toBe(0);
+});
+
+test("a second grant does not append a held worker script twice", () => {
+  render(HELD, HOME, [COUNT_PICKUPS]);
+
+  consent("analytics");
+  consent("analytics");
+
+  expect(loaded(PIXEL_SRC)).toBe(1);
+  expect(pickups()).toBe(1);
+});
+
+test("a market that grants the category appends a held worker script with no source at all", () => {
+  render(
+    { ...HELD, consentDefaults: { "en:/**": { analytics: "granted" } } },
+    HOME,
+    [COUNT_PICKUPS],
+  );
+
+  expect(loaded(PIXEL_SRC)).toBe(1);
+  expect(held()?.getAttribute("type")).toBe("text/partytown");
+  expect(pickups()).toBe(1);
+});

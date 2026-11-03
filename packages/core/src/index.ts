@@ -95,6 +95,7 @@ export type {
   ScriptOverrideMap,
   ScriptRuntimeAdapter,
   ScriptRuntimeFile,
+  ScriptRuntimeLatePickup,
   ScriptRuntimeRequest,
   ScriptsSetting,
   ScriptStrategy,
