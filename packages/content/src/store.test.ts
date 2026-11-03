@@ -1019,6 +1019,58 @@ test("a store opened for writing gains the color table and caches into it", () =
   expect(store.getImageColor("/uploads/hero.jpg")).toBe("#2f3a28");
 });
 
+const PREVIEW = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+
+test("an image preview round-trips per image source", () => {
+  const store = openTempStore();
+
+  store.setImagePreview("/uploads/hero.jpg", PREVIEW);
+
+  expect(store.getImagePreview("/uploads/hero.jpg")).toBe(PREVIEW);
+  expect(store.hasImagePreview("/uploads/hero.jpg")).toBe(true);
+});
+
+test("a source probed with no preview is recorded as probed, apart from its color", () => {
+  const store = openTempStore();
+
+  store.setImagePreview("/uploads/logo.svg", undefined);
+
+  expect(store.getImagePreview("/uploads/logo.svg")).toBeUndefined();
+  expect(store.hasImagePreview("/uploads/logo.svg")).toBe(true);
+  expect(store.hasImagePreview("/uploads/hero.jpg")).toBe(false);
+  expect(store.hasImageColor("/uploads/logo.svg")).toBe(false);
+});
+
+test("a copied store file serves the previews it was closed holding", () => {
+  const original = tempDbPath();
+  const store = openStore(original);
+  store.setImagePreview("/uploads/hero.jpg", PREVIEW);
+  store.close();
+
+  const copy = tempDbPath();
+  copyFileSync(original, copy);
+
+  const snapshot = openStoreReadOnly(copy);
+  expect(snapshot.getImagePreview("/uploads/hero.jpg")).toBe(PREVIEW);
+  expect(snapshot.hasImagePreview("/uploads/hero.jpg")).toBe(true);
+  snapshot.close();
+});
+
+test("a store written before image previews existed reads as nothing cached", () => {
+  const path = tempDbPath();
+  const old = new DatabaseSync(path);
+  old.exec("CREATE TABLE image_colors (src TEXT NOT NULL PRIMARY KEY, color TEXT);");
+  old.close();
+
+  const snapshot = openStoreReadOnly(path);
+  try {
+    expect(snapshot.getImagePreview("/uploads/hero.jpg")).toBeUndefined();
+    expect(snapshot.hasImagePreview("/uploads/hero.jpg")).toBe(false);
+  } finally {
+    snapshot.close();
+  }
+});
+
 test("a store written before the usage index gains it on the next writable open", () => {
   const path = tempDbPath();
   const old = new DatabaseSync(path);

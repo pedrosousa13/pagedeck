@@ -2,6 +2,8 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { syncImageColors } from "./colors.js";
 import { printable, quoteIdentifier } from "./escape.js";
 import type { ImageColorProbe } from "./colors.js";
+import { syncImagePreviews } from "./previews.js";
+import type { ImagePreviewProbe } from "./previews.js";
 import type {
   ComponentUsage,
   ContentStore,
@@ -93,6 +95,7 @@ export interface Collection<TOut, TIn = TOut> {
    */
   schema: StandardSchemaV1<unknown, TOut> | Unvalidated<TOut, TIn>;
   imageColors?: ImageColorsSetting<TOut>;
+  imagePreviews?: ImagePreviewsSetting<TOut>;
 }
 
 // Probed after the sync transaction commits, so a fault costs the colors, never the content.
@@ -101,6 +104,15 @@ export interface ImageColorsSetting<T> {
   extractSources: (entry: Entry<T>) => readonly string[];
   probe: ImageColorProbe;
   /** Defaults to `DEFAULT_COLOR_CONCURRENCY`. */
+  concurrency?: number;
+}
+
+// Probed after the colors, on the same terms; a refused answer fails the sync (rule 7).
+export interface ImagePreviewsSetting<T> {
+  /** Every image source one entry holds, in any order, duplicates allowed. */
+  extractSources: (entry: Entry<T>) => readonly string[];
+  probe: ImagePreviewProbe;
+  /** Defaults to `DEFAULT_PREVIEW_CONCURRENCY`. */
   concurrency?: number;
 }
 
@@ -412,6 +424,14 @@ async function runSync<TOut, TIn>(
       ? new CollectionError(message, { cause: error })
       : new Error(message, { cause: error });
   }
+  try {
+    await writeImagePreviews(store, collection, options);
+  } catch (error) {
+    const message = `Collection "${collection.name}": ${operation} stored every entry it was given, then failed fetching image previews`;
+    throw error instanceof CollectionError
+      ? new CollectionError(message, { cause: error })
+      : new Error(message, { cause: error });
+  }
   return result;
 }
 
@@ -431,6 +451,31 @@ async function writeImageColors<TOut, TIn>(
   }
 
   await syncImageColors({
+    store,
+    collection: collection.name,
+    sources,
+    probe: setting.probe,
+    concurrency: setting.concurrency,
+    onWarning: options?.onWarning,
+  });
+}
+
+// Over every entry, for `writeImageColors`'s reason.
+async function writeImagePreviews<TOut, TIn>(
+  store: ContentStore,
+  collection: Collection<TOut, TIn>,
+  options: CollectionSyncOptions | undefined,
+): Promise<void> {
+  const setting = collection.imagePreviews;
+  if (setting === undefined) return;
+
+  const sources = store.listEntries<TOut>(collection.name).flatMap((entry) =>
+    setting
+      .extractSources(entry)
+      .map((src) => ({ src, entry: `/${entry.locale}/${entry.path}` })),
+  );
+
+  await syncImagePreviews({
     store,
     collection: collection.name,
     sources,

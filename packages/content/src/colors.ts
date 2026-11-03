@@ -34,7 +34,7 @@ export async function syncImageColors(
 ): Promise<void> {
   const { store, collection, probe, onWarning } = input;
   const concurrency = input.concurrency ?? DEFAULT_COLOR_CONCURRENCY;
-  refuseUnusableConcurrency(collection, input.concurrency);
+  refuseUnusableConcurrency(collection, "imageColors", input.concurrency);
 
   const unasked = [...new Set(input.sources)].filter(
     (src) => !store.hasImageColor(src),
@@ -81,7 +81,7 @@ export async function syncImageColors(
 
 // A pool pulling from one cursor, not awaited chunks: a chunk stalls on its slowest member.
 // `each` must catch its own failures; a rejection would abandon the other workers.
-async function inFlight<T>(
+export async function inFlight<T>(
   items: readonly T[],
   limit: number,
   each: (item: T) => Promise<void>,
@@ -104,25 +104,29 @@ async function inFlight<T>(
 const CONCURRENCY_FIX =
   "write a whole number of probes above zero, such as { concurrency: 4 }";
 
-function refuseUnusableConcurrency(
+export function refuseUnusableConcurrency(
   collection: string,
+  setting: "imageColors" | "imagePreviews",
   declared: number | undefined,
 ): void {
   if (declared === undefined) return;
-  const reason = concurrencyFault(declared);
+  const reason = concurrencyFault(
+    declared,
+    setting === "imageColors" ? "a color" : "a preview",
+  );
   if (reason === undefined) return;
   throw new CollectionError(
-    `Collection "${collection}": "imageColors.concurrency" is not a number of probes — ${CONCURRENCY_FIX}:\n  ${quoteValue(declared)} — ${reason}`,
+    `Collection "${collection}": "${setting}.concurrency" is not a number of probes — ${CONCURRENCY_FIX}:\n  ${quoteValue(declared)} — ${reason}`,
   );
 }
 
-function concurrencyFault(value: unknown): string | undefined {
+function concurrencyFault(value: unknown, cached: string): string | undefined {
   if (typeof value !== "number" || Number.isNaN(value)) return "not a number";
   if (!Number.isInteger(value)) {
     return "not a whole number, and the limit counts probes in flight";
   }
   if (value < 1) {
-    return "below one, and a sync that may run no probe at all would never cache a color";
+    return `below one, and a sync that may run no probe at all would never cache ${cached}`;
   }
   return undefined;
 }
@@ -150,7 +154,7 @@ function colorFailureWarning(
   return `Collection "${collection}": ${subject} with no placeholder — this is a warning and never a refusal, because a color is decoration and the host that serves the image is not this site's wiring; the next sync asks again:\n${failures.join("\n")}`;
 }
 
-function reasonOf(error: unknown): string {
+export function reasonOf(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message === "" ? "the probe threw with no message" : printable(message);
 }
@@ -159,7 +163,7 @@ function reasonOf(error: unknown): string {
 // `packages/core/src/quote.test.ts` refuses drift between the shared declarations (#383).
 const SOURCE_DELIMITER = /[?#]/;
 
-function quoteSource(src: string): string {
+export function quoteSource(src: string): string {
   return quoteIdentifier(redactSource(src));
 }
 
@@ -187,7 +191,7 @@ function redactSource(value: string): string {
 }
 
 // `quote`'s body in `@pagedeck/core`, copied so both cut a nested string at the same depth.
-function quoteValue(value: unknown): string {
+export function quoteValue(value: unknown): string {
   if (value === undefined) return "undefined";
   if (typeof value === "number" && !Number.isFinite(value)) return String(value);
   const json = JSON.stringify(value, (_key, held: unknown) =>
