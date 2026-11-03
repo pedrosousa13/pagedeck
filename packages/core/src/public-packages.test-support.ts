@@ -15,6 +15,7 @@ export const PUBLIC_PACKAGES = [
   "islands",
   "markdown-loader",
   "preview",
+  "script-worker",
   "search",
   "social-image",
 ] as const;

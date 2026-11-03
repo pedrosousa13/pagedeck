@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { prePaintFaultReport } from "./pre-paint.js";
+import { inlineScriptFault, prePaintFaultReport } from "./pre-paint.js";
+import * as core from "./index.js";
 
 const WHERE = 'Config "/site/pagedeck.config.ts"';
 
@@ -58,4 +59,15 @@ test("every unusable entry is reported in one run, named by index", () => {
 
 test("a site that declared an empty list has declared nothing to refuse", () => {
   expect(prePaintFaultReport([], WHERE)).toBe(undefined);
+});
+
+test("the check pre-paint scripts pass is the one any inline script text can take", () => {
+  expect(core.inlineScriptFault).toBe(inlineScriptFault);
+  expect(inlineScriptFault("var end = '</SCRIPT>'")).toBe(
+    'holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"',
+  );
+  expect(inlineScriptFault("x = 1 <!-- y")).toBe(
+    'holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
+  );
+  expect(inlineScriptFault("x = a < b")).toBeUndefined();
 });

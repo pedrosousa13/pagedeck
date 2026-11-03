@@ -23,6 +23,12 @@ const PRE_PAINT_SHAPE_FIX =
 const PRE_PAINT_ENTRY_FIX =
   "write each as the JavaScript to run, with no <script> element around it";
 
+/** `holds "<sequence>" — <reason>` for text that cannot sit inside a `<script>` element. */
+export function inlineScriptFault(text: string): string | undefined {
+  const found = SCRIPT_SEQUENCES.find(({ pattern }) => pattern.test(text));
+  return found === undefined ? undefined : `holds "${found.shown}" — ${found.reason}`;
+}
+
 export function prePaintFaultReport(
   value: unknown,
   where: string,
@@ -40,11 +46,8 @@ export function prePaintFaultReport(
         entry === "" ? "the script is empty" : "the script is only whitespace";
       return [`${at} — "${entry}" — ${reason}`];
     }
-    const found = SCRIPT_SEQUENCES.find(({ pattern }) => pattern.test(entry));
-    if (found !== undefined) {
-      return [`${at} — holds "${found.shown}" — ${found.reason}`];
-    }
-    return [];
+    const fault = inlineScriptFault(entry);
+    return fault === undefined ? [] : [`${at} — ${fault}`];
   });
   if (faults.length === 0) return undefined;
   return `${where}: "build.prePaint" declares ${String(faults.length)} ${

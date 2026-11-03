@@ -140,6 +140,7 @@ import { buildPreview } from "./preview-build.js";
 import { planPreview } from "./preview-entry.js";
 import { robotsFiles } from "./robots.js";
 import { isScriptLoaderText, scriptElements } from "./script-elements.js";
+import { movedRuntimeDirectories, scriptRuntimeOutput } from "./script-runtime.js";
 import type { FacadePlaceholder } from "./script-elements.js";
 import { beaconElement, isBeaconText } from "./beacon.js";
 import {
@@ -1198,6 +1199,13 @@ async function stageSite(input: {
     ...(fonts?.files ?? []),
     ...(socialImages?.files ?? []),
   ];
+  files.push(
+    ...scriptRuntimeOutput({
+      runtime: section.scripts?.runtime,
+      locales: section.pages.locales,
+      emitted: files,
+    }),
+  );
 
   if (section.sitemap !== undefined && section.origin !== undefined) {
     const keptSitemaps =
@@ -1447,6 +1455,13 @@ async function stageSite(input: {
           .map((file) => file.path),
       ),
     });
+    moved.push(
+      ...movedRuntimeDirectories({
+        reused: [...carried.values()],
+        runtime: section.scripts?.runtime,
+        previous: input.previous.files,
+      }),
+    );
     if (moved.length > 0) return { kind: "moved", moved };
   }
   const resolvedLinkCheck = resolveLinkCheck(section.links);

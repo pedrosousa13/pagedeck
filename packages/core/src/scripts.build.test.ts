@@ -1,12 +1,14 @@
 import { createHash } from "node:crypto";
 import {
   cpSync,
+  existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, expect, test } from "vitest";
 import { EXIT_CODES } from "./exit.js";
@@ -26,6 +28,9 @@ const INCREMENTAL_SITE = join(SITES, ".pagedeck-scripts-incremental-test");
 const CARRIED_SITE = join(SITES, ".pagedeck-scripts-carried-test");
 const EDITED_SITE = join(SITES, ".pagedeck-scripts-edited-test");
 const RECOMPOSED_SITE = join(SITES, ".pagedeck-scripts-recomposed-test");
+const FILES_SITE = join(SITES, ".pagedeck-scripts-files-test");
+const RUNTIME_FIRST_SITE = join(SITES, ".pagedeck-scripts-runtime-first-test");
+const RUNTIME_NEXT_SITE = join(SITES, ".pagedeck-scripts-runtime-next-test");
 
 const COMPONENTS: Record<string, string> = {
   "Copy.js": `export default function Copy() { return "marker-copy-6a04"; }\n`,
@@ -51,6 +56,7 @@ import { defineConfig } from ${JSON.stringify(join(CORE, "config.ts"))};
 import { definePages, fromCollection } from ${JSON.stringify(join(CORE, "pages.ts"))};
 import { defineLocales } from ${JSON.stringify(join(CORE, "locales.ts"))};
 import { defineScripts } from ${JSON.stringify(join(CORE, "scripts.ts"))};
+import { scriptRuntimeBase } from ${JSON.stringify(join(CORE, "script-runtime.ts"))};
 import { createFixtureLoader } from ${JSON.stringify(FIXTURES)};
 
 const usage = (component) => [
@@ -135,6 +141,43 @@ const ATTRS_SCRIPTS = `scripts: defineScripts({
       ],
     }),`;
 
+const FILES_SCRIPTS = `scripts: defineScripts({
+      scripts: [
+        { name: "tags", src: "https://example.com/tags.js" },
+      ],
+      runtime: (() => {
+        const files = [
+          { name: "boot.js", contents: "self.marker = 'boot-71c3';" },
+          { name: "frame.html", contents: new TextEncoder().encode("<!doctype html><p>frame-0d5e</p>") },
+        ];
+        return Object.assign(
+          ({ scripts }) => [
+            '<script src="' + scriptRuntimeBase(files) + 'boot.js"></script>',
+            ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+          ],
+          { files },
+        );
+      })(),
+    }),`;
+
+// The directory only inside script text, as Partytown's snippet carries it: no
+// attribute names it for a link check to find.
+const INLINE_BASE_SCRIPTS = `scripts: defineScripts({
+      scripts: [
+        { name: "tags", src: "https://example.com/tags.js" },
+      ],
+      runtime: (() => {
+        const files = [{ name: "boot.js", contents: "self.marker = 'boot-first-5a20';" }];
+        return Object.assign(
+          ({ scripts }) => [
+            '<script>self.runtimeLib = "' + scriptRuntimeBase(files) + '";</script>',
+            ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+          ],
+          { files },
+        );
+      })(),
+    }),`;
+
 async function run(cwd: string, ...argv: string[]): Promise<string> {
   const { runCli } = await import("./cli.js");
   const err: string[] = [];
@@ -193,6 +236,9 @@ afterAll(() => {
     CARRIED_SITE,
     EDITED_SITE,
     RECOMPOSED_SITE,
+    FILES_SITE,
+    RUNTIME_FIRST_SITE,
+    RUNTIME_NEXT_SITE,
   ]) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -206,6 +252,63 @@ test("a site that declares no script layer emits the document it always did", as
   expect(html).not.toContain("requestIdleCallback");
   expect(html).not.toContain("addEventListener");
   expect(html).not.toContain("example.com");
+}, 120_000);
+
+function writtenFiles(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => `/${relative(dir, join(entry.parentPath, entry.name)).replaceAll("\\", "/")}`)
+    .sort();
+}
+
+test("a site that declares no runtime writes no runtime directory and no file its manifest does not list", async () => {
+  await build(PLAIN_SITE);
+  const manifest = manifests.get(PLAIN_SITE);
+  const listed = (manifest?.files ?? []).map((file) => file.path);
+
+  expect(listed.filter((path) => path.startsWith("/script-runtime/"))).toEqual([]);
+  expect(writtenFiles(join(PLAIN_SITE, "dist"))).toEqual(
+    [...listed, "/manifest.json"].sort(),
+  );
+}, 120_000);
+
+test("a runtime that declares no files writes exactly the files a site with no script layer writes", async () => {
+  await build(PLAIN_SITE);
+  await build(SILENT_SITE, SILENT_SCRIPTS);
+  const rows = (root: string): unknown[] =>
+    (manifests.get(root)?.files ?? []).map(({ path, kind, hash, hashed }) => ({
+      path,
+      kind,
+      hash,
+      hashed,
+    }));
+
+  expect(rows(SILENT_SITE)).toEqual(rows(PLAIN_SITE));
+}, 120_000);
+
+test("a runtime's files are written under one content-hashed directory, which its elements name", async () => {
+  const pages = await build(FILES_SITE, FILES_SCRIPTS);
+  const manifest = manifests.get(FILES_SITE);
+  const runtime = (manifest?.files ?? []).filter((file) =>
+    file.path.startsWith("/script-runtime/"),
+  );
+
+  expect(runtime.map(({ path, kind, hashed }) => ({ path, kind, hashed }))).toEqual([
+    { path: expect.stringMatching(/^\/script-runtime\/[0-9a-f]{8}\/boot\.js$/), kind: "asset", hashed: true },
+    { path: expect.stringMatching(/^\/script-runtime\/[0-9a-f]{8}\/frame\.html$/), kind: "asset", hashed: true },
+  ]);
+  const boot = runtime[0]?.path ?? "";
+  expect(readFileSync(join(FILES_SITE, "dist", boot), "utf8")).toBe(
+    "self.marker = 'boot-71c3';",
+  );
+  expect(
+    readFileSync(join(FILES_SITE, "dist", runtime[1]?.path ?? ""), "utf8"),
+  ).toBe("<!doctype html><p>frame-0d5e</p>");
+  for (const [path, html] of pages) {
+    expect(`${path}: ${String(html.includes(`<script src="${boot}"></script>`))}`).toBe(
+      `${path}: true`,
+    );
+  }
 }, 120_000);
 
 test("a script layer that loads nothing onto a page costs it no bytes at all", async () => {
@@ -620,4 +723,44 @@ test("a page an incremental build carries records the hash of the script loader 
   const fullPost = full.pages.find((page) => page.path === "/post");
   expect(fullPost?.inlineScriptHashes).toHaveLength(2);
   expect(fullPost?.inlineScriptHashes).not.toEqual(post?.inlineScriptHashes);
+}, 360_000);
+
+test("an incremental build after a runtime's files change leaves no page naming a runtime directory the output lacks", async () => {
+  const first = site(RUNTIME_FIRST_SITE, INLINE_BASE_SCRIPTS);
+  await run(first, "sync");
+  await run(first, "build");
+
+  const root = copySite(first, RUNTIME_NEXT_SITE, (config) => {
+    expect(config).toContain("boot-first-5a20");
+    return config.replace("boot-first-5a20", "boot-next-9c61");
+  });
+  writeFileSync(
+    join(root, "content", "en", "home.json"),
+    `${JSON.stringify({ rev: 2, data: { title: "home, edited" } })}\n`,
+  );
+  await run(root, "sync");
+  expect(await incrementalBuild(root)).toContain(
+    "incremental: 2 of 2 pages rendered, 0 reused, 0 removed",
+  );
+
+  const dist = join(root, "dist");
+  const file = join(dist, "manifest.json");
+  const manifest = readManifest(readFileSync(file, "utf8"), file);
+  const directories = new Set(
+    manifest.files
+      .filter((row) => row.path.startsWith("/script-runtime/"))
+      .map((row) => row.path.slice(0, row.path.lastIndexOf("/") + 1)),
+  );
+  expect(directories.size).toBeGreaterThan(0);
+  expect(manifest.pages.map((page) => page.path).sort()).toEqual(["/", "/post"]);
+  for (const page of manifest.pages) {
+    const html = readFileSync(join(dist, page.html), "utf8");
+    const named = [...html.matchAll(/\/script-runtime\/[0-9a-f]{8}\//g)].map(([dir]) => dir);
+    expect(named.length).toBeGreaterThan(0);
+    for (const dir of named) {
+      expect(`${page.path}: ${dir} ${String(directories.has(dir) && existsSync(join(dist, dir, "boot.js")))}`).toBe(
+        `${page.path}: ${dir} true`,
+      );
+    }
+  }
 }, 360_000);

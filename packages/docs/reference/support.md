@@ -43,7 +43,8 @@ site always installs `@pagedeck/core`, so a site needs the floor.
   `@pagedeck/adapter-cloudflare-worker`, `@pagedeck/adapter-cloudfront`,
   `@pagedeck/adapter-netlify`, `@pagedeck/adapter-nginx`,
   `@pagedeck/adapter-vercel`, `@pagedeck/edge`, `@pagedeck/font-subset`,
-  `@pagedeck/preview`, `@pagedeck/search`, `@pagedeck/social-image` and
+  `@pagedeck/preview`, `@pagedeck/script-worker`, `@pagedeck/search`,
+  `@pagedeck/social-image` and
   `create-pagedeck`. Node.js 22.18 loads
   `pagedeck.config.ts` with its types stripped and no flag. Node.js 23.7 is the
   first 23 release with `module.setSourceMapsSupport`, which the `pagedeck`
@@ -145,7 +146,7 @@ These are outside the tests, so they are not promises:
 ## Versions before 1.0
 
 Every public package is released together, at one version. A release tag
-`v<version>` publishes all seventeen at that version, and the release refuses
+`v<version>` publishes all eighteen at that version, and the release refuses
 a tag that one package does not carry. Install them at the same version: core
 depends on `@pagedeck/content` and `@pagedeck/islands` at its own exact
 version, so a site that mixes versions installs two copies.

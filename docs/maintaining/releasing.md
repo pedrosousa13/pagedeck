@@ -61,12 +61,13 @@ short-lived granular token with publish rights on the `@pagedeck` scope and on
 `.npmrc` that `setup-node` writes from `registry-url` reads.
 
 **Then switch to trusted publishing.** After 0.1.0 is on npm, add a trusted
-publisher to each of the seventeen packages on npmjs.com: GitHub Actions, repository
+publisher to each of the eighteen packages on npmjs.com: GitHub Actions, repository
 `pedrosousa13/pagedeck`, workflow `release.yml`. npm matches the workflow
 filename exactly, so renaming the file breaks every publish until each package
 is updated. Then delete the token on npm and the `NPM_TOKEN` secret.
 
-A package new to the public set, such as `@pagedeck/docs` (#108), is not on
+A package new to the public set, such as `@pagedeck/docs` (#108) or
+`@pagedeck/script-worker` (#275), is not on
 npm until its first publish, and npm sets up trusted publishing only for a
 package that exists. So its first publish needs the token, and its trusted
 publisher is added after.

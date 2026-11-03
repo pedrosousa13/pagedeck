@@ -83,6 +83,8 @@ export {
   resolveConsentDefault,
   resolveScriptStrategy,
 } from "./scripts.js";
+export { inlineScriptFault } from "./pre-paint.js";
+export { scriptRuntimeBase } from "./script-runtime.js";
 export type {
   ConsentDefault,
   ConsentDefaultMap,
@@ -91,6 +93,7 @@ export type {
   ScriptFacade,
   ScriptOverrideMap,
   ScriptRuntimeAdapter,
+  ScriptRuntimeFile,
   ScriptRuntimeRequest,
   ScriptsSetting,
   ScriptStrategy,

@@ -765,6 +765,96 @@ test("a runtime that is not a function is refused at construction", () => {
   );
 });
 
+test("a runtime's files are each refused by name when the build could not write them", () => {
+  const runtime = Object.assign(() => [], {
+    files: [
+      { name: "../sw.js", contents: "x" },
+      { name: "sw.js", contents: 42 },
+      { name: "sw.js", contents: "y" },
+      "boot.js",
+    ],
+  });
+
+  expect(scriptsFaultReport({ scripts: [ANALYTICS], runtime }, "Script settings")).toBe(
+    [
+      'Script settings: declares 4 script runtime files this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name, unique among them, and its contents as a string or bytes, such as { name: "worker.js", contents: "…" }:',
+      '  runtime.files[0] — "name" — "../sw.js" — not a plain file name',
+      '  runtime.files[1] — "contents" — 42 — not a string or bytes',
+      '  runtime.files[2] — "name" — "sw.js" — runtime.files[1] has the same name',
+      '  runtime.files[3] — "boot.js" — not a file declaration',
+    ].join("\n"),
+  );
+});
+
+test("a runtime's files refused at the config door are named under build.scripts.runtime", () => {
+  const runtime = Object.assign(() => [], { files: [{ name: "a/b.js", contents: "x" }] });
+
+  expect(
+    scriptsFaultReport({ scripts: [ANALYTICS], runtime }, 'Config "/site/pagedeck.config.ts"', "build.scripts"),
+  ).toContain('\n  build.scripts.runtime.files[0] — "name" — "a/b.js" — not a plain file name');
+});
+
+test("a runtime that checks no integrity refuses every script that can reach worker with one, at once", () => {
+  const runtime = Object.assign(() => [], { checksIntegrity: false });
+  const settings = {
+    scripts: [
+      { name: "tags", src: "/tags.js", integrity: "sha384-a" },
+      { name: "pixel", src: "/pixel.js", strategy: "idle", integrity: "sha384-b" },
+      { name: "chat", src: "/chat.js", strategy: "idle", integrity: "sha384-c" },
+      { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
+      { name: "plain", src: "/plain.js" },
+    ],
+    pages: { "/pricing": { pixel: "worker" } },
+    runtime,
+  };
+
+  expect(scriptsFaultReport(settings, 'Config "/site/pagedeck.config.ts"', "build.scripts")).toBe(
+    [
+      'Config "/site/pagedeck.config.ts": "build.scripts": "build.scripts.runtime" loads a worker script without checking its integrity, and 2 scripts that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:',
+      '  "tags" — declares no strategy, so it takes the worker default',
+      '  "pixel" — pages "/pricing" sets "worker"',
+    ].join("\n"),
+  );
+  expect(scriptsFaultReport({ ...settings, runtime: () => [] }, "Script settings")).toBeUndefined();
+});
+
+test("the integrity refusal is reported beside an unrelated fault, not held back by it", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { name: "tags", src: "/tags.js", integrity: "sha384-a" },
+        { name: "broken", src: "", strategy: "idle" },
+      ],
+      runtime: Object.assign(() => [], { checksIntegrity: false }),
+    },
+    "Script settings",
+  );
+
+  expect(report).toContain('scripts[1] — "src" — "" — not a script source');
+  expect(report).toContain(
+    '"runtime" loads a worker script without checking its integrity, and 1 script that can reach the worker strategy declare integrity',
+  );
+});
+
+test("a runtime's files that are not a list are refused", () => {
+  const runtime = Object.assign(() => [], { files: "sw.js" });
+
+  expect(scriptsFaultReport({ scripts: [ANALYTICS], runtime }, "Script settings")).toBe(
+    'Script settings: declares script runtime files this build cannot write — "sw.js" — declare them as a list, such as files: [{ name: "worker.js", contents: "…" }]',
+  );
+});
+
+test("a runtime declaring well-formed files passes construction", () => {
+  const runtime = Object.assign(() => [], {
+    files: [
+      { name: "sw.js", contents: "x" },
+      { name: "frame.html", contents: new Uint8Array([60]) },
+    ],
+  });
+
+  expect(defineScripts({ scripts: [ANALYTICS], runtime }).runtime).toBe(runtime);
+});
+
 test("a credential nested inside a refused value is cut with the rest", () => {
   expect(
     scriptsFaultReport(

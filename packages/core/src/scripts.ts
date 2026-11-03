@@ -54,9 +54,21 @@ export interface ScriptRuntimeRequest {
   readonly scripts: readonly ScriptDeclaration[];
 }
 
-export type ScriptRuntimeAdapter = (
-  request: ScriptRuntimeRequest,
-) => readonly string[];
+export interface ScriptRuntimeFile {
+  readonly name: string;
+  readonly contents: string | Uint8Array;
+}
+
+export interface ScriptRuntimeAdapter {
+  (request: ScriptRuntimeRequest): readonly string[];
+  readonly files?: readonly ScriptRuntimeFile[];
+  /**
+   * `false` refuses, when the config loads, a worker script that declares
+   * `integrity`. A wrapper around an adapter must carry it over, or the
+   * refusal no longer applies.
+   */
+  readonly checksIntegrity?: boolean;
+}
 
 export type ScriptAttributes = Readonly<Record<`data-${string}`, string>>;
 
@@ -341,13 +353,32 @@ export function scriptsFaultReport(
     sections.push(
       `${heading}: declares a script runtime this build cannot call — ${quote(runtime)} — ${RUNTIME_FIX}`,
     );
+  } else if (typeof runtime === "function") {
+    const files = runtimeFilesSection(
+      (runtime as { files?: unknown }).files,
+      heading,
+      subField("runtime"),
+    );
+    if (files !== undefined) sections.push(files);
   }
 
+  let readable =
+    Array.isArray(declared) &&
+    (declared as readonly unknown[]).every(
+      (script) =>
+        typeof script === "object" &&
+        script !== null &&
+        !Array.isArray(script) &&
+        typeof (script as Record<string, unknown>)["name"] === "string",
+    );
   for (const name of ["pageTypes", "pages"] as const) {
     const map = read(name);
     if (map === undefined) continue;
     const report = overrideMapFaultReport(map, where, subField(name), names);
-    if (report !== undefined) sections.push(report);
+    if (report !== undefined) {
+      sections.push(report);
+      readable = false;
+    }
   }
 
   const consentDefaults = read("consentDefaults");
@@ -360,7 +391,89 @@ export function scriptsFaultReport(
     if (report !== undefined) sections.push(report);
   }
 
+  if (
+    readable &&
+    typeof runtime === "function" &&
+    (runtime as { checksIntegrity?: unknown }).checksIntegrity === false
+  ) {
+    const unchecked = uncheckedIntegritySection(
+      record as unknown as ScriptsSetting,
+      heading,
+      subField("runtime"),
+    );
+    if (unchecked !== undefined) sections.push(unchecked);
+  }
+
   return sections.length === 0 ? undefined : sections.join("\n\n");
+}
+
+/** Only a readable list and readable override maps reach here: which scripts reach worker depends on them. */
+function uncheckedIntegritySection(
+  settings: ScriptsSetting,
+  heading: string,
+  field: string,
+): string | undefined {
+  const checked = new Set(
+    settings.scripts
+      .filter(
+        ({ integrity, category }) =>
+          integrity !== undefined && (category === undefined || category === "necessary"),
+      )
+      .map(({ name }) => name),
+  );
+  const reaching = workerReachingScripts(settings).filter(({ name }) => checked.has(name));
+  if (reaching.length === 0) return undefined;
+  return `${heading}: "${field}" loads a worker script without checking its integrity, and ${count(reaching.length, "script")} that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:\n${reaching
+    .map(({ name, door }) => `  ${JSON.stringify(name)} — ${door}`)
+    .join("\n")}`;
+}
+
+const RUNTIME_FILE_FIX = '{ name: "worker.js", contents: "…" }';
+/** One path segment a URL and a file system read alike. */
+const RUNTIME_FILE_NAME = /^(?!\.\.?$)[A-Za-z0-9._-]+$/;
+
+function runtimeFilesSection(
+  files: unknown,
+  heading: string,
+  field: string,
+): string | undefined {
+  if (files === undefined) return undefined;
+  if (!Array.isArray(files)) {
+    return `${heading}: declares script runtime files this build cannot write — ${quote(files)} — declare them as a list, such as files: [${RUNTIME_FILE_FIX}]`;
+  }
+  const declared: readonly unknown[] = files;
+  const lines: string[] = [];
+  const faulty = new Set<number>();
+  const named = new Map<string, string>();
+  declared.forEach((file, index) => {
+    const before = lines.length;
+    const at = `  ${field}.files[${String(index)}]`;
+    if (typeof file !== "object" || file === null || Array.isArray(file)) {
+      lines.push(`${at} — ${quote(file)} — not a file declaration`);
+      faulty.add(index);
+      return;
+    }
+    const fields = file as Record<string, unknown>;
+    const name = Object.hasOwn(fields, "name") ? fields["name"] : undefined;
+    const contents = Object.hasOwn(fields, "contents")
+      ? fields["contents"]
+      : undefined;
+    if (typeof name !== "string" || !RUNTIME_FILE_NAME.test(name)) {
+      lines.push(`${at} — "name" — ${quote(name)} — not a plain file name`);
+    } else if (named.has(name)) {
+      lines.push(
+        `${at} — "name" — ${quote(name)} — ${named.get(name) ?? ""} has the same name`,
+      );
+    } else {
+      named.set(name, at.trim());
+    }
+    if (typeof contents !== "string" && !(contents instanceof Uint8Array)) {
+      lines.push(`${at} — "contents" — ${quote(contents)} — not a string or bytes`);
+    }
+    if (lines.length > before) faulty.add(index);
+  });
+  if (lines.length === 0) return undefined;
+  return `${heading}: declares ${count(faulty.size, "script runtime file")} this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name, unique among them, and its contents as a string or bytes, such as ${RUNTIME_FILE_FIX}:\n${lines.join("\n")}`;
 }
 
 function count(n: number, noun: string): string {

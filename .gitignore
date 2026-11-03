@@ -358,6 +358,12 @@ packages/create-pagedeck/.pagedeck-how-to-island-test-*/
 # drives in three browsers (#161). The harness removes it after each run.
 packages/create-pagedeck/.pagedeck-island-browsers-harness-*/
 
+# The sites `packages/script-worker/src/partytown.build.test.ts` builds, one of
+# them from the third-party scripts page's fence (#275). Inside the package so a
+# spawned `pagedeck` can load their configs and resolve `@pagedeck/script-worker`
+# by name. The test removes them after each run.
+packages/script-worker/.pagedeck-partytown-*/
+
 # The site `packages/markdown-loader/src/title.build.test.ts` builds (#101). The
 # test removes it after each run.
 packages/markdown-loader/.pagedeck-title-build-test-*/

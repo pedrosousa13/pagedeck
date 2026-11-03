@@ -724,3 +724,17 @@ test("no other bare inline script is taken for the script loader", () => {
   expect(others[2]?.startsWith("(function(){")).toBe(true);
   for (const text of others) expect(isScriptLoaderText(text)).toBe(false);
 });
+
+test("a runtime is handed the request it always was, whether or not it declares files", () => {
+  const requests: object[] = [];
+  const record = () => (request: object): readonly string[] => {
+    requests.push(request);
+    return [];
+  };
+  const declared = (runtime: ScriptsSetting["runtime"]): ScriptsSetting =>
+    settings({ scripts: [{ name: "tags", src: "https://example.com/t.js" }], runtime });
+  emitted(declared(record()), HOME);
+  emitted(declared(Object.assign(record(), { files: [{ name: "a.js", contents: "" }] })), HOME);
+
+  expect(requests.map((request) => Object.keys(request))).toEqual([["scripts"], ["scripts"]]);
+});
