@@ -358,11 +358,23 @@ export function scriptsFaultReport(
     if (files !== undefined) sections.push(files);
   }
 
+  let readable =
+    Array.isArray(declared) &&
+    (declared as readonly unknown[]).every(
+      (script) =>
+        typeof script === "object" &&
+        script !== null &&
+        !Array.isArray(script) &&
+        typeof (script as Record<string, unknown>)["name"] === "string",
+    );
   for (const name of ["pageTypes", "pages"] as const) {
     const map = read(name);
     if (map === undefined) continue;
     const report = overrideMapFaultReport(map, where, subField(name), names);
-    if (report !== undefined) sections.push(report);
+    if (report !== undefined) {
+      sections.push(report);
+      readable = false;
+    }
   }
 
   const consentDefaults = read("consentDefaults");
@@ -376,7 +388,7 @@ export function scriptsFaultReport(
   }
 
   if (
-    sections.length === 0 &&
+    readable &&
     typeof runtime === "function" &&
     (runtime as { checksIntegrity?: unknown }).checksIntegrity === false
   ) {
@@ -391,7 +403,7 @@ export function scriptsFaultReport(
   return sections.length === 0 ? undefined : sections.join("\n\n");
 }
 
-/** Only a well-formed section reaches here: which scripts reach worker depends on its shape. */
+/** Only a readable list and readable override maps reach here: which scripts reach worker depends on them. */
 function uncheckedIntegritySection(
   settings: ScriptsSetting,
   heading: string,

@@ -818,6 +818,24 @@ test("a runtime that checks no integrity refuses every script that can reach wor
   expect(scriptsFaultReport({ ...settings, runtime: () => [] }, "Script settings")).toBeUndefined();
 });
 
+test("the integrity refusal is reported beside an unrelated fault, not held back by it", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { name: "tags", src: "/tags.js", integrity: "sha384-a" },
+        { name: "broken", src: "", strategy: "idle" },
+      ],
+      runtime: Object.assign(() => [], { checksIntegrity: false }),
+    },
+    "Script settings",
+  );
+
+  expect(report).toContain('scripts[1] — "src" — "" — not a script source');
+  expect(report).toContain(
+    '"runtime" loads a worker script without checking its integrity, and 1 script that can reach the worker strategy declare integrity',
+  );
+});
+
 test("a runtime's files that are not a list are refused", () => {
   const runtime = Object.assign(() => [], { files: "sw.js" });
 
