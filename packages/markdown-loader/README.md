@@ -32,6 +32,35 @@ The collection goes in the site config's `collections`. A site created with
 [Your first site](https://page.deck.cool/docs/tutorials/your-first-site/) walks through
 it.
 
+## The entry
+
+Each entry is a `MarkdownEntry`, the value a collection's schema receives:
+
+| Field         | What it holds                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `frontmatter` | The frontmatter fields as text: a string, or a list of strings. Nothing is coerced          |
+| `title`       | Frontmatter `title`, else the first level-1 heading                                         |
+| `html`        | The body rendered without its first level-1 heading, every fence highlighted                |
+| `body`        | The Markdown after the frontmatter block, unrendered and exactly as written (issue #255)     |
+| `toc`         | The other headings, each with the slug its `id` carries                                      |
+| `file`        | The file's path relative to `root`, with `/` separators                                      |
+
+`body` is exactly the file's text after the frontmatter, with line endings as
+written. It keeps everything `html` drops: the first level-1 heading stays in
+it, and a fence is its info string and its text as typed, with no entity
+escaping. A schema that reads data out of fenced blocks reads `body`, not
+`html`, whose markup is not a contract. A file with no frontmatter is its own
+`body`. `packages/examples/src/reading-fenced-data.ts` in the repository is a
+schema that reads each lesson's steps out of its `json` fences.
+
+When an entry fails the collection's schema, the failure names `file` beside
+the entry id:
+
+```
+Collection "docs": 1 entry does not match the collection schema — fix the content, or relax the schema:
+  /en/lessons/intro from lessons/intro.md: frontmatter.section — not a section — use one of: how-to, reference
+```
+
 ## Options
 
 | Option        | Default        | What it does                                                                                     |

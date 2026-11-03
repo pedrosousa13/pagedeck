@@ -1415,6 +1415,47 @@ test("every failing entry is reported in a single sync", async () => {
   );
 });
 
+test("a failing entry upserted with a source names it beside the id", async () => {
+  const store = openTempStore();
+  const pages = defineCollection({
+    name: "pages",
+    loader: orderedLoader((writer) => {
+      writer.upsert({
+        locale: "de",
+        path: "pricing",
+        data: {} as unknown as Doc,
+        source: "de/pricing.md",
+      });
+    }),
+    schema: titledSchema,
+  });
+
+  await expect(syncCollection(store, pages)).rejects.toThrow(
+    'Collection "pages": 1 entry does not match the collection schema — fix the content, or relax the schema:\n' +
+      `  /de/pricing from de/pricing.md: title — ${MISSING_TITLE}`,
+  );
+});
+
+test("a source is not stored with the entry", async () => {
+  const store = openTempStore();
+  const pages = defineCollection({
+    name: "pages",
+    loader: orderedLoader((writer) => {
+      writer.upsert({
+        locale: "en",
+        path: "home",
+        data: { title: "Home" },
+        source: "en/home.md",
+      });
+    }),
+    schema: titledSchema,
+  });
+
+  await syncCollection(store, pages);
+
+  expect(store.getEntry("pages", "en", "home")?.data).toEqual({ title: "Home" });
+});
+
 test("the schema's output value is what lands in the store", async () => {
   const store = openTempStore();
   const trimmed = handSchema<Doc>((value) => {
@@ -1508,6 +1549,29 @@ test("a synchronous validator that throws is wrapped the same way", async () => 
 
   await expect(syncCollection(store, pages)).rejects.toThrow(
     'Collection "pages": schema threw validating entry "de/pricing"',
+  );
+});
+
+test("a validator that throws on an entry upserted with a source names it", async () => {
+  const store = openTempStore();
+  const exploding = handSchema<Doc>(() => {
+    throw new Error("coercion blew up");
+  });
+  const pages = defineCollection({
+    name: "pages",
+    loader: orderedLoader((writer) => {
+      writer.upsert({
+        locale: "de",
+        path: "pricing",
+        data: { title: "P" },
+        source: "de/pricing.md",
+      });
+    }),
+    schema: exploding,
+  });
+
+  await expect(syncCollection(store, pages)).rejects.toThrow(
+    'Collection "pages": schema threw validating entry "de/pricing" from "de/pricing.md"',
   );
 });
 

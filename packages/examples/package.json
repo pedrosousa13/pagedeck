@@ -33,6 +33,7 @@
     "@pagedeck/edge": "workspace:*",
     "@pagedeck/fixtures": "workspace:*",
     "@pagedeck/islands": "workspace:*",
+    "@pagedeck/markdown-loader": "workspace:*",
     "react": "^19.2.0",
     "zod": "^4.6.6"
   },

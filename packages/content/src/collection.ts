@@ -42,7 +42,11 @@ export interface SyncResult {
  * replayed. One unusable upsert id fails the whole sync.
  */
 export interface CollectionWriter<T> {
-  upsert(entry: { locale: string; path: string; data: T }): void;
+  /**
+   * `source` names where the entry was read, such as a file path, beside its id when the
+   * schema refuses it. It is not stored.
+   */
+  upsert(entry: { locale: string; path: string; data: T; source?: string }): void;
   delete(id: EntryId): void;
 }
 
@@ -140,7 +144,7 @@ export function defineCollection<TOut, TIn>(
 }
 
 type BufferedWrite<T> =
-  | { kind: "upsert"; locale: string; path: string; data: T }
+  | { kind: "upsert"; locale: string; path: string; data: T; source?: string }
   | { kind: "delete"; locale: string; path: string };
 
 // Buffers, so the replay runs in one synchronous transaction with none open across an await.
@@ -165,10 +169,17 @@ function issueField(issue: StandardSchemaV1.Issue): string {
     .join(".");
 }
 
+function fromSource(
+  source: string | undefined,
+  spell: (text: string) => string = (text) => text,
+): string {
+  return source === undefined ? "" : ` from ${spell(source)}`;
+}
+
 async function validateEntry<T>(
   collectionName: string,
   schema: StandardSchemaV1<unknown, T>,
-  entry: { locale: string; path: string; data: unknown },
+  entry: { locale: string; path: string; data: unknown; source?: string },
 ): Promise<
   { value: T; lines?: undefined } | { value?: undefined; lines: string[] }
 > {
@@ -177,7 +188,7 @@ async function validateEntry<T>(
     result = await schema["~standard"].validate(entry.data);
   } catch (error) {
     throw new Error(
-      `Collection "${collectionName}": schema threw validating entry ${quoteIdentifier(`${entry.locale}/${entry.path}`)}`,
+      `Collection "${collectionName}": schema threw validating entry ${quoteIdentifier(`${entry.locale}/${entry.path}`)}${fromSource(entry.source, quoteIdentifier)}`,
       { cause: error },
     );
   }
@@ -185,7 +196,7 @@ async function validateEntry<T>(
   return {
     lines: result.issues.map(
       (issue) =>
-        `  ${printable(`/${entry.locale}/${entry.path}: ${issueField(issue)} — ${issue.message}`)}`,
+        `  ${printable(`/${entry.locale}/${entry.path}${fromSource(entry.source)}: ${issueField(issue)} — ${issue.message}`)}`,
     ),
   };
 }

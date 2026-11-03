@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, posix, relative, sep } from "node:path";
-import type { EntryId, Loader, SyncResult } from "@pagedeck/content";
+import type { CollectionWriter, EntryId, Loader, SyncResult } from "@pagedeck/content";
 import { parseFrontmatter } from "./frontmatter.js";
 import type { FrontmatterValue } from "./frontmatter.js";
 import { createMarkdownRenderer } from "./render.js";
@@ -11,11 +11,16 @@ export interface MarkdownEntry {
   /** The declared fields as text, unread beyond `title`; the schema says what they mean. */
   readonly frontmatter: Readonly<Record<string, FrontmatterValue>>;
   /**
-   * Frontmatter `title`, else the first level-1 heading, which leaves the body either way.
+   * Frontmatter `title`, else the first level-1 heading, which leaves `html` either way.
    * A file with neither is refused, naming both ways to supply one.
    */
   readonly title: string;
   readonly html: string;
+  /**
+   * The file's Markdown after the frontmatter block, unrendered and exactly as written, so
+   * a schema can read a fence's text. The first level-1 heading, which `html` drops, stays.
+   */
+  readonly body: string;
   /** Stored so a template never re-derives a slug from the markup. */
   readonly toc: RenderedMarkdown["toc"];
   /** Relative to the root, POSIX-spelled: the entry's `path` plus `.md`. */
@@ -175,6 +180,7 @@ function readOne(
       frontmatter,
       title,
       html: rendered.html,
+      body,
       toc: rendered.toc,
       file: found.file,
     };
@@ -191,7 +197,7 @@ function cursorFor(startedAt: number): number {
 async function sync(
   options: MarkdownLoaderOptions,
   renderer: () => Promise<MarkdownRenderer>,
-  writer: { upsert(entry: { locale: string; path: string; data: MarkdownEntry }): void },
+  writer: Pick<CollectionWriter<MarkdownEntry>, "upsert">,
   select: (found: Found) => boolean,
   authoritative: boolean,
 ): Promise<SyncResult> {
@@ -211,7 +217,7 @@ async function sync(
       continue;
     }
     const id = { locale: options.locale, path: pathOf(file.file) };
-    writer.upsert({ ...id, data: entry });
+    writer.upsert({ ...id, data: entry, source: file.file });
     changed.push(id);
   }
   // After the whole walk: `runSync` applies nothing when the loader throws.
