@@ -25,6 +25,8 @@ export type { PropSlotExample } from "./passing-elements-to-a-card-list.js";
 export { renderSiteImages } from "./rendering-images.js";
 export type { RenderedImages } from "./rendering-images.js";
 export { SITE_IMAGES } from "./site-images.js";
+export { probeImagePreviews } from "./probing-image-previews.js";
+export type { ProbedPreviews } from "./probing-image-previews.js";
 export { planDeployFromManifests } from "./diffing-two-manifests.js";
 export type { DeployPlan } from "./diffing-two-manifests.js";
 export { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";

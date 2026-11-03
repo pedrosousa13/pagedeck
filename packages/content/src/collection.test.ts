@@ -2597,6 +2597,94 @@ test("an entry stored before a collection declared image colors is probed on the
   expect(store.getImageColor("/hero.jpg")).toBe("#2f3a28");
 });
 
+const PREVIEW = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+
+test("a sync probes each unique source for a preview once, and a repeat sync probes none", async () => {
+  const store = openTempStore();
+  const asked: string[] = [];
+  const collection: Collection<Illustrated> = {
+    name: "pages",
+    schema: false,
+    loader: illustratedLoader([
+      { locale: "en", path: "home", data: { title: "Home", images: ["/hero.jpg", "/logo.svg"] } },
+      { locale: "de", path: "home", data: { title: "Start", images: ["/hero.jpg"] } },
+    ]),
+    imageColors: {
+      extractSources: (entry) => entry.data.images,
+      probe: () => "#2f3a28",
+    },
+    imagePreviews: {
+      extractSources: (entry) => entry.data.images,
+      probe: (src) => {
+        asked.push(src);
+        return src === "/hero.jpg" ? PREVIEW : undefined;
+      },
+    },
+  };
+
+  await syncCollection(store, collection);
+
+  expect([...asked].sort()).toEqual(["/hero.jpg", "/logo.svg"]);
+  expect(store.getImagePreview("/hero.jpg")).toBe(PREVIEW);
+  expect(store.getImageColor("/hero.jpg")).toBe("#2f3a28");
+
+  asked.length = 0;
+  await syncCollectionSince(store, collection);
+  await syncCollection(store, collection);
+
+  expect(asked).toEqual([]);
+});
+
+test("a malformed preview fails the sync after the entries are stored, naming the entry and the source", async () => {
+  const store = openTempStore();
+  const collection: Collection<Illustrated> = {
+    name: "pages",
+    schema: false,
+    loader: illustratedLoader([
+      { locale: "en", path: "home", data: { title: "Home", images: ["/hero.jpg"] } },
+    ]),
+    imagePreviews: {
+      extractSources: (entry) => entry.data.images,
+      probe: () => "data:image/svg+xml;base64,PHN2Zz4=",
+    },
+  };
+
+  const error = await syncCollection(store, collection).then(
+    () => undefined,
+    (thrown: unknown) => thrown as Error,
+  );
+
+  expect(error).toBeInstanceOf(CollectionError);
+  expect(error?.message).toBe(
+    'Collection "pages": syncAll stored every entry it was given, then failed fetching image previews',
+  );
+  expect((error?.cause as Error).message).toContain(
+    '"/hero.jpg" on /en/home — "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI',
+  );
+  expect(store.getEntry("pages", "en", "home")).toBeDefined();
+  expect(store.hasImagePreview("/hero.jpg")).toBe(false);
+});
+
+test("a collection that declares no image previews probes nothing and caches nothing", async () => {
+  const store = openTempStore();
+  const collection: Collection<Illustrated> = {
+    name: "pages",
+    schema: false,
+    loader: illustratedLoader([
+      { locale: "en", path: "home", data: { title: "Home", images: ["/hero.jpg"] } },
+    ]),
+    imageColors: {
+      extractSources: (entry) => entry.data.images,
+      probe: () => "#2f3a28",
+    },
+  };
+
+  await syncCollection(store, collection);
+
+  expect(store.getImageColor("/hero.jpg")).toBe("#2f3a28");
+  expect(store.hasImagePreview("/hero.jpg")).toBe(false);
+});
+
 // Each byte can rewrite or forge a terminal line (#730).
 const HOSTILE = 'x\u001b[2K\rpagedeck: sync complete\n"\u009b2K';
 const RAW_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;

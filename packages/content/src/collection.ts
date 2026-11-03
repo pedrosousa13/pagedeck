@@ -2,6 +2,8 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { syncImageColors } from "./colors.js";
 import { printable, quoteIdentifier } from "./escape.js";
 import type { ImageColorProbe } from "./colors.js";
+import { syncImagePreviews } from "./previews.js";
+import type { ImagePreviewProbe } from "./previews.js";
 import type {
   ComponentUsage,
   ContentStore,
@@ -93,6 +95,7 @@ export interface Collection<TOut, TIn = TOut> {
    */
   schema: StandardSchemaV1<unknown, TOut> | Unvalidated<TOut, TIn>;
   imageColors?: ImageColorsSetting<TOut>;
+  imagePreviews?: ImagePreviewsSetting<TOut>;
 }
 
 // Probed after the sync transaction commits, so a fault costs the colors, never the content.
@@ -101,6 +104,14 @@ export interface ImageColorsSetting<T> {
   extractSources: (entry: Entry<T>) => readonly string[];
   probe: ImageColorProbe;
   /** Defaults to `DEFAULT_COLOR_CONCURRENCY`. */
+  concurrency?: number;
+}
+
+export interface ImagePreviewsSetting<T> {
+  /** Every image source one entry holds, in any order, duplicates allowed. */
+  extractSources: (entry: Entry<T>) => readonly string[];
+  probe: ImagePreviewProbe;
+  /** Defaults to `DEFAULT_PREVIEW_CONCURRENCY`. */
   concurrency?: number;
 }
 
@@ -404,19 +415,25 @@ async function runSync<TOut, TIn>(
   }
 
   // After the commit: a probe is network I/O, and a transaction body may not await.
-  try {
-    await writeImageColors(store, collection, options);
-  } catch (error) {
-    const message = `Collection "${collection.name}": ${operation} stored every entry it was given, then failed fetching dominant colors`;
-    throw error instanceof CollectionError
-      ? new CollectionError(message, { cause: error })
-      : new Error(message, { cause: error });
+  const probes = [
+    ["dominant colors", writeImageColors],
+    ["image previews", writeImagePreviews],
+  ] as const;
+  for (const [fetched, write] of probes) {
+    try {
+      await write(store, collection, options);
+    } catch (error) {
+      const message = `Collection "${collection.name}": ${operation} stored every entry it was given, then failed fetching ${fetched}`;
+      throw error instanceof CollectionError
+        ? new CollectionError(message, { cause: error })
+        : new Error(message, { cause: error });
+    }
   }
   return result;
 }
 
-// Every entry of the collection, not only this sync's: a failed probe is not cached, and
-// a source reached only through unchanged entries would never be asked again.
+// Both probes read every entry of the collection, not only this sync's: a failed probe is
+// not cached, and a source reached only through unchanged entries would never be asked again.
 async function writeImageColors<TOut, TIn>(
   store: ContentStore,
   collection: Collection<TOut, TIn>,
@@ -431,6 +448,30 @@ async function writeImageColors<TOut, TIn>(
   }
 
   await syncImageColors({
+    store,
+    collection: collection.name,
+    sources,
+    probe: setting.probe,
+    concurrency: setting.concurrency,
+    onWarning: options?.onWarning,
+  });
+}
+
+async function writeImagePreviews<TOut, TIn>(
+  store: ContentStore,
+  collection: Collection<TOut, TIn>,
+  options: CollectionSyncOptions | undefined,
+): Promise<void> {
+  const setting = collection.imagePreviews;
+  if (setting === undefined) return;
+
+  const sources = store.listEntries<TOut>(collection.name).flatMap((entry) =>
+    setting
+      .extractSources(entry)
+      .map((src) => ({ src, entry: `/${entry.locale}/${entry.path}` })),
+  );
+
+  await syncImagePreviews({
     store,
     collection: collection.name,
     sources,

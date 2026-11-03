@@ -80,6 +80,12 @@ export interface ContentStoreReader {
    */
   getImageColor(src: string): string | undefined;
   hasImageColor(src: string): boolean;
+  /**
+   * `undefined` both when unprobed and when probed with no preview; `hasImagePreview`
+   * tells them apart.
+   */
+  getImagePreview(src: string): string | undefined;
+  hasImagePreview(src: string): boolean;
   /** Most-used first, ties broken on `avgFoldScore` then name, so the order is total. */
   rankUsage(exclude?: ReadonlySet<string>): ComponentRanking[];
   close(): void;
@@ -102,6 +108,8 @@ export interface ContentStore extends ContentStoreReader {
   upsertUsage(record: UsageRecord): void;
   /** `undefined` records a source with no color; a failed probe is not recorded. */
   setImageColor(src: string, color: string | undefined): void;
+  /** `undefined` records a source with no preview; a failed probe is not recorded. */
+  setImagePreview(src: string, preview: string | undefined): void;
   clearUsage(collection: string, locale: string, path: string): void;
   /**
    * Nests as savepoints. `fn` must be synchronous: writes after an `await` in it land
@@ -132,6 +140,10 @@ CREATE TABLE IF NOT EXISTS cursors (
 CREATE TABLE IF NOT EXISTS image_colors (
   src TEXT NOT NULL PRIMARY KEY,
   color TEXT
+);
+CREATE TABLE IF NOT EXISTS image_previews (
+  src TEXT NOT NULL PRIMARY KEY,
+  preview TEXT
 );
 CREATE TABLE IF NOT EXISTS usage_records (
   component TEXT NOT NULL,
@@ -190,14 +202,16 @@ function rowToEntry<T>(row: EntryRow): Entry<T> {
 }
 
 function makeReader(db: DatabaseSync): ContentStoreReader {
-  // Store files from before #44 lack the table, and a read-only open cannot create it;
-  // no table means no color was ever cached.
-  const hasColorTable =
+  // An older store file lacks an image table, and a read-only open cannot create it; no
+  // table means nothing was ever cached in it.
+  const hasTable = (name: string): boolean =>
     db
       .prepare(
-        "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'image_colors'",
+        "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?",
       )
-      .get() !== undefined;
+      .get(name) !== undefined;
+  const hasColorTable = hasTable("image_colors");
+  const hasPreviewTable = hasTable("image_previews");
 
   return {
     getEntry<T>(collection: string, locale: string, path: string) {
@@ -328,6 +342,20 @@ function makeReader(db: DatabaseSync): ContentStoreReader {
       if (!hasColorTable) return false;
       const row = db
         .prepare("SELECT 1 AS present FROM image_colors WHERE src = ?")
+        .get(src) as { present: number } | undefined;
+      return row !== undefined;
+    },
+    getImagePreview(src: string) {
+      if (!hasPreviewTable) return undefined;
+      const row = db
+        .prepare("SELECT preview FROM image_previews WHERE src = ?")
+        .get(src) as { preview: string | null } | undefined;
+      return row?.preview ?? undefined;
+    },
+    hasImagePreview(src: string) {
+      if (!hasPreviewTable) return false;
+      const row = db
+        .prepare("SELECT 1 AS present FROM image_previews WHERE src = ?")
         .get(src) as { present: number } | undefined;
       return row !== undefined;
     },
@@ -505,6 +533,12 @@ export function openStore(path: string): ContentStore {
         `INSERT INTO image_colors (src, color) VALUES (?, ?)
          ON CONFLICT (src) DO UPDATE SET color = excluded.color`,
       ).run(src, color ?? null);
+    },
+    setImagePreview(src, preview) {
+      db.prepare(
+        `INSERT INTO image_previews (src, preview) VALUES (?, ?)
+         ON CONFLICT (src) DO UPDATE SET preview = excluded.preview`,
+      ).run(src, preview ?? null);
     },
     transaction,
   };

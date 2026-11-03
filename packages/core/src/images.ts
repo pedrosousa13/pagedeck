@@ -1,5 +1,6 @@
+import { excerpt, imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
-import { quote } from "./quote.js";
+import { quote, redactSource } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
 import { entryId } from "@pagedeck/islands";
 import { RenderError } from "./tree.js";
@@ -30,6 +31,17 @@ export interface ImageSource {
   readonly sizes?: string;
   readonly aboveFold?: boolean;
   readonly placeholderColor?: string;
+  /** What `store.getImagePreview` answers; checked again here, so a hand-made one is too. */
+  readonly placeholderPreview?: string;
+}
+
+/** The color stays under the preview, painted while its data URI decodes. */
+export interface ImagePlaceholderStyle {
+  readonly backgroundColor?: string;
+  readonly backgroundImage?: string;
+  readonly backgroundSize?: "cover";
+  readonly backgroundPosition?: "center";
+  readonly backgroundRepeat?: "no-repeat";
 }
 
 export interface ImageAttributes {
@@ -40,7 +52,7 @@ export interface ImageAttributes {
   readonly height: number;
   readonly loading: "lazy" | "eager";
   readonly fetchPriority: "high" | "auto";
-  readonly style?: { readonly backgroundColor: string };
+  readonly style?: ImagePlaceholderStyle;
 }
 
 export interface ImageAttributesInput {
@@ -52,6 +64,7 @@ export interface ImageAttributesInput {
 export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
   const { images, image, page } = input;
   refuseUnusableImage(image, page);
+  const style = imagePlaceholder(image);
 
   const widths = candidateWidths(images.widths, image.width);
   const url = (width: number): string =>
@@ -72,9 +85,29 @@ export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
     height: image.height,
     loading: image.aboveFold === true ? "eager" : "lazy",
     fetchPriority: image.aboveFold === true ? "high" : "auto",
-    ...(image.placeholderColor === undefined
-      ? {}
-      : { style: { backgroundColor: image.placeholderColor } }),
+    ...(style === undefined ? {} : { style }),
+  };
+}
+
+/** A preview `imagePreviewFault` refuses is left out, so no caller can emit one. */
+function imagePlaceholder(
+  image: Pick<ImageSource, "placeholderColor" | "placeholderPreview">,
+): ImagePlaceholderStyle | undefined {
+  const color =
+    image.placeholderColor === undefined
+      ? undefined
+      : { backgroundColor: image.placeholderColor };
+  const preview = image.placeholderPreview;
+  if (preview === undefined || imagePreviewFault(preview) !== undefined) {
+    return color;
+  }
+  return {
+    ...color,
+    backgroundImage: `url("${preview}")`,
+    // A preview a few pixels wide, stretched, is the blur.
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
   };
 }
 
@@ -126,8 +159,22 @@ function refuseUnusableImage(image: ImageSource, page: PageContext): void {
     );
   }
 
+  if (image.placeholderPreview !== undefined) {
+    const reason = imagePreviewFault(image.placeholderPreview);
+    if (reason !== undefined) {
+      const subject =
+        source === undefined ? `image ${quote(image.src)} carries` : "image carries";
+      sections.push(
+        `${where}: ${subject} a placeholderPreview that is not an image preview, so none is written into the page — ${PREVIEW_FIX}:\n  ${quote(excerpt(image.placeholderPreview, redactSource))} — ${reason}`,
+      );
+    }
+  }
+
   if (sections.length > 0) throw new RenderError(sections.join("\n\n"));
 }
+
+const PREVIEW_FIX =
+  "pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out";
 
 function sourceFault(src: unknown): string | undefined {
   if (typeof src !== "string") return "not a string";

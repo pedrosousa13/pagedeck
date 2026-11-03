@@ -650,8 +650,9 @@ service.
 It claims the word *probe* on the terms **External link probe** sets, and is
 told apart from that one the way **Script loader** is told apart from *loader*:
 by compounding. Write "dominant-color probe" in any sentence that could be about
-either, and the bare noun only inside `packages/content/src/colors.ts`, where
-there is nothing else a probe could be. Both carry the sense the word has —
+either, and the bare noun only inside `packages/content/src/colors.ts` and its
+siblings `previews.ts` and `probing.ts`, where there is nothing else a probe
+could be. Both carry the sense the word has —
 something that goes and asks a host about one thing — and this is the second, so
 the exception is scoped rather than a race to claim it.
 
@@ -670,10 +671,43 @@ generator (the placeholder is what core makes of the answer)
 The one CSS color a **dominant-color probe** answered for one image source,
 cached in the store by source and rendered as that image's background until it
 loads (`ContentStore.getImageColor`, `ImageSource.placeholderColor`). It is a
-value, not an image: spec §10's blur-up and LQIP placeholders are pictures, and
-this is one property in a `style`.
+value, not an image: an **Image preview** is a picture, and this is one
+property in a `style`, which stays under the preview when both are cached.
 _Avoid_: placeholder image, LQIP, blur-up, thumbnail, average color (it is what
 the site's probe decided, and core never says how)
+
+**Image-preview probe**:
+The site-supplied function a collection's `imagePreviews` names: in, one image
+source; out, an **Image preview** or `undefined` (`ImagePreviewProbe`, spec
+§10, #276). It is the **Dominant-color probe**'s sibling and takes everything
+from it: one call per unique source at sync time, a concurrency ceiling, a
+cached `undefined`, a throw warned about and retried, the same standing
+decision below. Core ships none, for the same reason: it decodes no images, so
+a site asks its CDN for the asset a few pixels wide, or makes one some other
+way.
+
+The one thing it adds is a check on the answer before it is cached:
+`imagePreviewFault` (`packages/content/src/preview.ts`) admits only a base64
+png, jpeg, webp, avif or gif data URI of at most `MAX_PREVIEW_BYTES`, and
+anything else fails the sync naming the collection, each entry holding the
+source, the source, the cap and the fix. A color answer goes into a `style`
+property as text React escapes; a preview goes into a CSS `url()` inside that
+property, so it is held to an alphabet that cannot close either.
+_Avoid_: LQIP generator, thumbnail adapter (it is not an adapter, for the
+dominant-color probe's reason), blur probe (the blur is what core does with
+the answer)
+
+**Image preview**:
+The data URI an **Image-preview probe** answered for one image source, cached
+in the store by source (`ContentStore.getImagePreview`,
+`ImageSource.placeholderPreview`) and painted by `imageAttributes` as the
+image's stretched `background-image`, over its **Dominant color** when there is
+one. Stretching a few pixels over the element is the blur; core applies no
+filter. `imageAttributes` runs `imagePreviewFault` again before it writes one,
+because a store is a file that is pushed and pulled and a site may pass any
+string.
+_Avoid_: LQIP, thumbnail, placeholder image (the placeholder is the whole
+`style`, color included)
 
 **Island**:
 A component the build marks in the emitted HTML so the client runtime can
@@ -2396,7 +2430,8 @@ should heal itself and a permanent one should be visible; only retrying gives
 both of those what they want. A probe that answers with something that is *not*
 a color is the other half of that entry too — a `CollectionError`, exit 2,
 because a declared function answers that way on every run until somebody edits
-it. Ruled on #44.
+it. Ruled on #44. It binds the **Image-preview probe** the same way, whose refused
+answers are the ones `imagePreviewFault` names (#276).
 
 ### An image's fold verdict is a node's, and the caller states it
 

@@ -449,7 +449,11 @@ mechanism is byte-identical to no-mechanism when drift is absent.
   (CLS-safe), below-fold lazy-loading, and `fetchpriority=high` above the fold
   — driven by fold score.
 - Placeholders: **dominant-color** (one CDN request per unique image at sync
-  time, cached in the store). Full blur-up LQIP deferred with the sharp plugin.
+  time, cached in the store) and **blur-up preview** (#276): a site-supplied
+  probe answers each unique image once at sync time with a base64 png, jpeg,
+  webp, avif or gif data URI of at most 2048 bytes, core validates and caches
+  it, and the image paints it stretched over its dominant color. Core ships no
+  image decoder and needs no sharp plugin for either.
 
 ### Fonts
 

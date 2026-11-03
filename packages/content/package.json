@@ -23,6 +23,11 @@
       "source": "./src/escape.ts",
       "types": "./dist/escape.d.ts",
       "default": "./dist/escape.js"
+    },
+    "./preview": {
+      "source": "./src/preview.ts",
+      "types": "./dist/preview.d.ts",
+      "default": "./dist/preview.js"
     }
   },
   "files": [

@@ -16,12 +16,19 @@ export type {
   CollectionWriter,
   EntryId,
   ImageColorsSetting,
+  ImagePreviewsSetting,
   Loader,
   SyncResult,
   TemplateUsage,
 } from "./collection.js";
 export { DEFAULT_COLOR_CONCURRENCY, syncImageColors } from "./colors.js";
 export type { ImageColorProbe, SyncImageColorsInput } from "./colors.js";
+export { DEFAULT_PREVIEW_CONCURRENCY, syncImagePreviews } from "./previews.js";
+export type {
+  ImagePreviewProbe,
+  ImagePreviewSource,
+  SyncImagePreviewsInput,
+} from "./previews.js";
 export type { StandardSchemaV1 } from "@standard-schema/spec";
 export { openStore, openStoreReadOnly } from "./store.js";
 export type {
