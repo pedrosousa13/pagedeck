@@ -1431,6 +1431,56 @@ test("every refused prop name is reported, not the first", async () => {
   );
 });
 
+function Badge({ icon, extras }: { icon: ReactNode; extras: ReactNode[] }) {
+  return (
+    <span className="badge">
+      {icon}
+      {extras}
+    </span>
+  );
+}
+
+test("a node that is not an island renders an element in its props, at the top and in an array", async () => {
+  const { html } = await renderPage({
+    page: PAGE,
+    tree: [
+      {
+        component: "Badge",
+        props: {
+          icon: <i className="icon" />,
+          extras: [<b key="one">one</b>, <em key="two">two</em>],
+        },
+      },
+    ],
+    registry: { Badge: component(Badge) },
+  });
+
+  expect(html).toBe(
+    '<span class="badge"><i class="icon"></i><b>one</b><em>two</em></span>',
+  );
+});
+
+test("a plain object the site wrote with key and ref fields is still refused on a node that is not an island", async () => {
+  await expect(
+    renderPage({
+      page: PAGE,
+      tree: [
+        {
+          component: "Badge",
+          props: { icon: { key: "one", ref: "two" }, extras: [] },
+        },
+      ],
+      registry: { Badge: component(Badge) },
+    }),
+  ).rejects.toThrowError(
+    new RenderError(
+      "Entry /en/home: the framework refuses 2 component props — an entry's props are content and the build hands them to React unchanged, so rename, replace or flatten each one below:\n" +
+        "  Badge: icon.key is a name the framework refuses — rename the field\n" +
+        "  Badge: icon.ref is a name the framework refuses — rename the field",
+    ),
+  );
+});
+
 test("an accessor prop is refused, whatever it would have returned", async () => {
   const props: Record<string, unknown> = {};
   Object.defineProperty(props, "evil", {
