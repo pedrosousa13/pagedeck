@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { expect, test } from "vitest";
-import { ConfigError, scriptRuntimeBase } from "@pagedeck/core";
+import {
+  ConfigError,
+  defineScripts,
+  inlineScriptFault,
+  loadedScriptStrategy,
+  scriptRuntimeBase,
+} from "@pagedeck/core";
 import type { ScriptDeclaration } from "@pagedeck/core";
 import { partytownSnippet } from "@qwik.dev/partytown/integration";
 import { libDirPath } from "@qwik.dev/partytown/utils";
@@ -34,7 +40,7 @@ function configOf(snippet: string): Record<string, unknown> {
 }
 
 /** What Partytown's worker does with a function-valued config string. */
-type ResolveUrl = (url: URL, location: URL) => URL | undefined;
+type ResolveUrl = (url: URL, location: URL, type: string) => URL | undefined;
 function workerResolveUrl(snippet: string): ResolveUrl {
   const source = configOf(snippet)["resolveUrl"];
   expect(typeof source).toBe("string");
@@ -49,10 +55,34 @@ test("the runtime declares Partytown's service-worker files and no Atomics or de
     "partytown-sw.js",
     "partytown-media.js",
     "partytown-sandbox-sw.html",
+    "partytown-config.txt",
   ]);
-  for (const { name, contents } of runtime.files) {
+  for (const { name, contents } of runtime.files.slice(0, 3)) {
     expect(Buffer.from(contents).equals(readFileSync(join(lib, name)))).toBe(true);
   }
+});
+
+test("every option the snippet carries moves the runtime's directory", () => {
+  const base = (options: Parameters<typeof definePartytown>[0]): string =>
+    scriptRuntimeBase(definePartytown(options).files);
+  const plain = base({});
+
+  for (const options of [
+    { resolveUrl: { "https://collector.example": "/vendor/collector/" } },
+    { resolveUrl: { "https://collector.example": "/vendor/other/" } },
+    { forward: ["dataLayer.push"] },
+    { loadScriptsOnMainThread: [/ab\.js$/] },
+    { loadScriptsOnMainThread: [/cd\.js$/] },
+    { fallbackTimeout: 0 },
+  ]) {
+    expect(`${JSON.stringify(options)}: ${String(base(options) === plain)}`).toBe(
+      `${JSON.stringify(options)}: false`,
+    );
+  }
+  expect(base({ loadScriptsOnMainThread: [/ab\.js$/] })).not.toBe(
+    base({ loadScriptsOnMainThread: [/cd\.js$/] }),
+  );
+  expect(base({})).toBe(plain);
 });
 
 test("a page's worker loadout is Partytown's snippet pointed at the runtime's own directory, then one text/partytown element per script", () => {
@@ -94,21 +124,30 @@ test("the snippet's CSP hash is known before any build, and matches the bytes a 
   );
 });
 
-test("a worker script that declares integrity is refused, because the worker would fetch it unchecked", () => {
+test("every worker script that declares integrity is refused when the config loads, because the worker would fetch it unchecked", () => {
   const runtime = definePartytown();
   const call = (): unknown =>
-    runtime({
+    defineScripts({
       scripts: [
         { ...TAGS, integrity: "sha384-abc" },
         { name: "pixel", src: "/pixel.js", integrity: "sha256-def" },
         { name: "plain", src: "/plain.js" },
       ],
+      runtime,
     });
 
+  expect(runtime.checksIntegrity).toBe(false);
   expect(call).toThrow(ConfigError);
   expect(call).toThrow(
-    'Partytown runtime: 2 worker scripts declare integrity, and Partytown fetches a worker script from inside its worker with no integrity check, so each would load unchecked — declare strategy: "idle" for each, which keeps the check, or drop integrity:\n  "tags"\n  "pixel"',
+    'Script settings: "runtime" loads a worker script without checking its integrity, and 2 scripts that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:\n  "tags" — declares no strategy, so it takes the worker default\n  "pixel" — declares no strategy, so it takes the worker default',
   );
+});
+
+test("a categorized worker script still falls back to idle with Partytown configured (#47)", () => {
+  const gated: ScriptDeclaration = { ...TAGS, category: "analytics" };
+  const settings = defineScripts({ scripts: [gated], runtime: definePartytown() });
+
+  expect(loadedScriptStrategy(settings, gated, { locale: "en", path: "/" })).toBe("idle");
 });
 
 test("resolveUrl sends a declared vendor origin to the path prefix this site proxies it under", () => {
@@ -121,12 +160,28 @@ test("resolveUrl sends a declared vendor origin to the path prefix this site pro
   );
   const page = new URL("https://site.example/pricing");
 
-  expect(resolve(new URL("https://collector.example/g/collect?v=2"), page)?.href).toBe(
-    "https://site.example/vendor/collector/g/collect?v=2",
-  );
-  expect(resolve(new URL("https://collector.example//evil.example/x"), page)?.href).toBe(
+  for (const type of ["fetch", "xhr", "script", "image", "sendBeacon"]) {
+    expect(resolve(new URL("https://collector.example/g/collect?v=2"), page, type)?.href).toBe(
+      "https://site.example/vendor/collector/g/collect?v=2",
+    );
+  }
+  expect(resolve(new URL("https://collector.example//evil.example/x"), page, "fetch")?.href).toBe(
     "https://site.example/vendor/collector//evil.example/x",
   );
+});
+
+test("resolveUrl never proxies a document: an iframe keeps the vendor's own origin", () => {
+  const resolve = workerResolveUrl(
+    inlineText(
+      definePartytown({
+        resolveUrl: { "https://collector.example": "/vendor/collector/" },
+      })({ scripts: [TAGS] })[0],
+    ),
+  );
+
+  expect(
+    resolve(new URL("https://collector.example/frame"), new URL("https://site.example/"), "iframe"),
+  ).toBeUndefined();
 });
 
 test("resolveUrl leaves every origin it was not given to Partytown's default", () => {
@@ -146,7 +201,7 @@ test("resolveUrl leaves every origin it was not given to Partytown's default", (
     "https://collector.example:8443/g",
     "https://site.example/vendor/collector/x",
   ]) {
-    expect(`${href}: ${String(resolve(new URL(href), page))}`).toBe(`${href}: undefined`);
+    expect(`${href}: ${String(resolve(new URL(href), page, "fetch"))}`).toBe(`${href}: undefined`);
   }
 });
 
@@ -168,13 +223,19 @@ test("every resolveUrl route that is not an https origin to a path prefix on thi
         "https://e.example": "/vendor/e",
         "https://f.example": "/vendor/../f/",
         "https://g.example": "https://evil.example/",
+        "http://h.example": "vendor/h",
+        "https://i.example.": "/vendor/i/",
+        "https://127.0.0.1": "/vendor/j/",
+        "https://[::1]": "/vendor/k/",
+        "https://localhost": "/vendor/l/",
+        "https://m.localhost": "/vendor/m/",
       },
     });
 
   expect(call).toThrow(ConfigError);
   expect(call).toThrow(
     [
-      'Partytown runtime: "resolveUrl" declares 7 routes this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin, with no path, and each value as a path prefix that starts and ends with "/", such as resolveUrl: { "https://collector.example": "/vendor/collector/" }:',
+      'Partytown runtime "build.scripts.runtime": "resolveUrl" declares 13 routes this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin of a vendor\'s DNS name, with no path, and each value as a path prefix that starts and ends with "/", such as resolveUrl: { "https://collector.example": "/vendor/collector/" }:',
       '  "https://a.example/path" — not an https origin with nothing after the host',
       '  "http://b.example" — not an https origin with nothing after the host',
       '  "https://user@c.example" — not an https origin with nothing after the host',
@@ -182,15 +243,45 @@ test("every resolveUrl route that is not an https origin to a path prefix on thi
       '  "https://e.example" → "/vendor/e" — not a path prefix on this site',
       '  "https://f.example" → "/vendor/../f/" — not a path prefix on this site',
       '  "https://g.example" → "https://evil.example/" — not a path prefix on this site',
+      '  "http://h.example" → "vendor/h" — not an https origin with nothing after the host, and not a path prefix on this site',
+      '  "https://i.example." — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
+      '  "https://127.0.0.1" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
+      '  "https://[::1]" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
+      '  "https://localhost" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
+      '  "https://m.localhost" — names a host ending in ".", an IP address or localhost, which is not a vendor\'s DNS name',
     ].join("\n"),
   );
 });
 
-test("a snippet that would end its own script element is refused before any page carries it", () => {
-  const call = (): unknown => definePartytown({ forward: ["x</script><script>alert(1)//"] });
+test("an option that would end the snippet's own script element is refused by name before any page carries it", () => {
+  const call = (): unknown =>
+    definePartytown({
+      forward: ["x</script><script>alert(1)//"],
+      globalFns: ["y<!--"],
+    });
 
   expect(call).toThrow(ConfigError);
   expect(call).toThrow(
-    'Partytown runtime: the snippet this config produces holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script" — the snippet carries forward, globalFns, mainWindowAccessors and loadScriptsOnMainThread as written, so take the sequence out of whichever holds it',
+    [
+      'Partytown runtime "build.scripts.runtime": 2 options hold a sequence that cannot sit inside the snippet\'s <script> element, which carries each option as written — take the sequence out of each:',
+      '  "forward" — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"',
+      '  "globalFns" — holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
+    ].join("\n"),
   );
+});
+
+test("the snippet Partytown writes passes core's inline script check with every option set", () => {
+  const snippet = inlineText(
+    definePartytown({
+      forward: ["dataLayer.push", ["fbq", { preserveBehavior: true }]],
+      resolveUrl: { "https://collector.example": "/vendor/collector/" },
+      globalFns: ["gtag"],
+      mainWindowAccessors: ["config"],
+      loadScriptsOnMainThread: ["https://example.com/main.js", /main\.js$/],
+      fallbackTimeout: 5000,
+      strictProxyHas: true,
+    })({ scripts: [TAGS] })[0],
+  );
+
+  expect(inlineScriptFault(snippet)).toBeUndefined();
 });

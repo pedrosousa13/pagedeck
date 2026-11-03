@@ -15,6 +15,7 @@ const execFileAsync = promisify(execFile);
 
 const SITE = join(import.meta.dirname, "..", ".pagedeck-partytown-build-test");
 const OUT = join(SITE, "dist");
+const RESOLVED_SITE = join(import.meta.dirname, "..", ".pagedeck-partytown-resolve-test");
 
 /** The executable as it ships; `pnpm test` builds first (#177). */
 const BIN = join(import.meta.dirname, "..", "..", "core", "dist", "bin.js");
@@ -40,17 +41,17 @@ function documentedModule(): string {
   return module;
 }
 
-function writeSite(): void {
-  rmSync(SITE, { recursive: true, force: true });
-  mkdirSync(join(SITE, "src"), { recursive: true });
-  mkdirSync(join(SITE, "components"), { recursive: true });
-  writeFileSync(join(SITE, "src", "scripts.ts"), documentedModule());
+function writeSite(site = SITE, module = documentedModule()): void {
+  rmSync(site, { recursive: true, force: true });
+  mkdirSync(join(site, "src"), { recursive: true });
+  mkdirSync(join(site, "components"), { recursive: true });
+  writeFileSync(join(site, "src", "scripts.ts"), module);
   writeFileSync(
-    join(SITE, "components", "Prose.js"),
+    join(site, "components", "Prose.js"),
     "export default function Prose() { return \"marker-prose-41d7\"; }\n",
   );
   writeFileSync(
-    join(SITE, "pagedeck.config.ts"),
+    join(site, "pagedeck.config.ts"),
     `
 import { defineConfig, defineLocales, definePages, fromCollection, SECURITY_HEADERS } from "@pagedeck/core";
 import { scripts } from "./src/scripts.ts";
@@ -101,9 +102,9 @@ export default defineConfig({
 
 const diagnostics = new Map<string, string>();
 
-async function run(verb: string): Promise<void> {
-  const { stderr } = await execFileAsync(process.execPath, [BIN, verb], {
-    cwd: SITE,
+async function run(verb: string, cwd = SITE, ...flags: string[]): Promise<string> {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [BIN, verb, ...flags], {
+    cwd,
   });
   diagnostics.set(
     verb,
@@ -112,6 +113,7 @@ async function run(verb: string): Promise<void> {
       .filter((line) => line.startsWith(`${DIAGNOSTIC_MARKER} `))
       .join("\n"),
   );
+  return stdout;
 }
 
 let manifest: Manifest;
@@ -126,6 +128,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   rmSync(SITE, { recursive: true, force: true });
+  rmSync(RESOLVED_SITE, { recursive: true, force: true });
 });
 
 function documents(): Map<string, string> {
@@ -179,13 +182,18 @@ test("Partytown's files are written once, hashed, under the directory the snippe
 
   const rows = manifest.files.filter((file) => file.path.startsWith("/script-runtime/"));
   expect(rows.map(({ path, kind, hashed }) => ({ path, kind, hashed }))).toEqual(
-    ["partytown-media.js", "partytown-sandbox-sw.html", "partytown-sw.js"].map((name) => ({
+    [
+      "partytown-config.txt",
+      "partytown-media.js",
+      "partytown-sandbox-sw.html",
+      "partytown-sw.js",
+    ].map((name) => ({
       path: `${lib}${name}`,
       kind: "asset",
       hashed: true,
     })),
   );
-  for (const { path } of rows) {
+  for (const { path } of rows.filter(({ path }) => !path.endsWith(".txt"))) {
     const name = path.slice(lib.length);
     expect(readFileSync(join(OUT, path)).equals(readFileSync(join(libDirPath(), name)))).toBe(
       true,
@@ -203,3 +211,40 @@ test("the hash the runtime reports is the hash of the snippet every page carries
     expect(runtime.inlineScriptHash).toBe(`'sha256-${digest}'`);
   }
 });
+
+function resolvedModule(prefix: string): string {
+  return `import { defineScripts } from "@pagedeck/core";
+import { definePartytown } from "@pagedeck/script-worker";
+
+export const scripts = defineScripts({
+  scripts: [
+    { name: "tags", src: "https://example.com/gtm.js" },
+    { name: "pixel", src: "https://example.com/pixel.js", category: "analytics" },
+  ],
+  runtime: definePartytown({ resolveUrl: { "https://collector.example": ${JSON.stringify(prefix)} } }),
+});
+`;
+}
+
+test("an incremental build after only resolveUrl changes renders again every page the old snippet was on", async () => {
+  writeSite(RESOLVED_SITE, resolvedModule("/vendor/collector/"));
+  await run("sync", RESOLVED_SITE);
+  await run("build", RESOLVED_SITE);
+  writeFileSync(join(RESOLVED_SITE, "src", "scripts.ts"), resolvedModule("/vendor/collector-v2/"));
+
+  expect(await run("build", RESOLVED_SITE, "--incremental")).toContain(
+    "incremental: 2 of 2 pages rendered, 0 reused, 0 removed",
+  );
+  const dist = join(RESOLVED_SITE, "dist");
+  const file = join(dist, "manifest.json");
+  const built = readManifest(readFileSync(file, "utf8"), file);
+  for (const page of built.pages) {
+    const html = readFileSync(join(dist, page.html), "utf8");
+    expect(html).toContain("/vendor/collector-v2/");
+    expect(html).not.toContain('"/vendor/collector/"');
+    expect(readFileSync(join(dist, libOf(snippetOf(html)), "partytown-sw.js")).length).toBeGreaterThan(0);
+    // #47: the categorized script is on the idle loader, behind the gate, and never on the worker.
+    expect(html).not.toContain('type="text/partytown" src="https://example.com/pixel.js"');
+    expect(html).toContain('"https://example.com/pixel.js","analytics"');
+  }
+}, 240_000);

@@ -31,6 +31,7 @@ export interface PartytownOptions {
 
 export interface PartytownRuntime extends ScriptRuntimeAdapter {
   readonly files: readonly ScriptRuntimeFile[];
+  readonly checksIntegrity: false;
   /** The CSP source expression for the snippet every worker page carries. */
   readonly inlineScriptHash: string;
 }
@@ -38,7 +39,22 @@ export interface PartytownRuntime extends ScriptRuntimeAdapter {
 /** No `partytown.js`: the snippet inlines it. No Atomics file: service-worker mode only (#275). */
 const LIB_FILES = ["partytown-sw.js", "partytown-media.js", "partytown-sandbox-sw.html"];
 
-const WHERE = "Partytown runtime";
+const WHERE = 'Partytown runtime "build.scripts.runtime"';
+
+/**
+ * The snippet with no `lib`, written beside the lib files so that a change to
+ * any option moves the directory, and the build renders again every page that
+ * named the old one (#275).
+ */
+const CONFIG_FILE = "partytown-config.txt";
+
+/** The options the snippet carries as written, which an option's text can break out of. */
+const WRITTEN_OPTIONS = [
+  "forward",
+  "globalFns",
+  "mainWindowAccessors",
+  "loadScriptsOnMainThread",
+] as const;
 
 const ROUTES_FIX =
   'resolveUrl: { "https://collector.example": "/vendor/collector/" }';
@@ -46,66 +62,103 @@ const ROUTES_FIX =
 const PATH_PREFIX = /^\/(?:[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)+$/;
 
 export function definePartytown(options: PartytownOptions = {}): PartytownRuntime {
-  const lib = libDirPath();
-  const files: readonly ScriptRuntimeFile[] = LIB_FILES.map((name) => ({
-    name,
-    contents: readFileSync(join(lib, name)),
-  }));
-
   const routes = options.resolveUrl;
   if (routes !== undefined) {
     const report = routesFaultReport(routes);
     if (report !== undefined) throw new ConfigError(report);
   }
+  const written = writtenOptionsFaultReport(options);
+  if (written !== undefined) throw new ConfigError(written);
+
   const { resolveUrl: _, ...passed } = options;
-  const config = {
-    ...passed,
-    lib: scriptRuntimeBase(files),
-    ...(routes === undefined ? {} : { resolveUrl: resolveUrlFunction(routes) }),
-  } as PartytownConfig;
-  const snippet = partytownSnippet(config);
-  const fault = inlineScriptFault(snippet);
-  if (fault !== undefined) {
-    throw new ConfigError(
-      `${WHERE}: the snippet this config produces ${fault} — the snippet carries forward, globalFns, mainWindowAccessors and loadScriptsOnMainThread as written, so take the sequence out of whichever holds it`,
-    );
-  }
+  const snippetAt = (lib: string): string =>
+    partytownSnippet({
+      ...passed,
+      lib,
+      ...(routes === undefined ? {} : { resolveUrl: resolveUrlFunction(routes) }),
+    } as PartytownConfig);
+  const lib = libDirPath();
+  const files: readonly ScriptRuntimeFile[] = [
+    ...LIB_FILES.map((name) => ({ name, contents: readFileSync(join(lib, name)) })),
+    { name: CONFIG_FILE, contents: snippetAt("/") },
+  ];
+  const snippet = snippetAt(scriptRuntimeBase(files));
   const element = `<script>${snippet}</script>`;
 
-  const runtime = ({ scripts }: ScriptRuntimeRequest): readonly string[] => {
-    const checked = scripts.filter((script) => script.integrity !== undefined);
-    if (checked.length > 0) throw new ConfigError(integrityReport(checked));
-    return [element, ...scripts.map(scriptElement)];
-  };
+  const runtime = ({ scripts }: ScriptRuntimeRequest): readonly string[] => [
+    element,
+    ...scripts.map(scriptElement),
+  ];
   return Object.assign(runtime, {
     files,
+    checksIntegrity: false as const,
     inlineScriptHash: `'sha256-${createHash("sha256").update(snippet, "utf8").digest("base64")}'`,
   });
+}
+
+function writtenOptionsFaultReport(options: PartytownOptions): string | undefined {
+  const faults = WRITTEN_OPTIONS.flatMap((name) => {
+    const value = options[name];
+    if (value === undefined) return [];
+    const fault = inlineScriptFault(
+      JSON.stringify(value, (_key, item: unknown) =>
+        item instanceof RegExp ? item.source : item,
+      ),
+    );
+    return fault === undefined ? [] : [`  ${JSON.stringify(name)} — ${fault}`];
+  });
+  if (faults.length === 0) return undefined;
+  return `${WHERE}: ${String(faults.length)} ${
+    faults.length === 1 ? "option holds" : "options hold"
+  } a sequence that cannot sit inside the snippet's <script> element, which carries each option as written — take the sequence out of ${
+    faults.length === 1 ? "it" : "each"
+  }:\n${faults.join("\n")}`;
 }
 
 function routesFaultReport(routes: PartytownRoutes): string | undefined {
   const faults: string[] = [];
   for (const [origin, prefix] of Object.entries(routes)) {
+    const prefixFault = typeof prefix !== "string" || !isPathPrefix(prefix);
+    const shown = prefixFault
+      ? `${JSON.stringify(origin)} → ${JSON.stringify(prefix)}`
+      : JSON.stringify(origin);
     if (!isHttpsOrigin(origin)) {
       faults.push(
-        `  ${JSON.stringify(origin)} — not an https origin with nothing after the host`,
+        `  ${shown} — not an https origin with nothing after the host${
+          prefixFault ? ", and not a path prefix on this site" : ""
+        }`,
       );
-    } else if (typeof prefix !== "string" || !isPathPrefix(prefix)) {
+    } else if (!isDnsName(new URL(origin).hostname)) {
       faults.push(
-        `  ${JSON.stringify(origin)} → ${JSON.stringify(prefix)} — not a path prefix on this site`,
+        `  ${shown} — names a host ending in ".", an IP address or localhost, which is not a vendor's DNS name${
+          prefixFault ? ", and not a path prefix on this site" : ""
+        }`,
       );
+    } else if (prefixFault) {
+      faults.push(`  ${shown} — not a path prefix on this site`);
     }
   }
   if (faults.length === 0) return undefined;
   return `${WHERE}: "resolveUrl" declares ${String(faults.length)} ${
     faults.length === 1 ? "route" : "routes"
-  } this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin, with no path, and each value as a path prefix that starts and ends with "/", such as ${ROUTES_FIX}:\n${faults.join("\n")}`;
+  } this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin of a vendor's DNS name, with no path, and each value as a path prefix that starts and ends with "/", such as ${ROUTES_FIX}:\n${faults.join("\n")}`;
 }
 
 function isHttpsOrigin(value: string): boolean {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
   return url.protocol === "https:" && url.origin === value;
+}
+
+/** The URL parser has already normalized every IPv4 spelling to dotted decimal. */
+function isDnsName(host: string): boolean {
+  return (
+    !host.endsWith(".") &&
+    !host.startsWith("[") &&
+    !/^\d+\.\d+\.\d+\.\d+$/.test(host) &&
+    host !== "localhost" &&
+    !host.endsWith(".localhost")
+  );
 }
 
 function isPathPrefix(value: string): boolean {
@@ -121,22 +174,9 @@ function resolveUrlFunction(routes: PartytownRoutes): (url: URL) => URL | undefi
   return new Function(
     "url",
     "location",
-    `var routes=${table};if(Object.prototype.hasOwnProperty.call(routes,url.origin))return new URL(routes[url.origin]+url.pathname.slice(1)+url.search,location.href)`,
+    "type",
+    `if(type==="iframe")return;var routes=${table};if(Object.prototype.hasOwnProperty.call(routes,url.origin))return new URL(routes[url.origin]+url.pathname.slice(1)+url.search,location.href)`,
   ) as (url: URL) => URL | undefined;
-}
-
-function integrityReport(scripts: readonly ScriptDeclaration[]): string {
-  const subject =
-    scripts.length === 1
-      ? "1 worker script declares integrity, and Partytown fetches a worker script from inside its worker with no integrity check, so it would load unchecked"
-      : `${String(scripts.length)} worker scripts declare integrity, and Partytown fetches a worker script from inside its worker with no integrity check, so each would load unchecked`;
-  const fix =
-    scripts.length === 1
-      ? 'declare strategy: "idle" for it, which keeps the check, or drop integrity'
-      : 'declare strategy: "idle" for each, which keeps the check, or drop integrity';
-  return `${WHERE}: ${subject} — ${fix}:\n${scripts
-    .map(({ name }) => `  ${JSON.stringify(name)}`)
-    .join("\n")}`;
 }
 
 function scriptElement(script: ScriptDeclaration): string {
