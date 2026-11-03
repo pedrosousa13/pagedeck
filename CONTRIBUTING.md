@@ -79,4 +79,10 @@ too.
 `AGENTS.md` holds the rules for working in this repository, and its index
 names the maintainer docs in `docs/maintaining/`. `GLOSSARY.md` holds the
 project's vocabulary and the decisions that bind later work. `docs/adr/` holds
-the architectural decisions.
+the architectural decisions. A package's README records rulings on that
+package's behaviour, each marked with the issue that made it, such as "ruled
+on #89". How a build failure is written is under "Error messages" above.
+
+In review, a change that contradicts a ruling recorded in `GLOSSARY.md`, an
+ADR or a package README is a hard violation. The fix is to keep the ruling, or
+to stop and ask the maintainer.
