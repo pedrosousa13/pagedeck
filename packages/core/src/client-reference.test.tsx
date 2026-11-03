@@ -383,24 +383,46 @@ test("a refused prop and a prop slot placed twice are reported in one throw", as
   );
 });
 
-test("an entry-tree island given an element in its props is still refused", async () => {
-  function Tabs({ icon }: { icon?: ReactNode }) {
+test("an entry-tree island given an element in its props is refused once per element path", async () => {
+  function Tabs({ icon }: { icon?: ReactNode; items?: ReactNode[] }) {
     return <div className="tabs">{icon}</div>;
   }
 
   const failure = await renderPage({
     page: PAGE,
-    tree: [{ component: "Tabs", props: { icon: <i>icon</i> } }],
+    tree: [
+      {
+        component: "Tabs",
+        props: { icon: <i>icon</i>, items: ["text", <b key="b">bold</b>] },
+      },
+    ],
     registry: { Tabs: { ...component(Tabs), hydrate: "load" } },
   }).catch((error: unknown) => error);
 
   expect(failure).toBeInstanceOf(RenderError);
-  const message = (failure as Error).message;
-  expect(message).toMatch(
-    /^Entry \/en\/home: the framework refuses \d+ component props — an entry's props are content and the build hands them to React unchanged, so rename, replace or flatten each one below:\n/,
+  const line = (path: string): string =>
+    `  Tabs: ${path} is a React element — an island the entry tree places hands its props to the browser as JSON, which cannot carry an element, so place the element in the entry tree as the island's child, where it becomes a tree slot, or render the island from component code, where an element prop becomes a prop slot`;
+  expect((failure as Error).message).toBe(
+    `Entry /en/home: the framework refuses 2 component props — an entry's props are content and the build hands them to React unchanged, so fix each one below:\n${line("icon")}\n${line("items.1")}`,
   );
-  expect(message).toContain(
-    "  Tabs: icon.key is a name the framework refuses — rename the field\n",
+});
+
+test("an element past depth 32 in an entry-tree island's props is refused as too deep", async () => {
+  function Tabs() {
+    return <div className="tabs" />;
+  }
+  let deep: Record<string, unknown> = { next: <i>icon</i> };
+  for (let level = 0; level < 31; level++) deep = { next: deep };
+
+  const failure = await renderPage({
+    page: PAGE,
+    tree: [{ component: "Tabs", props: { deep } }],
+    registry: { Tabs: { ...component(Tabs), hydrate: "load" } },
+  }).catch((error: unknown) => error);
+
+  expect(failure).toBeInstanceOf(RenderError);
+  expect((failure as Error).message).toMatch(
+    /^Component "Tabs": prop "deep(\.next){32}" is nested more than 32 levels deep, /,
   );
 });
 

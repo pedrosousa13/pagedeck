@@ -1,6 +1,13 @@
 // Browser-safe by construction: nothing here imports `node:` or a bundler,
 // which is what lets `@pagedeck/core/tree` ship to preview (spec §14).
-import { createContext, createElement, Fragment, use, useContext } from "react";
+import {
+  createContext,
+  createElement,
+  Fragment,
+  isValidElement,
+  use,
+  useContext,
+} from "react";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 import {
   entryId,
@@ -493,6 +500,16 @@ const tooDeep = (at: readonly string[]): Omit<RefusedProp, "component"> =>
     TOO_DEEP_REASON,
   );
 
+const ELEMENT_PROBLEM = "a React element";
+
+const elementProp = (at: readonly string[]): Omit<RefusedProp, "component"> =>
+  refusal(
+    at,
+    ELEMENT_PROBLEM,
+    "place the element in the entry tree as the island's child, where it becomes a tree slot, or render the island from component code, where an element prop becomes a prop slot",
+    "an island the entry tree places hands its props to the browser as JSON, which cannot carry an element",
+  );
+
 /**
  * Reads values off descriptors, so an accessor is refused without being run.
  */
@@ -507,6 +524,10 @@ export function refusedProps(
   seen.add(value);
   if (path.length > MAXIMUM_PROP_DEPTH) {
     found.push(tooDeep(path));
+    return;
+  }
+  if (isValidElement(value)) {
+    found.push(elementProp(path));
     return;
   }
   for (const key of Reflect.ownKeys(value)) {
@@ -748,7 +769,7 @@ export function nodeRefusedFailure(
   }
   const detail = refused.map(refusedLine).join("\n");
   return new RenderError(
-    `Entry ${entryId(page)}: the framework refuses ${String(refused.length)} component props — ${NODE_REFUSED_FIX}, so rename, replace or flatten each one below:\n${detail}`,
+    `Entry ${entryId(page)}: the framework refuses ${String(refused.length)} component props — ${NODE_REFUSED_FIX}, so ${refused.some((prop) => prop.problem === ELEMENT_PROBLEM) ? "fix" : "rename, replace or flatten"} each one below:\n${detail}`,
   );
 }
 
