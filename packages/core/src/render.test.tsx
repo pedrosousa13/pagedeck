@@ -1111,6 +1111,7 @@ test("a component error React recovered into a fallback still fails the page", a
   );
 });
 
+// Prop slots have their own render-twice case in prop-slots.test.tsx (#253).
 test("rendering the same page twice returns byte-identical HTML", async () => {
   const input = {
     page: PAGE,
