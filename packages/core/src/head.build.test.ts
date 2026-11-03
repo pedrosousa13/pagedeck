@@ -339,7 +339,7 @@ const ORDERED = `${DECLARED_HEAD}
         body: scripts.map((s) => '<script type="text/x-worker" src="' + s.src + '"></script>'),
       }),
     },
-    prePaint: ["window.prePaint = 1"],`;
+    prePaint: ["/* pre-paint */ window.prePaint = 1"],`;
 
 test("the head's children are written in the documented order", async () => {
   const site = await build(ORDER_SITE, ORDERED);
@@ -355,7 +355,7 @@ test("the head's children are written in the documented order", async () => {
     'meta property="og:image"',
     'link rel="modulepreload"',
     'script data-runtime="head"',
-    "script",
+    "script /* pre-paint */",
     'link rel="stylesheet"',
     'script type="application/ld+json"',
   ]);
@@ -366,5 +366,7 @@ test("the head's children are written in the documented order", async () => {
 
 function label(line: string): string {
   const [, tag = "", attribute] = /^<([\w-]+)(?:\s+([\w-]+="[^"]*"))?/.exec(line) ?? [];
-  return attribute === undefined ? tag : `${tag} ${attribute}`;
+  if (attribute !== undefined) return `${tag} ${attribute}`;
+  const comment = /^<script>(\/\*[^*]*\*\/)/.exec(line)?.[1];
+  return comment === undefined ? tag : `${tag} ${comment}`;
 }

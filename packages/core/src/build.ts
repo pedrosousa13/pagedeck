@@ -1664,10 +1664,7 @@ function inlineScriptHashes(
 const HEAD_TOKEN =
   /<(script|style)\b((?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/\1>|<\/head>|<[a-zA-Z](?:[^>"]|"[^"]*")*>/g;
 
-/**
- * A head script is core's when core can name it: the speculation rules, or a
- * pre-paint text. A script runtime's head markup is the adapter's (#283).
- */
+/** A head script core cannot name is a script runtime's, and not listed (#283). */
 export function coreInlineScripts(
   document: string,
   prePaint: readonly string[],

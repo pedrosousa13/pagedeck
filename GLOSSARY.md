@@ -1982,10 +1982,10 @@ The blocks, in the order `headElements` writes them:
     sheet whose font-face rule names it.
 5. **The script runtime's head markup** (`head:script-runtime`, #283), what
     `build.scripts.runtime` returned as `head` for a page with a `worker`
-    script, written as returned. In front of the `head:pre-paint` block,
-    because a site's pre-paint script is the likeliest early caller of a
-    function the runtime forwards, such as a consent default pushed to
-    `dataLayer`, and the runtime's snippet has to have run by then. Behind the
+    script or a held one, written as returned. In front of the
+    `head:pre-paint` block, because a site's pre-paint script is the likeliest
+    early caller of a function the runtime forwards, such as a consent default
+    pushed to `dataLayer`, and the runtime's snippet has to have run by then. Behind the
     `head:addresses` and `head:font-preloads` blocks for the reason the
     `head:pre-paint` block sits there.
 6. **The site's own pre-paint scripts** (`head:pre-paint`, #311, #330), where it
@@ -2181,12 +2181,16 @@ It is #311's argument with a different supplier. The runtime supplies the
 markup; core still writes it, in the place the order gives it, and it is one
 more child in a written-down order rather than another way into the region. It
 does not widen #22's refusal, because it arrives through the config and not
-through a render. Core reads the markup no more than it reads the body part:
-an adapter vouches for its own bytes, as before, and `definePartytown` still
-refuses an option holding `</script` or `<!--`. Its hashes stay out of a page's
-`inlineScriptHashes`, as the body part's always did: the bytes are the
-adapter's, and `runtime.inlineScriptHash` is where a site's policy takes the
-snippet's from. Ruled on #283 (2026-11-03).
+through a render. Core rewrites none of the markup, but it reads the answer
+once per page and refuses one that is not `{ head, body }`, and a `head` entry
+that is not exactly one `<script>`, `<link>` or `<meta>` element or whose script
+text holds `</script` or `<!--`: the head part sits ahead of the site's
+pre-paint scripts, and an entry that closed the `<head>` would take them with
+it. `definePartytown` still refuses an option holding either sequence. Its
+hashes stay out of a page's `inlineScriptHashes`, as the body part's always
+did: core lists a head script as its own only when it can name it, the
+speculation rules or a `build.prePaint` text, and `runtime.inlineScriptHash` is
+where a site's policy takes the snippet's from. Ruled on #283 (2026-11-03).
 
 ### The framework names no CSS solution
 
