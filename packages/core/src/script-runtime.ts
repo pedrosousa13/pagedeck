@@ -4,7 +4,7 @@ import { textOf } from "./links.js";
 import type { BrokenReference } from "./links.js";
 import { localeTree } from "./locales.js";
 import type { LocaleSet } from "./locales.js";
-import { collisionLines, fileHash, shortHash } from "./manifest.js";
+import { collisionLine, fileHash, fileKey, shortHash } from "./manifest.js";
 import type { EmittedFile } from "./manifest.js";
 import type { ScriptRuntimeAdapter, ScriptRuntimeFile } from "./scripts.js";
 
@@ -48,12 +48,15 @@ export function scriptRuntimeOutput(input: {
       } satisfies EmittedFile,
     })),
   );
+  const already = new Map(
+    input.emitted.map((file) => [fileKey(file.domain, file.path), file.kind]),
+  );
   const collisions = placed
-    .flatMap(({ name, file }) =>
-      collisionLines([file], input.emitted).map((line) =>
-        line.replace(" — the build", ` — ${JSON.stringify(name)} — the build`),
-      ),
-    )
+    .flatMap(({ name, file }) => {
+      const key = fileKey(file.domain, file.path);
+      const kind = already.get(key);
+      return kind === undefined ? [] : [collisionLine(key, kind, name)];
+    })
     .sort();
   if (collisions.length > 0) {
     throw new ConfigError(

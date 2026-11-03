@@ -203,8 +203,9 @@ export function deployKeyReport(
   return `Site build: ${String(count)} ${count === 1 ? "file is" : "files are"} at a key a deploy refuses — ${fault}; rename or delete ${count === 1 ? "it" : "each"}:\n${lines.sort().join("\n")}`;
 }
 
-export function collisionLine(key: string, kind: FileKind): string {
-  return `  ${JSON.stringify(key)} — the build already emitted ${kindPhrase(kind)} there`;
+export function collisionLine(key: string, kind: FileKind, name?: string): string {
+  const named = name === undefined ? "" : ` — ${JSON.stringify(name)}`;
+  return `  ${JSON.stringify(key)}${named} — the build already emitted ${kindPhrase(kind)} there`;
 }
 
 function kindPhrase(kind: FileKind): string {
