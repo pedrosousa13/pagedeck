@@ -50,7 +50,8 @@ written. It keeps everything `html` drops: the first level-1 heading stays in
 it, and a fence is its info string and its text as typed, with no entity
 escaping. A schema that reads data out of fenced blocks reads `body`, not
 `html`, whose markup is not a contract. A file with no frontmatter is its own
-`body`. `packages/examples/src/reading-fenced-data.ts` in the repository is a
+`body`. A leading byte-order mark is dropped, and the frontmatter block may use
+CRLF line endings. `packages/examples/src/reading-fenced-data.ts` in the repository is a
 schema that reads each lesson's steps out of its `json` fences.
 
 When an entry fails the collection's schema, the failure names `file` beside

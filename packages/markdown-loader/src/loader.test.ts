@@ -137,6 +137,41 @@ test("a file with nothing after its frontmatter has an empty body", async () => 
   ).toBe("");
 });
 
+const LF_SOURCE =
+  "---\nsection: how-to\ntags:\n  - a\n  - b\n---\n# Guide\n\n## Install it\n\nText with `code`.\n\n```ts\nconst a = 1;\nconst b = 2;\n```\n\n- one\n- two\n";
+
+for (const [name, source, body] of [
+  ["CRLF line endings", LF_SOURCE.replaceAll("\n", "\r\n"), LF_SOURCE.split("---\n")[2]?.replaceAll("\n", "\r\n")],
+  ["a byte-order mark", `\uFEFF${LF_SOURCE}`, LF_SOURCE.split("---\n")[2]],
+  ["a byte-order mark and CRLF line endings", `\uFEFF${LF_SOURCE.replaceAll("\n", "\r\n")}`, LF_SOURCE.split("---\n")[2]?.replaceAll("\n", "\r\n")],
+] as const) {
+  test(`a file with ${name} gives its frontmatter, its title and its body as written`, async () => {
+    const { root, store } = siteWith({ "guide.md": source });
+    const collection = docs(root);
+    await syncCollection(store, collection);
+
+    const entry = getEntry(store, collection, { locale: "en", path: "guide" });
+    expect(entry?.data.frontmatter).toEqual({ section: "how-to", tags: ["a", "b"] });
+    expect(entry?.data.title).toBe("Guide");
+    expect(entry?.data.body).toBe(body);
+  });
+}
+
+test("a CRLF file renders the same HTML and outline as its LF twin", async () => {
+  const { root, store } = siteWith({
+    "lf.md": LF_SOURCE,
+    "crlf.md": LF_SOURCE.replaceAll("\n", "\r\n"),
+  });
+  const collection = docs(root);
+  await syncCollection(store, collection);
+
+  const lf = getEntry(store, collection, { locale: "en", path: "lf" });
+  const crlf = getEntry(store, collection, { locale: "en", path: "crlf" });
+  expect(lf?.data.html).toContain('<h2 id="install-it">');
+  expect(crlf?.data.html).toBe(lf?.data.html);
+  expect(crlf?.data.toc).toEqual(lf?.data.toc);
+});
+
 test("a frontmatter title wins over the body's first heading", async () => {
   const { root, store } = siteWith({
     "guide.md": "---\ntitle: The written title\n---\n# The heading\n",

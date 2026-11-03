@@ -11,6 +11,12 @@ export interface ParsedMarkdown {
 
 const DELIMITER = "---";
 
+const BOM = "\uFEFF";
+
+function isDelimiter(line: string | undefined): boolean {
+  return line === DELIMITER || line === `${DELIMITER}\r`;
+}
+
 // Not `split`, which would cut the value too.
 const FIELD = /^([^:]+):(.*)$/;
 
@@ -87,10 +93,12 @@ export function parseFrontmatter(
   source: string,
   file: string,
 ): ParsedMarkdown {
-  const lines = source.split("\n");
-  if (lines[0] !== DELIMITER) return { frontmatter: {}, body: source };
+  const unmarked = source.startsWith(BOM) ? source.slice(BOM.length) : source;
+  // Each line keeps its `\r`, so the body rejoined on `\n` keeps its line endings as written.
+  const lines = unmarked.split("\n");
+  if (!isDelimiter(lines[0])) return { frontmatter: {}, body: unmarked };
 
-  const end = lines.indexOf(DELIMITER, 1);
+  const end = lines.findIndex((line, index) => index > 0 && isDelimiter(line));
   if (end === -1) {
     throw new Error(
       `Markdown "${file}": opens a frontmatter block that is never closed — end the block with a line holding only "${DELIMITER}", or remove the opening one`,
@@ -106,7 +114,7 @@ export function parseFrontmatter(
   let list: { name: string; items: string[]; keep: boolean } | undefined;
 
   for (let index = 1; index < end; index += 1) {
-    const text = lines[index] as string;
+    const text = (lines[index] as string).replace(/\r$/, "");
     // 1-based over the whole file: the number an editor's gutter shows.
     const line = index + 1;
     if (text.trim() === "") continue;
