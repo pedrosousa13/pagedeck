@@ -160,6 +160,30 @@ requests without a limit (#230). Its scratch build declares one catch-all
 budget no page comes near, only so the build writes the budget report the
 payload figures read, as the pack harness does.
 
+## The third-party loadout measurement
+
+```
+pnpm bench:loadout-lighthouse
+```
+
+`packages/site/src/loadout-lighthouse.harness.ts` (built first by the script)
+measures criterion 5 of `docs/success-criteria.md` (#277). It serves a synthetic
+loadout from `http://localhost:<port>`: a tag manager that injects two tags, an
+analytics script that beacons, a pixel and a chat widget, each spinning its
+thread for a declared number of milliseconds. It builds one fixture site per
+strategy mix under `packages/site/.pagedeck-loadout/`, serves each from
+`http://127.0.0.1:<port>`, and runs Lighthouse mobile three times over each mix,
+one run at a time. It prints score, TBT, LCP and CLS per run and writes
+`loadout-report.json` beside the sites.
+
+It asserts nothing about timing (`GLOSSARY.md`, #57). It fails on two things:
+a request in Lighthouse's `network-requests` audit to any origin but those two,
+and a run in which the loadout's own reports differ from what the mix calls for.
+Each script ends by requesting its origin with its name and the thread it ran on,
+so a script that did not run, or a `worker` script that ran on the main thread,
+fails the run instead of scoring well. Re-run it when the script layer, the
+Partytown runtime, Lighthouse or Chromium changes.
+
 ## The origin harness
 
 ```
