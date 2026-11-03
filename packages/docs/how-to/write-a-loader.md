@@ -29,10 +29,14 @@ namespace:
 
 ```ts
 interface CollectionWriter<T> {
-  upsert(entry: { locale: string; path: string; data: T }): void;
+  upsert(entry: { locale: string; path: string; data: T; source?: string }): void;
   delete(id: { locale: string; path: string }): void;
 }
 ```
+
+`source` is optional: where you read the entry, such as a file path or the URL
+an editor opens it at. When the entry fails the collection's schema, the
+failure names it beside the entry id. It is not stored.
 
 Nothing you write through the writer is applied while your method runs. The
 framework buffers the calls, validates every upsert against the collection's

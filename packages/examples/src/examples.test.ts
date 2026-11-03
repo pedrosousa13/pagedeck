@@ -18,6 +18,7 @@ import {
 import { syncHandWrittenLoader } from "./implementing-a-loader.js";
 import { queryArticles } from "./querying-with-a-schema.js";
 import { syncBrokenArticle } from "./a-broken-entry.js";
+import { readLessonSteps } from "./reading-fenced-data.js";
 import { registerComponents } from "./registering-components.js";
 import { renderExamplePage } from "./rendering-a-page.js";
 import { islandNestedClientComponent } from "./islanding-a-nested-client-component.js";
@@ -196,6 +197,21 @@ test("the broken example fails with a message naming the entry and the field", a
 
   const store = track(openStoreReadOnly(storePath));
   expect(store.listEntries("articles")).toEqual([]);
+});
+
+test("the fenced-data example reads each lesson's steps out of its markdown body", async () => {
+  const { store, lessons } = await readLessonSteps(tempStorePath());
+  track(store);
+
+  expect(lessons).toEqual([
+    {
+      title: "Moving by word",
+      steps: [
+        { keys: "w", expect: "the cursor is on the next word" },
+        { keys: "b", expect: "the cursor is back on the first word" },
+      ],
+    },
+  ]);
 });
 
 test("the registry example merges two registries and resolves hydration per component", () => {

@@ -99,6 +99,34 @@ test("an entry carries its frontmatter, its title and its rendered body", async 
   expect(entry?.data.html).toContain("<p>Text.</p>");
 });
 
+test("an entry carries the source after its frontmatter as body, title heading and fence included", async () => {
+  const body =
+    "# Lesson\n\nIntro.\n\n```yaml\nstep: open\nkeys: <Esc>&\n```\n";
+  const { root, store } = siteWith({
+    "lesson.md": `---\nlevel: 1\n---\n${body}`,
+  });
+  const collection = defineCollection<MarkdownEntry>({
+    name: "lessons",
+    loader: defineMarkdownLoader({ root, locale: "en", languages: ["yaml"] }),
+    schema: false,
+  });
+  await syncCollection(store, collection);
+
+  const entry = getEntry(store, collection, { locale: "en", path: "lesson" });
+  expect(entry?.data.body).toBe(body);
+  expect(entry?.data.title).toBe("Lesson");
+});
+
+test("a file with no frontmatter is its own body", async () => {
+  const { root, store } = siteWith({ "guide.md": "# Guide\n\nText.\n" });
+  const collection = docs(root);
+  await syncCollection(store, collection);
+
+  expect(
+    getEntry(store, collection, { locale: "en", path: "guide" })?.data.body,
+  ).toBe("# Guide\n\nText.\n");
+});
+
 test("a frontmatter title wins over the body's first heading", async () => {
   const { root, store } = siteWith({
     "guide.md": "---\ntitle: The written title\n---\n# The heading\n",
@@ -176,7 +204,37 @@ test("an entry whose frontmatter fails the collection schema is refused", async 
   });
 
   await expect(syncCollection(store, collection)).rejects.toThrow(
-    'Collection "docs": 1 entry does not match the collection schema — fix the content, or relax the schema:\n  /en/guide: frontmatter.section — not a section — use one of: how-to, reference',
+    'Collection "docs": 1 entry does not match the collection schema — fix the content, or relax the schema:\n  /en/guide from guide.md: frontmatter.section — not a section — use one of: how-to, reference',
+  );
+});
+
+test("a schema failure names the file the entry was read from", async () => {
+  const { root, store } = siteWith({
+    "lessons/intro.md": "---\nsection: nonsense\n---\n# Intro\n",
+  });
+  const collection = defineCollection({
+    name: "docs",
+    loader: defineMarkdownLoader({ root, locale: "en", languages: ["ts"] }),
+    schema: docsSchema(),
+  });
+
+  await expect(syncCollection(store, collection)).rejects.toThrow(
+    'Collection "docs": 1 entry does not match the collection schema — fix the content, or relax the schema:\n  /en/lessons/intro from lessons/intro.md: frontmatter.section — not a section — use one of: how-to, reference',
+  );
+});
+
+test("a schema that throws names the file the entry was read from", async () => {
+  const { root, store } = siteWith({ "lessons/intro.md": "# Intro\n" });
+  const collection = defineCollection({
+    name: "docs",
+    loader: defineMarkdownLoader({ root, locale: "en", languages: ["ts"] }),
+    schema: z.unknown().transform((): never => {
+      throw new Error("no steps");
+    }),
+  });
+
+  await expect(syncCollection(store, collection)).rejects.toThrow(
+    'Collection "docs": schema threw validating entry "en/lessons/intro" from "lessons/intro.md"',
   );
 });
 

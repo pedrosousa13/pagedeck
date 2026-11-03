@@ -28,6 +28,7 @@
     { "path": "../core/tsconfig.build.json" },
     { "path": "../edge/tsconfig.build.json" },
     { "path": "../fixtures/tsconfig.build.json" },
-    { "path": "../islands/tsconfig.build.json" }
+    { "path": "../islands/tsconfig.build.json" },
+    { "path": "../markdown-loader/tsconfig.build.json" }
   ]
 }
