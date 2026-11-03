@@ -18,6 +18,7 @@ contract gets an example or joins this list:
   types, #323), the script layer and consent (`defineScripts`,
   `resolveScriptStrategy`, `ScriptRuntimeAdapter`, its `files`,
   `checksIntegrity` and `ScriptRuntimeFile`, `scriptRuntimeBase`, `inlineScriptFault` (#275),
+  its `latePickup` and `ScriptRuntimeLatePickup` (#281),
   `ConsentSource`,
   `resolveConsentDefault`, the five consent names; #46, #47, #460), drift
   (`checkDrift`, `driftWarnings`, `compileSupplements`,

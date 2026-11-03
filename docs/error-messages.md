@@ -1318,6 +1318,16 @@ author is looking at the field it says is not there.
 Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ["<script>…</script>"]
 ```
 
+A runtime's `latePickup` (#281) is refused the same way when the loader could
+not write it, because the loader puts both strings into the page: one line per
+field, under the runtime's own path:
+
+```
+Script settings: declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write both as non-empty strings, such as latePickup: { type: "text/partytown", event: "ptupdate" }:
+  runtime.latePickup.type — "" — not a non-empty string
+  runtime.latePickup.event — 7 — not a non-empty string
+```
+
 Three paragraphs are about consent, and they arrive by the two doors above with
 the rest (#47). A category that is not one is a line under the type faults,
 because it is one more field of a declaration that four different edits can fix:
@@ -4045,7 +4055,9 @@ argument one issue later and over a second reason the same fallback applies
 build writes, and a `worker` script is not loaded by that loader at all: it is
 loaded by the elements `build.scripts.runtime` returned, which core owns nothing
 about by construction. Loading it there would be loading it with no gate, so the
-build does not: the script takes `idle`, and this says so.
+build does not: the script takes `idle`, and this says so. A runtime that
+declares `latePickup` (#281) hears none of it: there the gate holds the script
+and appends it on a grant, so nothing falls back.
 
 ```
 Script consent: 2 scripts declare a consent category and can resolve to the worker strategy, so each of them loads on idle instead — the consent gate this build writes lives in the loader that backs the main-thread strategies, and a worker script is loaded by the elements build.scripts.runtime returned, which core never reads, so leaving it there would load a categorized script with no gate on it at all; this is a warning and not a refusal because idle is the fallback spec §12 states for a worker script this build cannot deliver, and it is the strategy the gate does reach — declare strategy: "idle" to say the downgrade is what you meant, or drop the category and gate the script inside the adapter, which is the only place a worker script can be gated:

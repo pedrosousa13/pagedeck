@@ -164,6 +164,18 @@ worker-reaching script that declares one. A wrapper around such an adapter must
 carry `checksIntegrity` over, or the refusal no longer applies. The request is unchanged: the adapter
 still gets one page's `worker` loadout and nothing else.
 
+Since #281 an adapter may also declare `latePickup`, a `type` and an `event`,
+when its mechanism picks up a script added after the page loaded. That is the
+exception to #47's ruling, which sends a categorized `worker` script to `idle`
+because no consent gate can wrap a runtime's markup. Under a `latePickup`
+runtime the script stays on `worker`, but it is never in that markup: the
+adapter's loadout leaves it out, and the **Script loader**, below, holds it
+behind the gate and on a grant appends it with that `type`, then dispatches
+that `event` on `window`. A runtime without the declaration keeps #47's
+fallback, and a wrapper must carry `latePickup` over as it carries
+`checksIntegrity`. `@pagedeck/script-worker` declares
+`{ type: "text/partytown", event: "ptupdate" }`.
+
 It earns an entry because **Image adapter**, above, says a future contract
 needing the noun does, and this is that contract. The two are the same
 arrangement and not the same thing: an image adapter answers one URL that core
@@ -182,6 +194,9 @@ The `<script>` element a page carries so that its `idle`, `interaction` and
 (`packages/core/src/script-elements.ts`). The build composes it as a string and
 emits it in the `<body>`, after the page's own entry chunk; it runs only in a
 browser.
+
+Under a runtime that declares `latePickup` it also holds each categorized
+`worker` script, and appends it for that runtime on a grant (#281).
 
 There is one of it per page and it is not the only script the layer's neighbours
 write there: since #48 a **RUM beacon** (below) may sit after it. So this is the

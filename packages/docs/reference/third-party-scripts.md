@@ -72,8 +72,8 @@ build failure with the fix in it, not a page that quietly loads nothing.
 A script that names no strategy takes `worker`. Listing your loadout and saying
 nothing else is meant to be the good outcome, not the lazy one. The one thing
 that moves a script off `worker` without an override is a consent `category`,
-because the gate cannot be written around a mechanism you supplied; the consent
-section below is where that is spelled out.
+unless your runtime picks up scripts added after load, as Partytown does; the
+consent section below is where that is spelled out.
 
 `idle` waits for idle and for nothing else: `requestIdleCallback` where the
 browser has it and a `setTimeout` where it does not. A page that never goes idle
@@ -252,6 +252,14 @@ When the files change, the directory moves. An incremental build then renders
 again every page it would have reused that still names the old directory, so
 no page points at files the build no longer writes.
 
+An adapter whose mechanism picks up a script added after the page loaded says
+so with `latePickup`: the `type` such a script carries, and the `event` that
+tells the mechanism to look. A categorized `worker` script then stays on
+`worker`, held by the consent gate (see
+[the consent section](#a-categorized-script-waits-for-consent-on-worker-only-where-the-runtime-picks-up-late-scripts)).
+A function you wrap around such an adapter must carry `latePickup` over too; a
+wrapper that drops it sends those scripts back to `idle`.
+
 An adapter that loads a script without checking its `integrity` says so with
 `checksIntegrity: false`. The config then refuses, when it loads, every script
 that can reach `worker` and declares `integrity`, all of them in one message.
@@ -306,7 +314,9 @@ export default defineConfig({
 ```
 
 Each page that keeps a `worker` script then carries Partytown's inline snippet
-and one `<script type="text/partytown">` per script, last in the `<body>`. The
+and one `<script type="text/partytown">` per uncategorized script, last in the
+`<body>`. A script with a consent `category` is not in the markup: the consent
+gate holds it, and appends it for Partytown on a grant. The
 build writes Partytown's service worker and its two other files under
 `/script-runtime/<hash>/`, and the snippet loads them from there, so nothing
 Partytown needs comes from another origin. A fourth file there,
@@ -328,9 +338,10 @@ Four things to know before you choose it:
   for that file, does not find it, and runs the scripts on the main thread
   after `fallbackTimeout`.
 - **A `worker` script that declares `integrity` is refused when the config
-  loads.** Partytown fetches the script from inside its worker without an
-  integrity check, so the hash you pinned would not be checked. Declare
-  `strategy: "idle"` for that script, which keeps the check.
+  loads**, with a consent `category` or without one. Partytown fetches the
+  script from inside its worker without an integrity check, so the hash you
+  pinned would not be checked. Declare `strategy: "idle"` for that script,
+  which keeps the check.
 - **The snippet runs at the end of the `<body>`**, because nothing this layer
   writes goes in the `<head>`. A function you `forward` exists from there on, and
   an inline script above it that calls one fails.
@@ -720,7 +731,9 @@ vendor's release page.
 
 A `worker` script is loaded by the elements your `runtime` adapter returns. The
 adapter receives the whole declaration, `integrity` included. The build does
-not apply it there, so your adapter decides whether its mechanism checks it.
+not apply it there, so your adapter decides whether its mechanism checks it. A
+categorized script a `latePickup` runtime holds is appended by the loader with
+its `integrity` and `crossorigin` attributes, and the runtime decides the same.
 
 ## Allowing inline scripts under a strict Content-Security-Policy
 
@@ -1159,7 +1172,7 @@ What the press is not is *silent*: the placeholder carries `data-pagedeck-consen
 so the refusal and the grant that follows it are both things your CSS can see
 ("A gated facade says which consent state it is in", above).
 
-The one thing consent does decide is **which strategy the build can deliver**,
+The one thing consent can decide is **which strategy the build can deliver**,
 and that is the last section here.
 
 ### What revocation does, and what it cannot do
@@ -1174,12 +1187,27 @@ stays in the document and a vendor that has executed has already installed
 whatever it installs; no framework can take that back. The documented answer is
 a page reload, which is what the visitor's next navigation is anyway.
 
-### A categorized script is never loaded on `worker`
+### A categorized script waits for consent on `worker` only where the runtime picks up late scripts
 
-A `worker` script is loaded by the elements your `runtime` adapter returned, and
-this framework never reads those bytes. So the gate the build writes cannot wrap
-them, and rather than load a categorized script with no gate on it, the build
-loads it on `idle`, where the gate works. It tells you once:
+A runtime that declares `latePickup`, as `definePartytown` does, keeps a
+categorized `worker` script on `worker`. The adapter is not handed it, and no
+element for it is in the page. The loader holds it behind the gate, and on a
+grant appends it with the runtime's `type` and the script's own attributes,
+then dispatches the runtime's `event` on `window`. Partytown then runs it in
+its worker. Before the grant nothing about the script reaches the worker and
+no request is made for it, and a denied category never loads it. A page whose
+only `worker` scripts are held still carries the runtime's own elements, so
+the adapter is called with an empty list.
+
+The gate is the one the other strategies use: a grant that arrives later loads
+the script then, and a revocation before it means it never loads.
+
+### Otherwise a categorized script is never loaded on `worker`
+
+A runtime with no `latePickup` gets every `worker` script as an element it
+writes, and this framework never reads those bytes. So the gate the build
+writes cannot wrap them, and rather than load a categorized script with no gate
+on it, the build loads it on `idle`, where the gate works. It tells you once:
 
 ```
 Script consent: 1 script declares a consent category and can resolve to the worker strategy, so it loads on idle instead — the consent gate this build writes lives in the loader that backs the main-thread strategies, and a worker script is loaded by the elements build.scripts.runtime returned, which core never reads, so leaving it there would load a categorized script with no gate on it at all; this is a warning and not a refusal because idle is the fallback spec §12 states for a worker script this build cannot deliver, and it is the strategy the gate does reach — declare strategy: "idle" to say the downgrade is what you meant, or drop the category and gate the script inside the adapter, which is the only place a worker script can be gated:
@@ -1194,9 +1222,10 @@ without permission, and only one of those two can be undone.
 `resolveScriptStrategy` still reports `worker` (your config reads back as you
 wrote it), and only the loaded strategy moves.
 
-If your own runtime applies the gate, **declare no `category`** and gate inside
-the adapter: it is handed whole declarations, so a filter on `scripts` is all it
-takes, and it is the only place a `worker` script can be gated. Declaring a
+If your runtime picks up scripts added after load, declare `latePickup` on it,
+and the section above applies. If your own runtime applies the gate,
+**declare no `category`** and gate inside the adapter: it is handed whole
+declarations, so a filter on `scripts` is all it takes. Declaring a
 category is asking this build for the gate, and this build can only write one
 around a script it loads itself.
 
