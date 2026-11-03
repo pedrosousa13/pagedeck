@@ -80,3 +80,21 @@ too.
 names the maintainer docs in `docs/maintaining/`. `GLOSSARY.md` holds the
 project's vocabulary and the decisions that bind later work. `docs/adr/` holds
 the architectural decisions.
+
+A review holds a change against the rulings these places record:
+
+- `GLOSSARY.md`'s "Standing decisions", when the change touches what one
+  governs. The rulings under its "Considered and not recorded here" bind
+  nothing beyond their issue.
+- An ADR, when the change alters the design it records.
+- A package's README, when the change touches that package. A ruling there
+  cites the issue that made it, as "ruled on #89" in
+  `packages/markdown-loader/README.md` does.
+- `docs/error-messages.md`, when the change throws or rewrites a message.
+- `GLOSSARY.md`'s standing decision **Comments say only what the code
+  cannot**, for every comment the change adds.
+
+A change that contradicts one of these is a hard violation. The fix is to keep
+the ruling, or to stop and ask the maintainer, the way `docs/agents/domain.md`
+says an ADR conflict is raised. A review never accepts a silent change to a
+ruling.
