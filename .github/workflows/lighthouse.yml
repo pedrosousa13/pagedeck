@@ -11,6 +11,7 @@ on:
       - "packages/design-system/**"
       - "packages/edge/**"
       - "packages/islands/**"
+      - "packages/script-worker/**"
       - "pnpm-lock.yaml"
       - "package.json"
       - "tsconfig*.json"
@@ -40,10 +41,20 @@ jobs:
       - run: pnpm test:lighthouse-harness
       - run: pnpm test:a11y-harness
         if: ${{ !cancelled() }}
+      # `node`, not `pnpm bench:loadout-lighthouse`, which would run `pnpm build` again.
+      - run: node packages/site/src/loadout-lighthouse.harness.ts
+        if: ${{ !cancelled() }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: lighthouse-report
           path: packages/site/.pagedeck-site-audit/lighthouse-report.json
+          include-hidden-files: true
+          retention-days: 90
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: loadout-report
+          path: packages/site/.pagedeck-loadout/loadout-report.json
           include-hidden-files: true
           retention-days: 90

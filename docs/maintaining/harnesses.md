@@ -181,8 +181,11 @@ a request in Lighthouse's `network-requests` audit to any origin but those two,
 and a run in which the loadout's own reports differ from what the mix calls for.
 Each script ends by requesting its origin with its name and the thread it ran on,
 so a script that did not run, or a `worker` script that ran on the main thread,
-fails the run instead of scoring well. Re-run it when the script layer, the
-Partytown runtime, Lighthouse or Chromium changes.
+fails the run instead of scoring well. `.github/workflows/lighthouse.yml` runs
+it after the site audit harnesses on each pull request that touches the site or
+a package it builds with, and keeps `loadout-report.json` as an artifact. Re-run
+it by hand when the script layer, the Partytown runtime, Lighthouse or Chromium
+changes, and record what it prints in `docs/success-criteria.md`.
 
 ## The origin harness
 
