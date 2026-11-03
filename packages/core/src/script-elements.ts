@@ -115,7 +115,9 @@ export function scriptElements(
     interaction,
     facades.map(({ script }) => script),
     key,
-    latePickup === undefined ? undefined : { scripts: held, pickup: latePickup },
+    latePickup === undefined || held.length === 0
+      ? undefined
+      : { scripts: held, pickup: latePickup },
   );
   return {
     placeholders,
@@ -247,9 +249,7 @@ function loaderElement(
   key: string,
   held?: HeldWorkerScripts,
 ): string | undefined {
-  const late = held !== undefined && held.scripts.length > 0 ? held : undefined;
-  const holding = late !== undefined;
-  if (idle.length === 0 && interaction.length === 0 && facades.length === 0 && !holding) {
+  if (idle.length === 0 && interaction.length === 0 && facades.length === 0 && held === undefined) {
     return undefined;
   }
   const attributed = [...idle, ...interaction].some(
@@ -273,11 +273,10 @@ function loaderElement(
   if (idle.length > 0 || interaction.length > 0) {
     body.push(attributed ? APPEND_ATTRIBUTES : APPEND);
   }
-  if (idleGated.length > 0 || interactionGated.length > 0 || facadesGated || holding) {
-    body.push(OK);
-  }
-  if (idleGated.length > 0 || interactionGated.length > 0 || holding) body.push(GATE);
-  if (idleGated.length > 0 || interactionGated.length > 0) body.push(GATE_LOAD);
+  const triggersGated = idleGated.length > 0 || interactionGated.length > 0;
+  if (triggersGated || facadesGated || held !== undefined) body.push(OK);
+  if (triggersGated || held !== undefined) body.push(GATE);
+  if (triggersGated) body.push(GATE_LOAD);
   if (idle.length > 0) {
     const statements = [
       ...triggerStatements(ungated(idle), idleGated, "gi", "n"),
@@ -322,7 +321,7 @@ function loaderElement(
       `var facades=${list};for(var j=0;j<facades.length;j++)(function(el,${argument}){if(!el)return;${track}var e=${listText(FACADE_EVENTS)},go=function(){${guard}for(var k=0;k<e.length;k++)el.removeEventListener(e[k],go);var s=document.createElement("script");s.src=${source};${attributes}s.async=true;s.addEventListener("load",function(){el.remove()});document.head.appendChild(s)};for(var k=0;k<e.length;k++)el.addEventListener(e[k],go,{passive:true})})(document.querySelector('[${ISLAND_FACADE_ATTRIBUTE}="${key}-'+j+'"]'),facades[j]);`,
     );
   }
-  if (late !== undefined) body.push(lateStatements(late));
+  if (held !== undefined) body.push(lateStatements(held));
   return `<script>(function(){${body.join("")}})();</script>`;
 }
 

@@ -746,29 +746,94 @@ test("a categorized script with integrity is refused once it can reach a late-pi
   );
 });
 
-test("a late pickup the loader cannot write is refused, naming each field", () => {
-  const runtime = Object.assign(() => [], { latePickup: { type: "", event: 7 } });
+const LATE_PICKUP_HEADING =
+  "declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write a type the browser does not run itself and an event nothing else on the page listens for, such as latePickup: { type: \"text/x-worker\", event: \"x-worker:update\" }:";
 
-  expect(
-    scriptsFaultReport({ scripts: [ANALYTICS], runtime }, 'Config "/site/pagedeck.config.ts"', "build.scripts"),
-  ).toBe(
+function latePickupReport(latePickup: unknown): string | undefined {
+  return scriptsFaultReport(
+    { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup }) },
+    'Config "/site/pagedeck.config.ts"',
+    "build.scripts",
+  );
+}
+
+test("a late pickup the loader cannot write is refused, naming each field", () => {
+  expect(latePickupReport({ type: "", event: 7 })).toBe(
     [
-      'Config "/site/pagedeck.config.ts": "build.scripts": declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write both as non-empty strings, such as latePickup: { type: "text/partytown", event: "ptupdate" }:',
+      `Config "/site/pagedeck.config.ts": "build.scripts": ${LATE_PICKUP_HEADING}`,
       '  build.scripts.runtime.latePickup.type — "" — not a non-empty string',
       "  build.scripts.runtime.latePickup.event — 7 — not a non-empty string",
     ].join("\n"),
   );
+  expect(latePickupReport("x-worker:update")).toBe(
+    'Config "/site/pagedeck.config.ts": "build.scripts": declares a late pickup the script loader cannot write — build.scripts.runtime.latePickup — "x-worker:update" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }',
+  );
   expect(
     scriptsFaultReport(
-      { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup: "ptupdate" }) },
+      { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup: "x" }) },
       "Script settings",
     ),
   ).toBe(
-    'Script settings: declares a late pickup the script loader cannot write — "ptupdate" — declare it as latePickup: { type: "text/partytown", event: "ptupdate" }',
+    'Script settings: declares a late pickup the script loader cannot write — runtime.latePickup — "x" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }',
   );
   expect(
     defineScripts({ scripts: [ANALYTICS], runtime: LATE_PICKUP }).runtime,
   ).toBe(LATE_PICKUP);
+});
+
+const MAIN_THREAD_TYPES = [
+  "application/ecmascript",
+  "application/javascript",
+  "application/x-ecmascript",
+  "application/x-javascript",
+  "text/ecmascript",
+  "text/javascript",
+  "text/javascript1.0",
+  "text/javascript1.1",
+  "text/javascript1.2",
+  "text/javascript1.3",
+  "text/javascript1.4",
+  "text/javascript1.5",
+  "text/jscript",
+  "text/livescript",
+  "text/x-ecmascript",
+  "text/x-javascript",
+  "module",
+  "importmap",
+  "speculationrules",
+];
+
+test("a late pickup whose type the browser runs itself is refused, whatever its case and spacing", () => {
+  for (const type of [...MAIN_THREAD_TYPES, " Text/JavaScript ", "MODULE"]) {
+    expect(latePickupReport({ type, event: "x-worker:update" })).toBe(
+      [
+        `Config "/site/pagedeck.config.ts": "build.scripts": ${LATE_PICKUP_HEADING}`,
+        `  build.scripts.runtime.latePickup.type — ${JSON.stringify(type)} — a type the browser runs itself, on the main thread, so a held worker script would run there after a grant — write a type only your runtime reads`,
+      ].join("\n"),
+    );
+  }
+  expect(latePickupReport({ type: "text/partytown", event: "ptupdate" })).toBeUndefined();
+});
+
+test("a late pickup whose event the page or core already listens for is refused", () => {
+  for (const event of [
+    "load",
+    "DOMContentLoaded",
+    "pageshow",
+    "pagehide",
+    "beforeunload",
+    "unload",
+    "visibilitychange",
+    "readystatechange",
+    "pagedeck:consent",
+  ]) {
+    expect(latePickupReport({ type: "text/x-worker", event })).toBe(
+      [
+        `Config "/site/pagedeck.config.ts": "build.scripts": ${LATE_PICKUP_HEADING}`,
+        `  build.scripts.runtime.latePickup.event — ${JSON.stringify(event)} — an event the page's own code or this build's loader already listens for, so each grant would fire it again — write an event only your runtime listens for`,
+      ].join("\n"),
+    );
+  }
 });
 
 test("a category moves a script off worker only where worker is where it landed", () => {

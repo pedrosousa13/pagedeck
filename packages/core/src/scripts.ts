@@ -1,4 +1,4 @@
-import { CONSENT_DENIED, CONSENT_GRANTED } from "./consent.js";
+import { CONSENT_DENIED, CONSENT_EVENT, CONSENT_GRANTED } from "./consent.js";
 import { ConfigError } from "./exit.js";
 import { matchingPattern, parsePatterns, patternMapFaultReport } from "./page-patterns.js";
 import { quote } from "./quote.js";
@@ -173,7 +173,9 @@ export function loadedScriptStrategy(
     : WORKER_FALLBACK_STRATEGY;
 }
 
-function isGated(script: ScriptDeclaration): boolean {
+function isGated(
+  script: ScriptDeclaration,
+): script is ScriptDeclaration & { readonly category: Exclude<ConsentCategory, "necessary"> } {
   return script.category !== undefined && script.category !== "necessary";
 }
 
@@ -439,10 +441,10 @@ function uncheckedIntegritySection(
   heading: string,
   field: string,
 ): string | undefined {
-  const held = settings.runtime?.latePickup !== undefined;
+  const picksUpLate = settings.runtime?.latePickup !== undefined;
   const checked = new Set(
     settings.scripts
-      .filter((script) => script.integrity !== undefined && (held || !isGated(script)))
+      .filter((script) => script.integrity !== undefined && (picksUpLate || !isGated(script)))
       .map(({ name }) => name),
   );
   const reaching = workerReachingScripts(settings).filter(({ name }) => checked.has(name));
@@ -453,7 +455,53 @@ function uncheckedIntegritySection(
 }
 
 const LATE_PICKUP_FIX =
-  'latePickup: { type: "text/partytown", event: "ptupdate" }';
+  'latePickup: { type: "text/x-worker", event: "x-worker:update" }';
+
+/** HTML's JavaScript MIME type essences, and the other `type` values a browser acts on itself. */
+const MAIN_THREAD_TYPES = new Set([
+  "application/ecmascript",
+  "application/javascript",
+  "application/x-ecmascript",
+  "application/x-javascript",
+  "text/ecmascript",
+  "text/javascript",
+  "text/javascript1.0",
+  "text/javascript1.1",
+  "text/javascript1.2",
+  "text/javascript1.3",
+  "text/javascript1.4",
+  "text/javascript1.5",
+  "text/jscript",
+  "text/livescript",
+  "text/x-ecmascript",
+  "text/x-javascript",
+  "module",
+  "importmap",
+  "speculationrules",
+]);
+
+const PAGE_EVENTS = new Set([
+  "load",
+  "DOMContentLoaded",
+  "pageshow",
+  "pagehide",
+  "beforeunload",
+  "unload",
+  "visibilitychange",
+  "readystatechange",
+  CONSENT_EVENT,
+]);
+
+function latePickupFault(name: "type" | "event", value: unknown): string | undefined {
+  if (typeof value !== "string" || value.trim() === "") return "not a non-empty string";
+  if (name === "type" && MAIN_THREAD_TYPES.has(value.trim().toLowerCase())) {
+    return "a type the browser runs itself, on the main thread, so a held worker script would run there after a grant — write a type only your runtime reads";
+  }
+  if (name === "event" && PAGE_EVENTS.has(value)) {
+    return "an event the page's own code or this build's loader already listens for, so each grant would fire it again — write an event only your runtime listens for";
+  }
+  return undefined;
+}
 
 function latePickupSection(
   latePickup: unknown,
@@ -462,17 +510,16 @@ function latePickupSection(
 ): string | undefined {
   if (latePickup === undefined) return undefined;
   if (typeof latePickup !== "object" || latePickup === null || Array.isArray(latePickup)) {
-    return `${heading}: declares a late pickup the script loader cannot write — ${quote(latePickup)} — declare it as ${LATE_PICKUP_FIX}`;
+    return `${heading}: declares a late pickup the script loader cannot write — ${field}.latePickup — ${quote(latePickup)} — declare it as ${LATE_PICKUP_FIX}`;
   }
   const fields = latePickup as Record<string, unknown>;
   const lines = (["type", "event"] as const).flatMap((name) => {
     const value = Object.hasOwn(fields, name) ? fields[name] : undefined;
-    return typeof value === "string" && value.trim() !== ""
-      ? []
-      : [`  ${field}.latePickup.${name} — ${quote(value)} — not a non-empty string`];
+    const fault = latePickupFault(name, value);
+    return fault === undefined ? [] : [`  ${field}.latePickup.${name} — ${quote(value)} — ${fault}`];
   });
   if (lines.length === 0) return undefined;
-  return `${heading}: declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write both as non-empty strings, such as ${LATE_PICKUP_FIX}:\n${lines.join("\n")}`;
+  return `${heading}: declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write a type the browser does not run itself and an event nothing else on the page listens for, such as ${LATE_PICKUP_FIX}:\n${lines.join("\n")}`;
 }
 
 const RUNTIME_FILE_FIX = '{ name: "worker.js", contents: "…" }';
@@ -922,9 +969,7 @@ export function workerConsentWarning(
   }
   const categories = new Map<string, ConsentCategory>();
   for (const script of settings.scripts) {
-    if (script.category !== undefined && script.category !== "necessary") {
-      categories.set(script.name, script.category);
-    }
+    if (isGated(script)) categories.set(script.name, script.category);
   }
   const reaching = workerReachingScripts(settings).filter((line) =>
     categories.has(line.name),
