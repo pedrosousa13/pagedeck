@@ -189,10 +189,17 @@ afterAll(async () => {
   rmSync(SITE, { recursive: true, force: true });
 });
 
-async function open(): Promise<{ page: BrowserPage; errors: string[]; finish(): Promise<void> }> {
+async function open(
+  grantedAtLoad = false,
+): Promise<{ page: BrowserPage; errors: string[]; finish(): Promise<void> }> {
   vendorRequests.length = 0;
   const context = await browser.newContext();
   const page = await context.newPage();
+  if (grantedAtLoad) {
+    await page.addInitScript(
+      `window[${JSON.stringify(CONSENT_GLOBAL)}]={granted:function(){return true}}`,
+    );
+  }
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   await page.goto(`${site?.origin ?? ""}/`);
@@ -269,6 +276,20 @@ test("a denial never loads the held script, however often it is answered again",
 
   expect(requested("pixel")).toEqual([]);
   expect(await page.locator('script[src$="/pixel.js"]').count()).toBe(0);
+  expect(errors).toEqual([]);
+  await finish();
+});
+
+test("a category granted when the page loads runs the held script in the worker, though the runtime is not listening yet", async () => {
+  const { page, errors, finish } = await open(true);
+
+  await expect
+    .poll(() => requested("pixel"), { timeout: 30_000 })
+    .toContain("/hit?script=pixel&where=worker");
+  expect(requested("pixel")).not.toContain("/hit?script=pixel&where=main");
+  expect(await page.locator('script[src$="/pixel.js"]').getAttribute("type")).toBe(
+    "text/partytown-x",
+  );
   expect(errors).toEqual([]);
   await finish();
 });
