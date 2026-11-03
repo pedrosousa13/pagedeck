@@ -1,4 +1,4 @@
-import { imagePreviewFault } from "@pagedeck/content/preview";
+import { excerpt, imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
 import { quote } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
@@ -64,6 +64,7 @@ export interface ImageAttributesInput {
 export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
   const { images, image, page } = input;
   refuseUnusableImage(image, page);
+  const style = imagePlaceholder(image);
 
   const widths = candidateWidths(images.widths, image.width);
   const url = (width: number): string =>
@@ -84,28 +85,29 @@ export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
     height: image.height,
     loading: image.aboveFold === true ? "eager" : "lazy",
     fetchPriority: image.aboveFold === true ? "high" : "auto",
-    ...placeholder(image),
+    ...(style === undefined ? {} : { style }),
   };
 }
 
-function placeholder(image: ImageSource): { style?: ImagePlaceholderStyle } {
+/** A preview `imagePreviewFault` refuses is left out, so no caller can emit one. */
+export function imagePlaceholder(
+  image: Pick<ImageSource, "placeholderColor" | "placeholderPreview">,
+): ImagePlaceholderStyle | undefined {
   const color =
     image.placeholderColor === undefined
-      ? {}
+      ? undefined
       : { backgroundColor: image.placeholderColor };
-  if (image.placeholderPreview === undefined) {
-    return image.placeholderColor === undefined ? {} : { style: color };
+  const preview = image.placeholderPreview;
+  if (preview === undefined || imagePreviewFault(preview) !== undefined) {
+    return color;
   }
   return {
-    style: {
-      ...color,
-      // Safe unescaped only because `refuseUnusableImage` ran `imagePreviewFault` on it.
-      backgroundImage: `url("${image.placeholderPreview}")`,
-      // A preview a few pixels wide, stretched, is the blur.
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-    },
+    ...color,
+    backgroundImage: `url("${preview}")`,
+    // A preview a few pixels wide, stretched, is the blur.
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
   };
 }
 
@@ -173,14 +175,6 @@ function refuseUnusableImage(image: ImageSource, page: PageContext): void {
 
 const PREVIEW_FIX =
   "pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out";
-
-const EXCERPT_LENGTH = 32;
-
-function excerpt(value: unknown): unknown {
-  return typeof value === "string" && value.length > EXCERPT_LENGTH
-    ? `${value.slice(0, EXCERPT_LENGTH)}…`
-    : value;
-}
 
 function sourceFault(src: unknown): string | undefined {
   if (typeof src !== "string") return "not a string";

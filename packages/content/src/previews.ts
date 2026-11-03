@@ -1,14 +1,14 @@
 import { CollectionError } from "./collection.js";
+import { DEFAULT_COLOR_CONCURRENCY } from "./colors.js";
+import { printable } from "./escape.js";
+import { MAX_PREVIEW_BYTES, excerpt, imagePreviewFault } from "./preview.js";
 import {
-  DEFAULT_COLOR_CONCURRENCY,
   inFlight,
   quoteSource,
   quoteValue,
   reasonOf,
   refuseUnusableConcurrency,
-} from "./colors.js";
-import { printable } from "./escape.js";
-import { MAX_PREVIEW_BYTES, imagePreviewFault } from "./preview.js";
+} from "./probing.js";
 import type { ContentStore } from "./store.js";
 
 /**
@@ -40,15 +40,15 @@ export interface SyncImagePreviewsInput {
 }
 
 /**
- * `syncImageColors`'s shape, with one addition: an answer is cached only once
- * `imagePreviewFault` passes it, so the store holds nothing a page could not carry.
+ * An answer is cached only once `imagePreviewFault` passes it, so the store holds nothing
+ * a page could not carry.
  */
 export async function syncImagePreviews(
   input: SyncImagePreviewsInput,
 ): Promise<void> {
   const { store, collection, probe, onWarning } = input;
   const concurrency = input.concurrency ?? DEFAULT_PREVIEW_CONCURRENCY;
-  refuseUnusableConcurrency(collection, "imagePreviews", input.concurrency);
+  refuseUnusableConcurrency(collection, "imagePreviews", "a preview", input.concurrency);
 
   const entriesBySource = new Map<string, Set<string>>();
   for (const { src, entry } of input.sources) {
@@ -98,15 +98,6 @@ export async function syncImagePreviews(
   if (failures.length > 0) {
     onWarning?.(previewFailureWarning(collection, [...failures].sort()));
   }
-}
-
-const EXCERPT_LENGTH = 32;
-
-// An over-cap answer is kilobytes of base64; the reason line carries its size.
-function excerpt(answer: unknown): unknown {
-  return typeof answer === "string" && answer.length > EXCERPT_LENGTH
-    ? `${answer.slice(0, EXCERPT_LENGTH)}…`
-    : answer;
 }
 
 const PREVIEW_FIX = `return a base64 data URI of a png, jpeg, webp, avif or gif image of at most ${String(MAX_PREVIEW_BYTES)} bytes, such as "data:image/webp;base64,UklGR…", or undefined for an image that has none`;

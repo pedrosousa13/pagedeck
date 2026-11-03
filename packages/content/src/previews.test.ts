@@ -177,6 +177,29 @@ test("a malformed answer fails the sync naming the collection, every entry and t
   expect(store.hasImagePreview("/ok.jpg")).toBe(false);
 });
 
+test("one refused answer caches none of the run's valid answers, so the next sync asks for them again", async () => {
+  const store = openTempStore();
+  let svg = true;
+  const asked: string[] = [];
+  const probe = (src: string): string => {
+    asked.push(src);
+    return src === "/a.svg" && svg ? "data:image/svg+xml;base64,PHN2Zz4=" : PREVIEW;
+  };
+  const sources = on("/en/home", "/a.svg", "/b.jpg", "/c.jpg");
+
+  await refusal(syncImagePreviews({ store, collection: "pages", sources, probe }));
+
+  expect(store.hasImagePreview("/b.jpg")).toBe(false);
+  expect(store.hasImagePreview("/c.jpg")).toBe(false);
+
+  svg = false;
+  asked.length = 0;
+  await syncImagePreviews({ store, collection: "pages", sources, probe });
+
+  expect([...asked].sort()).toEqual(["/a.svg", "/b.jpg", "/c.jpg"]);
+  expect(store.getImagePreview("/b.jpg")).toBe(PREVIEW);
+});
+
 test("an oversized answer fails the sync naming the source and the cap, and is not quoted whole", async () => {
   const store = openTempStore();
   const huge = `data:image/png;base64,${"A".repeat(4000)}`;
@@ -192,7 +215,7 @@ test("an oversized answer fails the sync naming the source and the cap, and is n
 
   expect(error.message).toBe(
     `Collection "pages": the image preview probe answered 1 source with something that is not an image preview — ${FIX}:\n` +
-      `  "/hero.jpg" on /en/home — "data:image/png;base64,AAAAAAAAAA…" — 4022 bytes, over the ${String(MAX_PREVIEW_BYTES)}-byte cap`,
+      `  "/hero.jpg" on /en/home — "data:image/png;base64,AAAAAAAAAA…" — at least 4022 bytes, over the ${String(MAX_PREVIEW_BYTES)}-byte cap`,
   );
   expect(store.hasImagePreview("/hero.jpg")).toBe(false);
 });

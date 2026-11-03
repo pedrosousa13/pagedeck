@@ -4,6 +4,7 @@ import {
   DEFAULT_IMAGE_SIZES,
   defineImages,
   imageAttributes,
+  imagePlaceholder,
   urlTemplate,
 } from "./images.js";
 import type { ImagesSetting } from "./images.js";
@@ -312,6 +313,25 @@ test.each([
   expect(error?.message).toMatch(
     /^Entry \/en\/home: image "\/hero\.jpg" carries a placeholderPreview that is not an image preview, so none is written into the page — pass the answer the sync cached for it, store\.getImagePreview\(src\), or leave the field out:\n {2}.+ — .+$/,
   );
+});
+
+test.each([
+  ['a quote that closes the url', 'data:image/png;base64,AAAA");background:url("https://x.example/'],
+  ["a closing style tag", "data:image/png;base64,AAAA</style>"],
+  ["an SVG data URI", "data:image/svg+xml;base64,PHN2Zz4="],
+  ["an answer over the cap", `data:image/png;base64,${"A".repeat(4096)}`],
+])("the placeholder alone never emits a preview holding %s, whoever calls it", (_name, value) => {
+  expect(imagePlaceholder({ placeholderPreview: value })).toBeUndefined();
+  expect(
+    imagePlaceholder({ placeholderColor: "#3a2f28", placeholderPreview: value }),
+  ).toStrictEqual({ backgroundColor: "#3a2f28" });
+});
+
+test("the placeholder emits a valid preview over the color", () => {
+  expect(
+    imagePlaceholder({ placeholderColor: "#3a2f28", placeholderPreview: PREVIEW }),
+  ).toStrictEqual({ backgroundColor: "#3a2f28", ...PREVIEW_STYLE });
+  expect(imagePlaceholder({})).toBeUndefined();
 });
 
 test("a refused preview is quoted cut short, and names its reason", () => {
