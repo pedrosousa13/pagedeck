@@ -219,6 +219,22 @@ It is a list per page rather than a URL per script because every plausible
 mechanism needs something emitted once per document (Partytown its snippet, a
 hand-rolled worker its bootstrap) as well as something per script.
 
+A list goes last in the `<body>`. To put part of it in the `<head>`, return
+`{ head, body }` instead:
+
+```ts
+runtime: ({ scripts }) => ({
+  head: ["<script>/* defines what page code calls */</script>"],
+  body: scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+}),
+```
+
+The build writes `head` into the page's `<head>` after the font and module
+preloads and before your [pre-paint scripts](./page-head.md), so it runs before
+any inline script on the page. Use it for what page code calls, such as a
+function the mechanism forwards to its worker. `body` goes where a list goes.
+Both are your bytes, written as returned.
+
 An adapter can also declare `files`, each a `name` and its `contents`, for the
 files its elements load from the site's own origin. The build writes them into
 one directory, `/script-runtime/<hash>/`, where the hash covers every file's
@@ -317,8 +333,8 @@ export default defineConfig({
 ```
 
 Each page that keeps a `worker` script then carries Partytown's inline snippet
-and one `<script type="text/partytown">` per uncategorized script, last in the
-`<body>`. A script with a consent `category` is not in the markup: the consent
+in its `<head>`, and one `<script type="text/partytown">` per uncategorized
+script, last in the `<body>`. A script with a consent `category` is not in the markup: the consent
 gate holds it, and appends it for Partytown on a grant. The
 build writes Partytown's service worker and its two other files under
 `/script-runtime/<hash>/`, and the snippet loads them from there, so nothing
@@ -333,7 +349,7 @@ became `idle`, is gone.
 `fallbackTimeout` and `strictProxyHas`, and `resolveUrl`, which is the next
 section. It sets `lib` itself, to the runtime's directory.
 
-Four things to know before you choose it:
+Three things to know before you choose it:
 
 - **Service-worker mode only.** Partytown's other mode needs a page that is
   cross-origin isolated, which breaks most third-party embeds, so its file is
@@ -345,9 +361,6 @@ Four things to know before you choose it:
   script from inside its worker without an integrity check, so the hash you
   pinned would not be checked. Declare `strategy: "idle"` for that script,
   which keeps the check.
-- **The snippet runs at the end of the `<body>`**, because nothing this layer
-  writes goes in the `<head>`. A function you `forward` exists from there on, and
-  an inline script above it that calls one fails.
 - **`pagedeck dev` does not serve the runtime's files.** In development
   Partytown cannot register its service worker, and after `fallbackTimeout`
   runs the scripts on the main thread.
@@ -789,7 +802,8 @@ The list does not include:
 - a JSON-LD block (`<script type="application/ld+json">`). It is data, and CSP
   does not apply to it.
 - an inline script you wrote yourself. A `worker` script's elements are the
-  ones your `runtime` adapter returns, a facade's `html` is yours, and so is any
+  ones your `runtime` adapter returns, in the `<head>` or the `<body>`, a
+  facade's `html` is yours, and so is any
   script in your page content. Hash those yourself and add them to the policy.
   `@pagedeck/script-worker` hashes its own snippet for you, as
   [`runtime.inlineScriptHash`](#the-snippets-hash-for-a-content-security-policy).
@@ -1246,18 +1260,19 @@ has named them.
 
 Everything the layer emits goes **last in the `<body>`**, after the page's
 content and after its own entry chunk: the adapter's elements, then the one
-`<script>` that carries the loading code. The exception is a facade's
-placeholder, which is markup a visitor sees and goes inside `<main>` with the
-rest of the page's content. Nothing
-this layer writes reaches the `<head>`, which has one writer and one order (see
-[the page head](./page-head.md)). The cost is that a worker runtime cannot boot
-earlier than the document: the point of the feature is that third-party code
-does not get in front of your page.
+`<script>` that carries the loading code. There are two exceptions. A facade's
+placeholder is markup a visitor sees, and goes inside `<main>` with the rest of
+the page's content. What your adapter returns as `head` goes into the
+`<head>`, which has one writer and one order (see
+[the page head](./page-head.md)): the head writer puts it in a slot of its own,
+in front of your pre-paint scripts, so that a function the runtime forwards
+exists before any page code calls it. Third-party code itself stays behind
+your page: the runtime's head markup sets up the mechanism, and every script
+the mechanism loads is still in the body or held by the gate.
 
-The pre-paint script above is the other side of that placement and is not an
-exception to it: it is *your* code, declared in `build.prePaint` rather than in
-this layer, and the head writer puts it there. Being in the head is the whole of
-what it buys: every element on this list is behind it.
+The pre-paint script above is your code, declared in `build.prePaint` rather
+than in this layer, and the head writer puts it there too. Being in the head is
+what it buys: every element of this layer's body markup is behind it.
 
 The loading code is inlined rather than emitted as a chunk, and it is
 conditional all the way down. A page with only `idle` scripts carries no
