@@ -7,7 +7,11 @@ import {
   CONSENT_GRANTED,
 } from "./consent.js";
 import { shortHash } from "./manifest.js";
-import { loadedScriptStrategy, resolveConsentDefault } from "./scripts.js";
+import {
+  INTERACTION_EVENTS,
+  loadedScriptStrategy,
+  resolveConsentDefault,
+} from "./scripts.js";
 import type {
   ConsentDefault,
   ScriptAttributes,
@@ -169,8 +173,6 @@ const APPEND = `var load=function(u){for(var i=0;i<u.length;i++){var s=document.
  */
 const APPEND_ATTRIBUTES = `var load=function(u){for(var i=0;i<u.length;i++){var t=u[i],s=document.createElement("script");s.src=t[0];for(var a=1;a<t.length;a+=2)s.setAttribute(t[a],t[a+1]);s.async=true;document.head.appendChild(s)}};`;
 
-/** No `scroll`: a browser restoring a scroll position fires it unprompted. */
-const INTERACTION_EVENTS = ["pointerdown", "keydown", "wheel"];
 
 /** No `wheel`: on one element it is a visitor scrolling past it. */
 const FACADE_EVENTS = ["pointerdown", "keydown"];

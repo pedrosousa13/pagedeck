@@ -45,6 +45,9 @@ const OVERRIDE_VALUES: readonly (ScriptStrategy | "off")[] = [
 
 export const DEFAULT_SCRIPT_STRATEGY: ScriptStrategy = "worker";
 
+/** No `scroll`: a browser restoring a scroll position fires it unprompted. */
+export const INTERACTION_EVENTS: readonly string[] = ["pointerdown", "keydown", "wheel"];
+
 export interface ScriptFacade {
   readonly html: string;
   readonly mount?: string;
@@ -490,6 +493,7 @@ const PAGE_EVENTS = new Set([
   "visibilitychange",
   "readystatechange",
   CONSENT_EVENT,
+  ...INTERACTION_EVENTS,
 ]);
 
 function latePickupFault(name: "type" | "event", value: unknown): string | undefined {

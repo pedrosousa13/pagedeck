@@ -254,8 +254,11 @@ no page points at files the build no longer writes.
 
 An adapter whose mechanism picks up a script added after the page loaded says
 so with `latePickup`: the `type` such a script carries, and the `event` that
-tells the mechanism to look. A categorized `worker` script then stays on
-`worker`, held by the consent gate (see
+tells the mechanism to look. Name the event in a namespace of your own, such as
+`x-worker:update`: the loader dispatches it on `window`, so a bare name like
+`message` or `popstate` would reach the site's own listeners too, and the build
+refuses the names it knows the page or the loader listens for. A categorized
+`worker` script then stays on `worker`, held by the consent gate (see
 [the consent section](#a-categorized-script-waits-for-consent-on-worker-only-where-the-runtime-picks-up-late-scripts)).
 A function you wrap around such an adapter must carry `latePickup` over too; a
 wrapper that drops it sends those scripts back to `idle`.

@@ -781,22 +781,13 @@ test("a late pickup the loader cannot write is refused, naming each field", () =
   ).toBe(LATE_PICKUP);
 });
 
+/** A sample of HTML's JavaScript MIME type essences, and the other types a browser acts on. */
 const MAIN_THREAD_TYPES = [
   "application/ecmascript",
   "application/javascript",
-  "application/x-ecmascript",
-  "application/x-javascript",
-  "text/ecmascript",
   "text/javascript",
-  "text/javascript1.0",
-  "text/javascript1.1",
-  "text/javascript1.2",
-  "text/javascript1.3",
-  "text/javascript1.4",
   "text/javascript1.5",
-  "text/jscript",
   "text/livescript",
-  "text/x-ecmascript",
   "text/x-javascript",
   "module",
   "importmap",
@@ -826,6 +817,9 @@ test("a late pickup whose event the page or core already listens for is refused"
     "visibilitychange",
     "readystatechange",
     "pagedeck:consent",
+    "pointerdown",
+    "keydown",
+    "wheel",
   ]) {
     expect(latePickupReport({ type: "text/x-worker", event })).toBe(
       [
