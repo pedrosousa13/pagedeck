@@ -16,7 +16,9 @@ already implemented. Binding on the wire format and on `unescapedHtml`'s
 contract. Raised by #137. Amended by #258, which changed how the strip
 neutralises a name (it renames the name and removes nothing) and not where the
 defence sits. Amended by #260, which audited every name page output carries
-against the list (below, "Names left off the list").
+against the list (below, "Names left off the list") Amended by #266, which
+added the ids the framework looks up (below, "Ids in the framework's
+namespace").
 
 ## Context
 
@@ -156,6 +158,28 @@ stay off the list, and content that spells one reaches the page unchanged:
 
 Adding a reader for any of the four puts that name on the list in the same
 change, with neutralise tests in each value form.
+
+**Ids in the framework's namespace.** `getElementById` returns the first
+element in document order, so content placed before the element the framework
+wrote would win the lookup. The framework looks up two ids by name:
+`PREVIEW_CONTAINER_ID` (`packages/preview/src/mount.tsx`), the container
+`mountPreview` mounts into, and the consent banner's default `id` prop
+(`packages/design-system/src/components/consent_banner.tsx`), whose `-manage`
+and `-accept` suffixes it looks up to move focus. Both start with
+`RESERVED_ID_PREFIX` (`tree.tsx`), the `pagedeck` prefix and a dash. So
+`neutralizeReservedNames` also renames an `id` attribute whose value starts with
+that prefix: `x-` goes in front of the value, inside any quote, in each value
+form and in any case. The value is matched on bytes like the names, with the
+same boundary before `id`, so `data-id` and `class` keep the prefix and so does
+an `id` that only contains it. Two lookups stay outside the namespace, and that
+is the site's choice and not the framework's. A site that passes the banner its
+own `id` moves its focus targets with it. A facade's mount point is an id the
+site names, which the build finds in the rendered page by its first match
+(`mountOffsets`, `build.ts`). The markdown loader keeps its heading slugs out of
+the prefix, so a heading's anchor survives the rename. One limit is stated: a
+value spelled with a character reference, such as `&#112;` for the first
+letter, is not matched, because the match reads bytes and the browser decodes
+the reference. A sanitiser that serialises the DOM it built writes the letter.
 
 **The framework defends its own namespace, not the site's HTML.** Sanitising
 content is the CMS's job and stays there. What `unescapedHtml`'s contract

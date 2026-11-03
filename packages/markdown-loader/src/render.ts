@@ -177,20 +177,21 @@ const FALLBACK_SLUG = "section";
 
 // `(?<![-\w])` is core's ASCII name boundary (`NAME_CHARACTER`), so a reserved name after a
 // non-ASCII letter is caught, as `neutralizeReservedNames` would rename it.
-const RESERVED = /(?<![-\w])(?:data-pagedeck(?:-|$))+/g;
+const RESERVED = /^(?:pagedeck-|data-pagedeck(?:-|$))+|(?<![-\w])(?:data-pagedeck(?:-|$))+/g;
 
-// `neutralizeReservedNames` renames `data-pagedeck-*` names in content, `id`s included, so a
-// heading's `id` would no longer match the slug its table-of-contents link uses. One pass is a
-// fixed point.
+// `neutralizeReservedNames` renames `data-pagedeck-*` names in content, `id`s included, and an
+// `id` value starting `pagedeck-` (#266), so a heading's `id` would no longer match the slug its
+// table-of-contents link uses. One pass is a fixed point.
 function unreserved(slug: string): string {
   return slug.replace(RESERVED, "");
 }
 
 // Asks whether a slug is free, not how often its text was seen: "Options 1" owns `options-1`.
+// A number after `pagedeck` makes a reserved slug, so each candidate is unreserved again.
 function uniqueSlug(base: string, taken: Set<string>): string {
   let slug = base;
   for (let suffix = 1; taken.has(slug); suffix += 1) {
-    slug = `${base}-${String(suffix)}`;
+    slug = unreserved(`${base}-${String(suffix)}`);
   }
   taken.add(slug);
   return slug;

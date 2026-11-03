@@ -48,6 +48,20 @@ test("a heading spelling a framework-reserved name still anchors after neutraliz
   expect(neutralizedHtml).toContain('<h2 id="slot">data-x-pagedeck-slot</h2>');
 });
 
+test("a heading that slugs into the framework's id namespace still anchors after neutralizing", async () => {
+  const renderer = await createMarkdownRenderer({ languages: [] });
+  const rendered = await renderer.render(
+    "## Pagedeck island\n\n## pagedeck-preview\n\n## Pagedeck\n\n## Pagedeck\n",
+    "d.md",
+  );
+  const neutralizedHtml = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
+
+  expect(neutralizedHtml).toBe(rendered.html);
+  expect(
+    [...neutralizedHtml.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
+  ).toEqual(rendered.toc.map((entry) => entry.slug));
+});
+
 test("a heading spelling a reserved name after a non-ASCII letter still anchors", async () => {
   // A non-ASCII letter is the one character `slugify` admits that core's ASCII
   // name boundary cuts at, putting a reserved name mid-slug.

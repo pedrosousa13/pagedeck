@@ -137,9 +137,9 @@ interface PageLocale {
 export const PageLocaleContext = createContext<PageLocale | undefined>(undefined);
 
 /**
- * Neutralises only the framework's reserved names (#109, #258): each is renamed
- * in place and every other byte reaches the page as written, so the HTML must
- * already be sanitised.
+ * Neutralises only the framework's reserved names and ids (#109, #258, #266):
+ * each is renamed in place and every other byte reaches the page as written, so
+ * the HTML must already be sanitised.
  */
 export function unescapedHtml(html: string): {
   dangerouslySetInnerHTML: { __html: string };
@@ -181,12 +181,16 @@ export const RESERVED_ATTRIBUTES: readonly string[] = [
   SEARCH_ATTRIBUTE,
 ];
 
+/** The namespace of the ids the framework looks up with `getElementById` (#266). */
+const RESERVED_ID_PREFIX = "pagedeck-";
+
 const RESERVED_NAMES = new RegExp(
   [
     `(?<=</?)(?:${RESERVED_TAGS.join("|")})(?=[\\s/>]|$)`,
     `(?<=(?<!${NAME_CHARACTER})data-)(?:${RESERVED_ATTRIBUTES.map((name) =>
       name.slice("data-".length),
     ).join("|")})(?!${NAME_CHARACTER})`,
+    `(?<=(?<!${NAME_CHARACTER})id\\s*=\\s*["']?)${RESERVED_ID_PREFIX}`,
   ].join("|"),
   "gi",
 );
