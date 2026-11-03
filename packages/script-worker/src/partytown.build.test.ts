@@ -163,13 +163,14 @@ test("the build says nothing about worker falling back to idle", () => {
   expect(diagnostics.get("build")).toBe(`${DIAGNOSTIC_MARKER} ${ABSENT_FAVICON}`);
 });
 
-test("each page's worker script is typed text/partytown, after the snippet, and not on the idle loader", () => {
+test("each page carries the snippet in its head, its worker script typed text/partytown in its body, and nothing on the idle loader", () => {
   const pages = documents();
   expect([...pages.keys()].sort()).toEqual(["/", "/about"]);
   for (const html of pages.values()) {
     const element = '<script type="text/partytown" src="https://example.com/gtm.js"></script>';
     expect(html).toContain(element);
-    expect(html.indexOf(`<script>${snippetOf(html)}</script>`)).toBeLessThan(html.indexOf(element));
+    expect(html.indexOf(`<script>${snippetOf(html)}</script>`)).toBeLessThan(html.indexOf("</head>"));
+    expect(html.indexOf(element)).toBeGreaterThan(html.indexOf("<body>"));
     expect(html).not.toContain('load(["https://example.com/gtm.js"');
   }
 });

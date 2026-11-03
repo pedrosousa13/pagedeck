@@ -104,7 +104,7 @@ const SILENT_SCRIPTS = `scripts: defineScripts({
       scripts: [
         { name: "tags", src: "https://example.com/tags.js" },
       ],
-      runtime: () => [],
+      runtime: () => ({}),
     }),`;
 
 const OFF_SCRIPTS = `scripts: defineScripts({
@@ -112,7 +112,7 @@ const OFF_SCRIPTS = `scripts: defineScripts({
         { name: "tags", src: "https://example.com/tags.js" },
       ],
       pageTypes: { "/**": { tags: "off" } },
-      runtime: ({ scripts }) => scripts.map((s) => '<script src="' + s.src + '"></script>'),
+      runtime: ({ scripts }) => ({ body: scripts.map((s) => '<script src="' + s.src + '"></script>') }),
     }),`;
 
 const LOADED_SCRIPTS = `scripts: defineScripts({
@@ -125,10 +125,12 @@ const LOADED_SCRIPTS = `scripts: defineScripts({
       ],
       pageTypes: { "/post": { experiment: "idle", chat: "off", metrics: "off" } },
       consentDefaults: { "en:/**": { analytics: "denied" } },
-      runtime: ({ scripts }) => [
-        '<script>marker-snippet-4b1c</script>',
-        ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
-      ],
+      runtime: ({ scripts }) => ({
+        body: [
+          '<script>marker-snippet-4b1c</script>',
+          ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+        ],
+      }),
     }),
     prePaint: ['document.documentElement.dataset.theme = "dark" /* marker-prepaint-8e40 */'],`;
 
@@ -151,10 +153,12 @@ const FILES_SCRIPTS = `scripts: defineScripts({
           { name: "frame.html", contents: new TextEncoder().encode("<!doctype html><p>frame-0d5e</p>") },
         ];
         return Object.assign(
-          ({ scripts }) => [
-            '<script src="' + scriptRuntimeBase(files) + 'boot.js"></script>',
-            ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
-          ],
+          ({ scripts }) => ({
+            body: [
+              '<script src="' + scriptRuntimeBase(files) + 'boot.js"></script>',
+              ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+            ],
+          }),
           { files },
         );
       })(),
@@ -169,10 +173,12 @@ const INLINE_BASE_SCRIPTS = `scripts: defineScripts({
       runtime: (() => {
         const files = [{ name: "boot.js", contents: "self.marker = 'boot-first-5a20';" }];
         return Object.assign(
-          ({ scripts }) => [
-            '<script>self.runtimeLib = "' + scriptRuntimeBase(files) + '";</script>',
-            ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
-          ],
+          ({ scripts }) => ({
+            body: [
+              '<script>self.runtimeLib = "' + scriptRuntimeBase(files) + '";</script>',
+              ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+            ],
+          }),
           { files },
         );
       })(),

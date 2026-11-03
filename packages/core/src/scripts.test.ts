@@ -20,17 +20,19 @@ import type {
   ScriptRuntimeRequest,
 } from "./scripts.js";
 
-const WORKER_SHAPED: ScriptRuntimeAdapter = ({ scripts }) => [
-  `<script type="module">startWorker(${JSON.stringify(scripts.map((script) => script.src))})</script>`,
-];
+const WORKER_SHAPED: ScriptRuntimeAdapter = ({ scripts }) => ({
+  body: [
+    `<script type="module">startWorker(${JSON.stringify(scripts.map((script) => script.src))})</script>`,
+  ],
+});
 
-const PARTYTOWN_SHAPED: ScriptRuntimeAdapter = ({ scripts }) => [
-  "<script>/* partytown snippet */</script>",
-  ...scripts.map(
+const PARTYTOWN_SHAPED: ScriptRuntimeAdapter = ({ scripts }) => ({
+  head: ["<script>/* partytown snippet */</script>"],
+  body: scripts.map(
     (script) =>
       `<script type="text/partytown" src="${script.src}"></script>`,
   ),
-];
+});
 
 const ANALYTICS: ScriptDeclaration = {
   name: "analytics",
@@ -722,7 +724,7 @@ test("a runtime that picks up late scripts hears no consent warning, since nothi
 });
 
 test("a categorized script with integrity is refused once it can reach a late-pickup runtime that checks none", () => {
-  const runtime = Object.assign(() => [], {
+  const runtime = Object.assign(() => ({}), {
     checksIntegrity: false,
     latePickup: { type: "text/partytown", event: "ptupdate" },
   });
@@ -751,7 +753,7 @@ const LATE_PICKUP_HEADING =
 
 function latePickupReport(latePickup: unknown): string | undefined {
   return scriptsFaultReport(
-    { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup }) },
+    { scripts: [ANALYTICS], runtime: Object.assign(() => ({}), { latePickup }) },
     'Config "/site/pagedeck.config.ts"',
     "build.scripts",
   );
@@ -770,7 +772,7 @@ test("a late pickup the loader cannot write is refused, naming each field", () =
   );
   expect(
     scriptsFaultReport(
-      { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup: "x" }) },
+      { scripts: [ANALYTICS], runtime: Object.assign(() => ({}), { latePickup: "x" }) },
       "Script settings",
     ),
   ).toBe(
@@ -878,14 +880,18 @@ test("the fallback is applied to the resolved strategy, not to the declared one"
 test("two unlike mechanisms fit through one runtime contract", () => {
   const request = { scripts: [ANALYTICS, CHAT] };
 
-  expect(WORKER_SHAPED(request)).toEqual([
-    '<script type="module">startWorker(["https://example.com/analytics.js","https://example.com/chat.js"])</script>',
-  ]);
-  expect(PARTYTOWN_SHAPED(request)).toEqual([
-    "<script>/* partytown snippet */</script>",
-    '<script type="text/partytown" src="https://example.com/analytics.js"></script>',
-    '<script type="text/partytown" src="https://example.com/chat.js"></script>',
-  ]);
+  expect(WORKER_SHAPED(request)).toEqual({
+    body: [
+      '<script type="module">startWorker(["https://example.com/analytics.js","https://example.com/chat.js"])</script>',
+    ],
+  });
+  expect(PARTYTOWN_SHAPED(request)).toEqual({
+    head: ["<script>/* partytown snippet */</script>"],
+    body: [
+      '<script type="text/partytown" src="https://example.com/analytics.js"></script>',
+      '<script type="text/partytown" src="https://example.com/chat.js"></script>',
+    ],
+  });
   expect(
     defineScripts({ scripts: [ANALYTICS], runtime: PARTYTOWN_SHAPED }).runtime,
   ).toBe(PARTYTOWN_SHAPED);
@@ -898,12 +904,12 @@ test("a runtime that is not a function is refused at construction", () => {
       "Script settings",
     ),
   ).toBe(
-    'Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ["<script>…</script>"]',
+    'Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })',
   );
 });
 
 test("a runtime's files are each refused by name when the build could not write them", () => {
-  const runtime = Object.assign(() => [], {
+  const runtime = Object.assign(() => ({}), {
     files: [
       { name: "../sw.js", contents: "x" },
       { name: "sw.js", contents: 42 },
@@ -924,7 +930,7 @@ test("a runtime's files are each refused by name when the build could not write 
 });
 
 test("a runtime's files refused at the config door are named under build.scripts.runtime", () => {
-  const runtime = Object.assign(() => [], { files: [{ name: "a/b.js", contents: "x" }] });
+  const runtime = Object.assign(() => ({}), { files: [{ name: "a/b.js", contents: "x" }] });
 
   expect(
     scriptsFaultReport({ scripts: [ANALYTICS], runtime }, 'Config "/site/pagedeck.config.ts"', "build.scripts"),
@@ -932,7 +938,7 @@ test("a runtime's files refused at the config door are named under build.scripts
 });
 
 test("a runtime that checks no integrity refuses every script that can reach worker with one, at once", () => {
-  const runtime = Object.assign(() => [], { checksIntegrity: false });
+  const runtime = Object.assign(() => ({}), { checksIntegrity: false });
   const settings = {
     scripts: [
       { name: "tags", src: "/tags.js", integrity: "sha384-a" },
@@ -952,7 +958,7 @@ test("a runtime that checks no integrity refuses every script that can reach wor
       '  "pixel" — pages "/pricing" sets "worker"',
     ].join("\n"),
   );
-  expect(scriptsFaultReport({ ...settings, runtime: () => [] }, "Script settings")).toBeUndefined();
+  expect(scriptsFaultReport({ ...settings, runtime: () => ({}) }, "Script settings")).toBeUndefined();
 });
 
 test("the integrity refusal is reported beside an unrelated fault, not held back by it", () => {
@@ -962,7 +968,7 @@ test("the integrity refusal is reported beside an unrelated fault, not held back
         { name: "tags", src: "/tags.js", integrity: "sha384-a" },
         { name: "broken", src: "", strategy: "idle" },
       ],
-      runtime: Object.assign(() => [], { checksIntegrity: false }),
+      runtime: Object.assign(() => ({}), { checksIntegrity: false }),
     },
     "Script settings",
   );
@@ -974,7 +980,7 @@ test("the integrity refusal is reported beside an unrelated fault, not held back
 });
 
 test("a runtime's files that are not a list are refused", () => {
-  const runtime = Object.assign(() => [], { files: "sw.js" });
+  const runtime = Object.assign(() => ({}), { files: "sw.js" });
 
   expect(scriptsFaultReport({ scripts: [ANALYTICS], runtime }, "Script settings")).toBe(
     'Script settings: declares script runtime files this build cannot write — "sw.js" — declare them as a list, such as files: [{ name: "worker.js", contents: "…" }]',
@@ -982,7 +988,7 @@ test("a runtime's files that are not a list are refused", () => {
 });
 
 test("a runtime declaring well-formed files passes construction", () => {
-  const runtime = Object.assign(() => [], {
+  const runtime = Object.assign(() => ({}), {
     files: [
       { name: "sw.js", contents: "x" },
       { name: "frame.html", contents: new Uint8Array([60]) },
@@ -999,7 +1005,7 @@ test("a credential nested inside a refused value is cut with the rest", () => {
       "Script settings",
     ),
   ).toBe(
-    'Script settings: declares a script runtime this build cannot call — {"url":"https://cdn.example/x?…"} — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ["<script>…</script>"]',
+    'Script settings: declares a script runtime this build cannot call — {"url":"https://cdn.example/x?…"} — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })',
   );
 });
 

@@ -96,6 +96,7 @@ export type {
   ScriptRuntimeAdapter,
   ScriptRuntimeFile,
   ScriptRuntimeLatePickup,
+  ScriptRuntimeMarkup,
   ScriptRuntimeRequest,
   ScriptsSetting,
   ScriptStrategy,

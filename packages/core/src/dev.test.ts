@@ -259,10 +259,12 @@ export default defineConfig({
         { name: "metrics", src: "https://example.com/metrics-dev-7e21.js", strategy: "idle" },
         { name: "widget", src: "https://example.com/widget-dev-4c88.js", strategy: "worker" },
       ],
-      runtime: ({ scripts }) => [
-        '<script>marker-worker-boot-2f5a</script>',
-        ...scripts.map((s) => '<script type="text/worker" src="' + s.src + '"></script>'),
-      ],
+      runtime: ({ scripts }) => ({
+        body: [
+          '<script>marker-worker-boot-2f5a</script>',
+          ...scripts.map((s) => '<script type="text/worker" src="' + s.src + '"></script>'),
+        ],
+      }),
     }),
     pages: definePages({
       trailingSlash: "never",

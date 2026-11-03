@@ -85,39 +85,39 @@ test("every option the snippet carries moves the runtime's directory", () => {
   expect(base({})).toBe(plain);
 });
 
-test("a page's worker loadout is Partytown's snippet pointed at the runtime's own directory, then one text/partytown element per script", () => {
+test("a page's worker loadout is Partytown's snippet in the head, pointed at the runtime's own directory, and one text/partytown element per script in the body", () => {
   const runtime = definePartytown({ forward: ["dataLayer.push"] });
-  const elements = runtime({
+  const { head, body } = runtime({
     scripts: [TAGS, { name: "pixel", src: "/pixel.js?a=1&b=\"2\"" }],
   });
 
-  expect(elements).toHaveLength(3);
-  expect(inlineText(elements[0])).toBe(
+  expect(head).toHaveLength(1);
+  expect(inlineText(head[0])).toBe(
     partytownSnippet({
       lib: scriptRuntimeBase(runtime.files),
       forward: ["dataLayer.push"],
     }),
   );
-  expect(configOf(inlineText(elements[0]))["lib"]).toBe(scriptRuntimeBase(runtime.files));
-  expect(elements.slice(1)).toEqual([
+  expect(configOf(inlineText(head[0]))["lib"]).toBe(scriptRuntimeBase(runtime.files));
+  expect(body).toEqual([
     '<script type="text/partytown" src="https://example.com/tags.js"></script>',
     '<script type="text/partytown" src="/pixel.js?a=1&amp;b=&quot;2&quot;"></script>',
   ]);
 });
 
 test("a script's data attributes are carried onto its element", () => {
-  const elements = definePartytown()({
+  const { body } = definePartytown()({
     scripts: [{ ...TAGS, attributes: { "data-domain": 'a"b&c' } }],
   });
 
-  expect(elements[1]).toBe(
+  expect(body[0]).toBe(
     '<script type="text/partytown" src="https://example.com/tags.js" data-domain="a&quot;b&amp;c"></script>',
   );
 });
 
 test("the snippet's CSP hash is known before any build, and matches the bytes a page carries", () => {
   const runtime = definePartytown({ forward: ["dataLayer.push"] });
-  const snippet = inlineText(runtime({ scripts: [TAGS] })[0]);
+  const snippet = inlineText(runtime({ scripts: [TAGS] }).head[0]);
 
   expect(runtime.inlineScriptHash).toBe(
     `'sha256-${createHash("sha256").update(snippet, "utf8").digest("base64")}'`,
@@ -169,7 +169,7 @@ test("resolveUrl sends a declared vendor origin to the path prefix this site pro
     inlineText(
       definePartytown({
         resolveUrl: { "https://collector.example": "/vendor/collector/" },
-      })({ scripts: [TAGS] })[0],
+      })({ scripts: [TAGS] }).head[0],
     ),
   );
   const page = new URL("https://site.example/pricing");
@@ -189,7 +189,7 @@ test("resolveUrl never proxies a document: an iframe keeps the vendor's own orig
     inlineText(
       definePartytown({
         resolveUrl: { "https://collector.example": "/vendor/collector/" },
-      })({ scripts: [TAGS] })[0],
+      })({ scripts: [TAGS] }).head[0],
     ),
   );
 
@@ -203,7 +203,7 @@ test("resolveUrl leaves every origin it was not given to Partytown's default", (
     inlineText(
       definePartytown({
         resolveUrl: { "https://collector.example": "/vendor/collector/" },
-      })({ scripts: [TAGS] })[0],
+      })({ scripts: [TAGS] }).head[0],
     ),
   );
   const page = new URL("https://site.example/");
@@ -220,7 +220,7 @@ test("resolveUrl leaves every origin it was not given to Partytown's default", (
 });
 
 test("a site that declares no resolveUrl puts none in the snippet", () => {
-  const snippet = inlineText(definePartytown()({ scripts: [TAGS] })[0]);
+  const snippet = inlineText(definePartytown()({ scripts: [TAGS] }).head[0]);
 
   expect(Object.hasOwn(configOf(snippet), "resolveUrl")).toBe(false);
 });
@@ -320,7 +320,7 @@ test("the snippet Partytown writes passes core's inline script check with every 
       loadScriptsOnMainThread: ["https://example.com/main.js", /main\.js$/],
       fallbackTimeout: 5000,
       strictProxyHas: true,
-    })({ scripts: [TAGS] })[0],
+    })({ scripts: [TAGS] }).head[0],
   );
 
   expect(inlineScriptFault(snippet)).toBeUndefined();

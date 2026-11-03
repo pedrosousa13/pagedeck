@@ -19,6 +19,7 @@ contract gets an example or joins this list:
   `resolveScriptStrategy`, `ScriptRuntimeAdapter`, its `files`,
   `checksIntegrity` and `ScriptRuntimeFile`, `scriptRuntimeBase`, `inlineScriptFault` (#275),
   its `latePickup` and `ScriptRuntimeLatePickup` (#281),
+  the `{ head, body }` it returns, `ScriptRuntimeMarkup` (#283),
   `ConsentSource`,
   `resolveConsentDefault`, the five consent names; #46, #47, #460), drift
   (`checkDrift`, `driftWarnings`, `compileSupplements`,

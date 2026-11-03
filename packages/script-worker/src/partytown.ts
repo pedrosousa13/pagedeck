@@ -7,6 +7,7 @@ import type {
   ScriptRuntimeAdapter,
   ScriptRuntimeFile,
   ScriptRuntimeLatePickup,
+  ScriptRuntimeMarkup,
   ScriptRuntimeRequest,
 } from "@pagedeck/core";
 import { partytownSnippet } from "@qwik.dev/partytown/integration";
@@ -31,6 +32,7 @@ export interface PartytownOptions {
 }
 
 export interface PartytownRuntime extends ScriptRuntimeAdapter {
+  (request: ScriptRuntimeRequest): Required<ScriptRuntimeMarkup>;
   readonly files: readonly ScriptRuntimeFile[];
   readonly checksIntegrity: false;
   readonly latePickup: ScriptRuntimeLatePickup;
@@ -93,10 +95,10 @@ export function definePartytown(options: PartytownOptions = {}): PartytownRuntim
   const snippet = snippetAt(scriptRuntimeBase(files));
   const element = `<script>${snippet}</script>`;
 
-  const runtime = ({ scripts }: ScriptRuntimeRequest): readonly string[] => [
-    element,
-    ...scripts.map(scriptElement),
-  ];
+  const runtime = ({ scripts }: ScriptRuntimeRequest): Required<ScriptRuntimeMarkup> => ({
+    head: [element],
+    body: scripts.map(scriptElement),
+  });
   return Object.assign(runtime, {
     files,
     checksIntegrity: false as const,

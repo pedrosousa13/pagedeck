@@ -6,7 +6,7 @@ import { scriptRuntimeBase, scriptRuntimeOutput } from "./script-runtime.js";
 
 const EN = defineLocales({ en: { label: "English", direction: "ltr" } });
 
-const BOOT = Object.assign(() => [], {
+const BOOT = Object.assign(() => ({}), {
   files: [{ name: "boot.js", contents: "self.boot = 1;" }],
 });
 
@@ -30,7 +30,7 @@ test("a runtime's files are placed in a directory named by a hash of their names
   expect(scriptRuntimeBase(files)).toBe(`/script-runtime/${expected}/`);
   expect(core.scriptRuntimeBase).toBe(scriptRuntimeBase);
   expect(
-    scriptRuntimeOutput({ runtime: Object.assign(() => [], { files }), locales: EN, emitted: [] }).map(
+    scriptRuntimeOutput({ runtime: Object.assign(() => ({}), { files }), locales: EN, emitted: [] }).map(
       ({ path }) => path,
     ),
   ).toEqual([`/script-runtime/${expected}/boot.js`, `/script-runtime/${expected}/frame.html`]);
@@ -66,7 +66,7 @@ test("a runtime's files are written into every domain tree, hashed, as assets", 
 });
 
 test("a site with no runtime, or a runtime with no files or an empty list, writes none", () => {
-  for (const runtime of [undefined, () => [], Object.assign(() => [], { files: [] })]) {
+  for (const runtime of [undefined, () => ({}), Object.assign(() => ({}), { files: [] })]) {
     expect(scriptRuntimeOutput({ runtime, locales: EN, emitted: [] })).toEqual([]);
   }
 });

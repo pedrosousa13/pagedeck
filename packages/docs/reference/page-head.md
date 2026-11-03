@@ -272,11 +272,17 @@ is somebody else's. See
 
 Four things are worth knowing before you use it:
 
-- **It is synchronous and it is first.** The browser stops parsing, runs your
+- **It is synchronous and it is early.** The browser stops parsing, runs your
   code, and only then reaches this page's stylesheets. A slow snippet is a slow
   page, so keep it to reading one value and setting one thing.
-- **It runs before your islands, your entry chunk and any third-party script.**
-  That ordering is the whole feature: everything else on the page is behind it.
+- **It runs before your islands, your entry chunk and every script the
+  third-party layer loads.** That ordering is the whole feature. The one thing
+  ahead of it is the inline setup a [script runtime](./third-party-scripts.md)
+  returns as `head`, such as Partytown's snippet, so a function the runtime
+  forwards, such as `dataLayer.push`, already exists when your code calls it.
+  Do not reassign such a global here: write
+  `window.dataLayer = window.dataLayer || []`, not `window.dataLayer = []`,
+  which would throw away the runtime's stand-in and lose what you push to it.
 - **The build refuses a snippet it cannot carry.** `</script` ends a script
   element wherever it appears, and `<!--` changes how the parser reads the rest
   of one, so a snippet holding either is a config failure naming the entry.

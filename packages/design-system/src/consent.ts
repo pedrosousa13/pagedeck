@@ -64,7 +64,7 @@ export function grantedBy(
   return decision[category];
 }
 
-// Classic-script style because it runs untranspiled and first in the `<head>`.
+// Classic-script style because it runs untranspiled, early in the `<head>`.
 // It installs nothing without a stored record, so `consentDefaults` govern (#311).
 // `JSON.stringify` does not escape `</script` as core's `listText` does, so the
 // interpolated constants must never contain it.

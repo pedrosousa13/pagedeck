@@ -489,7 +489,7 @@ test("the walk reads a block written as a digit, as a word and as a name", () =>
   ).toEqual([
     [4, undefined],
     [4, undefined],
-    [6, "stylesheets"],
+    [7, "stylesheets"],
     [undefined, "nowhere"],
   ]);
 });

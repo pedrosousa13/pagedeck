@@ -209,15 +209,53 @@ the work. `@pagedeck/script-worker` is the reference adapter, on
 [Partytown](https://partytown.qwik.dev/), and the next section shows it.
 
 The adapter is handed **one page's `worker` loadout** and returns the finished
-HTML elements that load it, which the build writes into that page in the order
-they were returned. Scripts on the other three strategies are not handed over:
+HTML elements that load it, as `{ head, body }`: two lists, which the build
+writes into that page's `<head>` and `<body>` in the order they were returned.
+Scripts on the other three strategies are not handed over:
 they need no mechanism, and a mechanism should not get an opinion about a script
 you kept on the main thread on purpose. The elements are your bytes and are
-never read, rewritten or escaped.
+never rewritten or escaped. The build only checks that the answer has this
+shape, and that each `head` entry is one element that cannot close the `<head>`
+(see below).
 
-It is a list per page rather than a URL per script because every plausible
+They are lists per page rather than a URL per script because every plausible
 mechanism needs something emitted once per document (Partytown its snippet, a
 hand-rolled worker its bootstrap) as well as something per script.
+
+```ts
+runtime: ({ scripts }) => ({
+  head: ["<script>/* defines what page code calls */</script>"],
+  body: scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+}),
+```
+
+The build writes `head` into the page's `<head>` after the font and module
+preloads and before your [pre-paint scripts](./page-head.md), so it runs before
+any inline script on the page. **`head` is for the small inline setup that page
+code calls**, such as a function the mechanism forwards to its worker. Keep the
+mechanism's own loading, and every vendor script, in `body`: a script in `head`
+blocks the parser where it stands, and a third-party `src` there runs before
+your pre-paint and consent scripts, so before any consent decision is
+installed. `body` goes last in the `<body>`. Either may be left out, so a
+mechanism with nothing for the head returns `{ body: [...] }`.
+
+Each `head` entry must be exactly one `<script>…</script>`, `<link>` or
+`<meta>` element, written in lowercase with its attribute values in double
+quotes, each attribute named once, no `&` in a value and only spaces, tabs or
+line breaks between attributes, and a script's text must not hold `</script`
+or `<!--`. An entry may
+not speak for the whole document either: no `<script type="speculationrules">`,
+which the build writes from `build.speculation`, and no `<meta>` with `charset`
+or `http-equiv`. The build refuses any other entry when it writes the page,
+naming the page and the entry, because an entry that closed the `<head>` early
+would take your pre-paint scripts with it.
+
+**Pre-paint code must not reassign a global the runtime forwards.** The
+runtime's `head` runs first, so a forwarded name such as `dataLayer` already
+holds the runtime's stand-in when your pre-paint script runs. Writing
+`window.dataLayer = []` there throws that stand-in away, and a consent default
+pushed to it never reaches the worker. Write
+`window.dataLayer = window.dataLayer || []` instead.
 
 An adapter can also declare `files`, each a `name` and its `contents`, for the
 files its elements load from the site's own origin. The build writes them into
@@ -234,10 +272,12 @@ const files = [{ name: "boot.js", contents: "/* the worker's bootstrap */" }];
 defineScripts({
   scripts: [{ name: "tags", src: "https://example.com/gtm.js" }],
   runtime: Object.assign(
-    ({ scripts }) => [
-      `<script src="${scriptRuntimeBase(files)}boot.js"></script>`,
-      ...scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
-    ],
+    ({ scripts }) => ({
+      body: [
+        `<script src="${scriptRuntimeBase(files)}boot.js"></script>`,
+        ...scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+      ],
+    }),
     { files },
   ),
 });
@@ -317,8 +357,8 @@ export default defineConfig({
 ```
 
 Each page that keeps a `worker` script then carries Partytown's inline snippet
-and one `<script type="text/partytown">` per uncategorized script, last in the
-`<body>`. A script with a consent `category` is not in the markup: the consent
+in its `<head>`, and one `<script type="text/partytown">` per uncategorized
+script, last in the `<body>`. A script with a consent `category` is not in the markup: the consent
 gate holds it, and appends it for Partytown on a grant. The
 build writes Partytown's service worker and its two other files under
 `/script-runtime/<hash>/`, and the snippet loads them from there, so nothing
@@ -333,7 +373,7 @@ became `idle`, is gone.
 `fallbackTimeout` and `strictProxyHas`, and `resolveUrl`, which is the next
 section. It sets `lib` itself, to the runtime's directory.
 
-Four things to know before you choose it:
+Three things to know before you choose it:
 
 - **Service-worker mode only.** Partytown's other mode needs a page that is
   cross-origin isolated, which breaks most third-party embeds, so its file is
@@ -345,9 +385,6 @@ Four things to know before you choose it:
   script from inside its worker without an integrity check, so the hash you
   pinned would not be checked. Declare `strategy: "idle"` for that script,
   which keeps the check.
-- **The snippet runs at the end of the `<body>`**, because nothing this layer
-  writes goes in the `<head>`. A function you `forward` exists from there on, and
-  an inline script above it that calls one fails.
 - **`pagedeck dev` does not serve the runtime's files.** In development
   Partytown cannot register its service worker, and after `fallbackTimeout`
   runs the scripts on the main thread.
@@ -789,7 +826,8 @@ The list does not include:
 - a JSON-LD block (`<script type="application/ld+json">`). It is data, and CSP
   does not apply to it.
 - an inline script you wrote yourself. A `worker` script's elements are the
-  ones your `runtime` adapter returns, a facade's `html` is yours, and so is any
+  ones your `runtime` adapter returns, in the `<head>` or the `<body>`, a
+  facade's `html` is yours, and so is any
   script in your page content. Hash those yourself and add them to the policy.
   `@pagedeck/script-worker` hashes its own snippet for you, as
   [`runtime.inlineScriptHash`](#the-snippets-hash-for-a-content-security-policy).
@@ -1246,18 +1284,19 @@ has named them.
 
 Everything the layer emits goes **last in the `<body>`**, after the page's
 content and after its own entry chunk: the adapter's elements, then the one
-`<script>` that carries the loading code. The exception is a facade's
-placeholder, which is markup a visitor sees and goes inside `<main>` with the
-rest of the page's content. Nothing
-this layer writes reaches the `<head>`, which has one writer and one order (see
-[the page head](./page-head.md)). The cost is that a worker runtime cannot boot
-earlier than the document: the point of the feature is that third-party code
-does not get in front of your page.
+`<script>` that carries the loading code. There are two exceptions. A facade's
+placeholder is markup a visitor sees, and goes inside `<main>` with the rest of
+the page's content. What your adapter returns as `head` goes into the
+`<head>`, which has one writer and one order (see
+[the page head](./page-head.md)): the head writer puts it in a slot of its own,
+in front of your pre-paint scripts, so that a function the runtime forwards
+exists before any page code calls it. Third-party code itself stays behind
+your page: the runtime's head markup sets up the mechanism, and every script
+the mechanism loads is still in the body or held by the gate.
 
-The pre-paint script above is the other side of that placement and is not an
-exception to it: it is *your* code, declared in `build.prePaint` rather than in
-this layer, and the head writer puts it there. Being in the head is the whole of
-what it buys: every element on this list is behind it.
+The pre-paint script above is your code, declared in `build.prePaint` rather
+than in this layer, and the head writer puts it there too. Being in the head is
+what it buys: every element of this layer's body markup is behind it.
 
 The loading code is inlined rather than emitted as a chunk, and it is
 conditional all the way down. A page with only `idle` scripts carries no

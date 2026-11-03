@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 338 messages fenced
-below, 261 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 340 messages fenced
+below, 263 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 261 checked messages pin 38952 of the 108882 fenced characters, and
+below**: the 263 checked messages pin 39526 of the 110726 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1315,7 +1315,7 @@ configured no runtime, a message that would be true and unfindable, since the
 author is looking at the field it says is not there.
 
 ```
-Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ["<script>…</script>"]
+Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })
 ```
 
 A runtime's `latePickup` (#281) is refused the same way when the loader could
@@ -1333,6 +1333,34 @@ A `latePickup` that is not an object at all is one line, naming the field:
 
 ```
 Script settings: declares a late pickup the script loader cannot write — runtime.latePickup — "ptupdate" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }
+```
+
+What a runtime returns is read once per page, when the page is written (#283).
+An answer that is not `{ head, body }`, such as the list the contract once
+took, is refused rather than dropped, since a dropped answer is a page whose
+worker scripts silently never load:
+
+```
+Script runtime: "build.scripts.runtime" returned ["<script>snippet</script>"] for page "en /", which is not { head, body } — the build writes the head part into the page's <head> and the body part last in its <body>, and reads nothing else from the answer — return an object whose head and body are each a list of element strings, either left out, such as ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })
+```
+
+Every entry of an answer that is the right shape is then checked, and each one
+the build cannot write is a line. A `head` entry lands ahead of the site's
+pre-paint scripts, so one that is not a single element with double-quoted
+attributes, or a script whose text would end the element early, could close the
+`<head>` or swallow what follows. So is one that names an attribute twice or
+writes `&` in a value, since a browser would read a value this check did not,
+and one that speaks for the whole document, a speculation rules block or a
+`<meta>` with `charset` or `http-equiv`. Each line says its own fix, because
+moving an entry to `body` is only a fix for some of them:
+
+```
+Script runtime: "build.scripts.runtime" returned 5 entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — fix each entry as its line says:
+  head[0] — "<meta content='a></head>'>" — not one <script>, <link> or <meta> element with double-quoted attributes — write it as one such element, or move it to body, which this check does not read
+  head[1] — "<script>x = '</script>'</script>" — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\/script"
+  head[2] — "<meta http-equiv=\"refresh\" content=\"0;url=/elsewhere\">" — a <meta> carrying charset or http-equiv, which decides for the whole document — drop it: the build writes the charset, and a refresh or a policy belongs in a response header
+  head[3] — "<script type=\"speculationrules\" type=\"x\">{}</script>" — declares "type" more than once, and a browser keeps the first where a reader could take another — declare each attribute once
+  body — "<script></script>" — not a list — write it as a list of element strings
 ```
 
 Three paragraphs are about consent, and they arrive by the two doors above with

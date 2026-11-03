@@ -71,8 +71,14 @@ export interface ScriptRuntimeLatePickup {
   readonly event: string;
 }
 
+/** `head` goes into the `head:script-runtime` block, ahead of any inline script the page runs (#283). */
+export interface ScriptRuntimeMarkup {
+  readonly head?: readonly string[];
+  readonly body?: readonly string[];
+}
+
 export interface ScriptRuntimeAdapter {
-  (request: ScriptRuntimeRequest): readonly string[];
+  (request: ScriptRuntimeRequest): ScriptRuntimeMarkup;
   readonly files?: readonly ScriptRuntimeFile[];
   /**
    * Declared, a categorized `worker` script stays on `worker`: the consent
@@ -281,7 +287,7 @@ const SETTINGS_FIELDS = [
   "consentDefaults",
 ];
 const RUNTIME_FIX =
-  'write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ["<script>…</script>"]';
+  'write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })';
 const DECLARATION_FIELDS = [
   "name",
   "src",

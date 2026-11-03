@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, test } from "vitest";
 import { beaconElement } from "./beacon.js";
 import { isScriptLoaderText, scriptElements } from "./script-elements.js";
-import type { ScriptsSetting } from "./scripts.js";
+import type { ScriptRuntimeMarkup, ScriptsSetting } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
 
 const HOME = { locale: "en", path: "/" };
@@ -90,7 +90,7 @@ test("a configured runtime is handed the worker loadout and its answer is emitte
       ],
       runtime: ({ scripts }) => {
         seen.push(scripts.map((script) => script.name));
-        return ["<script>snippet</script>", '<script type="text/x">tags</script>'];
+        return { body: ["<script>snippet</script>", '<script type="text/x">tags</script>'] };
       },
     }),
     HOME,
@@ -103,6 +103,61 @@ test("a configured runtime is handed the worker loadout and its answer is emitte
   ]);
   expect(elements).toHaveLength(3);
   expect(elements[2]).toContain("https://example.com/c.js");
+});
+
+test("a runtime's head markup is the layer's head, and its body markup leads the body elements (#283)", () => {
+  const layer = scriptElements(
+    settings({
+      scripts: [
+        { name: "tags", src: "https://example.com/t.js" },
+        { name: "chat", src: "https://example.com/c.js", strategy: "idle" },
+      ],
+      runtime: ({ scripts }) => ({
+        head: ["<script>snippet</script>"],
+        body: scripts.map(({ name }) => `<script type="text/x">${name}</script>`),
+      }),
+    }),
+    HOME,
+  );
+
+  expect(layer.head).toEqual(["<script>snippet</script>"]);
+  expect(layer.elements[0]).toBe('<script type="text/x">tags</script>');
+  expect(layer.elements).toHaveLength(2);
+  expect(layer.elements[1]).toContain("https://example.com/c.js");
+});
+
+test("a runtime that returns only body markup puts nothing in the head", () => {
+  const layer = scriptElements(
+    settings({
+      scripts: [{ name: "tags", src: "https://example.com/t.js" }],
+      runtime: () => ({ body: ["<script>snippet</script>"] }),
+    }),
+    HOME,
+  );
+
+  expect(layer.head).toEqual([]);
+  expect(layer.elements).toEqual(["<script>snippet</script>"]);
+});
+
+test("a page whose only worker scripts are held still carries the runtime's head markup, and a page with none carries none", () => {
+  const declared = settings({
+    scripts: [{ name: "pixel", src: "https://example.com/p.js", category: "analytics" }],
+    pageTypes: { "/legal/**": { pixel: "off" } },
+    runtime: Object.assign(
+      ({ scripts }: { scripts: readonly unknown[] }) => ({
+        head: ["<script>snippet</script>"],
+        body: scripts.map(() => "<script type=\"text/x\"></script>"),
+      }),
+      { latePickup: { type: "text/x", event: "x-worker:update" } },
+    ),
+  });
+
+  const held = scriptElements(declared, HOME);
+  expect(held.head).toEqual(["<script>snippet</script>"]);
+  expect(held.elements).toHaveLength(1);
+  expect(held.elements[0]).toContain("https://example.com/p.js");
+
+  expect(scriptElements(declared, { locale: "en", path: "/legal/terms" }).head).toEqual([]);
 });
 
 test("a worker script with no runtime configured loads through the idle half of the loader", () => {
@@ -123,7 +178,7 @@ test("an override reaches the loader, so a page type can move one script off wor
       { name: "experiment", src: "https://example.com/e.js" },
     ],
     pageTypes: { "/blog/**": { experiment: "interaction" } },
-    runtime: ({ scripts }) => scripts.map(({ name }) => `<!--${name}-->`),
+    runtime: ({ scripts }) => ({ body: scripts.map(({ name }) => `<!--${name}-->`) }),
   });
 
   expect(emitted(declared, HOME)).toEqual([
@@ -189,7 +244,7 @@ test("a worker script taken off a page never reaches the runtime adapter", () =>
       pages: { "/": { tags: "off" } },
       runtime: () => {
         calls += 1;
-        return ["<script>snippet</script>"];
+        return { body: ["<script>snippet</script>"] };
       },
     }),
     HOME,
@@ -277,7 +332,7 @@ test("a runtime is not called on a page whose loadout reaches no worker script",
       ],
       runtime: () => {
         calls += 1;
-        return ["<script>snippet</script>"];
+        return { body: ["<script>snippet</script>"] };
       },
     }),
     HOME,
@@ -727,9 +782,9 @@ test("no other bare inline script is taken for the script loader", () => {
 
 test("a runtime is handed the request it always was, whether or not it declares files", () => {
   const requests: object[] = [];
-  const record = () => (request: object): readonly string[] => {
+  const record = () => (request: object): ScriptRuntimeMarkup => {
     requests.push(request);
-    return [];
+    return {};
   };
   const declared = (runtime: ScriptsSetting["runtime"]): ScriptsSetting =>
     settings({ scripts: [{ name: "tags", src: "https://example.com/t.js" }], runtime });
@@ -743,12 +798,14 @@ const LATE_PICKUP = { type: "text/partytown", event: "ptupdate" };
 
 function lateRuntime(requests: (readonly string[])[]): NonNullable<ScriptsSetting["runtime"]> {
   return Object.assign(
-    ({ scripts }: { scripts: readonly { src: string }[] }): readonly string[] => {
+    ({ scripts }: { scripts: readonly { src: string }[] }): ScriptRuntimeMarkup => {
       requests.push(scripts.map(({ src }) => src));
-      return [
-        "<script>/* snippet */</script>",
-        ...scripts.map(({ src }) => `<script type="text/partytown" src="${src}"></script>`),
-      ];
+      return {
+        body: [
+          "<script>/* snippet */</script>",
+          ...scripts.map(({ src }) => `<script type="text/partytown" src="${src}"></script>`),
+        ],
+      };
     },
     { latePickup: LATE_PICKUP },
   );
@@ -801,4 +858,162 @@ test("a page whose only worker script is held still hands the runtime its empty 
   expect(isScriptLoaderText((elements[1] ?? "").slice("<script>".length, -"</script>".length))).toBe(
     true,
   );
+});
+
+function answered(answer: unknown): () => unknown {
+  return () =>
+    scriptElements(
+      settings({
+        scripts: [{ name: "tags", src: "https://example.com/t.js" }],
+        runtime: (() => answer) as unknown as NonNullable<ScriptsSetting["runtime"]>,
+      }),
+      HOME,
+    );
+}
+
+const SHAPE_FAULT = (shown: string): string =>
+  `Script runtime: "build.scripts.runtime" returned ${shown} for page "en /", which is not { head, body } — the build writes the head part into the page's <head> and the body part last in its <body>, and reads nothing else from the answer — return an object whose head and body are each a list of element strings, either left out, such as ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })`;
+
+test("a runtime answer that is a list, as the contract once was, is refused rather than dropped (#283)", () => {
+  expect(answered(["<script>snippet</script>"])).toThrow(SHAPE_FAULT('["<script>snippet</script>"]'));
+  expect(answered(undefined)).toThrow(SHAPE_FAULT("undefined"));
+  expect(answered(null)).toThrow(SHAPE_FAULT("null"));
+});
+
+const HEAD_FAULTS = (count: number): string =>
+  `Script runtime: "build.scripts.runtime" returned ${String(count)} entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — fix each entry as its line says:`;
+
+const NOT_ONE =
+  "not one <script>, <link> or <meta> element with double-quoted attributes — write it as one such element, or move it to body, which this check does not read";
+
+const SPECULATES =
+  "a speculation rules block, and the page's one is the build's own — declare the rules in build.speculation instead";
+
+const WHOLE_DOCUMENT =
+  "a <meta> carrying charset or http-equiv, which decides for the whole document — drop it: the build writes the charset, and a refresh or a policy belongs in a response header";
+
+const CLOSES = `holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`;
+
+test("every head entry that is not one script, link or meta element is refused, in one message, with the body's faults", () => {
+  expect(
+    answered({
+      head: [
+        "<script>ok()</script>",
+        '<link rel="preload" href="/a.js" as="script">',
+        '<meta name="x" content="y">',
+        "<div>not head</div>",
+        "<script>a()</script><script>b()</script>",
+        "<script>x = '</script>'</script>",
+        "<script>if (a <!-- b) {}</script>",
+        "</head><body>",
+        '<script src="/boot.js" async></script>',
+        7,
+      ],
+      body: "<script></script>",
+    }),
+  ).toThrow(
+    [
+      HEAD_FAULTS(7),
+      `  head[3] — "<div>not head</div>" — ${NOT_ONE}`,
+      `  head[4] — "<script>a()</script><script>b()</script>" — ${CLOSES}`,
+      `  head[5] — "<script>x = '</script>'</script>" — ${CLOSES}`,
+      '  head[6] — "<script>if (a <!-- b) {}</script>" — holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
+      `  head[7] — "</head><body>" — ${NOT_ONE}`,
+      "  head[9] — 7 — not a string — write it as the element's markup",
+      '  body — "<script></script>" — not a list — write it as a list of element strings',
+    ].join("\n"),
+  );
+});
+
+test("a head entry whose quoting the build's head reader would read differently is refused", () => {
+  expect(
+    answered({
+      head: [
+        `<link title='"' href="/x">`,
+        `<meta content='a></head>'>`,
+        "<meta content=a>",
+        '<SCRIPT>if(a<b"){}</SCRIPT>',
+      ],
+    }),
+  ).toThrow(
+    [
+      HEAD_FAULTS(4),
+      `  head[0] — "<link title='\\"' href=\\"/x\\">" — ${NOT_ONE}`,
+      `  head[1] — "<meta content='a></head>'>" — ${NOT_ONE}`,
+      `  head[2] — "<meta content=a>" — ${NOT_ONE}`,
+      `  head[3] — "<SCRIPT>if(a<b\\"){}</SCRIPT>" — ${NOT_ONE}`,
+    ].join("\n"),
+  );
+});
+
+test("a head entry that speaks for the whole document is refused", () => {
+  expect(
+    answered({
+      head: [
+        '<script type="speculationrules">{"prefetch":[]}</script>',
+        '<script type=" SpeculationRules ">{}</script>',
+        '<meta charset="utf-8">',
+        '<meta http-equiv="refresh" content="0;url=/elsewhere">',
+        '<meta HTTP-EQUIV="Content-Security-Policy" content="script-src *">',
+      ],
+    }),
+  ).toThrow(
+    [
+      HEAD_FAULTS(5),
+      `  head[0] — "<script type=\\"speculationrules\\">{\\"prefetch\\":[]}</script>" — ${SPECULATES}`,
+      `  head[1] — "<script type=\\" SpeculationRules \\">{}</script>" — ${SPECULATES}`,
+      `  head[2] — "<meta charset=\\"utf-8\\">" — ${WHOLE_DOCUMENT}`,
+      `  head[3] — "<meta http-equiv=\\"refresh\\" content=\\"0;url=/elsewhere\\">" — ${WHOLE_DOCUMENT}`,
+      `  head[4] — "<meta HTTP-EQUIV=\\"Content-Security-Policy\\" content=\\"script-src *\\">" — ${WHOLE_DOCUMENT}`,
+    ].join("\n"),
+  );
+});
+
+function headFaultLines(head: readonly string[]): string[] {
+  try {
+    answered({ head })();
+  } catch (error) {
+    return (error as Error).message.split("\n").slice(1);
+  }
+  return [];
+}
+
+test("only HTML's own whitespace separates a head entry's attributes", () => {
+  const smuggled = [
+    '<meta\vname="a">',
+    "<script\vx><script>alert(1)</script>",
+    '<meta\u00a0name="a">',
+    '<link rel="preload"\u2028href="/a.js">',
+    '<meta\uFEFFname="a">',
+  ];
+  const lines = headFaultLines(smuggled);
+
+  expect(lines).toHaveLength(smuggled.length);
+  lines.forEach((line, index) => {
+    expect(line.startsWith(`  head[${String(index)}] — `)).toBe(true);
+    expect(line.endsWith(NOT_ONE)).toBe(true);
+  });
+  expect(headFaultLines(['<link\trel="preload"\nhref="/a.js"\f\r as="script">'])).toEqual([]);
+});
+
+test("a head entry that names an attribute twice, or writes & in a value, is refused", () => {
+  expect(
+    headFaultLines([
+      '<script type="speculationrules" type="x">{}</script>',
+      '<meta name="a" NAME="b">',
+      '<script type="speculation&#114;ules">{}</script>',
+      '<link rel="preload" href="/a.js?x=1&amp;y=2">',
+    ]),
+  ).toEqual([
+    `  head[0] — "<script type=\\"speculationrules\\" type=\\"x\\">{}</script>" — declares "type" more than once, and a browser keeps the first where a reader could take another — declare each attribute once`,
+    `  head[1] — "<meta name=\\"a\\" NAME=\\"b\\">" — declares "name" more than once, and a browser keeps the first where a reader could take another — declare each attribute once`,
+    `  head[2] — "<script type=\\"speculation&#…" — writes "&" in an attribute value, which a browser decodes as a character reference this check does not read — write the value without it, or move the entry to body`,
+    `  head[3] — "<link rel=\\"preload\\" href=\\"/a.js?…" — writes "&" in an attribute value, which a browser decodes as a character reference this check does not read — write the value without it, or move the entry to body`,
+  ]);
+});
+
+test("an answer with either part left out, or both, is written as given", () => {
+  expect(answered({})).not.toThrow();
+  expect(answered({ head: ['<script src="/boot.js" defer></script>'] })).not.toThrow();
+  expect(answered({ body: ["<div>anything</div>"] })).not.toThrow();
 });

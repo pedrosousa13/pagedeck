@@ -83,10 +83,11 @@ this repository:
 - **`packages/script-worker/src/partytown.build.test.ts`** writes the first
   `ts` fence under `reference/third-party-scripts.md`'s "Run worker scripts on
   Partytown" heading into a fixture site as `src/scripts.ts`, builds it with
-  the spawned `pagedeck`, and requires each page to carry the snippet and a
-  `text/partytown` element, Partytown's files under the snippet's `lib`, no
-  worker fallback warning, and `runtime.inlineScriptHash` to match the page
-  (#275). Rename the heading or move the fence, and change the test with it.
+  the spawned `pagedeck`, and requires each page to carry the snippet in its
+  `<head>` and a `text/partytown` element in its `<body>` (#283), Partytown's
+  files under the snippet's `lib`, no worker fallback warning, and
+  `runtime.inlineScriptHash` to match the page (#275). Rename the heading or
+  move the fence, and change the test with it.
 - **`packages/create-pagedeck/src/add-an-island.build.test.ts`** follows
   `how-to/add-an-island.md` from a copy of the starter template (#696): it
   writes each file the page names, splices each `build` key it shows into the

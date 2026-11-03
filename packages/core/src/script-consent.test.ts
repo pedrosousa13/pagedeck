@@ -9,7 +9,7 @@ import {
   CONSENT_GLOBAL,
 } from "./consent.js";
 import type { ConsentCategory } from "./consent.js";
-import type { ScriptsSetting } from "./scripts.js";
+import type { ScriptRuntimeMarkup, ScriptsSetting } from "./scripts.js";
 
 // Declared here rather than adding the `DOM` lib to the workspace tsconfig.
 interface TestElement {
@@ -173,9 +173,9 @@ test("a denied interaction script loads at the grant, and not before its interac
 });
 
 test("a categorized script is gated even where the site configured a worker runtime", async () => {
-  const runtime = (): readonly string[] => [
-    "<script>/* the mechanism this site supplies */</script>",
-  ];
+  const runtime = (): ScriptRuntimeMarkup => ({
+    body: ["<script>/* the mechanism this site supplies */</script>"],
+  });
   render({
     scripts: [{ name: "pixel", src: PIXEL_SRC, category: "analytics" }],
     runtime,
@@ -485,7 +485,7 @@ const HELD: ScriptsSetting = {
       attributes: { "data-site": "1" },
     },
   ],
-  runtime: Object.assign(() => ["<script>/* snippet */</script>"], {
+  runtime: Object.assign(() => ({ body: ["<script>/* snippet */</script>"] }), {
     latePickup: { type: "text/partytown", event: "ptupdate" },
   }),
 };

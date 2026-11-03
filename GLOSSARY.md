@@ -164,6 +164,12 @@ worker-reaching script that declares one. A wrapper around such an adapter must
 carry `checksIntegrity` over, or the refusal no longer applies. The request is unchanged: the adapter
 still gets one page's `worker` loadout and nothing else.
 
+Since #283 an adapter returns `{ head, body }`, either of which may be left
+out, in place of one list of elements. The `head` part goes into the `<head>`'s
+`head:script-runtime` block, ahead of every inline script the page runs, so a
+function the runtime forwards exists before page code calls it; `body` goes
+where the one list went, last in the `<body>`.
+
 Since #281 an adapter may also declare `latePickup`, a `type` and an `event`,
 when its mechanism picks up a script added after the page loaded. That is the
 exception to #47's ruling, which sends a categorized `worker` script to `idle`
@@ -1974,28 +1980,37 @@ The blocks, in the order `headElements` writes them:
     `build.fonts.faces` declares them (#573). Before the `head:stylesheets`
     block, so the browser starts a face's request before it has parsed the
     sheet whose font-face rule names it.
-5. **The site's own pre-paint scripts** (`head:pre-paint`, #311, #330), where it
+5. **The script runtime's head markup** (`head:script-runtime`, #283), what
+    `build.scripts.runtime` returned as `head` for a page with a `worker`
+    script or a held one, written as returned. In front of the
+    `head:pre-paint` block, because a site's pre-paint script is the likeliest
+    early caller of a function the runtime forwards, such as a consent default
+    pushed to `dataLayer`, and the runtime's snippet has to have run by then. Behind the
+    `head:addresses` and `head:font-preloads` blocks for the reason the
+    `head:pre-paint` block sits there.
+6. **The site's own pre-paint scripts** (`head:pre-paint`, #311, #330), where it
     declared `build.prePaint`. In front of the `head:stylesheets` block, because
     a classic script after a stylesheet link waits for that sheet to load; here,
     when the code runs is a fact about the parser rather than the network.
     Behind the `head:addresses` and `head:font-preloads` blocks, so the parser
     hands those requests over before it stops to run a site's code.
-6. **The stylesheets** (`head:stylesheets`), linked or inlined, in the order
+7. **The stylesheets** (`head:stylesheets`), linked or inlined, in the order
     `entryStyles` fixed, and contiguous: the cascade is the order of this
     block, so nothing that is not a stylesheet goes into the middle of it. On a
     site that asked for view transitions it opens with
     `@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }`,
     so a site's own rule comes later and wins (#42), and a reader who asked
     for reduced motion gets no transition (#121).
-7. **The JSON-LD block** (`head:json-ld`). Often the largest element, and a
+8. **The JSON-LD block** (`head:json-ld`). Often the largest element, and a
     browser's preload scanner should not step over it to reach the CSS.
-8. **The speculation rules block** (`head:speculation`, #42). Last, because it
+9. **The speculation rules block** (`head:speculation`, #42). Last, because it
     is the only child about the *next* document rather than this one.
 
 A page whose site declared none of `head`, `origin`, `fonts`,
-`viewTransitions`, `prePaint` and `speculation` gets the `head:charset` block
-and the `head:stylesheets` block and nothing else, byte for byte the document
-the build wrote before #41, #39, #45 and #42. This list is the record of the
+`viewTransitions`, `prePaint`, `speculation` and a script runtime that returns
+`head` gets the `head:charset` block and the `head:stylesheets` block and
+nothing else, byte for byte the document the build wrote before #41, #39, #45
+and #42. This list is the record of the
 order; the copy in `headElements`' docstring goes in #632.
 
 **Amended by #449: the numbers are checked, because twice they were not.** The
@@ -2151,6 +2166,34 @@ What core does check is that the text can be carried at all — `</script` and
 encode its way out of — `prePaintFaultReport` in
 `packages/core/src/pre-paint.ts`. Ruled on #330 (2026-09-06) and #311
 (2026-09-13).
+
+**Extended by #283: one writer, and one slot in the order the script runtime
+fills.** A `ScriptRuntimeAdapter`'s markup went last in the `<body>`, so a
+function a runtime forwards, Partytown's `forward`, did not exist yet for an
+inline script above it, and a call to it there threw. Partytown's own
+documentation puts its snippet in the `<head>` for that reason. So an adapter
+returns `{ head, body }` in place of one list, and `headElements` writes the
+`head` part in a block of its own, the `head:script-runtime` block, between the
+font preloads and the pre-paint scripts. `body` goes where the list went, and
+the Partytown adapter returns its snippet as `head`.
+
+It is #311's argument with a different supplier. The runtime supplies the
+markup; core still writes it, in the place the order gives it, and it is one
+more child in a written-down order rather than another way into the region. It
+does not widen #22's refusal, because it arrives through the config and not
+through a render. Core rewrites none of the markup, but it reads the answer
+once per page and refuses one that is not `{ head, body }`, and a `head` entry
+that is not exactly one `<script>`, `<link>` or `<meta>` element with
+double-quoted attributes, whose script text holds `</script` or `<!--`, or that
+speaks for the whole document (a speculation rules block, a `<meta>` with
+`charset` or `http-equiv`): the head part sits ahead of the site's pre-paint
+scripts, and an entry that closed the `<head>` would take them with it. `definePartytown` still refuses an option holding either sequence. Its
+hashes stay out of a page's `inlineScriptHashes`, as the body part's always
+did: core lists a head script as its own only when it can name it, the
+speculation rules or a `build.prePaint` text, and `runtime.inlineScriptHash` is
+where a site's policy takes the snippet's from. A page an incremental build
+carries keeps the hashes recorded when its bytes were written, since the
+`build.prePaint` it was written with may since have changed. Ruled on #283 (2026-11-03).
 
 ### The framework names no CSS solution
 
