@@ -214,7 +214,9 @@ writes into that page's `<head>` and `<body>` in the order they were returned.
 Scripts on the other three strategies are not handed over:
 they need no mechanism, and a mechanism should not get an opinion about a script
 you kept on the main thread on purpose. The elements are your bytes and are
-never read, rewritten or escaped.
+never rewritten or escaped. The build only checks that the answer has this
+shape, and that each `head` entry is one element that cannot close the `<head>`
+(see below).
 
 They are lists per page rather than a URL per script because every plausible
 mechanism needs something emitted once per document (Partytown its snippet, a
@@ -229,10 +231,26 @@ runtime: ({ scripts }) => ({
 
 The build writes `head` into the page's `<head>` after the font and module
 preloads and before your [pre-paint scripts](./page-head.md), so it runs before
-any inline script on the page. Use it for what page code calls, such as a
-function the mechanism forwards to its worker. `body` goes last in the
-`<body>`. Either may be left out, so a mechanism with nothing for the head
-returns `{ body: [...] }`.
+any inline script on the page. **`head` is for the small inline setup that page
+code calls**, such as a function the mechanism forwards to its worker. Keep the
+mechanism's own loading, and every vendor script, in `body`: a script in `head`
+blocks the parser where it stands, and a third-party `src` there runs before
+your pre-paint and consent scripts, so before any consent decision is
+installed. `body` goes last in the `<body>`. Either may be left out, so a
+mechanism with nothing for the head returns `{ body: [...] }`.
+
+Each `head` entry must be exactly one `<script>…</script>`, `<link>` or
+`<meta>` element, and a script's text must not hold `</script` or `<!--`. The
+build refuses any other entry when it writes the page, naming the page and the
+entry, because an entry that closed the `<head>` early would take your
+pre-paint scripts with it.
+
+**Pre-paint code must not reassign a global the runtime forwards.** The
+runtime's `head` runs first, so a forwarded name such as `dataLayer` already
+holds the runtime's stand-in when your pre-paint script runs. Writing
+`window.dataLayer = []` there throws that stand-in away, and a consent default
+pushed to it never reaches the worker. Write
+`window.dataLayer = window.dataLayer || []` instead.
 
 An adapter can also declare `files`, each a `name` and its `contents`, for the
 files its elements load from the site's own origin. The build writes them into
@@ -250,8 +268,10 @@ defineScripts({
   scripts: [{ name: "tags", src: "https://example.com/gtm.js" }],
   runtime: Object.assign(
     ({ scripts }) => ({
-      head: [`<script src="${scriptRuntimeBase(files)}boot.js"></script>`],
-      body: scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+      body: [
+        `<script src="${scriptRuntimeBase(files)}boot.js"></script>`,
+        ...scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+      ],
     }),
     { files },
   ),
