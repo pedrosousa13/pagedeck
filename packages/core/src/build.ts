@@ -148,7 +148,6 @@ import {
   workerConsentWarning,
   workerFallbackWarning,
 } from "./scripts.js";
-import type { ScriptsSetting } from "./scripts.js";
 import {
   searchDocuments,
   searchFiles,
@@ -1528,7 +1527,7 @@ async function stageSite(input: {
         : incremental.pinned.classes,
     foldTuning,
     variants: experimentVariants,
-    inlineScriptHashes: inlineScriptHashes(documents, section.scripts),
+    inlineScriptHashes: inlineScriptHashes(documents, section.prePaint ?? []),
     noindex: new Set(
       pages.filter((page) => notFound(page)).map((page) => pageKey(page)),
     ),
@@ -1646,15 +1645,12 @@ function inlinedScriptBytes(
 }
 
 function inlineScriptHashes(
-  documents: readonly { key: string; page: PageIdentity; file: EmittedFile }[],
-  scripts: ScriptsSetting | undefined,
+  documents: readonly { key: string; file: EmittedFile }[],
+  prePaint: readonly string[],
 ): Map<string, readonly string[]> {
   const hashes = new Map<string, readonly string[]>();
-  for (const { key, page, file } of documents) {
-    const texts = coreInlineScripts(
-      textOf(file.contents),
-      scriptElements(scripts, page).head,
-    );
+  for (const { key, file } of documents) {
+    const texts = coreInlineScripts(textOf(file.contents), prePaint);
     if (texts.length === 0) continue;
     const sources = texts.map((text) => {
       const digest = createHash("sha256").update(text, "utf8").digest("base64");
@@ -1668,16 +1664,15 @@ function inlineScriptHashes(
 const HEAD_TOKEN =
   /<(script|style)\b((?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/\1>|<\/head>|<[a-zA-Z](?:[^>"]|"[^"]*")*>/g;
 
-/** `runtimeHead` is the script runtime's own head markup, whose inline scripts are not core's. */
+/**
+ * A head script is core's when core can name it: the speculation rules, or a
+ * pre-paint text. A script runtime's head markup is the adapter's (#283).
+ */
 export function coreInlineScripts(
   document: string,
-  runtimeHead: readonly string[] = [],
+  prePaint: readonly string[],
 ): string[] {
-  const runtime = new Set(
-    runtimeHead.length === 0
-      ? []
-      : coreInlineScripts(`${runtimeHead.join("\n")}\n</head>`),
-  );
+  const ours = new Set(prePaint);
   const texts: string[] = [];
   for (const [token, tag, attributes = "", text = ""] of document.matchAll(
     HEAD_TOKEN,
@@ -1685,8 +1680,8 @@ export function coreInlineScripts(
     if (token === "</head>") break;
     if (
       tag === "script" &&
-      (attributes === "" || attributes === ' type="speculationrules"') &&
-      !runtime.has(text)
+      (attributes === ' type="speculationrules"' ||
+        (attributes === "" && ours.has(text)))
     ) {
       texts.push(text);
     }

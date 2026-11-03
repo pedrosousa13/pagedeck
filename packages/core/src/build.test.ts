@@ -1207,31 +1207,46 @@ test("the foot's loader and beacon are read whole behind a runtime <script src>"
   const src = '<script type="text/partytown" src="https://example.com/tags.js"></script>';
   expect(LOADER.startsWith("<script>(function(){")).toBe(true);
 
-  expect(coreInlineScripts(documentWith("<p>Copy</p>", [src, LOADER, BEACON]))).toEqual(
+  expect(coreInlineScripts(documentWith("<p>Copy</p>", [src, LOADER, BEACON]), [])).toEqual(
     [textOf(LOADER), textOf(BEACON)],
   );
-  expect(coreInlineScripts(documentWith("<p>Copy</p>", [src, LOADER]))).toEqual([
+  expect(coreInlineScripts(documentWith("<p>Copy</p>", [src, LOADER]), [])).toEqual([
     textOf(LOADER),
   ]);
 });
 
-test("a script runtime's inline head script is not listed, and the pre-paint script beside it is", () => {
-  const runtime = "<script>window.runtime = 1</script>";
-  const document = documentWith("<p>Copy</p>", []).replace(
+function headWith(...scripts: readonly string[]): string {
+  return documentWith("<p>Copy</p>", []).replace(
     '<meta charset="utf-8">',
-    `<meta charset="utf-8">\n${runtime}\n<script>window.prePaint = 1</script>`,
+    ['<meta charset="utf-8">', ...scripts].join("\n"),
+  );
+}
+
+test("a script runtime's inline head script is not listed, and the pre-paint script beside it is", () => {
+  const document = headWith(
+    "<script>window.runtime = 1</script>",
+    "<script>window.prePaint = 1</script>",
+    '<script type="speculationrules">{"prefetch":[]}</script>',
   );
 
-  expect(coreInlineScripts(document, [runtime])).toEqual(["window.prePaint = 1"]);
-  expect(coreInlineScripts(document)).toEqual(["window.runtime = 1", "window.prePaint = 1"]);
+  expect(coreInlineScripts(document, ["window.prePaint = 1"])).toEqual([
+    "window.prePaint = 1",
+    '{"prefetch":[]}',
+  ]);
+});
+
+test("a pre-paint script is listed even when the runtime's head script has the same text", () => {
+  const document = headWith("<script>same()</script>", "<script>same()</script>");
+
+  expect(coreInlineScripts(document, ["same()"])).toContain("same()");
 });
 
 test("a page with a module script and no loader lists no loader, whatever its content holds", () => {
   const content = LOADER;
   const module = '<script type="module" src="/assets/page-1a2b.js"></script>';
 
-  expect(coreInlineScripts(documentWith(content, [module]))).toEqual([]);
-  expect(coreInlineScripts(documentWith(content, [module, BEACON]))).toEqual([
+  expect(coreInlineScripts(documentWith(content, [module]), [])).toEqual([]);
+  expect(coreInlineScripts(documentWith(content, [module, BEACON]), [])).toEqual([
     textOf(BEACON),
   ]);
 });

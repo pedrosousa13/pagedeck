@@ -109,10 +109,13 @@ const ALL = `scripts: defineScripts({
         { name: "tags", src: "https://example.com/tags.js" },
         { name: "metrics", src: "https://example.com/metrics.js", strategy: "idle" },
       ],
-      runtime: ({ scripts }) => ({
-        head: [${JSON.stringify(`<script>${SNIPPET}</script>`)}],
-        body: scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
-      }),
+      runtime: ({ scripts }) => {
+        globalThis.runtimeCalls = (globalThis.runtimeCalls ?? 0) + 1;
+        return {
+          head: [${JSON.stringify(`<script>${SNIPPET}</script>`)}],
+          body: scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+        };
+      },
     }),
     beacon: { endpoint: "https://collector.example/rum" },
     prePaint: [${JSON.stringify(THEME)}, ${JSON.stringify(MOTION)}, ${JSON.stringify(THEME)}],
@@ -140,7 +143,10 @@ async function run(cwd: string, ...argv: string[]): Promise<string> {
 interface Built {
   readonly manifest: Manifest;
   readonly documents: ReadonlyMap<string, string>;
+  readonly runtimeCalls: number;
 }
+
+const counted = globalThis as { runtimeCalls?: number };
 
 const built = new Map<string, Promise<Built>>();
 
@@ -156,11 +162,12 @@ function build(root: string, declared: string): Promise<Built> {
 async function buildOnce(root: string, declared: string): Promise<Built> {
   const dir = site(root, declared);
   await run(dir, "sync");
+  counted.runtimeCalls = 0;
   await run(dir, "build");
-  return read(join(dir, "dist"));
+  return { ...read(join(dir, "dist")), runtimeCalls: counted.runtimeCalls };
 }
 
-function read(dist: string): Built {
+function read(dist: string): Omit<Built, "runtimeCalls"> {
   const file = join(dist, "manifest.json");
   const manifest = readManifest(readFileSync(file, "utf8"), file);
   return {
@@ -245,6 +252,13 @@ test("a page carrying all four kinds lists the hash of each, off the emitted doc
       );
     }
   }
+}, 120_000);
+
+test("the build asks the runtime for each page's markup once", async () => {
+  const { manifest, runtimeCalls } = await build(ALL_SITE, ALL);
+
+  expect(manifest.pages).toHaveLength(2);
+  expect(runtimeCalls).toBe(2);
 }, 120_000);
 
 test("two identical pre-paint snippets on one page yield one hash", async () => {
