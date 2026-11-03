@@ -1235,6 +1235,34 @@ test("a script runtime's inline head script is not listed, and the pre-paint scr
   ]);
 });
 
+test("every head entry a runtime may return leaves the head reader in step with the document", () => {
+  const accepted = [
+    '<link title=">" href="/x">',
+    '<meta name="x" content="a></head>">',
+    '<script src="/boot.js" async></script>',
+    '<script data-x="</head>">if (a < b) {}</script>',
+  ];
+  const layer = scriptElements(
+    {
+      scripts: [{ name: "tags", src: "https://example.com/t.js" }],
+      runtime: () => ({ head: accepted }),
+    },
+    IDENTITY,
+  );
+  expect(layer.head).toEqual(accepted);
+
+  for (const entry of accepted) {
+    const document = headWith(
+      entry,
+      "<script>theme()</script>",
+      '<script type="speculationrules">{"x":1}</script>',
+    );
+    expect(`${entry}: ${JSON.stringify(coreInlineScripts(document, ["theme()"]))}`).toBe(
+      `${entry}: ["theme()","{\\"x\\":1}"]`,
+    );
+  }
+});
+
 test("a pre-paint script is listed even when the runtime's head script has the same text", () => {
   const document = headWith("<script>same()</script>", "<script>same()</script>");
 

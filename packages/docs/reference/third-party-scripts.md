@@ -240,10 +240,13 @@ installed. `body` goes last in the `<body>`. Either may be left out, so a
 mechanism with nothing for the head returns `{ body: [...] }`.
 
 Each `head` entry must be exactly one `<script>…</script>`, `<link>` or
-`<meta>` element, and a script's text must not hold `</script` or `<!--`. The
-build refuses any other entry when it writes the page, naming the page and the
-entry, because an entry that closed the `<head>` early would take your
-pre-paint scripts with it.
+`<meta>` element, written in lowercase with its attribute values in double
+quotes, and a script's text must not hold `</script` or `<!--`. An entry may
+not speak for the whole document either: no `<script type="speculationrules">`,
+which the build writes from `build.speculation`, and no `<meta>` with `charset`
+or `http-equiv`. The build refuses any other entry when it writes the page,
+naming the page and the entry, because an entry that closed the `<head>` early
+would take your pre-paint scripts with it.
 
 **Pre-paint code must not reassign a global the runtime forwards.** The
 runtime's `head` runs first, so a forwarded name such as `dataLayer` already

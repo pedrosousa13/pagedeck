@@ -2183,10 +2183,11 @@ more child in a written-down order rather than another way into the region. It
 does not widen #22's refusal, because it arrives through the config and not
 through a render. Core rewrites none of the markup, but it reads the answer
 once per page and refuses one that is not `{ head, body }`, and a `head` entry
-that is not exactly one `<script>`, `<link>` or `<meta>` element or whose script
-text holds `</script` or `<!--`: the head part sits ahead of the site's
-pre-paint scripts, and an entry that closed the `<head>` would take them with
-it. `definePartytown` still refuses an option holding either sequence. Its
+that is not exactly one `<script>`, `<link>` or `<meta>` element with
+double-quoted attributes, whose script text holds `</script` or `<!--`, or that
+speaks for the whole document (a speculation rules block, a `<meta>` with
+`charset` or `http-equiv`): the head part sits ahead of the site's pre-paint
+scripts, and an entry that closed the `<head>` would take them with it. `definePartytown` still refuses an option holding either sequence. Its
 hashes stay out of a page's `inlineScriptHashes`, as the body part's always
 did: core lists a head script as its own only when it can name it, the
 speculation rules or a `build.prePaint` text, and `runtime.inlineScriptHash` is

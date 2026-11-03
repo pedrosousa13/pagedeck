@@ -141,11 +141,23 @@ const RUNTIME = 'Script runtime: "build.scripts.runtime" returned';
 const RUNTIME_SHAPE_FIX =
   'return an object whose head and body are each a list of element strings, either left out, such as ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })';
 
-const ATTRIBUTES = String.raw`(?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>\x60]+))?)*\s*`;
+/** Double-quoted or bare only, as `HEAD_TOKEN` in `build.ts` reads a head tag. */
+const ATTRIBUTE = String.raw`\s+([^\s"'<>/=]+)(?:\s*=\s*"([^"]*)")?`;
 
-const HEAD_SCRIPT = new RegExp(String.raw`^<script${ATTRIBUTES}>([\s\S]*)</script>$`, "i");
+const ATTRIBUTES = `((?:${ATTRIBUTE})*)\\s*`;
 
-const HEAD_VOID = new RegExp(String.raw`^<(?:link|meta)${ATTRIBUTES}/?>$`, "i");
+const HEAD_SCRIPT = new RegExp(String.raw`^<script${ATTRIBUTES}>([\s\S]*)</script>$`);
+
+const HEAD_VOID = new RegExp(String.raw`^<(link|meta)${ATTRIBUTES}/?>$`);
+
+const NOT_ONE_ELEMENT =
+  "not one <script>, <link> or <meta> element with double-quoted attributes";
+
+const SPECULATION =
+  "a speculation rules block, and the page's one is the build's own, written from build.speculation";
+
+const DOCUMENT_META =
+  "a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself";
 
 function runtimeAnswer(answer: unknown, page: PageIdentity): ScriptRuntimeMarkup {
   const at = quote(pageKey(page));
@@ -161,7 +173,7 @@ function runtimeAnswer(answer: unknown, page: PageIdentity): ScriptRuntimeMarkup
   ];
   if (faults.length > 0) {
     throw new ConfigError(
-      `${RUNTIME} ${String(faults.length)} ${faults.length === 1 ? "entry" : "entries"} for page ${at} this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element, which cannot close the <head> or reach into what follows it, and each part must be a list of strings — rewrite each entry below, or move it to body:\n${faults.join("\n")}`,
+      `${RUNTIME} ${String(faults.length)} ${faults.length === 1 ? "entry" : "entries"} for page ${at} this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — rewrite each entry below, or move it to body:\n${faults.join("\n")}`,
     );
   }
   return answer as ScriptRuntimeMarkup;
@@ -173,22 +185,38 @@ function partFaults(
   entryFault: (entry: string) => string | undefined,
 ): string[] {
   if (part === undefined) return [];
-  if (!Array.isArray(part)) return [`  ${quote(name)} — ${quote(part)} — not a list`];
+  if (!Array.isArray(part)) return [`  ${name} — ${quote(part)} — not a list`];
   const entries: readonly unknown[] = part;
   return entries.flatMap((entry, index) => {
     const where = `  ${name}[${String(index)}]`;
     if (typeof entry !== "string") return [`${where} — ${quote(entry)} — not a string`];
     const fault = entryFault(entry);
-    return fault === undefined ? [] : [`${where} — ${fault}`];
+    return fault === undefined ? [] : [`${where} — ${quote(entry)} — ${fault}`];
   });
 }
 
 function headEntryFault(entry: string): string | undefined {
   const script = HEAD_SCRIPT.exec(entry);
-  if (script !== null) return inlineScriptFault(script[1] ?? "");
-  return HEAD_VOID.test(entry)
-    ? undefined
-    : `${quote(entry)} — not one <script>, <link> or <meta> element`;
+  if (script !== null) {
+    const type = attributesOf(script[1] ?? "").get("type");
+    if (type?.trim().toLowerCase() === "speculationrules") return SPECULATION;
+    return inlineScriptFault(script[script.length - 1] ?? "");
+  }
+  const element = HEAD_VOID.exec(entry);
+  if (element === null) return NOT_ONE_ELEMENT;
+  const names = attributesOf(element[2] ?? "");
+  return element[1] === "meta" && (names.has("charset") || names.has("http-equiv"))
+    ? DOCUMENT_META
+    : undefined;
+}
+
+function attributesOf(text: string): Map<string, string> {
+  return new Map(
+    [...text.matchAll(new RegExp(ATTRIBUTE, "g"))].map((match) => [
+      (match[1] ?? "").toLowerCase(),
+      match[2] ?? "",
+    ]),
+  );
 }
 
 const FACADE_KEY_LENGTH = 8;

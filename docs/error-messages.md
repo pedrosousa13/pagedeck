@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 263 checked messages pin 39479 of the 110030 fenced characters, and
+below**: the 263 checked messages pin 39539 of the 110373 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1346,14 +1346,18 @@ Script runtime: "build.scripts.runtime" returned ["<script>snippet</script>"] fo
 
 Every entry of an answer that is the right shape is then checked, and each one
 the build cannot write is a line. A `head` entry lands ahead of the site's
-pre-paint scripts, so one that is not a single element, or a script whose text
-would end the element early, could close the `<head>` or swallow what follows:
+pre-paint scripts, so one that is not a single element with double-quoted
+attributes, or a script whose text would end the element early, could close the
+`<head>` or swallow what follows. One that speaks for the whole document, a
+speculation rules block or a `<meta>` with `charset` or `http-equiv`, is
+refused too:
 
 ```
-Script runtime: "build.scripts.runtime" returned 3 entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element, which cannot close the <head> or reach into what follows it, and each part must be a list of strings — rewrite each entry below, or move it to body:
-  head[0] — "</head><body>" — not one <script>, <link> or <meta> element
-  head[1] — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\/script"
-  "body" — "<script></script>" — not a list
+Script runtime: "build.scripts.runtime" returned 4 entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — rewrite each entry below, or move it to body:
+  head[0] — "<meta content='a></head>'>" — not one <script>, <link> or <meta> element with double-quoted attributes
+  head[1] — "<script>x = '</script>'</script>" — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\/script"
+  head[2] — "<meta http-equiv=\"refresh\" content=\"0;url=/elsewhere\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself
+  body — "<script></script>" — not a list
 ```
 
 Three paragraphs are about consent, and they arrive by the two doors above with

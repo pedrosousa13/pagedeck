@@ -880,6 +880,13 @@ test("a runtime answer that is a list, as the contract once was, is refused rath
   expect(answered(null)).toThrow(SHAPE_FAULT("null"));
 });
 
+const HEAD_FAULTS = (count: number): string =>
+  `Script runtime: "build.scripts.runtime" returned ${String(count)} entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — rewrite each entry below, or move it to body:`;
+
+const NOT_ONE = "not one <script>, <link> or <meta> element with double-quoted attributes";
+
+const CLOSES = `holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`;
+
 test("every head entry that is not one script, link or meta element is refused, in one message, with the body's faults", () => {
   expect(
     answered({
@@ -892,21 +899,65 @@ test("every head entry that is not one script, link or meta element is refused, 
         "<script>x = '</script>'</script>",
         "<script>if (a <!-- b) {}</script>",
         "</head><body>",
-        '<script src="/boot.js"></script>',
+        '<script src="/boot.js" async></script>',
         7,
       ],
       body: "<script></script>",
     }),
   ).toThrow(
     [
-      `Script runtime: "build.scripts.runtime" returned 7 entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element, which cannot close the <head> or reach into what follows it, and each part must be a list of strings — rewrite each entry below, or move it to body:`,
-      '  head[3] — "<div>not head</div>" — not one <script>, <link> or <meta> element',
-      `  head[4] — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`,
-      `  head[5] — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`,
-      '  head[6] — holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
-      '  head[7] — "</head><body>" — not one <script>, <link> or <meta> element',
+      HEAD_FAULTS(7),
+      `  head[3] — "<div>not head</div>" — ${NOT_ONE}`,
+      `  head[4] — "<script>a()</script><script>b()</script>" — ${CLOSES}`,
+      `  head[5] — "<script>x = '</script>'</script>" — ${CLOSES}`,
+      '  head[6] — "<script>if (a <!-- b) {}</script>" — holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
+      `  head[7] — "</head><body>" — ${NOT_ONE}`,
       "  head[9] — 7 — not a string",
-      '  "body" — "<script></script>" — not a list',
+      '  body — "<script></script>" — not a list',
+    ].join("\n"),
+  );
+});
+
+test("a head entry whose quoting the build's head reader would read differently is refused", () => {
+  expect(
+    answered({
+      head: [
+        `<link title='"' href="/x">`,
+        `<meta content='a></head>'>`,
+        "<meta content=a>",
+        '<SCRIPT>if(a<b"){}</SCRIPT>',
+      ],
+    }),
+  ).toThrow(
+    [
+      HEAD_FAULTS(4),
+      `  head[0] — "<link title='\\"' href=\\"/x\\">" — ${NOT_ONE}`,
+      `  head[1] — "<meta content='a></head>'>" — ${NOT_ONE}`,
+      `  head[2] — "<meta content=a>" — ${NOT_ONE}`,
+      `  head[3] — "<SCRIPT>if(a<b\\"){}</SCRIPT>" — ${NOT_ONE}`,
+    ].join("\n"),
+  );
+});
+
+test("a head entry that speaks for the whole document is refused", () => {
+  expect(
+    answered({
+      head: [
+        '<script type="speculationrules">{"prefetch":[]}</script>',
+        '<script type=" SpeculationRules ">{}</script>',
+        '<meta charset="utf-8">',
+        '<meta http-equiv="refresh" content="0;url=/elsewhere">',
+        '<meta HTTP-EQUIV="Content-Security-Policy" content="script-src *">',
+      ],
+    }),
+  ).toThrow(
+    [
+      HEAD_FAULTS(5),
+      `  head[0] — "<script type=\\"speculationrules\\">{\\"prefetch\\":[]}</script>" — a speculation rules block, and the page's one is the build's own, written from build.speculation`,
+      `  head[1] — "<script type=\\" SpeculationRules \\">{}</script>" — a speculation rules block, and the page's one is the build's own, written from build.speculation`,
+      `  head[2] — "<meta charset=\\"utf-8\\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself`,
+      `  head[3] — "<meta http-equiv=\\"refresh\\" content=\\"0;url=/elsewhere\\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself`,
+      `  head[4] — "<meta HTTP-EQUIV=\\"Content-Security-Policy\\" content=\\"script-src *\\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself`,
     ].join("\n"),
   );
 });
