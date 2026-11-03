@@ -1,7 +1,7 @@
 ---
 section: reference
 title: Images
-description: Declare how your CDN resizes images and get srcset, sizes, dimensions, loading hints and a dominant-color placeholder for every img you render.
+description: Declare how your CDN resizes images and get srcset, sizes, dimensions, loading hints and a color or blur-up placeholder for every img you render.
 ---
 
 # Images
@@ -13,8 +13,8 @@ browser only once the bytes arrive, which moves everything under it.
 The framework's answer is one contract and one adapter. You declare how your CDN
 spells a resized image; the framework works out which sizes to ask for, writes
 the `srcset`, `sizes`, `width`, `height`, `loading` and `fetchpriority`
-attributes, paints a dominant-color placeholder behind the image while its bytes
-arrive, and refuses to build a page whose images have no dimensions.
+attributes, paints a dominant-color or blur-up placeholder behind the image
+while its bytes arrive, and refuses to build a page whose images have no dimensions.
 
 **It renders no markup.** There is no `<Image>` component to configure. Your
 component owns its own `<img>`, and the framework hands it the attributes to
@@ -252,6 +252,96 @@ string stops the run, because that is your code rather than a host.
 Returning `undefined` and throwing are therefore two different statements, and
 it is worth being deliberate about which one your probe makes.
 
+## Blur-up previews
+
+An image can also paint a blurred copy of itself while its bytes are in flight.
+It works the way the colour does: a function you write answers once per
+**unique** source at sync time, the answer is cached in the store, and a render
+reads it back. The answer is a tiny image as a base64 data URI, and the
+framework neither decodes nor makes one, so ask your CDN for the asset a few
+pixels wide, or produce it any other way you like:
+
+```ts
+import { defineCollection } from "@pagedeck/content";
+
+export const pages = defineCollection({
+  name: "pages",
+  loader,
+  schema,
+  imagePreviews: {
+    extractSources: (entry) => entry.data.blocks.flatMap((block) => block.images ?? []),
+    // One source in, one data URI out. Throw if you cannot reach it.
+    probe: async (src) => {
+      const response = await fetch(`https://images.example${src}?w=16&fm=webp`);
+      if (!response.ok) throw new Error(`${response.status} from the CDN`);
+      const base64 = Buffer.from(await response.arrayBuffer()).toString("base64");
+      return `data:image/webp;base64,${base64}`;
+    },
+    concurrency: 4,
+  },
+});
+```
+
+Pass the cached answer beside the colour:
+
+```tsx
+imageAttributes({
+  images,
+  image: {
+    ...asset,
+    placeholderColor: store.getImageColor(asset.src),
+    placeholderPreview: store.getImagePreview(asset.src),
+  },
+  page,
+});
+```
+
+It becomes one `style` attribute:
+
+```html
+style="background-color:#2f3a28;background-image:url(&quot;data:image/webp;base64,UklGR…&quot;);background-size:cover;background-position:center;background-repeat:no-repeat"
+```
+
+The preview is stretched over the element, and a 16-pixel image stretched that
+far is the blur: no filter is applied, because a CSS filter on the `<img>`
+would blur the photo too. **The colour stays when both are cached.** It sits
+under the preview and shows for the moment the data URI takes to decode, and it
+is what an image with no cached preview shows, exactly as it did before. An
+image with neither carries no `style` at all. A collection that declares no
+`imagePreviews` probes nothing, and its pages are byte-for-byte what they were.
+
+**An answer has to be one of these, or the sync fails:**
+
+- a `data:` URI of type `image/png`, `image/jpeg`, `image/webp`, `image/avif`
+  or `image/gif`, with `;base64,` straight after the type and no other
+  parameter;
+- a payload of base64 characters only (`A`–`Z`, `a`–`z`, `0`–`9`, `+`, `/`),
+  in groups of four, padded with `=`;
+- at most **2048 bytes** in all, prefix included (`MAX_PREVIEW_BYTES`).
+
+That is what keeps the answer inside the page's `style` attribute: there is no
+quote, bracket, semicolon, backslash, space or `<` it could hold to close the
+CSS value or the attribute. SVG is refused because an SVG is a document rather
+than a picture. `imageAttributes` checks a preview again before it writes one,
+so a store file that was edited by hand, or a string you made yourself, cannot
+skip the check; `imagePreviewFault` from `@pagedeck/content/preview` is the
+check, if you want to run it yourself.
+
+**It costs page weight.** Each preview is written into the HTML, so a page with
+twenty images can carry up to 40 kB more before compression. A preview is part
+of the page's own document, so it is inside the `html` figure of the
+[budget report](./javascript-budgets.md#css-and-html), which is reported and
+never counted against a JavaScript budget.
+
+**Your CSP has to allow it.** A data URI in `background-image` is an image
+load, so a site that sends a Content Security Policy needs `data:` in
+`img-src`, as in `img-src 'self' data:`. Without it the browser blocks the
+preview and shows the colour.
+
+A failure behaves as a colour's does: a source the probe cannot reach is warned
+about, renders with its colour or with no placeholder, and is asked about again
+on the next sync; `undefined` is cached as "no preview", so it is asked once.
+
 ## What the build refuses
 
 Every one of these fails the build with the fix in the message. They are here so
@@ -341,6 +431,23 @@ so the sync stops and names every source it happened for:
 ```
 Collection "pages": the image color probe answered 1 source with something that is not a CSS color — return a CSS color such as "#2f3a28", or undefined for an image that has none:
   "/uploads/a.jpg" — 17 — not a string
+```
+
+**A preview that is not a preview.** Any answer outside the rules above stops
+the sync, after the entries are written, naming every source it happened for,
+the entries that hold it, and the start of what came back:
+
+```
+Collection "pages": the image preview probe answered 2 sources with something that is not an image preview — return a base64 data URI of a png, jpeg, webp, avif or gif image of at most 2048 bytes, such as "data:image/webp;base64,UklGR…", or undefined for an image that has none:
+  "/uploads/hero.jpg" on /de/home, /en/home — "data:image/png;base64,AAAAAAAAAA…" — 4022 bytes, over the 2048-byte cap
+  "/uploads/logo.svg" on /en/home — "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI of a png, jpeg, webp, avif or gif image
+```
+
+The same check at render names the page and the image:
+
+```
+Entry /en/home: image "/uploads/hero.jpg" carries a placeholderPreview that is not an image preview, so none is written into the page — pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out:
+  "javascript:alert(1)" — not a base64 data URI of a png, jpeg, webp, avif or gif image
 ```
 
 A source the probe could not reach is a warning instead, written by `pagedeck sync`
