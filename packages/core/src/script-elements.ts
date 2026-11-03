@@ -7,6 +7,9 @@ import {
   CONSENT_GRANTED,
 } from "./consent.js";
 import { ConfigError } from "./exit.js";
+import { pageKey } from "./incremental.js";
+import { textOf } from "./links.js";
+import type { BrokenReference } from "./links.js";
 import { localeTree } from "./locales.js";
 import type { LocaleSet } from "./locales.js";
 import { collisionLines, fileHash, shortHash } from "./manifest.js";
@@ -209,6 +212,35 @@ export function scriptRuntimeOutput(input: {
     );
   }
   return files;
+}
+
+/**
+ * A text search, not a link check: Partytown's snippet names its directory
+ * inside script text, where no attribute carries it (#275).
+ */
+export function movedRuntimeDirectories(input: {
+  reused: readonly EmittedFile[];
+  emitted: readonly EmittedFile[];
+  previous: readonly { path: string }[];
+}): BrokenReference[] {
+  const directory = (path: string): string =>
+    path.slice(0, path.indexOf("/", SCRIPT_RUNTIME_DIR.length) + 1);
+  const runtime = (path: string): boolean => path.startsWith(SCRIPT_RUNTIME_DIR);
+  const kept = new Set(
+    input.emitted.filter(({ path }) => runtime(path)).map(({ path }) => directory(path)),
+  );
+  const gone = [
+    ...new Set(
+      input.previous.filter(({ path }) => runtime(path)).map(({ path }) => directory(path)),
+    ),
+  ].filter((dir) => !kept.has(dir));
+  if (gone.length === 0) return [];
+  return input.reused.flatMap((file) => {
+    if (file.kind !== "html" || file.page === undefined) return [];
+    const text = textOf(file.contents);
+    const href = gone.find((dir) => text.includes(dir));
+    return href === undefined ? [] : [{ page: pageKey(file.page), href }];
+  });
 }
 
 const FACADE_KEY_LENGTH = 8;

@@ -141,6 +141,7 @@ import { planPreview } from "./preview-entry.js";
 import { robotsFiles } from "./robots.js";
 import {
   isScriptLoaderText,
+  movedRuntimeDirectories,
   scriptElements,
   scriptRuntimeOutput,
 } from "./script-elements.js";
@@ -1458,6 +1459,13 @@ async function stageSite(input: {
           .map((file) => file.path),
       ),
     });
+    moved.push(
+      ...movedRuntimeDirectories({
+        reused: [...carried.values()],
+        emitted: files,
+        previous: input.previous.files,
+      }),
+    );
     if (moved.length > 0) return { kind: "moved", moved };
   }
   const resolvedLinkCheck = resolveLinkCheck(section.links);
