@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks), there are 132 below, 119 of them
+`x` at/from `path`, outside fenced blocks), there are 134 below, 121 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 333 messages fenced
-below, 256 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 336 messages fenced
+below, 259 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 248 checked messages pin 38176 of the 106778 fenced characters, and
+below**: the 248 checked messages pin 38588 of the 107961 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -3361,7 +3361,7 @@ made this cut and only one of them made it whole, which is the shape of #378
 and #383. `redactOrigin` bounded its span to the authority and a slash in front
 of the `@` (a dropped colon, a stray `/`, a password holding one) walked past
 the bound; `redactSource` (`packages/core/src/quote.ts`, and its copy in
-`colors.ts`) dropped no userinfo at all, so an image source or a script source
+`probing.ts`) dropped no userinfo at all, so an image source or a script source
 behind basic auth printed its credential whole, and printed it whole even when
 the query cut fired, because that cut takes what stands *behind* a delimiter and
 userinfo stands in front of one. Both are `redactSource` now: everything between
@@ -3559,8 +3559,8 @@ controls reads as `ESC [`: without this, `\u009B2K` erases a line there as
 `\u001B[2K` does everywhere. U+2028 and U+2029 are not terminal controls, so
 `printable` leaves them alone.
 
-`quote` (`packages/core/src/quote.ts`) and its copy for the color probe's
-answer, `quoteValue` (`packages/content/src/colors.ts`), now do the same
+`quote` (`packages/core/src/quote.ts`) and its copy for an image probe's
+answer, `quoteValue` (`packages/content/src/probing.ts`), now do the same
 (#742). Each passes its `JSON.stringify` output through
 `escapeUnescapedByJson`, which is the step `quoteIdentifier` takes after
 `JSON.stringify`. Each passes a value `JSON.stringify` cannot write, such as a
@@ -3943,17 +3943,18 @@ every time. This change leaves the push refusal classed as it was; whether it
 should move to exit `2` as well is a question for its own issue.
 
 **A warning follows both halves, and says why it is a warning.** The build
-writes twenty-four, and each says what it cannot promise; a twenty-fifth is
-written by `pagedeck sync` rather than by a build and is the last one described
-below; three more are the browser's and are argued in this rule's closing
+writes twenty-four, and each says what it cannot promise; a twenty-fifth and a
+twenty-sixth are written by `pagedeck sync` rather than by a build and are the
+last two described below; three more are the browser's and are argued in this rule's closing
 section, where they sit among the browser's refusals rather than after them.
 
 **All twenty-four reach `io.err`, and four of them only through one verb**, and
 this is the rule that has to say so, because it is the rule about the channel.
-The twenty-fifth is reachable too, by the same shape through the other verb:
-`syncSite` returns it on `SyncReport.warnings` and `runSyncVerb` writes it. It
-is described after the twenty-four below, and kept out of their count because
-`pagedeck sync` is what writes it and no build ever does. Twenty
+The twenty-fifth and twenty-sixth are reachable too, by the same shape through
+the other verb: `syncSite` returns them on `SyncReport.warnings` and
+`runSyncVerb` writes them. They are described after the twenty-four below, and
+kept out of their count because `pagedeck sync` is what writes them and no
+build ever does. Twenty
 (`resourcePlacerWarning`, `unlinkedStylesheetWarning`,
 `unregisteredClientWarning`, `workerFallbackWarning`, `workerConsentWarning`,
 `unloadedScriptWarning`, `undeclaredHeadersWarning`,
@@ -4875,7 +4876,7 @@ Rule 5 lists every source and rule 6 redacts each one, which the second line
 above shows: an image source is as often a signed CDN URL as a path, its
 credential is in the query string when the URL is signed and in front of the
 host when the CDN is behind basic auth, and both go. The cut is `quote`'s
-(`packages/core/src/quote.ts`) and is made again in `colors.ts` rather than
+(`packages/core/src/quote.ts`) and is made again in `probing.ts` rather than
 imported, because `@pagedeck/core` consumes `@pagedeck/content` and the import would invert
 the dependency, the constraint that put `CollectionError` in that package in
 the first place. The copy is checked rather than promised: `quote.test.ts` reads
@@ -4910,6 +4911,40 @@ zero is refused beside it, before any request is made, rather than repaired:
 ```
 Collection "pages": "imageColors.concurrency" is not a number of probes — write a whole number of probes above zero, such as { concurrency: 4 }:
   0 — below one, and a sync that may run no probe at all would never cache a color
+```
+
+**The twenty-sixth is `previewFailureWarning`**
+(`packages/content/src/previews.ts`, #276), the same warning for an image-preview
+probe, on the same argument: a preview is decoration too, and the image still
+has its dominant color, or no placeholder, while the host is down.
+
+```
+Collection "pages": 1 image source could not be probed for a preview, so it renders with its dominant color or no placeholder — this is a warning and never a refusal, because a preview is decoration and the host that serves the image is not this site's wiring; the next sync asks again:
+  "/uploads/hero.jpg" — 502 Bad Gateway
+```
+
+Its refusal is the color probe's, with two differences. An answer is held to
+`imagePreviewFault` (`packages/content/src/preview.ts`) and not only to being a
+string, because it is written into a CSS `url()` inside a `style` attribute.
+And it names the entries that hold each source (rule 2), because a source
+refused here is a page that would otherwise ship without its preview. The
+answer is quoted only up to its first 32 characters, since an oversized one is
+kilobytes of base64:
+
+```
+Collection "pages": the image preview probe answered 2 sources with something that is not an image preview — return a base64 data URI of a png, jpeg, webp, avif or gif image of at most 2048 bytes, such as "data:image/webp;base64,UklGR…", or undefined for an image that has none:
+  "/uploads/hero.jpg" on /de/home, /en/home — "data:image/png;base64,AAAAAAAAAA…" — at least 4022 bytes, over the 2048-byte cap
+  "/uploads/logo.svg" on /en/home — "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI of a png, jpeg, webp, avif or gif image
+```
+
+`imageAttributes` (`packages/core/src/images.ts`) runs the same check before it
+writes a preview, because a store file is pushed and pulled and a site can pass
+any string as `placeholderPreview`. There it is a page's failure, so it names
+the entry and the image and is a `RenderError`:
+
+```
+Entry /en/home: image "/uploads/hero.jpg" carries a placeholderPreview that is not an image preview, so none is written into the page — pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out:
+  "javascript:alert(1)" — not a base64 data URI of a png, jpeg, webp, avif or gif image
 ```
 
 **The channel is threaded rather than declared**, which is this rule's first

@@ -435,11 +435,13 @@ Collection "pages": the image color probe answered 1 source with something that 
 
 **A preview that is not a preview.** Any answer outside the rules above stops
 the sync, after the entries are written, naming every source it happened for,
-the entries that hold it, and the start of what came back:
+the entries that hold it, and the start of what came back. Nothing that run
+answered is cached, the valid answers included, so the next sync asks about
+every one of those sources again:
 
 ```
 Collection "pages": the image preview probe answered 2 sources with something that is not an image preview — return a base64 data URI of a png, jpeg, webp, avif or gif image of at most 2048 bytes, such as "data:image/webp;base64,UklGR…", or undefined for an image that has none:
-  "/uploads/hero.jpg" on /de/home, /en/home — "data:image/png;base64,AAAAAAAAAA…" — 4022 bytes, over the 2048-byte cap
+  "/uploads/hero.jpg" on /de/home, /en/home — "data:image/png;base64,AAAAAAAAAA…" — at least 4022 bytes, over the 2048-byte cap
   "/uploads/logo.svg" on /en/home — "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI of a png, jpeg, webp, avif or gif image
 ```
 
