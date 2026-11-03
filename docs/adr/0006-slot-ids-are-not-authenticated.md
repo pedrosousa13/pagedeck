@@ -15,7 +15,8 @@ read path. No code change is attached to this file: it records a decision
 already implemented. Binding on the wire format and on `unescapedHtml`'s
 contract. Raised by #137. Amended by #258, which changed how the strip
 neutralises a name (it renames the name and removes nothing) and not where the
-defence sits.
+defence sits. Amended by #260, which audited every name page output carries
+against the list (below, "Names left off the list").
 
 ## Context
 
@@ -119,6 +120,42 @@ or in another attribute's value is renamed too. A tokeniser would rename only
 real tags and attributes, but it would put a second HTML parser at the content
 door, and that parser would have to agree with the browser on every malformed
 input. Renaming in place needs no such agreement.
+
+**Names left off the list.** The rule is that a name joins the list when the
+framework reads it from page output to decide something, either at runtime from
+the DOM or in a build pass over rendered HTML. The runtime readers are the
+islands runtime and startup chunk, the preview app, and the facade inline
+loader. The build-pass readers are `render.tsx` and `budgets.ts`, which read
+`ISLAND_PREFIX_ATTRIBUTE` and the stash templates back out of a rendered page,
+and `@pagedeck/search`, which reads `SEARCH_ATTRIBUTE` while it indexes one.
+#260 audited every `data-` attribute and tag in the `pagedeck` prefix that a
+published package writes. Every name on the list has at least one of those
+readers. Four names are written but neither kind of reader reads them, so they
+stay off the list, and content that spells one reaches the page unchanged:
+
+- `CONSENT_ATTRIBUTE` (`packages/core/src/consent.ts`). The build bakes it onto
+  a gated facade and the inline loader rewrites it when consent changes
+  (`packages/core/src/script-elements.ts`). Neither reads it back: at each
+  decision the gate asks the consent global. A site's stylesheet is the only
+  reader (#460), and what a site's own CSS selects on is the site's to defend.
+- `ISLAND_HYDRATED_ATTRIBUTE` (`packages/islands/src/marker.ts`). The runtime
+  sets it on a marker once the island's tree commits
+  (`packages/islands/src/runtime.ts`) and never reads it, and the build never
+  writes it. Startup finds markers by tag and reads only their mode. Content
+  cannot mint a marker, so the flag on content marks an element no reader looks
+  at.
+- `PREVIEW_ATTRIBUTE` (`packages/preview/src/mount.tsx`). `mountPreview` writes
+  it on the container it mounts into. It finds that container by id or takes it
+  from the caller, and never looks it up by this attribute. The value exists so
+  `preview.build.test.ts` can find the preview code in a chunk, which is a
+  search over build output, not over a page.
+- `PREVIEW_REGION_TAG` (`packages/preview/src/region.tsx`). A preview region
+  renders as this element and nothing in the framework queries it: an editor
+  finds a region by the `data-` attribute its adapter chose, which is the
+  adapter's name and not the framework's.
+
+Adding a reader for any of the four puts that name on the list in the same
+change, with neutralise tests in each value form.
 
 **The framework defends its own namespace, not the site's HTML.** Sanitising
 content is the CMS's job and stays there. What `unescapedHtml`'s contract
