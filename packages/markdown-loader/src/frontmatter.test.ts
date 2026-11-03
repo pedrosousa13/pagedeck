@@ -166,7 +166,7 @@ test("no field value or item keeps the carriage return of a CRLF line", () => {
 });
 
 test("a leading byte-order mark does not hide the block", () => {
-  const parsed = parseFrontmatter("﻿---\ntitle: Guide\n---\nText.\n", "d.md");
+  const parsed = parseFrontmatter("\uFEFF---\ntitle: Guide\n---\nText.\n", "d.md");
   expect(parsed.frontmatter).toEqual({ title: "Guide" });
   expect(parsed.body).toBe("Text.\n");
 });

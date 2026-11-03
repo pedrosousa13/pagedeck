@@ -13,10 +13,6 @@ const DELIMITER = "---";
 
 const BOM = "\uFEFF";
 
-function isDelimiter(line: string | undefined): boolean {
-  return line === DELIMITER || line === `${DELIMITER}\r`;
-}
-
 // Not `split`, which would cut the value too.
 const FIELD = /^([^:]+):(.*)$/;
 
@@ -94,11 +90,12 @@ export function parseFrontmatter(
   file: string,
 ): ParsedMarkdown {
   const unmarked = source.startsWith(BOM) ? source.slice(BOM.length) : source;
-  // Each line keeps its `\r`, so the body rejoined on `\n` keeps its line endings as written.
-  const lines = unmarked.split("\n");
-  if (!isDelimiter(lines[0])) return { frontmatter: {}, body: unmarked };
+  // `written` keeps each `\r`, so the body rejoined on `\n` keeps its line endings as written.
+  const written = unmarked.split("\n");
+  const lines = written.map((line) => line.replace(/\r$/, ""));
+  if (lines[0] !== DELIMITER) return { frontmatter: {}, body: unmarked };
 
-  const end = lines.findIndex((line, index) => index > 0 && isDelimiter(line));
+  const end = lines.indexOf(DELIMITER, 1);
   if (end === -1) {
     throw new Error(
       `Markdown "${file}": opens a frontmatter block that is never closed — end the block with a line holding only "${DELIMITER}", or remove the opening one`,
@@ -114,7 +111,7 @@ export function parseFrontmatter(
   let list: { name: string; items: string[]; keep: boolean } | undefined;
 
   for (let index = 1; index < end; index += 1) {
-    const text = (lines[index] as string).replace(/\r$/, "");
+    const text = lines[index] as string;
     // 1-based over the whole file: the number an editor's gutter shows.
     const line = index + 1;
     if (text.trim() === "") continue;
@@ -148,5 +145,5 @@ export function parseFrontmatter(
   if (bad.length > 0) throw new Error(badLineReport(file, bad));
   if (repeated.length > 0) throw new Error(repeatedFieldReport(file, repeated));
 
-  return { frontmatter, body: lines.slice(end + 1).join("\n") };
+  return { frontmatter, body: written.slice(end + 1).join("\n") };
 }
