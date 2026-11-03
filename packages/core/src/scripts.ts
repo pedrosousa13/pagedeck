@@ -62,6 +62,8 @@ export interface ScriptRuntimeFile {
 export interface ScriptRuntimeAdapter {
   (request: ScriptRuntimeRequest): readonly string[];
   readonly files?: readonly ScriptRuntimeFile[];
+  /** `false` refuses, when the config loads, a worker script that declares `integrity`. */
+  readonly checksIntegrity?: boolean;
 }
 
 export type ScriptAttributes = Readonly<Record<`data-${string}`, string>>;
@@ -373,7 +375,41 @@ export function scriptsFaultReport(
     if (report !== undefined) sections.push(report);
   }
 
+  if (
+    sections.length === 0 &&
+    typeof runtime === "function" &&
+    (runtime as { checksIntegrity?: unknown }).checksIntegrity === false
+  ) {
+    const unchecked = uncheckedIntegritySection(
+      record as unknown as ScriptsSetting,
+      heading,
+      subField("runtime"),
+    );
+    if (unchecked !== undefined) sections.push(unchecked);
+  }
+
   return sections.length === 0 ? undefined : sections.join("\n\n");
+}
+
+/** Only a well-formed section reaches here: which scripts reach worker depends on its shape. */
+function uncheckedIntegritySection(
+  settings: ScriptsSetting,
+  heading: string,
+  field: string,
+): string | undefined {
+  const checked = new Set(
+    settings.scripts
+      .filter(
+        ({ integrity, category }) =>
+          integrity !== undefined && (category === undefined || category === "necessary"),
+      )
+      .map(({ name }) => name),
+  );
+  const reaching = workerReachingScripts(settings).filter(({ name }) => checked.has(name));
+  if (reaching.length === 0) return undefined;
+  return `${heading}: "${field}" loads a worker script without checking its integrity, and ${count(reaching.length, "script")} that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:\n${reaching
+    .map(({ name, door }) => `  ${JSON.stringify(name)} — ${door}`)
+    .join("\n")}`;
 }
 
 const RUNTIME_FILE_FIX = '{ name: "worker.js", contents: "…" }';

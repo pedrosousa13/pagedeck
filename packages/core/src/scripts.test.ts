@@ -794,6 +794,30 @@ test("a runtime's files refused at the config door are named under build.scripts
   ).toContain('\n  build.scripts.runtime.files[0] — "name" — "a/b.js" — not a plain file name');
 });
 
+test("a runtime that checks no integrity refuses every script that can reach worker with one, at once", () => {
+  const runtime = Object.assign(() => [], { checksIntegrity: false });
+  const settings = {
+    scripts: [
+      { name: "tags", src: "/tags.js", integrity: "sha384-a" },
+      { name: "pixel", src: "/pixel.js", strategy: "idle", integrity: "sha384-b" },
+      { name: "chat", src: "/chat.js", strategy: "idle", integrity: "sha384-c" },
+      { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
+      { name: "plain", src: "/plain.js" },
+    ],
+    pages: { "/pricing": { pixel: "worker" } },
+    runtime,
+  };
+
+  expect(scriptsFaultReport(settings, 'Config "/site/pagedeck.config.ts"', "build.scripts")).toBe(
+    [
+      'Config "/site/pagedeck.config.ts": "build.scripts": "build.scripts.runtime" loads a worker script without checking its integrity, and 2 scripts that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:',
+      '  "tags" — declares no strategy, so it takes the worker default',
+      '  "pixel" — pages "/pricing" sets "worker"',
+    ].join("\n"),
+  );
+  expect(scriptsFaultReport({ ...settings, runtime: () => [] }, "Script settings")).toBeUndefined();
+});
+
 test("a runtime's files that are not a list are refused", () => {
   const runtime = Object.assign(() => [], { files: "sw.js" });
 
