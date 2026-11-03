@@ -27,9 +27,12 @@ scripts: defineScripts({
 It runs Partytown in service-worker mode only, and writes no file for
 Partytown's Atomics mode, which needs a cross-origin-isolated page (#275). A
 `worker` script that declares `integrity` is refused when the config loads,
-because Partytown fetches it without an integrity check. A script with a consent `category` never
-reaches this adapter: the build loads it on `idle`, behind the consent gate
-(#47).
+because Partytown fetches it without an integrity check, with a consent
+`category` or without one. A script with a consent `category` stays on
+`worker` but is not in the page's markup: the consent gate holds it, and on a
+grant appends it as `<script type="text/partytown">` and dispatches Partytown's
+`ptupdate` event, so it runs in the worker (#281). Before the grant, nothing
+about it reaches the worker.
 
 `resolveUrl` maps a vendor's `https` origin to a path prefix on the site, which
 an upstream app forwards to that origin; it never proxies an iframe's document.

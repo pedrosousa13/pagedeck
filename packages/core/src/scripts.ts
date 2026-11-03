@@ -1,4 +1,4 @@
-import { CONSENT_DENIED, CONSENT_GRANTED } from "./consent.js";
+import { CONSENT_DENIED, CONSENT_EVENT, CONSENT_GRANTED } from "./consent.js";
 import { ConfigError } from "./exit.js";
 import { matchingPattern, parsePatterns, patternMapFaultReport } from "./page-patterns.js";
 import { quote } from "./quote.js";
@@ -45,6 +45,9 @@ const OVERRIDE_VALUES: readonly (ScriptStrategy | "off")[] = [
 
 export const DEFAULT_SCRIPT_STRATEGY: ScriptStrategy = "worker";
 
+/** No `scroll`: a browser restoring a scroll position fires it unprompted. */
+export const INTERACTION_EVENTS: readonly string[] = ["pointerdown", "keydown", "wheel"];
+
 export interface ScriptFacade {
   readonly html: string;
   readonly mount?: string;
@@ -59,9 +62,23 @@ export interface ScriptRuntimeFile {
   readonly contents: string | Uint8Array;
 }
 
+/**
+ * How a runtime picks up a script added after load: the loader appends a held
+ * script with this `type`, then dispatches `event` on `window` (#281).
+ */
+export interface ScriptRuntimeLatePickup {
+  readonly type: string;
+  readonly event: string;
+}
+
 export interface ScriptRuntimeAdapter {
   (request: ScriptRuntimeRequest): readonly string[];
   readonly files?: readonly ScriptRuntimeFile[];
+  /**
+   * Declared, a categorized `worker` script stays on `worker`: the consent
+   * gate holds it and appends it on a grant, in place of the #47 fallback.
+   */
+  readonly latePickup?: ScriptRuntimeLatePickup;
   /**
    * `false` refuses, when the config loads, a worker script that declares
    * `integrity`. A wrapper around an adapter must carry it over, or the
@@ -142,7 +159,9 @@ export const WORKER_FALLBACK_STRATEGY: ScriptStrategy = "idle";
 
 /**
  * A categorized `worker` script takes the fallback too: no gate can wrap the
- * runtime's markup, so it would load without consent (#47).
+ * runtime's markup, so it would load without consent (#47). A runtime that
+ * declares `latePickup` is the exception: the gate holds the script instead
+ * (#281).
  */
 export function loadedScriptStrategy(
   settings: ScriptsSetting,
@@ -152,9 +171,15 @@ export function loadedScriptStrategy(
   const resolved = resolveScriptStrategy(settings, script, page);
   if (resolved !== "worker") return resolved;
   if (settings.runtime === undefined) return WORKER_FALLBACK_STRATEGY;
-  return script.category === undefined || script.category === "necessary"
+  return !isGated(script) || settings.runtime.latePickup !== undefined
     ? resolved
     : WORKER_FALLBACK_STRATEGY;
+}
+
+function isGated(
+  script: ScriptDeclaration,
+): script is ScriptDeclaration & { readonly category: Exclude<ConsentCategory, "necessary"> } {
+  return script.category !== undefined && script.category !== "necessary";
 }
 
 export function workerFallbackWarning(
@@ -360,6 +385,12 @@ export function scriptsFaultReport(
       subField("runtime"),
     );
     if (files !== undefined) sections.push(files);
+    const latePickup = latePickupSection(
+      (runtime as { latePickup?: unknown }).latePickup,
+      heading,
+      subField("runtime"),
+    );
+    if (latePickup !== undefined) sections.push(latePickup);
   }
 
   let readable =
@@ -413,12 +444,10 @@ function uncheckedIntegritySection(
   heading: string,
   field: string,
 ): string | undefined {
+  const picksUpLate = settings.runtime?.latePickup !== undefined;
   const checked = new Set(
     settings.scripts
-      .filter(
-        ({ integrity, category }) =>
-          integrity !== undefined && (category === undefined || category === "necessary"),
-      )
+      .filter((script) => script.integrity !== undefined && (picksUpLate || !isGated(script)))
       .map(({ name }) => name),
   );
   const reaching = workerReachingScripts(settings).filter(({ name }) => checked.has(name));
@@ -426,6 +455,75 @@ function uncheckedIntegritySection(
   return `${heading}: "${field}" loads a worker script without checking its integrity, and ${count(reaching.length, "script")} that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:\n${reaching
     .map(({ name, door }) => `  ${JSON.stringify(name)} — ${door}`)
     .join("\n")}`;
+}
+
+const LATE_PICKUP_FIX =
+  'latePickup: { type: "text/x-worker", event: "x-worker:update" }';
+
+/** HTML's JavaScript MIME type essences, and the other `type` values a browser acts on itself. */
+const MAIN_THREAD_TYPES = new Set([
+  "application/ecmascript",
+  "application/javascript",
+  "application/x-ecmascript",
+  "application/x-javascript",
+  "text/ecmascript",
+  "text/javascript",
+  "text/javascript1.0",
+  "text/javascript1.1",
+  "text/javascript1.2",
+  "text/javascript1.3",
+  "text/javascript1.4",
+  "text/javascript1.5",
+  "text/jscript",
+  "text/livescript",
+  "text/x-ecmascript",
+  "text/x-javascript",
+  "module",
+  "importmap",
+  "speculationrules",
+]);
+
+const PAGE_EVENTS = new Set([
+  "load",
+  "DOMContentLoaded",
+  "pageshow",
+  "pagehide",
+  "beforeunload",
+  "unload",
+  "visibilitychange",
+  "readystatechange",
+  CONSENT_EVENT,
+  ...INTERACTION_EVENTS,
+]);
+
+function latePickupFault(name: "type" | "event", value: unknown): string | undefined {
+  if (typeof value !== "string" || value.trim() === "") return "not a non-empty string";
+  if (name === "type" && MAIN_THREAD_TYPES.has(value.trim().toLowerCase())) {
+    return "a type the browser runs itself, on the main thread, so a held worker script would run there after a grant — write a type only your runtime reads";
+  }
+  if (name === "event" && PAGE_EVENTS.has(value)) {
+    return "an event the page's own code or this build's loader already listens for, so each grant would fire it again — write an event only your runtime listens for";
+  }
+  return undefined;
+}
+
+function latePickupSection(
+  latePickup: unknown,
+  heading: string,
+  field: string,
+): string | undefined {
+  if (latePickup === undefined) return undefined;
+  if (typeof latePickup !== "object" || latePickup === null || Array.isArray(latePickup)) {
+    return `${heading}: declares a late pickup the script loader cannot write — ${field}.latePickup — ${quote(latePickup)} — declare it as ${LATE_PICKUP_FIX}`;
+  }
+  const fields = latePickup as Record<string, unknown>;
+  const lines = (["type", "event"] as const).flatMap((name) => {
+    const value = Object.hasOwn(fields, name) ? fields[name] : undefined;
+    const fault = latePickupFault(name, value);
+    return fault === undefined ? [] : [`  ${field}.latePickup.${name} — ${quote(value)} — ${fault}`];
+  });
+  if (lines.length === 0) return undefined;
+  return `${heading}: declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write a type the browser does not run itself and an event nothing else on the page listens for, such as ${LATE_PICKUP_FIX}:\n${lines.join("\n")}`;
 }
 
 const RUNTIME_FILE_FIX = '{ name: "worker.js", contents: "…" }';
@@ -870,12 +968,12 @@ function consentDefaultsFaultReport(
 export function workerConsentWarning(
   settings: ScriptsSetting | undefined,
 ): string | undefined {
-  if (settings === undefined || settings.runtime === undefined) return undefined;
+  if (settings?.runtime === undefined || settings.runtime.latePickup !== undefined) {
+    return undefined;
+  }
   const categories = new Map<string, ConsentCategory>();
   for (const script of settings.scripts) {
-    if (script.category !== undefined && script.category !== "necessary") {
-      categories.set(script.name, script.category);
-    }
+    if (isGated(script)) categories.set(script.name, script.category);
   }
   const reaching = workerReachingScripts(settings).filter((line) =>
     categories.has(line.name),

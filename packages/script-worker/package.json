@@ -31,6 +31,9 @@
     "@pagedeck/core": "workspace:*",
     "@qwik.dev/partytown": "1.0.3"
   },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  },
   "publishConfig": {
     "access": "public"
   }

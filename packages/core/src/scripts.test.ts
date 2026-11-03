@@ -14,7 +14,11 @@ import {
   workerConsentWarning,
   workerFallbackWarning,
 } from "./scripts.js";
-import type { ScriptDeclaration, ScriptRuntimeAdapter } from "./scripts.js";
+import type {
+  ScriptDeclaration,
+  ScriptRuntimeAdapter,
+  ScriptRuntimeRequest,
+} from "./scripts.js";
 
 const WORKER_SHAPED: ScriptRuntimeAdapter = ({ scripts }) => [
   `<script type="module">startWorker(${JSON.stringify(scripts.map((script) => script.src))})</script>`,
@@ -691,6 +695,139 @@ test("a categorized script takes the same fallback, whatever runtime is configur
   expect(loadedScriptStrategy({ ...settings, scripts: [necessary] }, necessary, HOME)).toBe(
     "worker",
   );
+});
+
+const LATE_PICKUP = Object.assign((request: ScriptRuntimeRequest) => PARTYTOWN_SHAPED(request), {
+  latePickup: { type: "text/partytown", event: "ptupdate" },
+});
+
+test("a categorized script stays on worker under a runtime that picks up late scripts (#281)", () => {
+  const gated = { ...ANALYTICS, category: "analytics" } as const;
+  const settings = { scripts: [gated], runtime: LATE_PICKUP };
+
+  expect(loadedScriptStrategy(settings, gated, HOME)).toBe("worker");
+  expect(
+    loadedScriptStrategy({ scripts: [gated], runtime: PARTYTOWN_SHAPED }, gated, HOME),
+  ).toBe("idle");
+  expect(loadedScriptStrategy({ scripts: [gated] }, gated, HOME)).toBe("idle");
+});
+
+test("a runtime that picks up late scripts hears no consent warning, since nothing falls back", () => {
+  const settings = {
+    scripts: [{ ...ANALYTICS, category: "marketing" }],
+    runtime: LATE_PICKUP,
+  } as const;
+
+  expect(workerConsentWarning(settings)).toBeUndefined();
+});
+
+test("a categorized script with integrity is refused once it can reach a late-pickup runtime that checks none", () => {
+  const runtime = Object.assign(() => [], {
+    checksIntegrity: false,
+    latePickup: { type: "text/partytown", event: "ptupdate" },
+  });
+
+  expect(
+    scriptsFaultReport(
+      {
+        scripts: [
+          { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
+          { name: "held", src: "/held.js", strategy: "idle", integrity: "sha384-e", category: "analytics" },
+        ],
+        runtime,
+      },
+      "Script settings",
+    ),
+  ).toBe(
+    [
+      'Script settings: "runtime" loads a worker script without checking its integrity, and 1 script that can reach the worker strategy declare integrity, so each would load unchecked — declare strategy: "idle" for each, and override none of them to "worker", which keeps the check, or drop integrity:',
+      '  "gated" — declares no strategy, so it takes the worker default',
+    ].join("\n"),
+  );
+});
+
+const LATE_PICKUP_HEADING =
+  "declares a late pickup the script loader cannot write — on a grant the loader appends a held worker script with this type and then dispatches this event on window, so write a type the browser does not run itself and an event nothing else on the page listens for, such as latePickup: { type: \"text/x-worker\", event: \"x-worker:update\" }:";
+
+function latePickupReport(latePickup: unknown): string | undefined {
+  return scriptsFaultReport(
+    { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup }) },
+    'Config "/site/pagedeck.config.ts"',
+    "build.scripts",
+  );
+}
+
+test("a late pickup the loader cannot write is refused, naming each field", () => {
+  expect(latePickupReport({ type: "", event: 7 })).toBe(
+    [
+      `Config "/site/pagedeck.config.ts": "build.scripts": ${LATE_PICKUP_HEADING}`,
+      '  build.scripts.runtime.latePickup.type — "" — not a non-empty string',
+      "  build.scripts.runtime.latePickup.event — 7 — not a non-empty string",
+    ].join("\n"),
+  );
+  expect(latePickupReport("x-worker:update")).toBe(
+    'Config "/site/pagedeck.config.ts": "build.scripts": declares a late pickup the script loader cannot write — build.scripts.runtime.latePickup — "x-worker:update" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }',
+  );
+  expect(
+    scriptsFaultReport(
+      { scripts: [ANALYTICS], runtime: Object.assign(() => [], { latePickup: "x" }) },
+      "Script settings",
+    ),
+  ).toBe(
+    'Script settings: declares a late pickup the script loader cannot write — runtime.latePickup — "x" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }',
+  );
+  expect(
+    defineScripts({ scripts: [ANALYTICS], runtime: LATE_PICKUP }).runtime,
+  ).toBe(LATE_PICKUP);
+});
+
+/** A sample of HTML's JavaScript MIME type essences, and the other types a browser acts on. */
+const MAIN_THREAD_TYPES = [
+  "application/ecmascript",
+  "application/javascript",
+  "text/javascript",
+  "text/javascript1.5",
+  "text/livescript",
+  "text/x-javascript",
+  "module",
+  "importmap",
+  "speculationrules",
+];
+
+test("a late pickup whose type the browser runs itself is refused, whatever its case and spacing", () => {
+  for (const type of [...MAIN_THREAD_TYPES, " Text/JavaScript ", "MODULE"]) {
+    expect(latePickupReport({ type, event: "x-worker:update" })).toBe(
+      [
+        `Config "/site/pagedeck.config.ts": "build.scripts": ${LATE_PICKUP_HEADING}`,
+        `  build.scripts.runtime.latePickup.type — ${JSON.stringify(type)} — a type the browser runs itself, on the main thread, so a held worker script would run there after a grant — write a type only your runtime reads`,
+      ].join("\n"),
+    );
+  }
+  expect(latePickupReport({ type: "text/partytown", event: "ptupdate" })).toBeUndefined();
+});
+
+test("a late pickup whose event the page or core already listens for is refused", () => {
+  for (const event of [
+    "load",
+    "DOMContentLoaded",
+    "pageshow",
+    "pagehide",
+    "beforeunload",
+    "unload",
+    "visibilitychange",
+    "readystatechange",
+    "pagedeck:consent",
+    "pointerdown",
+    "keydown",
+    "wheel",
+  ]) {
+    expect(latePickupReport({ type: "text/x-worker", event })).toBe(
+      [
+        `Config "/site/pagedeck.config.ts": "build.scripts": ${LATE_PICKUP_HEADING}`,
+        `  build.scripts.runtime.latePickup.event — ${JSON.stringify(event)} — an event the page's own code or this build's loader already listens for, so each grant would fire it again — write an event only your runtime listens for`,
+      ].join("\n"),
+    );
+  }
 });
 
 test("a category moves a script off worker only where worker is where it landed", () => {

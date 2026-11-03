@@ -140,7 +140,7 @@ function documents(): Map<string, string> {
 function snippetOf(html: string): string {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map((match) => match[1] ?? "")
-    .filter((text) => text.includes("text/partytown"));
+    .filter((text) => text.includes("text/partytown") && text.includes("serviceWorker"));
   expect(scripts).toHaveLength(1);
   return scripts[0] ?? "";
 }
@@ -243,8 +243,8 @@ test("an incremental build after only resolveUrl changes renders again every pag
     expect(html).toContain("/vendor/collector-v2/");
     expect(html).not.toContain('"/vendor/collector/"');
     expect(readFileSync(join(dist, libOf(snippetOf(html)), "partytown-sw.js")).length).toBeGreaterThan(0);
-    // #47
+    // #281
     expect(html).not.toContain('type="text/partytown" src="https://example.com/pixel.js"');
-    expect(html).toContain('"https://example.com/pixel.js","analytics"');
+    expect(html).toContain('[["https://example.com/pixel.js"],"analytics",0]');
   }
 }, 240_000);

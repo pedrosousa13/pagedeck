@@ -522,9 +522,9 @@ fast one. Lighthouse multiplies what it observes, so a fixed observed duration
 gives the same simulated cost on any machine. A change in the figure then comes
 from the framework, the runtime or Lighthouse, not from the CPU.
 
-**The three mixes.** No script declares a consent category: a categorized
-`worker` script falls back to `idle` (#47), and a denied default would keep it
-off the page, so consent is not part of this measurement. Every mix declares
+**The three mixes.** No script declares a consent category: a denied default
+would keep a categorized script off the page, so consent is not part of this
+measurement. Every mix declares
 `runtime: definePartytown()` from `@pagedeck/script-worker` (#275).
 
 - **idle**: every declared script says `strategy: "idle"`.

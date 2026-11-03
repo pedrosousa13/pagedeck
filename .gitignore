@@ -370,6 +370,11 @@ packages/create-pagedeck/.pagedeck-island-browsers-harness-*/
 # by name. The test removes them after each run.
 packages/script-worker/.pagedeck-partytown-*/
 
+# The site `packages/script-worker/src/consent-worker.harness.ts` builds and drives
+# (#281), inside the package for the same reason. The harness removes it after
+# each run.
+packages/script-worker/.pagedeck-consent-worker-harness/
+
 # The site `packages/markdown-loader/src/title.build.test.ts` builds (#101). The
 # test removes it after each run.
 packages/markdown-loader/.pagedeck-title-build-test-*/
