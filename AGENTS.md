@@ -127,6 +127,19 @@ no employer, design system or CMS vendor (`GLOSSARY.md`, **A recorded corpus
 keeps the names it recorded**). `docs/dogfood-parity.md` says what the clean
 room rules out for the dogfood site: there is no production origin to record.
 
+### An attack-surface change gets a security review
+
+**A change that touches the attack surface lands only after an adversarial
+security review of its diff, and every finding that review raises is fixed or
+filed before the merge (#274).** The surface is what the attack-surface test in
+`docs/agents/triage-labels.md` names. Here that is content HTML and its
+sanitising, headers and the CSP, an adapter's routing or redirects, and
+anything that fetches or serves untrusted input.
+
+Green tests do not stand in for the review. It found an XSS in the
+reserved-name strip (#258), a character-reference bypass of the id rule (#266)
+and a budget bypass (#247), each after the implementer's own runs passed.
+
 ### Every test that spawns a process declares its own timeout
 
 **A test case that spawns a process (`pagedeck build`, another verb, a bin,
