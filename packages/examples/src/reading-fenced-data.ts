@@ -6,24 +6,41 @@ import { defineCollection, listEntries, openStore, syncCollection } from "@paged
 import type { ContentStore } from "@pagedeck/content";
 import { defineMarkdownLoader } from "@pagedeck/markdown-loader";
 
-const LESSONS = join(import.meta.dirname, "..", "fixtures", "lessons");
+const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 
 const JSON_FENCE = /^```json\n([\s\S]*?)^```$/gm;
 
 const stepSchema = z.object({ keys: z.string(), expect: z.string() });
 
-// A step that does not parse fails the sync with the lesson's file named beside its id.
+function parseFences(body: string, ctx: z.RefinementCtx): unknown[] {
+  const steps: unknown[] = [];
+  for (const [index, fence] of [...body.matchAll(JSON_FENCE)].entries()) {
+    try {
+      steps.push(JSON.parse(fence[1] as string));
+    } catch {
+      ctx.addIssue({
+        code: "custom",
+        message: `json fence ${String(index + 1)} is not JSON — quote every key and string`,
+      });
+    }
+  }
+  return steps;
+}
+
 const lessonSchema = z
   .object({
     title: z.string(),
-    body: z
-      .string()
-      .transform((body) =>
-        [...body.matchAll(JSON_FENCE)].map((fence): unknown => JSON.parse(fence[1] ?? "")),
-      )
-      .pipe(z.array(stepSchema).min(1)),
+    body: z.string().transform(parseFences).pipe(z.array(stepSchema).min(1)),
   })
   .transform(({ title, body }) => ({ title, steps: body }));
+
+function lessons(root: string) {
+  return defineCollection({
+    name: "lessons",
+    loader: defineMarkdownLoader({ root, locale: "en", languages: ["json"] }),
+    schema: lessonSchema,
+  });
+}
 
 export interface LessonSteps {
   /** Open — the caller closes it. */
@@ -32,17 +49,22 @@ export interface LessonSteps {
 }
 
 export async function readLessonSteps(storePath: string): Promise<LessonSteps> {
-  const lessons = defineCollection({
-    name: "lessons",
-    loader: defineMarkdownLoader({ root: LESSONS, locale: "en", languages: ["json"] }),
-    schema: lessonSchema,
-  });
-
+  const collection = lessons(join(FIXTURES, "lessons"));
   const store = openStore(storePath);
-  await syncCollection(store, lessons);
+  await syncCollection(store, collection);
 
   return {
     store,
-    lessons: listEntries(store, lessons).map((entry) => entry.data),
+    lessons: listEntries(store, collection).map((entry) => entry.data),
   };
+}
+
+// Meant to fail: the lesson's one fence is not JSON.
+export async function syncBrokenLesson(storePath: string): Promise<void> {
+  const store = openStore(storePath);
+  try {
+    await syncCollection(store, lessons(join(FIXTURES, "broken-lesson")));
+  } finally {
+    store.close();
+  }
 }

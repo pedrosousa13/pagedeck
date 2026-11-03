@@ -169,6 +169,13 @@ function issueField(issue: StandardSchemaV1.Issue): string {
     .join(".");
 }
 
+function fromSource(
+  source: string | undefined,
+  spell: (text: string) => string = (text) => text,
+): string {
+  return source === undefined ? "" : ` from ${spell(source)}`;
+}
+
 async function validateEntry<T>(
   collectionName: string,
   schema: StandardSchemaV1<unknown, T>,
@@ -181,16 +188,15 @@ async function validateEntry<T>(
     result = await schema["~standard"].validate(entry.data);
   } catch (error) {
     throw new Error(
-      `Collection "${collectionName}": schema threw validating entry ${quoteIdentifier(`${entry.locale}/${entry.path}`)}${entry.source === undefined ? "" : ` from ${quoteIdentifier(entry.source)}`}`,
+      `Collection "${collectionName}": schema threw validating entry ${quoteIdentifier(`${entry.locale}/${entry.path}`)}${fromSource(entry.source, quoteIdentifier)}`,
       { cause: error },
     );
   }
   if (result.issues === undefined) return { value: result.value };
-  const from = entry.source === undefined ? "" : ` from ${entry.source}`;
   return {
     lines: result.issues.map(
       (issue) =>
-        `  ${printable(`/${entry.locale}/${entry.path}${from}: ${issueField(issue)} — ${issue.message}`)}`,
+        `  ${printable(`/${entry.locale}/${entry.path}${fromSource(entry.source)}: ${issueField(issue)} — ${issue.message}`)}`,
     ),
   };
 }

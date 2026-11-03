@@ -6,7 +6,7 @@ export {
   collectSitePages,
 } from "./defining-pages.js";
 export type { CollectedPages } from "./defining-pages.js";
-export { syncHandWrittenLoader } from "./implementing-a-loader.js";
+export { syncHandWrittenLoader, syncUntitledNote } from "./implementing-a-loader.js";
 export type { HandWrittenLoaderRun, Note } from "./implementing-a-loader.js";
 export { queryArticles } from "./querying-with-a-schema.js";
 export type { ArticleQueries } from "./querying-with-a-schema.js";
@@ -31,5 +31,5 @@ export { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
 export type { CompiledEdge } from "./compiling-edge-artifacts.js";
 export { runAppBeforeEveryRequest } from "./running-the-app-before-every-request.js";
 export type { AppBeforeEveryRequest } from "./running-the-app-before-every-request.js";
-export { readLessonSteps } from "./reading-fenced-data.js";
+export { readLessonSteps, syncBrokenLesson } from "./reading-fenced-data.js";
 export type { LessonSteps } from "./reading-fenced-data.js";

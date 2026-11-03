@@ -127,6 +127,16 @@ test("a file with no frontmatter is its own body", async () => {
   ).toBe("# Guide\n\nText.\n");
 });
 
+test("a file with nothing after its frontmatter has an empty body", async () => {
+  const { root, store } = siteWith({ "guide.md": "---\ntitle: Guide\n---\n" });
+  const collection = docs(root);
+  await syncCollection(store, collection);
+
+  expect(
+    getEntry(store, collection, { locale: "en", path: "guide" })?.data.body,
+  ).toBe("");
+});
+
 test("a frontmatter title wins over the body's first heading", async () => {
   const { root, store } = siteWith({
     "guide.md": "---\ntitle: The written title\n---\n# The heading\n",

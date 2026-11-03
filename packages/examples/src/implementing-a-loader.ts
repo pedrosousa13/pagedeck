@@ -1,5 +1,6 @@
 // Example: implement a loader by hand. It never reads the store; it tells the writer what to
 // upsert and delete, and the framework applies the batch in one transaction.
+import { z } from "zod";
 import {
   defineCollection,
   listEntries,
@@ -41,7 +42,12 @@ function createNoteLoader(records: readonly NoteRecord[]): Loader<Note> {
         writer.delete(id);
         deleted.push(id);
       } else {
-        writer.upsert({ ...id, data: { title: record.title } });
+        // Optional: a schema failure names it beside the id.
+        writer.upsert({
+          ...id,
+          data: { title: record.title },
+          source: `https://cms.example/notes/${record.path}`,
+        });
         changed.push(id);
       }
     }
@@ -110,4 +116,22 @@ export async function syncHandWrittenLoader(
     incremental,
     notes: listEntries(store, notes).map((entry) => entry.data),
   };
+}
+
+// Meant to fail: the schema refuses an empty title, and the message names the record's source.
+export async function syncUntitledNote(storePath: string): Promise<void> {
+  const notes = defineCollection({
+    name: "notes",
+    loader: createNoteLoader([
+      { locale: "en", path: "draft", rev: 1, title: "" },
+    ]),
+    schema: z.object({ title: z.string().min(1) }),
+  });
+
+  const store = openStore(storePath);
+  try {
+    await syncCollection(store, notes);
+  } finally {
+    store.close();
+  }
 }

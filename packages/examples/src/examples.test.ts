@@ -15,10 +15,10 @@ import {
   collectPrefixedPages,
   collectSitePages,
 } from "./defining-pages.js";
-import { syncHandWrittenLoader } from "./implementing-a-loader.js";
+import { syncHandWrittenLoader, syncUntitledNote } from "./implementing-a-loader.js";
 import { queryArticles } from "./querying-with-a-schema.js";
 import { syncBrokenArticle } from "./a-broken-entry.js";
-import { readLessonSteps } from "./reading-fenced-data.js";
+import { readLessonSteps, syncBrokenLesson } from "./reading-fenced-data.js";
 import { registerComponents } from "./registering-components.js";
 import { renderExamplePage } from "./rendering-a-page.js";
 import { islandNestedClientComponent } from "./islanding-a-nested-client-component.js";
@@ -165,6 +165,15 @@ test("the loader example applies a full sync, then only the delta", async () => 
   ]);
 });
 
+test("the loader example's source is named when an entry fails the schema", async () => {
+  await expect(syncUntitledNote(tempStorePath())).rejects.toThrowError(
+    new Error(
+      `Collection "notes": 1 entry does not match the collection schema — fix the content, or relax the schema:
+  /en/draft from https://cms.example/notes/draft: title — Too small: expected string to have >=1 characters`,
+    ),
+  );
+});
+
 test("the query example returns entries typed by the collection's schema", async () => {
   const { store, welcome, all, due } = await queryArticles(tempStorePath());
   track(store);
@@ -212,6 +221,15 @@ test("the fenced-data example reads each lesson's steps out of its markdown body
       ],
     },
   ]);
+});
+
+test("the fenced-data example reports a fence that is not JSON beside the lesson's file", async () => {
+  await expect(syncBrokenLesson(tempStorePath())).rejects.toThrowError(
+    new Error(
+      `Collection "lessons": 1 entry does not match the collection schema — fix the content, or relax the schema:
+  /en/unquoted-key from unquoted-key.md: body — json fence 1 is not JSON — quote every key and string`,
+    ),
+  );
 });
 
 test("the registry example merges two registries and resolves hydration per component", () => {
