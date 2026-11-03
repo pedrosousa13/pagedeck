@@ -6,7 +6,7 @@ import type { ParsedDocument, ParsedElement, ParsedNode } from "jsdom";
 import { Suspense, use, useId } from "react";
 import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
-import { RegistryError, StoreError } from "@pagedeck/islands";
+import { ISLAND_HYDRATED_ATTRIBUTE, RegistryError, StoreError } from "@pagedeck/islands";
 import type { ComponentDefinition, ComponentRegistry } from "@pagedeck/islands";
 import { openStore } from "@pagedeck/content";
 import { SITE_FIXTURES } from "@pagedeck/fixtures";
@@ -22,6 +22,7 @@ import {
 } from "./render.js";
 import type { EntryNode, RenderedIsland, RootProvider } from "./render.js";
 import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_TAGS } from "./tree.js";
+import { CONSENT_ATTRIBUTE } from "./consent.js";
 import type { PlacedLocale } from "./locales.js";
 
 afterEach(() => {
@@ -421,10 +422,10 @@ test("a prop-slot stash typed into rich text does not reach the page", async () 
   );
 });
 
-test("a page-output name no runtime reads is left alone, as ADR-0006 records", async () => {
+test("a page-output name the framework never reads back is left alone, as ADR-0006 records", async () => {
   const names =
-    '<span data-pagedeck-consent="denied">x</span>' +
-    '<span data-pagedeck-hydrated="">x</span>' +
+    `<span ${CONSENT_ATTRIBUTE}="denied">x</span>` +
+    `<span ${ISLAND_HYDRATED_ATTRIBUTE}="">x</span>` +
     '<span data-pagedeck-preview="x">x</span>' +
     '<pagedeck-region data-note="x">x</pagedeck-region>';
 
