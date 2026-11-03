@@ -207,6 +207,120 @@ test("a dominant-color placeholder changes nothing the browser reserves space wi
   expect(placeheld.style).toEqual({ backgroundColor: "rgb(58 47 40)" });
 });
 
+const PREVIEW = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+
+const PREVIEW_STYLE = {
+  backgroundImage: `url("${PREVIEW}")`,
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundRepeat: "no-repeat",
+} as const;
+
+test("an image with a cached preview carries it as a stretched background", () => {
+  const attributes = imageAttributes({
+    images: IMAGES,
+    image: { src: "/hero.jpg", width: 1600, height: 900, placeholderPreview: PREVIEW },
+    page: PAGE,
+  });
+
+  expect(attributes.style).toStrictEqual(PREVIEW_STYLE);
+});
+
+test("an image with both keeps its dominant color underneath the preview", () => {
+  const attributes = imageAttributes({
+    images: IMAGES,
+    image: {
+      src: "/hero.jpg",
+      width: 1600,
+      height: 900,
+      placeholderColor: "#3a2f28",
+      placeholderPreview: PREVIEW,
+    },
+    page: PAGE,
+  });
+
+  expect(attributes.style).toStrictEqual({
+    backgroundColor: "#3a2f28",
+    ...PREVIEW_STYLE,
+  });
+});
+
+test("an image with no preview renders its color exactly as before, and an absent preview adds no key", () => {
+  const image = { src: "/hero.jpg", width: 1600, height: 900 } as const;
+
+  expect(
+    imageAttributes({
+      images: IMAGES,
+      image: { ...image, placeholderColor: "#3a2f28", placeholderPreview: undefined },
+      page: PAGE,
+    }).style,
+  ).toStrictEqual({ backgroundColor: "#3a2f28" });
+  expect(
+    Object.keys(
+      imageAttributes({ images: IMAGES, image: { ...image, placeholderPreview: undefined }, page: PAGE }),
+    ),
+  ).not.toContain("style");
+});
+
+test("a preview changes nothing the browser reserves space with", () => {
+  const image = { src: "/hero.jpg", width: 1600, height: 900 } as const;
+  const plain = imageAttributes({ images: IMAGES, image, page: PAGE });
+  const previewed = imageAttributes({
+    images: IMAGES,
+    image: { ...image, placeholderPreview: PREVIEW },
+    page: PAGE,
+  });
+
+  expect({ ...previewed, style: undefined }).toEqual({ ...plain, style: undefined });
+});
+
+function renderFault(placeholderPreview: unknown): Error | undefined {
+  try {
+    imageAttributes({
+      images: IMAGES,
+      image: {
+        src: "/hero.jpg",
+        width: 1600,
+        height: 900,
+        placeholderPreview: placeholderPreview as string,
+      },
+      page: PAGE,
+    });
+  } catch (thrown: unknown) {
+    return thrown as Error;
+  }
+  return undefined;
+}
+
+test.each([
+  ["a quote that closes the url", 'data:image/png;base64,AAAA");background:url("https://x.example/'],
+  ["a parenthesis", "data:image/png;base64,AAAA)"],
+  ["a semicolon", "data:image/png;base64,AAAA;color:red"],
+  ["a backslash", "data:image/png;base64,AA\\29"],
+  ["a newline", "data:image/png;base64,AAAA\n"],
+  ["a closing style tag", "data:image/png;base64,AAAA</style><script>alert(1)</script>"],
+  ["a javascript: URL", "javascript:alert(1)"],
+  ["an SVG data URI", "data:image/svg+xml;base64,PHN2Zz4="],
+  ["whitespace", " data:image/png;base64,AAAA"],
+  ["a non-base64 character", "data:image/png;base64,AA*A"],
+  ["an answer over the cap", `data:image/png;base64,${"A".repeat(4096)}`],
+  ["a non-string", 17],
+])("a preview holding %s is refused at render and never emitted", (_name, value) => {
+  const error = renderFault(value);
+
+  expect(error).toBeInstanceOf(RenderError);
+  expect(error?.message).toMatch(
+    /^Entry \/en\/home: image "\/hero\.jpg" carries a placeholderPreview that is not an image preview, so none is written into the page — pass the answer the sync cached for it, store\.getImagePreview\(src\), or leave the field out:\n {2}.+ — .+$/,
+  );
+});
+
+test("a refused preview is quoted cut short, and names its reason", () => {
+  expect(renderFault("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")?.message).toBe(
+    'Entry /en/home: image "/hero.jpg" carries a placeholderPreview that is not an image preview, so none is written into the page — pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out:\n' +
+      '  "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI of a png, jpeg, webp, avif or gif image',
+  );
+});
+
 test("an image with no intrinsic dimensions fails the build naming the page and the image", () => {
   const error: unknown = (() => {
     try {

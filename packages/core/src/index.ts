@@ -62,6 +62,7 @@ export type {
   ImageAdapter,
   ImageAttributes,
   ImageAttributesInput,
+  ImagePlaceholderStyle,
   ImageRequest,
   ImageSource,
   ImagesSetting,

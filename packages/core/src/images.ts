@@ -1,3 +1,4 @@
+import { imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
 import { quote } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
@@ -30,6 +31,17 @@ export interface ImageSource {
   readonly sizes?: string;
   readonly aboveFold?: boolean;
   readonly placeholderColor?: string;
+  /** What `store.getImagePreview` answers; checked again here, so a hand-made one is too. */
+  readonly placeholderPreview?: string;
+}
+
+/** The color stays under the preview, painted while its data URI decodes. */
+export interface ImagePlaceholderStyle {
+  readonly backgroundColor?: string;
+  readonly backgroundImage?: string;
+  readonly backgroundSize?: "cover";
+  readonly backgroundPosition?: "center";
+  readonly backgroundRepeat?: "no-repeat";
 }
 
 export interface ImageAttributes {
@@ -40,7 +52,7 @@ export interface ImageAttributes {
   readonly height: number;
   readonly loading: "lazy" | "eager";
   readonly fetchPriority: "high" | "auto";
-  readonly style?: { readonly backgroundColor: string };
+  readonly style?: ImagePlaceholderStyle;
 }
 
 export interface ImageAttributesInput {
@@ -72,9 +84,28 @@ export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
     height: image.height,
     loading: image.aboveFold === true ? "eager" : "lazy",
     fetchPriority: image.aboveFold === true ? "high" : "auto",
-    ...(image.placeholderColor === undefined
+    ...placeholder(image),
+  };
+}
+
+function placeholder(image: ImageSource): { style?: ImagePlaceholderStyle } {
+  const color =
+    image.placeholderColor === undefined
       ? {}
-      : { style: { backgroundColor: image.placeholderColor } }),
+      : { backgroundColor: image.placeholderColor };
+  if (image.placeholderPreview === undefined) {
+    return image.placeholderColor === undefined ? {} : { style: color };
+  }
+  return {
+    style: {
+      ...color,
+      // Safe unescaped only because `refuseUnusableImage` ran `imagePreviewFault` on it.
+      backgroundImage: `url("${image.placeholderPreview}")`,
+      // A preview a few pixels wide, stretched, is the blur.
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    },
   };
 }
 
@@ -126,7 +157,29 @@ function refuseUnusableImage(image: ImageSource, page: PageContext): void {
     );
   }
 
+  if (image.placeholderPreview !== undefined) {
+    const reason = imagePreviewFault(image.placeholderPreview);
+    if (reason !== undefined) {
+      const subject =
+        source === undefined ? `image ${quote(image.src)} carries` : "image carries";
+      sections.push(
+        `${where}: ${subject} a placeholderPreview that is not an image preview, so none is written into the page — ${PREVIEW_FIX}:\n  ${quote(excerpt(image.placeholderPreview))} — ${reason}`,
+      );
+    }
+  }
+
   if (sections.length > 0) throw new RenderError(sections.join("\n\n"));
+}
+
+const PREVIEW_FIX =
+  "pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out";
+
+const EXCERPT_LENGTH = 32;
+
+function excerpt(value: unknown): unknown {
+  return typeof value === "string" && value.length > EXCERPT_LENGTH
+    ? `${value.slice(0, EXCERPT_LENGTH)}…`
+    : value;
 }
 
 function sourceFault(src: unknown): string | undefined {

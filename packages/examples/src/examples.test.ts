@@ -25,6 +25,7 @@ import { islandNestedClientComponent } from "./islanding-a-nested-client-compone
 import { passElementsToAnIsland } from "./passing-elements-to-a-card-list.js";
 import { planDeployFromManifests } from "./diffing-two-manifests.js";
 import { renderSiteImages } from "./rendering-images.js";
+import { probeImagePreviews } from "./probing-image-previews.js";
 import { compileEdgeArtifacts } from "./compiling-edge-artifacts.js";
 import { runAppBeforeEveryRequest } from "./running-the-app-before-every-request.js";
 
@@ -420,6 +421,29 @@ test("the image example renders a responsive img and refuses an unmeasured asset
     'Entry /en/home: image "/uploads/unmeasured.jpg" declares 2 intrinsic dimensions that are not pixel sizes, so the browser reserves no space for it and the page shifts as it loads — pass the asset\'s own pixel width and height:\n' +
       "  width — undefined — not a number\n" +
       "  height — undefined — not a number",
+  );
+});
+
+test("the preview example probes each source once, paints the preview over the color, and refuses an SVG", async () => {
+  const { store, probedFirst, probedAgain, html, refusal } = await probeImagePreviews(
+    tempStorePath(),
+  );
+  track(store);
+
+  expect([...probedFirst].sort()).toEqual(["/uploads/hero.jpg", "/uploads/logo.svg"]);
+  expect(probedAgain).toEqual([]);
+
+  expect(html).toContain(
+    'width="2400" height="1350" loading="lazy" fetchPriority="auto" ' +
+      'style="background-color:#2f3a28;' +
+      "background-image:url(&quot;data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==&quot;);" +
+      'background-size:cover;background-position:center;background-repeat:no-repeat"/>',
+  );
+
+  expect(refusal).toBe(
+    'Collection "gallery": the image preview probe answered 2 sources with something that is not an image preview — return a base64 data URI of a png, jpeg, webp, avif or gif image of at most 2048 bytes, such as "data:image/webp;base64,UklGR…", or undefined for an image that has none:\n' +
+      '  "/uploads/hero.jpg" on /en/home — "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI of a png, jpeg, webp, avif or gif image\n' +
+      '  "/uploads/logo.svg" on /en/home — "data:image/svg+xml;base64,PHN2Zz…" — not a base64 data URI of a png, jpeg, webp, avif or gif image',
   );
 });
 

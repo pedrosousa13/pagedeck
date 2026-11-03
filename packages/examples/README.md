@@ -45,7 +45,12 @@ contract gets an example or joins this list:
   `layout` with the frontmatter `components` list it reads, a claim about a
   build's output (#712).
 - `@pagedeck/core/dev`: `startDevServer`, `devOrigin`, `DevServer` (#268).
-- `@pagedeck/content`: `PublishWindow`.
+- `@pagedeck/content`: `PublishWindow`; `syncImagePreviews`,
+  `SyncImagePreviewsInput`, `ImagePreviewSource` and
+  `DEFAULT_PREVIEW_CONCURRENCY`, which a collection's `imagePreviews` runs
+  for it (#276).
+- `@pagedeck/content/preview`: `MAX_PREVIEW_BYTES` and `imagePreviewFault`,
+  which the sync and `imageAttributes` both run on a preview (#276).
 - `@pagedeck/content/escape`: `printable` and `quoteIdentifier`, which keep a
   value from outside out of a message's terminal controls (#730).
 - `@pagedeck/islands`: `entryId`, `hydrationContradiction`,

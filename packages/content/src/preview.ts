@@ -1,11 +1,7 @@
 /** The whole data URI, prefix included: what one preview adds to a page's HTML. */
 export const MAX_PREVIEW_BYTES = 2048;
 
-export const PREVIEW_TYPES = ["png", "jpeg", "webp", "avif", "gif"] as const;
-
-const PREVIEW_PREFIX = new RegExp(
-  `^data:image/(?:${PREVIEW_TYPES.join("|")});base64,`,
-);
+const PREVIEW_PREFIX = /^data:image\/(?:png|jpeg|webp|avif|gif);base64,/;
 
 // Nothing here can close a CSS `url("…")`, a declaration or an HTML attribute.
 const BASE64 =
