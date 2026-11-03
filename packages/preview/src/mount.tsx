@@ -2,7 +2,7 @@ import { createElement, Suspense } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { buildPageTree } from "@pagedeck/core/tree";
+import { buildPageTree, PREVIEW_CONTAINER_ID } from "@pagedeck/core/tree";
 import type { ModuleFacts, ComponentRegistry, RootProvider } from "@pagedeck/islands";
 import { readDraft } from "./draft.js";
 import { PreviewParityError, previewIsland } from "./parity.js";
@@ -18,7 +18,7 @@ export const PREVIEW_MARK = "pagedeck-preview-build-target";
 export const PREVIEW_ATTRIBUTE = "data-pagedeck-preview";
 
 /** The element a preview app mounts into when the caller names none. */
-export const PREVIEW_CONTAINER_ID = "pagedeck-preview";
+export { PREVIEW_CONTAINER_ID };
 
 // Declared here, not via the `DOM` lib: a workspace-wide `document` would typecheck
 // in node-only packages.

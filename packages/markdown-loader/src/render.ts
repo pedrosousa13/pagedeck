@@ -186,6 +186,17 @@ function unreserved(slug: string): string {
   return slug.replace(RESERVED, "");
 }
 
+// A copy of core's `RESERVED_IDS`: importing core would make it a runtime dependency of this
+// package. `unescapedHtml` renames each, so a heading slugged onto one is numbered instead
+// (#266). `packages/docs/src/reserved-names.test.ts` fails if the copy misses one.
+const LOOKED_UP_IDS = [
+  "pagedeck-preview",
+  "pagedeck-consent-banner",
+  "pagedeck-consent-banner-manage",
+  "pagedeck-consent-banner-accept",
+  "pagedeck-consent-banner-heading",
+];
+
 // Asks whether a slug is free, not how often its text was seen: "Options 1" owns `options-1`.
 function uniqueSlug(base: string, taken: Set<string>): string {
   let slug = base;
@@ -223,7 +234,7 @@ export async function createMarkdownRenderer(
       let titleSeen = false;
       let title: string | undefined;
       const toc: TocEntry[] = [];
-      const taken = new Set<string>();
+      const taken = new Set<string>(LOOKED_UP_IDS);
 
       const marked = new Marked({
         async: true,

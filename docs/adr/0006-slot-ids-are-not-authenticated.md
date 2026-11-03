@@ -16,7 +16,9 @@ already implemented. Binding on the wire format and on `unescapedHtml`'s
 contract. Raised by #137. Amended by #258, which changed how the strip
 neutralises a name (it renames the name and removes nothing) and not where the
 defence sits. Amended by #260, which audited every name page output carries
-against the list (below, "Names left off the list").
+against the list (below, "Names left off the list"). Amended by #266, which
+added the ids the framework looks up (below, "Ids the framework looks
+up").
 
 ## Context
 
@@ -156,6 +158,37 @@ stay off the list, and content that spells one reaches the page unchanged:
 
 Adding a reader for any of the four puts that name on the list in the same
 change, with neutralise tests in each value form.
+
+**Ids the framework looks up.** `getElementById` returns the first element in
+document order, so content placed before the element the framework wrote would
+win the lookup, and an `aria-labelledby` reference resolves the same way.
+`RESERVED_IDS` (`tree.tsx`) lists every id the framework looks up:
+`PREVIEW_CONTAINER_ID`, the container `mountPreview` mounts into, and
+`CONSENT_BANNER_ID` (`packages/core/src/consent.ts`), the consent banner's
+default `id`, with the `-manage` and `-accept` ids the banner looks up to move
+focus and the `-heading` id its `aria-labelledby` names.
+`neutralizeReservedNames` renames an `id` attribute whose whole value is one of
+them: `x-` goes in front of the value's first byte, inside any quote, in each
+value form, and nothing is removed. The value is compared as the parser decodes
+it, so a numeric character reference counts as the character it names, decimal
+or hex, zero-padded or not, with or without its semicolon. No named reference
+needs decoding: the only one in the HTML table that decodes to ASCII letters,
+digits or hyphens is `fjlig`, and no reserved id contains its two letters. The
+value is matched in any case, which is stricter than `getElementById` and
+harmless. Only the exact ids are reserved and not the `pagedeck` prefix, so an
+id that merely starts with it reaches the page unchanged, and so does a heading
+anchor the markdown loader mints from a heading that starts with the word
+(ruled on #266). The loader counts the exact ids as already used, so a heading
+spelled as one is numbered instead. The `id` name is found on bytes like the
+reserved names, with the same boundary before it, so `data-id` and `class`
+keep a reserved value.
+
+Two lookups take ids the site chooses, and they stay outside the rule. A site
+that passes the banner its own `id` moves the banner's focus targets with it. A
+facade's mount point is an id the site names in its config, which the build
+finds in the rendered page by its first match (`mountOffsets`, `build.ts`). The
+framework cannot list either id ahead of time, and each sits in the site's
+namespace, which the next paragraph leaves to the site.
 
 **The framework defends its own namespace, not the site's HTML.** Sanitising
 content is the CMS's job and stays there. What `unescapedHtml`'s contract

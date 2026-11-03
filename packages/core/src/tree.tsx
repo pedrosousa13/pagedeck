@@ -45,6 +45,7 @@ import type {
   RootProvider,
 } from "@pagedeck/islands";
 import type { PlacedLocale } from "./locales.js";
+import { CONSENT_BANNER_ID } from "./consent.js";
 
 export type { PlacedLocale };
 export interface EntryNode {
@@ -137,9 +138,9 @@ interface PageLocale {
 export const PageLocaleContext = createContext<PageLocale | undefined>(undefined);
 
 /**
- * Neutralises only the framework's reserved names (#109, #258): each is renamed
- * in place and every other byte reaches the page as written, so the HTML must
- * already be sanitised.
+ * Neutralises only the framework's reserved names and ids (#109, #258, #266):
+ * each is renamed in place and every other byte reaches the page as written, so
+ * the HTML must already be sanitised.
  */
 export function unescapedHtml(html: string): {
   dangerouslySetInnerHTML: { __html: string };
@@ -181,23 +182,68 @@ export const RESERVED_ATTRIBUTES: readonly string[] = [
   SEARCH_ATTRIBUTE,
 ];
 
+export const PREVIEW_CONTAINER_ID = "pagedeck-preview";
+
+/**
+ * Every id the framework looks up, with `getElementById` or through the
+ * `aria-labelledby` it writes (#266).
+ */
+export const RESERVED_IDS: readonly string[] = [
+  PREVIEW_CONTAINER_ID,
+  CONSENT_BANNER_ID,
+  `${CONSENT_BANNER_ID}-manage`,
+  `${CONSENT_BANNER_ID}-accept`,
+  `${CONSENT_BANNER_ID}-heading`,
+];
+
+const ID_EQUALS = `(?<!${NAME_CHARACTER})id\\s*=\\s*`;
+
 const RESERVED_NAMES = new RegExp(
   [
     `(?<=</?)(?:${RESERVED_TAGS.join("|")})(?=[\\s/>]|$)`,
     `(?<=(?<!${NAME_CHARACTER})data-)(?:${RESERVED_ATTRIBUTES.map((name) =>
       name.slice("data-".length),
     ).join("|")})(?!${NAME_CHARACTER})`,
+    // Zero-width at the value's first byte, so the value stays open to the
+    // alternatives above.
+    `(?<=${ID_EQUALS}")(?=([^"]*))`,
+    `(?<=${ID_EQUALS}')(?=([^']*))`,
+    `(?<=${ID_EQUALS})(?=([^\\t\\n\\f\\r "'>][^\\t\\n\\f\\r >]*))`,
   ].join("|"),
   "gi",
 );
 
+const NUMERIC_REFERENCE = /&#(?:[xX]([0-9a-fA-F]+)|([0-9]+));?/g;
+
+/** As the parser decodes an attribute value; no named reference spells a reserved id. */
+function decodedValue(value: string): string {
+  return value.replace(
+    NUMERIC_REFERENCE,
+    (_, hex: string | undefined, decimal: string | undefined) => {
+      const code = hex === undefined ? Number(decimal) : parseInt(hex, 16);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "\ufffd";
+    },
+  );
+}
+
+function asciiLowercase(value: string): string {
+  return value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+
 /**
  * Bytes, not a parse, so a reserved name is caught wherever it is spelled.
- * Case-insensitive, as the parser lowercases names. Renames rather than removes:
- * ADR-0006.
+ * Case-insensitive, as the parser lowercases names; an id value too, though
+ * `getElementById` is not. Renames rather than removes: ADR-0006.
  */
 function neutralizeReservedNames(html: string): string {
-  return html.replace(RESERVED_NAMES, "x-$&");
+  return html.replace(
+    RESERVED_NAMES,
+    (name: string, double?: string, single?: string, bare?: string) => {
+      const value = double ?? single ?? bare;
+      if (value === undefined) return `x-${name}`;
+      return RESERVED_IDS.includes(asciiLowercase(decodedValue(value))) ? "x-" : "";
+    },
+  );
 }
 
 export function useBuildData<T>(key: string): T {

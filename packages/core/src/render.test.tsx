@@ -21,7 +21,7 @@ import {
   useSocialCard,
 } from "./render.js";
 import type { EntryNode, RenderedIsland, RootProvider } from "./render.js";
-import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_TAGS } from "./tree.js";
+import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_IDS, RESERVED_TAGS } from "./tree.js";
 import { CONSENT_ATTRIBUTE } from "./consent.js";
 import type { PlacedLocale } from "./locales.js";
 
@@ -432,6 +432,88 @@ test("a page-output name the framework never reads back is left alone, as ADR-00
   expect(await richText(names)).toBe(`<div class="rich">${names}</div>`);
 });
 
+test("an id the framework looks up, typed into rich text, does not reach the page", async () => {
+  const html = await richText(
+    '<div id="pagedeck-preview">x</div>' +
+      "<div id='pagedeck-consent-banner'>x</div>" +
+      "<div id=pagedeck-consent-banner-manage>x</div>" +
+      '<div id="pagedeck-consent-banner-accept">x</div>' +
+      '<div ID="PAGEDECK-PREVIEW">x</div>' +
+      '<div id = "pagedeck-preview">x</div>' +
+      "<hr id=pagedeck-preview>",
+  );
+
+  expect(html).toBe(
+    '<div class="rich"><div id="x-pagedeck-preview">x</div>' +
+      "<div id='x-pagedeck-consent-banner'>x</div>" +
+      "<div id=x-pagedeck-consent-banner-manage>x</div>" +
+      '<div id="x-pagedeck-consent-banner-accept">x</div>' +
+      '<div ID="x-PAGEDECK-PREVIEW">x</div>' +
+      '<div id = "x-pagedeck-preview">x</div>' +
+      "<hr id=x-pagedeck-preview></div>",
+  );
+});
+
+test("the banner heading's id, which its aria-labelledby looks up, does not reach the page", async () => {
+  const html = await richText('<h2 id="pagedeck-consent-banner-heading">x</h2>');
+
+  expect(html).toBe('<div class="rich"><h2 id="x-pagedeck-consent-banner-heading">x</h2></div>');
+});
+
+test("a looked-up id spelled with numeric character references does not reach the page", async () => {
+  const spellings = [
+    "pagedeck&#45;preview",
+    "&#112;agedeck-preview",
+    "pagedeck&#x2D;preview",
+    "pagedeck&#X2d;preview",
+    "pagedeck&#45preview",
+    "pagedeck&#x2dpreview",
+    "pagedeck&#0000045;preview",
+    "pagedeck&#x00002D;preview",
+    "&#80;AGEDECK-PREVIEW",
+  ];
+  const html = await richText(
+    spellings
+      .map((value) => `<p id="${value}">x</p><p id='${value}'>x</p><p id=${value}>x</p>`)
+      .join(""),
+  );
+
+  expect(html).toBe(
+    `<div class="rich">${spellings
+      .map((value) => `<p id="x-${value}">x</p><p id='x-${value}'>x</p><p id=x-${value}>x</p>`)
+      .join("")}</div>`,
+  );
+  for (const element of parsedBody(html).querySelector("div")?.childNodes ?? []) {
+    expect(RESERVED_IDS).not.toContain((element as ParsedElement).getAttribute("id"));
+  }
+});
+
+test("a character reference that decodes to something else leaves the id alone", async () => {
+  const names =
+    '<p id="pagedeck&#46;preview">x</p>' +
+    '<p id="pagedeck&amp;#45;preview">x</p>' +
+    '<p id="pagedeck&#38;#45;preview">x</p>' +
+    '<p id="pagedeck&#x110000;preview">x</p>' +
+    '<p id="pagedeck&#45;sync">x</p>';
+
+  expect(await richText(names)).toBe(`<div class="rich">${names}</div>`);
+});
+
+test("an id the framework never looks up, or a looked-up id on another attribute, is left alone", async () => {
+  const names =
+    '<div id="pagedeck">x</div>' +
+    '<div id="pagedeck-sync">x</div>' +
+    '<div id="pagedeck-anything-else">x</div>' +
+    '<div id="pagedeck-preview-1">x</div>' +
+    "<div id='pagedeck-consent-banner-reject'>x</div>" +
+    '<div id="my-pagedeck-preview">x</div>' +
+    '<div class="pagedeck-preview">x</div>' +
+    '<div data-id="pagedeck-preview">x</div>' +
+    '<a href="#pagedeck-preview">x</a>';
+
+  expect(await richText(names)).toBe(`<div class="rich">${names}</div>`);
+});
+
 test("rich text that names the marker element in prose still says so", async () => {
   const html = await richText(
     "<p>The build writes <code>&lt;pagedeck-island&gt;</code> for you.</p>",
@@ -483,17 +565,21 @@ function neutralize(html: string): string {
   return unescapedHtml(html).dangerouslySetInnerHTML.__html;
 }
 
+// One window: a JSDOM costs milliseconds, and the fuzz test parses about 1,600 times.
+const PARSER = new JSDOM("<body></body>").window.document;
+
 function parsedBody(html: string): ParsedElement {
-  return new JSDOM(`<body>${html}</body>`).window.document.body as ParsedElement;
+  const body = PARSER.createElement("body");
+  body.innerHTML = html;
+  return body;
 }
 
 /** What a CMS sanitiser hands over: a DOM it built, serialised. */
 function sanitised(
   build: (document: ParsedDocument) => Array<ParsedNode | string>,
 ): string {
-  const { document } = new JSDOM("<body></body>").window;
-  const body = document.body as ParsedElement;
-  body.append(...build(document));
+  const body = PARSER.createElement("body");
+  body.append(...build(PARSER));
   return body.innerHTML;
 }
 
@@ -549,6 +635,13 @@ test("a reserved tag opener in a title cannot pull text into the tag", () => {
   expectSameTree(html);
 });
 
+function ids(node: ParsedNode): string[] {
+  if (node.nodeType !== 1) return [];
+  const element = node as ParsedElement;
+  const id = element.getAttribute("id");
+  return [...(id === null ? [] : [id]), ...[...element.childNodes].flatMap(ids)];
+}
+
 /** mulberry32: a fixed seed gives the same cases on every run. */
 function seeded(seed: number): () => number {
   let state = seed;
@@ -574,16 +667,19 @@ test("no sanitised tree gains or loses an element or attribute to neutralizing",
       `</${tag}>`,
       `<${tag.toUpperCase()} `,
     ]),
+    "id=", "ID=", "pagedeck-", ' id="pagedeck-preview" ', " id=pagedeck-preview ",
+    ...RESERVED_IDS.flatMap((id) => [id, id.toUpperCase()]),
   ];
   const text = (): string =>
     Array.from({ length: Math.floor(random() * 7) }, () => pick(pieces)).join("");
   const tags = ["p", "span", "a", "em", "div", "hr", ...RESERVED_TAGS];
-  const attributes = ["title", "class", "alt", "data-note", ...RESERVED_ATTRIBUTES];
+  const attributes = ["title", "class", "alt", "data-note", "id", ...RESERVED_ATTRIBUTES];
   const node = (document: ParsedDocument, depth: number): ParsedNode | string => {
     if (depth > 2 || random() < 0.3) return text();
     const element = document.createElement(pick(tags));
     for (let at = Math.floor(random() * 4); at > 0; at -= 1) {
-      element.setAttribute(pick(attributes), text());
+      const name = pick(attributes);
+      element.setAttribute(name, name === "id" && random() < 0.5 ? pick(RESERVED_IDS) : text());
     }
     if (element.localName !== "hr") {
       for (let at = Math.floor(random() * 4); at > 0; at -= 1) {
@@ -599,6 +695,8 @@ test("no sanitised tree gains or loses an element or attribute to neutralizing",
     );
     expectSameTree(html);
     expect(neutralize(neutralize(html))).toBe(neutralize(html));
+    const reserved = ids(parsedBody(neutralize(html))).filter((id) => RESERVED_IDS.includes(id));
+    expect(reserved, html).toEqual([]);
   }
 });
 

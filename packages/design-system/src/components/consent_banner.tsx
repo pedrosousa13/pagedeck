@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CONSENT_EVENT, CONSENT_GLOBAL } from "@pagedeck/core/consent";
+import { CONSENT_BANNER_ID, CONSENT_EVENT, CONSENT_GLOBAL } from "@pagedeck/core/consent";
 import { grantedBy, storeDecision, storedDecision } from "../consent.js";
 import type { ConsentCategory, ConsentSource } from "@pagedeck/core/consent";
 import type { ConsentDecision } from "../consent.js";
@@ -47,7 +47,7 @@ export default function ConsentBanner({
   acceptLabel,
   rejectLabel,
   manageLabel,
-  id = "pagedeck-consent-banner",
+  id = CONSENT_BANNER_ID,
 }: {
   heading: string;
   body: string;

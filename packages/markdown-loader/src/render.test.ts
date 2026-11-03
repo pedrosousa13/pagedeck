@@ -234,6 +234,23 @@ test("numbering a repeat cannot walk back into the namespace it was kept out of"
   expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
 });
 
+test("a heading cannot slug onto an id the framework looks up, so it is numbered instead", async () => {
+  const rendered = await renderer.render(
+    "## Pagedeck preview\n\n## pagedeck-consent-banner\n\n## Pagedeck consent banner manage\n\n## Pagedeck consent banner accept\n\n## Pagedeck consent banner heading\n\n## Pagedeck preview\n\n## Pagedeck sync\n",
+    "d.md",
+  );
+  expect(rendered.toc.map((entry) => entry.slug)).toEqual([
+    "pagedeck-preview-1",
+    "pagedeck-consent-banner-1",
+    "pagedeck-consent-banner-manage-1",
+    "pagedeck-consent-banner-accept-1",
+    "pagedeck-consent-banner-heading-1",
+    "pagedeck-preview-2",
+    "pagedeck-sync",
+  ]);
+  expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
+});
+
 test("an apostrophe is dropped from a slug rather than turned into a hyphen", async () => {
   const rendered = await renderer.render(
     "## What's next\n\n## Don’t write what didn’t change\n\n## It can't watch you\n",
