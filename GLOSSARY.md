@@ -158,8 +158,10 @@ Since #275 an adapter may also declare `files`, each a name and its bytes, for
 what its elements load from the site's own origin. The build writes them under
 `/script-runtime/<hash>/`, a directory named by a hash of every file's name and
 bytes, which `scriptRuntimeBase` returns before any build runs, so an adapter's
-markup can name it. The request is unchanged: the adapter still gets one page's
-`worker` loadout and nothing else.
+markup can name it. An adapter that loads a script without checking its
+`integrity` declares `checksIntegrity: false`, and the config then refuses every
+worker-reaching script that declares one. The request is unchanged: the adapter
+still gets one page's `worker` loadout and nothing else.
 
 It earns an entry because **Image adapter**, above, says a future contract
 needing the noun does, and this is that contract. The two are the same

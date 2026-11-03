@@ -26,14 +26,16 @@ scripts: defineScripts({
 
 It runs Partytown in service-worker mode only, and writes no file for
 Partytown's Atomics mode, which needs a cross-origin-isolated page (#275). A
-`worker` script that declares `integrity` fails the build, because Partytown
-fetches it without an integrity check. A script with a consent `category` never
+`worker` script that declares `integrity` is refused when the config loads,
+because Partytown fetches it without an integrity check. A script with a consent `category` never
 reaches this adapter: the build loads it on `idle`, behind the consent gate
 (#47).
 
 `resolveUrl` maps a vendor's `https` origin to a path prefix on the site, which
-an upstream app forwards to that origin. `runtime.inlineScriptHash` is the
-snippet's hash for a `Content-Security-Policy`. The package pins
+an upstream app forwards to that origin; it never proxies an iframe's document.
+`runtime.inlineScriptHash` is the snippet's hash for a
+`Content-Security-Policy`. It covers only the snippet: the site's policy does
+not constrain the scripts inside Partytown's worker. The package pins
 `@qwik.dev/partytown` to one exact version, because a new version changes the
 snippet's bytes and so its hash.
 

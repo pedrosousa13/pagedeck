@@ -248,6 +248,14 @@ outside that set, two files with one name, or contents that are neither a
 string nor bytes are refused when the config loads. A site that declares no
 runtime, or a runtime with no `files`, gets the files it always got.
 
+When the files change, the directory moves. An incremental build then renders
+again every page it would have reused that still names the old directory, so
+no page points at files the build no longer writes.
+
+An adapter that loads a script without checking its `integrity` says so with
+`checksIntegrity: false`. The config then refuses, when it loads, every script
+that can reach `worker` and declares `integrity`, all of them in one message.
+
 Core ships no adapter of its own, and that is not an oversight. It ships a
 generic URL-template adapter for [images](./images.md) because every image CDN
 answers the same four parameters at a URL; off-main-thread runtimes have no such
@@ -298,7 +306,9 @@ Each page that keeps a `worker` script then carries Partytown's inline snippet
 and one `<script type="text/partytown">` per script, last in the `<body>`. The
 build writes Partytown's service worker and its two other files under
 `/script-runtime/<hash>/`, and the snippet loads them from there, so nothing
-Partytown needs comes from another origin. The warning below, that `worker`
+Partytown needs comes from another origin. A fourth file there,
+`partytown-config.txt`, holds the snippet without its directory. It is there so
+that changing any option moves the directory too. The warning below, that `worker`
 became `idle`, is gone.
 
 `definePartytown` takes these options, each passed to Partytown as its
@@ -314,10 +324,10 @@ Four things to know before you choose it:
   not written. On a page that is cross-origin isolated anyway, Partytown looks
   for that file, does not find it, and runs the scripts on the main thread
   after `fallbackTimeout`.
-- **A `worker` script that declares `integrity` fails the build.** Partytown
-  fetches the script from inside its worker without an integrity check, so the
-  hash you pinned would not be checked. Declare `strategy: "idle"` for that
-  script, which keeps the check.
+- **A `worker` script that declares `integrity` is refused when the config
+  loads.** Partytown fetches the script from inside its worker without an
+  integrity check, so the hash you pinned would not be checked. Declare
+  `strategy: "idle"` for that script, which keeps the check.
 - **The snippet runs at the end of the `<body>`**, because nothing this layer
   writes goes in the `<head>`. A function you `forward` exists from there on, and
   an inline script above it that calls one fails.
@@ -333,18 +343,25 @@ Partytown's answer is to proxy them. `resolveUrl` is a map from the vendor's
 that exact origin goes to the prefix instead, with the path and query appended:
 `https://collector.example/g/collect?v=2` becomes
 `/vendor/collector/g/collect?v=2` on your origin. A request to any other origin
-is left alone.
+is left alone, and so is an iframe's document, from any origin: a route never
+serves a vendor's page from your origin.
 
 The prefix is answered by an [upstream](../how-to/run-an-app-beside-the-site.md),
 an app you run beside the site, which forwards each request to the one origin it
 was declared for. Pagedeck ships no proxy. Write the app so that it forwards
 only to that origin and never to a URL taken from the request: the map is fixed
 when the config loads, so a page cannot add an origin to it, and an app that
-read its target from the request would undo that.
+read its target from the request would undo that. The app answers on your
+origin, so a vendor's response arrives with your origin's authority. Have it:
 
-A key that is not an `https` origin with nothing after the host, and a value
-that is not a path starting and ending with `/`, are refused when the config
-loads.
+- forward no `Cookie` header, and strip `Set-Cookie` from the response;
+- pass only the content types the vendor's endpoint needs to send;
+- send `X-Content-Type-Options: nosniff` and
+  `Content-Security-Policy: sandbox` on every response.
+
+A key that is not an `https` origin with nothing after the host, a key whose
+host ends in `.`, is an IP address or is `localhost`, and a value that is not a
+path starting and ending with `/`, are refused when the config loads.
 
 ### The snippet's hash for a Content-Security-Policy
 
@@ -363,10 +380,24 @@ const policy = `script-src 'self' https://example.com ${runtime.inlineScriptHash
 
 The hash changes when your options change or when a new
 `@pagedeck/script-worker` brings a new Partytown, so compute it on every
-build, as the manifest's hashes are. Partytown also starts a worker from a
-`blob:` URL and an iframe from your origin, so a strict policy needs
-`worker-src 'self' blob:` and `frame-src 'self'` as well. We have not run that
-policy in a browser.
+build, as the manifest's hashes are.
+
+**Your policy does not constrain the scripts in the worker.** Partytown's
+service worker serves its sandbox page itself, with no
+`Content-Security-Policy` header, and the worker the sandbox starts runs the
+vendor's code. So the site's policy does not limit what a tag inside the worker
+loads or where it sends data. `inlineScriptHash` covers the snippet and nothing
+else. A strict policy on the page still needs:
+
+- `frame-src 'self'`, for the sandbox iframe;
+- `worker-src 'self' blob:`, for the service worker and the worker the sandbox
+  starts from a `blob:` URL;
+- each vendor's `src` origin in `script-src`, because when Partytown cannot
+  start, it runs the scripts on the main thread;
+- `partytown` in any `trusted-types` allowlist, the policy name Partytown
+  creates.
+
+We have not run that policy in a browser.
 
 ### With no adapter, `worker` becomes `idle`, and the build says so
 
