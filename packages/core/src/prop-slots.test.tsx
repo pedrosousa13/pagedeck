@@ -265,6 +265,27 @@ test("a client component inside an unplaced prop slot is an island of its own in
   );
 });
 
+test("rendering a page with placed and unplaced prop slots twice returns byte-identical HTML", async () => {
+  function Template() {
+    return (
+      <>
+        <Wrapper />
+        <ProxiedHidden aside={<Card name="Z" nested />} />
+      </>
+    );
+  }
+
+  const first = await render(Template);
+  const second = await render(Template);
+
+  expect(first).toContain('<template data-pagedeck-region="0"></template><article data-card="A">');
+  expect(first).toMatch(
+    /<template data-pagedeck-region-stash="0">&lt;article data-card="Z">[^<]*data-pagedeck-component="Counter"/,
+  );
+  expect(first.match(/data-pagedeck-component="Counter"/g)).toHaveLength(2);
+  expect(second).toBe(first);
+});
+
 test("a prop slot the island renders twice is refused, naming the component and the path", async () => {
   function Twice({ children }: { children?: ReactNode }) {
     return (
