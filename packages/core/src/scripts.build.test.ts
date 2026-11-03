@@ -53,6 +53,7 @@ import { defineConfig } from ${JSON.stringify(join(CORE, "config.ts"))};
 import { definePages, fromCollection } from ${JSON.stringify(join(CORE, "pages.ts"))};
 import { defineLocales } from ${JSON.stringify(join(CORE, "locales.ts"))};
 import { defineScripts } from ${JSON.stringify(join(CORE, "scripts.ts"))};
+import { scriptRuntimeBase } from ${JSON.stringify(join(CORE, "script-elements.ts"))};
 import { createFixtureLoader } from ${JSON.stringify(FIXTURES)};
 
 const usage = (component) => [
@@ -141,18 +142,19 @@ const FILES_SCRIPTS = `scripts: defineScripts({
       scripts: [
         { name: "tags", src: "https://example.com/tags.js" },
       ],
-      runtime: Object.assign(
-        ({ scripts, fileBase }) => [
-          '<script src="' + fileBase + 'boot.js"></script>',
-          ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
-        ],
-        {
-          files: [
-            { name: "boot.js", contents: "self.marker = 'boot-71c3';" },
-            { name: "frame.html", contents: new TextEncoder().encode("<!doctype html><p>frame-0d5e</p>") },
+      runtime: (() => {
+        const files = [
+          { name: "boot.js", contents: "self.marker = 'boot-71c3';" },
+          { name: "frame.html", contents: new TextEncoder().encode("<!doctype html><p>frame-0d5e</p>") },
+        ];
+        return Object.assign(
+          ({ scripts }) => [
+            '<script src="' + scriptRuntimeBase(files) + 'boot.js"></script>',
+            ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
           ],
-        },
-      ),
+          { files },
+        );
+      })(),
     }),`;
 
 async function run(cwd: string, ...argv: string[]): Promise<string> {

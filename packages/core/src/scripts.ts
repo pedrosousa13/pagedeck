@@ -52,8 +52,6 @@ export interface ScriptFacade {
 
 export interface ScriptRuntimeRequest {
   readonly scripts: readonly ScriptDeclaration[];
-  /** Present only when the adapter declares `files`. */
-  readonly fileBase?: string;
 }
 
 export interface ScriptRuntimeFile {
@@ -421,7 +419,7 @@ function runtimeFilesSection(
     if (lines.length > before) faulty.add(index);
   });
   if (lines.length === 0) return undefined;
-  return `${heading}: declares ${count(faulty.size, "script runtime file")} this build cannot write — the build writes every file into one directory of its own and hands the adapter its path, so give each a plain file name, unique among them, and its contents as a string or bytes, such as ${RUNTIME_FILE_FIX}:\n${lines.join("\n")}`;
+  return `${heading}: declares ${count(faulty.size, "script runtime file")} this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name, unique among them, and its contents as a string or bytes, such as ${RUNTIME_FILE_FIX}:\n${lines.join("\n")}`;
 }
 
 function count(n: number, noun: string): string {

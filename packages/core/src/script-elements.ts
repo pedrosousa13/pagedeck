@@ -17,6 +17,7 @@ import type {
   ScriptAttributes,
   ScriptDeclaration,
   ScriptRuntimeAdapter,
+  ScriptRuntimeFile,
   ScriptsSetting,
 } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
@@ -99,15 +100,10 @@ export function scriptElements(
     }
   }
 
-  const base = scriptRuntimeFiles(settings.runtime)?.base;
   const runtime =
     worker.length === 0 || settings.runtime === undefined
       ? []
-      : settings.runtime(
-          base === undefined
-            ? { scripts: worker }
-            : { scripts: worker, fileBase: base },
-        );
+      : settings.runtime({ scripts: worker });
   const key = facadeKey(facades);
   const placeholders = facades.map(
     ({ html, name, mount, script }, index): FacadePlaceholder => ({
@@ -157,19 +153,22 @@ export function scriptRuntimeFiles(
   return placed;
 }
 
-function placeFiles(
-  declared: NonNullable<ScriptRuntimeAdapter["files"]>,
-): ScriptRuntimeFiles {
+/** A function of the files alone, so an adapter can name it before any build. */
+export function scriptRuntimeBase(files: readonly ScriptRuntimeFile[]): string {
   const digest = shortHash(
     JSON.stringify(
-      declared.map(({ name, contents }) => [
+      files.map(({ name, contents }) => [
         name,
         fileHash(contents).slice("sha256:".length),
       ]),
     ),
     RUNTIME_HASH_LENGTH,
   );
-  const base = `${SCRIPT_RUNTIME_DIR}${digest}/`;
+  return `${SCRIPT_RUNTIME_DIR}${digest}/`;
+}
+
+function placeFiles(declared: readonly ScriptRuntimeFile[]): ScriptRuntimeFiles {
+  const base = scriptRuntimeBase(declared);
   return {
     base,
     files: declared.map(({ name, contents }) => ({

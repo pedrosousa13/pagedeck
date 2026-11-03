@@ -777,7 +777,7 @@ test("a runtime's files are each refused by name when the build could not write 
 
   expect(scriptsFaultReport({ scripts: [ANALYTICS], runtime }, "Script settings")).toBe(
     [
-      'Script settings: declares 4 script runtime files this build cannot write — the build writes every file into one directory of its own and hands the adapter its path, so give each a plain file name, unique among them, and its contents as a string or bytes, such as { name: "worker.js", contents: "…" }:',
+      'Script settings: declares 4 script runtime files this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name, unique among them, and its contents as a string or bytes, such as { name: "worker.js", contents: "…" }:',
       '  runtime.files[0] — "name" — "../sw.js" — not a plain file name',
       '  runtime.files[1] — "contents" — 42 — not a string or bytes',
       '  runtime.files[2] — "name" — "sw.js" — runtime.files[1] has the same name',

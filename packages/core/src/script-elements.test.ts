@@ -5,9 +5,11 @@ import { defineLocales } from "./locales.js";
 import {
   isScriptLoaderText,
   scriptElements,
+  scriptRuntimeBase,
   scriptRuntimeFiles,
   scriptRuntimeOutput,
 } from "./script-elements.js";
+import * as core from "./index.js";
 import type { ScriptsSetting } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
 
@@ -731,41 +733,26 @@ test("no other bare inline script is taken for the script loader", () => {
   for (const text of others) expect(isScriptLoaderText(text)).toBe(false);
 });
 
-test("a runtime that declares no files is handed the request it always was", () => {
+test("a runtime is handed the request it always was, whether or not it declares files", () => {
   const requests: object[] = [];
-  emitted(
-    settings({
-      scripts: [{ name: "tags", src: "https://example.com/t.js" }],
-      runtime: (request) => {
-        requests.push(request);
-        return [];
-      },
-    }),
-    HOME,
-  );
+  const record = () => (request: object): readonly string[] => {
+    requests.push(request);
+    return [];
+  };
+  const declared = (runtime: ScriptsSetting["runtime"]): ScriptsSetting =>
+    settings({ scripts: [{ name: "tags", src: "https://example.com/t.js" }], runtime });
+  emitted(declared(record()), HOME);
+  emitted(declared(Object.assign(record(), { files: [{ name: "a.js", contents: "" }] })), HOME);
 
-  expect(requests.map((request) => Object.keys(request))).toEqual([["scripts"]]);
+  expect(requests.map((request) => Object.keys(request))).toEqual([["scripts"], ["scripts"]]);
 });
 
-test("a runtime that declares files is handed the content-hashed directory the build writes them to", () => {
+test("a runtime's files are placed in a directory named by a hash of their names and bytes", () => {
   const files = [
     { name: "boot.js", contents: "self.boot = 1;" },
     { name: "frame.html", contents: new TextEncoder().encode("<!doctype html>") },
   ];
-  const bases: (string | undefined)[] = [];
-  const runtime = Object.assign(
-    ({ fileBase }: { fileBase?: string }) => {
-      bases.push(fileBase);
-      return [];
-    },
-    { files },
-  );
-  const declared = settings({
-    scripts: [{ name: "tags", src: "https://example.com/t.js" }],
-    runtime,
-  });
-  emitted(declared, HOME);
-  emitted(declared, { locale: "en", path: "/post" });
+  const runtime = Object.assign(() => [], { files });
 
   const expected = createHash("sha256")
     .update(
@@ -778,10 +765,8 @@ test("a runtime that declares files is handed the content-hashed directory the b
     )
     .digest("hex")
     .slice(0, 8);
-  expect(bases).toEqual([
-    `/script-runtime/${expected}/`,
-    `/script-runtime/${expected}/`,
-  ]);
+  expect(scriptRuntimeBase(files)).toBe(`/script-runtime/${expected}/`);
+  expect(core.scriptRuntimeBase).toBe(scriptRuntimeBase);
   expect(scriptRuntimeFiles(runtime)).toEqual({
     base: `/script-runtime/${expected}/`,
     files: [

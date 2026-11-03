@@ -84,6 +84,7 @@ export {
   resolveScriptStrategy,
 } from "./scripts.js";
 export { inlineScriptFault } from "./pre-paint.js";
+export { scriptRuntimeBase } from "./script-elements.js";
 export type {
   ConsentDefault,
   ConsentDefaultMap,
