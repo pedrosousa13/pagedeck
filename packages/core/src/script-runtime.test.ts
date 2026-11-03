@@ -81,6 +81,6 @@ test("a runtime file at a key the build already wrote is refused, naming the key
       emitted: [{ path: `${base}boot.js`, kind: "html", contents: "" }],
     }),
   ).toThrow(
-    `Script runtime: 1 file the runtime adapter declared is at a deploy key this build already wrote — a deploy key holds one file, and the site's own pages, chunks and assets are written before the runtime's files are; move the page off that address:\n  "${base}boot.js" — the build already emitted an html file there`,
+    `Script runtime: "build.scripts.runtime" declares 1 file at a deploy key this build already wrote — a deploy key holds one file, and the site's own pages, chunks and assets are written before the runtime's files are; move the page off that address:\n  "${base}boot.js" — "boot.js" — the build already emitted an html file there`,
   );
 });

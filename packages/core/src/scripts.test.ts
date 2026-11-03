@@ -786,6 +786,14 @@ test("a runtime's files are each refused by name when the build could not write 
   );
 });
 
+test("a runtime's files refused at the config door are named under build.scripts.runtime", () => {
+  const runtime = Object.assign(() => [], { files: [{ name: "a/b.js", contents: "x" }] });
+
+  expect(
+    scriptsFaultReport({ scripts: [ANALYTICS], runtime }, 'Config "/site/pagedeck.config.ts"', "build.scripts"),
+  ).toContain('\n  build.scripts.runtime.files[0] — "name" — "a/b.js" — not a plain file name');
+});
+
 test("a runtime's files that are not a list are refused", () => {
   const runtime = Object.assign(() => [], { files: "sw.js" });
 

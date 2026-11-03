@@ -36,28 +36,33 @@ export function scriptRuntimeOutput(input: {
   const base = scriptRuntimeBase(declared);
   const trees = new Set<string>();
   for (const locale of input.locales.values()) trees.add(localeTree(locale) ?? "");
-  const files: EmittedFile[] = [...trees].sort().flatMap((domain) =>
-    declared.map(
-      ({ name, contents }): EmittedFile => ({
+  const placed = [...trees].sort().flatMap((domain) =>
+    declared.map(({ name, contents }) => ({
+      name,
+      file: {
         ...(domain === "" ? {} : { domain }),
         path: `${base}${name}`,
         kind: "asset",
         hashed: true,
         contents,
-      }),
-    ),
+      } satisfies EmittedFile,
+    })),
   );
-  const collisions = collisionLines(files, input.emitted);
+  const collisions = placed
+    .flatMap(({ name, file }) =>
+      collisionLines([file], input.emitted).map((line) =>
+        line.replace(" — the build", ` — ${JSON.stringify(name)} — the build`),
+      ),
+    )
+    .sort();
   if (collisions.length > 0) {
     throw new ConfigError(
-      `Script runtime: ${String(collisions.length)} ${
-        collisions.length === 1
-          ? "file the runtime adapter declared is"
-          : "files the runtime adapter declared are"
+      `Script runtime: "build.scripts.runtime" declares ${String(collisions.length)} ${
+        collisions.length === 1 ? "file" : "files"
       } at a deploy key this build already wrote — a deploy key holds one file, and the site's own pages, chunks and assets are written before the runtime's files are; move the page off that address:\n${collisions.join("\n")}`,
     );
   }
-  return files;
+  return placed.map(({ file }) => file);
 }
 
 /**

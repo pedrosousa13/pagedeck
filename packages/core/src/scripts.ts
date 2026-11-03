@@ -351,6 +351,7 @@ export function scriptsFaultReport(
     const files = runtimeFilesSection(
       (runtime as { files?: unknown }).files,
       heading,
+      subField("runtime"),
     );
     if (files !== undefined) sections.push(files);
   }
@@ -382,6 +383,7 @@ const RUNTIME_FILE_NAME = /^(?!\.\.?$)[A-Za-z0-9._-]+$/;
 function runtimeFilesSection(
   files: unknown,
   heading: string,
+  field: string,
 ): string | undefined {
   if (files === undefined) return undefined;
   if (!Array.isArray(files)) {
@@ -393,7 +395,7 @@ function runtimeFilesSection(
   const named = new Map<string, string>();
   declared.forEach((file, index) => {
     const before = lines.length;
-    const at = `  runtime.files[${String(index)}]`;
+    const at = `  ${field}.files[${String(index)}]`;
     if (typeof file !== "object" || file === null || Array.isArray(file)) {
       lines.push(`${at} — ${quote(file)} — not a file declaration`);
       faulty.add(index);
