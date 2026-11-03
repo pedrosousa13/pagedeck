@@ -859,3 +859,60 @@ test("a page whose only worker script is held still hands the runtime its empty 
     true,
   );
 });
+
+function answered(answer: unknown): () => unknown {
+  return () =>
+    scriptElements(
+      settings({
+        scripts: [{ name: "tags", src: "https://example.com/t.js" }],
+        runtime: (() => answer) as unknown as NonNullable<ScriptsSetting["runtime"]>,
+      }),
+      HOME,
+    );
+}
+
+const SHAPE_FAULT = (shown: string): string =>
+  `Script runtime: "build.scripts.runtime" returned ${shown} for page "en /", which is not { head, body } — the build writes the head part into the page's <head> and the body part last in its <body>, and reads nothing else from the answer — return an object whose head and body are each a list of element strings, either left out, such as ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })`;
+
+test("a runtime answer that is a list, as the contract once was, is refused rather than dropped (#283)", () => {
+  expect(answered(["<script>snippet</script>"])).toThrow(SHAPE_FAULT('["<script>snippet</script>"]'));
+  expect(answered(undefined)).toThrow(SHAPE_FAULT("undefined"));
+  expect(answered(null)).toThrow(SHAPE_FAULT("null"));
+});
+
+test("every head entry that is not one script, link or meta element is refused, in one message, with the body's faults", () => {
+  expect(
+    answered({
+      head: [
+        "<script>ok()</script>",
+        '<link rel="preload" href="/a.js" as="script">',
+        '<meta name="x" content="y">',
+        "<div>not head</div>",
+        "<script>a()</script><script>b()</script>",
+        "<script>x = '</script>'</script>",
+        "<script>if (a <!-- b) {}</script>",
+        "</head><body>",
+        '<script src="/boot.js"></script>',
+        7,
+      ],
+      body: "<script></script>",
+    }),
+  ).toThrow(
+    [
+      `Script runtime: "build.scripts.runtime" returned 7 entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element, which cannot close the <head> or reach into what follows it, and each part must be a list of strings — rewrite each entry below, or move it to body:`,
+      '  head[3] — "<div>not head</div>" — not one <script>, <link> or <meta> element',
+      `  head[4] — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`,
+      `  head[5] — holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`,
+      '  head[6] — holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
+      '  head[7] — "</head><body>" — not one <script>, <link> or <meta> element',
+      "  head[9] — 7 — not a string",
+      '  "body" — "<script></script>" — not a list',
+    ].join("\n"),
+  );
+});
+
+test("an answer with either part left out, or both, is written as given", () => {
+  expect(answered({})).not.toThrow();
+  expect(answered({ head: ['<script src="/boot.js" defer></script>'] })).not.toThrow();
+  expect(answered({ body: ["<div>anything</div>"] })).not.toThrow();
+});

@@ -6,7 +6,11 @@ import {
   CONSENT_GLOBAL,
   CONSENT_GRANTED,
 } from "./consent.js";
+import { ConfigError } from "./exit.js";
 import { shortHash } from "./manifest.js";
+import { pageKey } from "./incremental.js";
+import { inlineScriptFault } from "./pre-paint.js";
+import { quote } from "./quote.js";
 import {
   INTERACTION_EVENTS,
   loadedScriptStrategy,
@@ -106,7 +110,7 @@ export function scriptElements(
   const runtime: ScriptRuntimeMarkup =
     (worker.length === 0 && held.length === 0) || settings.runtime === undefined
       ? {}
-      : settings.runtime({ scripts: worker });
+      : runtimeAnswer(settings.runtime({ scripts: worker }), page);
   const key = facadeKey(facades);
   const placeholders = facades.map(
     ({ html, name, mount, script }, index): FacadePlaceholder => ({
@@ -130,6 +134,61 @@ export function scriptElements(
     head: runtime.head ?? [],
     elements: [...(runtime.body ?? []), ...(loader === undefined ? [] : [loader])],
   };
+}
+
+const RUNTIME = 'Script runtime: "build.scripts.runtime" returned';
+
+const RUNTIME_SHAPE_FIX =
+  'return an object whose head and body are each a list of element strings, either left out, such as ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })';
+
+const ATTRIBUTES = String.raw`(?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>\x60]+))?)*\s*`;
+
+const HEAD_SCRIPT = new RegExp(String.raw`^<script${ATTRIBUTES}>([\s\S]*)</script>$`, "i");
+
+const HEAD_VOID = new RegExp(String.raw`^<(?:link|meta)${ATTRIBUTES}/?>$`, "i");
+
+function runtimeAnswer(answer: unknown, page: PageIdentity): ScriptRuntimeMarkup {
+  const at = quote(pageKey(page));
+  if (typeof answer !== "object" || answer === null || Array.isArray(answer)) {
+    throw new ConfigError(
+      `${RUNTIME} ${quote(answer)} for page ${at}, which is not { head, body } — the build writes the head part into the page's <head> and the body part last in its <body>, and reads nothing else from the answer — ${RUNTIME_SHAPE_FIX}`,
+    );
+  }
+  const { head, body } = answer as Record<string, unknown>;
+  const faults = [
+    ...partFaults("head", head, headEntryFault),
+    ...partFaults("body", body, () => undefined),
+  ];
+  if (faults.length > 0) {
+    throw new ConfigError(
+      `${RUNTIME} ${String(faults.length)} ${faults.length === 1 ? "entry" : "entries"} for page ${at} this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element, which cannot close the <head> or reach into what follows it, and each part must be a list of strings — rewrite each entry below, or move it to body:\n${faults.join("\n")}`,
+    );
+  }
+  return answer as ScriptRuntimeMarkup;
+}
+
+function partFaults(
+  name: string,
+  part: unknown,
+  entryFault: (entry: string) => string | undefined,
+): string[] {
+  if (part === undefined) return [];
+  if (!Array.isArray(part)) return [`  ${quote(name)} — ${quote(part)} — not a list`];
+  const entries: readonly unknown[] = part;
+  return entries.flatMap((entry, index) => {
+    const where = `  ${name}[${String(index)}]`;
+    if (typeof entry !== "string") return [`${where} — ${quote(entry)} — not a string`];
+    const fault = entryFault(entry);
+    return fault === undefined ? [] : [`${where} — ${fault}`];
+  });
+}
+
+function headEntryFault(entry: string): string | undefined {
+  const script = HEAD_SCRIPT.exec(entry);
+  if (script !== null) return inlineScriptFault(script[1] ?? "");
+  return HEAD_VOID.test(entry)
+    ? undefined
+    : `${quote(entry)} — not one <script>, <link> or <meta> element`;
 }
 
 const FACADE_KEY_LENGTH = 8;
