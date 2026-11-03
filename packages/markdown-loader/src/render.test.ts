@@ -236,7 +236,7 @@ test("numbering a repeat cannot walk back into the namespace it was kept out of"
 
 test("a heading cannot slug onto an id the framework looks up, so it is numbered instead", async () => {
   const rendered = await renderer.render(
-    "## Pagedeck preview\n\n## pagedeck-consent-banner\n\n## Pagedeck consent banner manage\n\n## Pagedeck consent banner accept\n\n## Pagedeck preview\n\n## Pagedeck sync\n",
+    "## Pagedeck preview\n\n## pagedeck-consent-banner\n\n## Pagedeck consent banner manage\n\n## Pagedeck consent banner accept\n\n## Pagedeck consent banner heading\n\n## Pagedeck preview\n\n## Pagedeck sync\n",
     "d.md",
   );
   expect(rendered.toc.map((entry) => entry.slug)).toEqual([
@@ -244,6 +244,7 @@ test("a heading cannot slug onto an id the framework looks up, so it is numbered
     "pagedeck-consent-banner-1",
     "pagedeck-consent-banner-manage-1",
     "pagedeck-consent-banner-accept-1",
+    "pagedeck-consent-banner-heading-1",
     "pagedeck-preview-2",
     "pagedeck-sync",
   ]);

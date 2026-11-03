@@ -454,6 +454,51 @@ test("an id the framework looks up, typed into rich text, does not reach the pag
   );
 });
 
+test("the banner heading's id, which its aria-labelledby looks up, does not reach the page", async () => {
+  const html = await richText('<h2 id="pagedeck-consent-banner-heading">x</h2>');
+
+  expect(html).toBe('<div class="rich"><h2 id="x-pagedeck-consent-banner-heading">x</h2></div>');
+});
+
+test("a looked-up id spelled with numeric character references does not reach the page", async () => {
+  const spellings = [
+    "pagedeck&#45;preview",
+    "&#112;agedeck-preview",
+    "pagedeck&#x2D;preview",
+    "pagedeck&#X2d;preview",
+    "pagedeck&#45preview",
+    "pagedeck&#x2dpreview",
+    "pagedeck&#0000045;preview",
+    "pagedeck&#x00002D;preview",
+    "&#80;AGEDECK-PREVIEW",
+  ];
+  const html = await richText(
+    spellings
+      .map((value) => `<p id="${value}">x</p><p id='${value}'>x</p><p id=${value}>x</p>`)
+      .join(""),
+  );
+
+  expect(html).toBe(
+    `<div class="rich">${spellings
+      .map((value) => `<p id="x-${value}">x</p><p id='x-${value}'>x</p><p id=x-${value}>x</p>`)
+      .join("")}</div>`,
+  );
+  for (const element of parsedBody(html).querySelector("div")?.childNodes ?? []) {
+    expect(RESERVED_IDS).not.toContain((element as ParsedElement).getAttribute("id"));
+  }
+});
+
+test("a character reference that decodes to something else leaves the id alone", async () => {
+  const names =
+    '<p id="pagedeck&#46;preview">x</p>' +
+    '<p id="pagedeck&amp;#45;preview">x</p>' +
+    '<p id="pagedeck&#38;#45;preview">x</p>' +
+    '<p id="pagedeck&#x110000;preview">x</p>' +
+    '<p id="pagedeck&#45;sync">x</p>';
+
+  expect(await richText(names)).toBe(`<div class="rich">${names}</div>`);
+});
+
 test("an id the framework never looks up, or a looked-up id on another attribute, is left alone", async () => {
   const names =
     '<div id="pagedeck">x</div>' +
@@ -520,17 +565,21 @@ function neutralize(html: string): string {
   return unescapedHtml(html).dangerouslySetInnerHTML.__html;
 }
 
+// One window: a JSDOM costs milliseconds, and the fuzz test parses about 1,600 times.
+const PARSER = new JSDOM("<body></body>").window.document;
+
 function parsedBody(html: string): ParsedElement {
-  return new JSDOM(`<body>${html}</body>`).window.document.body as ParsedElement;
+  const body = PARSER.createElement("body");
+  body.innerHTML = html;
+  return body;
 }
 
 /** What a CMS sanitiser hands over: a DOM it built, serialised. */
 function sanitised(
   build: (document: ParsedDocument) => Array<ParsedNode | string>,
 ): string {
-  const { document } = new JSDOM("<body></body>").window;
-  const body = document.body as ParsedElement;
-  body.append(...build(document));
+  const body = PARSER.createElement("body");
+  body.append(...build(PARSER));
   return body.innerHTML;
 }
 
@@ -649,7 +698,7 @@ test("no sanitised tree gains or loses an element or attribute to neutralizing",
     const reserved = ids(parsedBody(neutralize(html))).filter((id) => RESERVED_IDS.includes(id));
     expect(reserved, html).toEqual([]);
   }
-}, 60_000);
+});
 
 test("providers wrap the page outermost-first and receive the caller's props", async () => {
   const seen: Array<Record<string, unknown>> = [];

@@ -161,22 +161,27 @@ change, with neutralise tests in each value form.
 
 **Ids the framework looks up.** `getElementById` returns the first element in
 document order, so content placed before the element the framework wrote would
-win the lookup. `RESERVED_IDS` (`tree.tsx`) lists every id the framework looks
-up: `PREVIEW_CONTAINER_ID`, the container `mountPreview` mounts into, and
+win the lookup, and an `aria-labelledby` reference resolves the same way.
+`RESERVED_IDS` (`tree.tsx`) lists every id the framework looks up:
+`PREVIEW_CONTAINER_ID`, the container `mountPreview` mounts into, and
 `CONSENT_BANNER_ID` (`packages/core/src/consent.ts`), the consent banner's
 default `id`, with the `-manage` and `-accept` ids the banner looks up to move
-focus. `neutralizeReservedNames` renames an `id` attribute whose whole value is
-one of them: `x-` goes in front of the value, inside any quote, in each value
-form and in any case. Only the exact ids are reserved and not the `pagedeck`
-prefix, so an id that merely starts with it reaches the page unchanged, and so
-does a heading anchor the markdown loader mints from a heading that starts with
-the word (ruled on #266). The loader counts the exact ids as already used, so a
-heading spelled as one is numbered instead. The value is matched on bytes like
-the names, with the same boundary before `id`, so `data-id` and `class` keep a
-reserved value. One limit is stated: a value spelled with a character
-reference, such as `&#112;` for the first letter, is not matched, because the
-match reads bytes and the browser decodes the reference. A sanitiser that
-serialises the DOM it built writes the letter.
+focus and the `-heading` id its `aria-labelledby` names.
+`neutralizeReservedNames` renames an `id` attribute whose whole value is one of
+them: `x-` goes in front of the value's first byte, inside any quote, in each
+value form, and nothing is removed. The value is compared as the parser decodes
+it, so a numeric character reference counts as the character it names, decimal
+or hex, zero-padded or not, with or without its semicolon. No named reference
+needs decoding: the only one in the HTML table that decodes to ASCII letters,
+digits or hyphens is `fjlig`, and no reserved id contains its two letters. The
+value is matched in any case, which is stricter than `getElementById` and
+harmless. Only the exact ids are reserved and not the `pagedeck` prefix, so an
+id that merely starts with it reaches the page unchanged, and so does a heading
+anchor the markdown loader mints from a heading that starts with the word
+(ruled on #266). The loader counts the exact ids as already used, so a heading
+spelled as one is numbered instead. The `id` name is found on bytes like the
+reserved names, with the same boundary before it, so `data-id` and `class`
+keep a reserved value.
 
 Two lookups take ids the site chooses, and they stay outside the rule. A site
 that passes the banner its own `id` moves the banner's focus targets with it. A
