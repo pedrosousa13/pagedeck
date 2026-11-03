@@ -601,6 +601,37 @@ test("a pre-paint script comes after the font preloads and before the stylesheet
   ]);
 });
 
+test("a script runtime's head markup comes after the font and module preloads and before the pre-paint scripts", () => {
+  expect(
+    fullHead({
+      links: { canonical: "https://example.com/pricing", alternates: [] },
+      fontPreloads: [
+        '<link rel="preload" href="/fonts/acme-sans.abc123.woff2" as="font" type="font/woff2" crossorigin>',
+      ],
+      modulePreloads: ["/assets/chunk-1a2b.js"],
+      scriptRuntime: ["<script>window.runtime=1</script>", '<meta name="x-runtime" content="1">'],
+      prePaint: ["dataLayer.push({})"],
+      styles: ["/assets/core.css"],
+    }),
+  ).toEqual([
+    CHARSET,
+    '<link rel="canonical" href="https://example.com/pricing">',
+    '<link rel="preload" href="/fonts/acme-sans.abc123.woff2" as="font" type="font/woff2" crossorigin>',
+    '<link rel="modulepreload" href="/assets/chunk-1a2b.js">',
+    "<script>window.runtime=1</script>",
+    '<meta name="x-runtime" content="1">',
+    "<script>dataLayer.push({})</script>",
+    '<link rel="stylesheet" href="/assets/core.css">',
+  ]);
+});
+
+test("a page whose runtime returned no head markup gets no element", () => {
+  expect(fullHead({ scriptRuntime: [], styles: ["/assets/core.css"] })).toEqual([
+    CHARSET,
+    '<link rel="stylesheet" href="/assets/core.css">',
+  ]);
+});
+
 test("two pre-paint scripts are two elements, in the order the site declared them", () => {
   expect(fullHead({ prePaint: ["first()", "second()"] })).toEqual([
     CHARSET,

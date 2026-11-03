@@ -71,8 +71,17 @@ export interface ScriptRuntimeLatePickup {
   readonly event: string;
 }
 
+/**
+ * A list on its own is `body`. `head` goes into the `head:script-runtime`
+ * block, ahead of any inline script the page runs (#283).
+ */
+export interface ScriptRuntimeMarkup {
+  readonly head?: readonly string[];
+  readonly body?: readonly string[];
+}
+
 export interface ScriptRuntimeAdapter {
-  (request: ScriptRuntimeRequest): readonly string[];
+  (request: ScriptRuntimeRequest): readonly string[] | ScriptRuntimeMarkup;
   readonly files?: readonly ScriptRuntimeFile[];
   /**
    * Declared, a categorized `worker` script stays on `worker`: the consent

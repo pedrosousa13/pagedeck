@@ -1215,6 +1215,17 @@ test("the foot's loader and beacon are read whole behind a runtime <script src>"
   ]);
 });
 
+test("a script runtime's inline head script is not listed, and the pre-paint script beside it is", () => {
+  const runtime = "<script>window.runtime = 1</script>";
+  const document = documentWith("<p>Copy</p>", []).replace(
+    '<meta charset="utf-8">',
+    `<meta charset="utf-8">\n${runtime}\n<script>window.prePaint = 1</script>`,
+  );
+
+  expect(coreInlineScripts(document, [runtime])).toEqual(["window.prePaint = 1"]);
+  expect(coreInlineScripts(document)).toEqual(["window.runtime = 1", "window.prePaint = 1"]);
+});
+
 test("a page with a module script and no loader lists no loader, whatever its content holds", () => {
   const content = LOADER;
   const module = '<script type="module" src="/assets/page-1a2b.js"></script>';

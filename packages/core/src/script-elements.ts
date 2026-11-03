@@ -17,6 +17,7 @@ import type {
   ScriptAttributes,
   ScriptDeclaration,
   ScriptRuntimeLatePickup,
+  ScriptRuntimeMarkup,
   ScriptsSetting,
 } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
@@ -34,6 +35,7 @@ interface ConsentGate {
 
 export interface ScriptLayer {
   readonly placeholders: readonly FacadePlaceholder[];
+  readonly head: readonly string[];
   readonly elements: readonly string[];
 }
 
@@ -47,7 +49,7 @@ export function scriptElements(
   settings: ScriptsSetting | undefined,
   page: PageIdentity,
 ): ScriptLayer {
-  if (settings === undefined) return { placeholders: [], elements: [] };
+  if (settings === undefined) return { placeholders: [], head: [], elements: [] };
 
   const worker: ScriptDeclaration[] = [];
   const held: LoadedScript[] = [];
@@ -101,10 +103,13 @@ export function scriptElements(
     }
   }
 
-  const runtime =
+  const markup =
     (worker.length === 0 && held.length === 0) || settings.runtime === undefined
       ? []
       : settings.runtime({ scripts: worker });
+  const runtime: ScriptRuntimeMarkup = Array.isArray(markup)
+    ? { body: markup }
+    : (markup as ScriptRuntimeMarkup);
   const key = facadeKey(facades);
   const placeholders = facades.map(
     ({ html, name, mount, script }, index): FacadePlaceholder => ({
@@ -125,7 +130,8 @@ export function scriptElements(
   );
   return {
     placeholders,
-    elements: [...runtime, ...(loader === undefined ? [] : [loader])],
+    head: runtime.head ?? [],
+    elements: [...(runtime.body ?? []), ...(loader === undefined ? [] : [loader])],
   };
 }
 

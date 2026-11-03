@@ -53,6 +53,7 @@ export function headElements(input: {
   feed?: { readonly href: string; readonly title: string };
   fontPreloads?: readonly string[];
   modulePreloads?: readonly string[];
+  scriptRuntime?: readonly string[];
   prePaint?: readonly string[];
   absorbed: readonly AbsorbedMetadata[];
   supplement?: string;
@@ -69,6 +70,7 @@ export function headElements(input: {
     feed,
     fontPreloads,
     modulePreloads,
+    scriptRuntime,
     prePaint,
     absorbed,
     supplement,
@@ -134,6 +136,9 @@ export function headElements(input: {
   for (const href of modulePreloads ?? []) {
     children.push(`<link rel="modulepreload" href="${escapeAttributeValue(href)}">`);
   }
+
+  // The runtime's own bytes, unescaped as its body elements are.
+  if (scriptRuntime !== undefined) children.push(...scriptRuntime);
 
   // The site's own text, deliberately unescaped: `pre-paint.ts` refuses what it
   // cannot hold.

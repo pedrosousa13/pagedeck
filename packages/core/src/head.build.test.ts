@@ -23,6 +23,7 @@ const COMPONENTS: Record<string, string> = {
 const PLAIN_SITE = join(SITES, ".pagedeck-head-plain-test");
 const SILENT_SITE = join(SITES, ".pagedeck-head-silent-test");
 const HEAD_SITE = join(SITES, ".pagedeck-head-declared-test");
+const ORDER_SITE = join(SITES, ".pagedeck-head-order-test");
 
 function site(root: string, build = ""): string {
   rmSync(root, { recursive: true, force: true });
@@ -162,7 +163,7 @@ async function buildOnce(
 }
 
 afterAll(() => {
-  for (const root of [PLAIN_SITE, SILENT_SITE, HEAD_SITE]) {
+  for (const root of [PLAIN_SITE, SILENT_SITE, HEAD_SITE, ORDER_SITE]) {
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -330,8 +331,18 @@ test("head fields reach the document escaped, and the injection fixture stays in
   expect(html).toContain('"headline":"\\u003c/script>');
 }, 120_000);
 
+const ORDERED = `${DECLARED_HEAD}
+    scripts: {
+      scripts: [{ name: "tags", src: "https://example.com/tags.js" }],
+      runtime: ({ scripts }) => ({
+        head: ['<script data-runtime="head">window.runtime = 1</script>'],
+        body: scripts.map((s) => '<script type="text/x-worker" src="' + s.src + '"></script>'),
+      }),
+    },
+    prePaint: ["window.prePaint = 1"],`;
+
 test("the head's children are written in the documented order", async () => {
-  const site = await build(HEAD_SITE, DECLARED_HEAD);
+  const site = await build(ORDER_SITE, ORDERED);
   const html = site.get("/") ?? "";
   const head = /<head>\n([\s\S]*?)\n<\/head>/.exec(html)?.[1] ?? "";
 
@@ -343,9 +354,14 @@ test("the head's children are written in the documented order", async () => {
     'meta property="og:description"',
     'meta property="og:image"',
     'link rel="modulepreload"',
+    'script data-runtime="head"',
+    "script",
     'link rel="stylesheet"',
     'script type="application/ld+json"',
   ]);
+  const body = html.slice(html.indexOf("<body>"));
+  expect(body).toContain('<script type="text/x-worker" src="https://example.com/tags.js"></script>');
+  expect(body).not.toContain("data-runtime");
 }, 120_000);
 
 function label(line: string): string {

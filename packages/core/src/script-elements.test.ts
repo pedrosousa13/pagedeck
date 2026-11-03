@@ -105,6 +105,61 @@ test("a configured runtime is handed the worker loadout and its answer is emitte
   expect(elements[2]).toContain("https://example.com/c.js");
 });
 
+test("a runtime's head markup is the layer's head, and its body markup leads the body elements (#283)", () => {
+  const layer = scriptElements(
+    settings({
+      scripts: [
+        { name: "tags", src: "https://example.com/t.js" },
+        { name: "chat", src: "https://example.com/c.js", strategy: "idle" },
+      ],
+      runtime: ({ scripts }) => ({
+        head: ["<script>snippet</script>"],
+        body: scripts.map(({ name }) => `<script type="text/x">${name}</script>`),
+      }),
+    }),
+    HOME,
+  );
+
+  expect(layer.head).toEqual(["<script>snippet</script>"]);
+  expect(layer.elements[0]).toBe('<script type="text/x">tags</script>');
+  expect(layer.elements).toHaveLength(2);
+  expect(layer.elements[1]).toContain("https://example.com/c.js");
+});
+
+test("a runtime that returns a list puts nothing in the head", () => {
+  const layer = scriptElements(
+    settings({
+      scripts: [{ name: "tags", src: "https://example.com/t.js" }],
+      runtime: () => ["<script>snippet</script>"],
+    }),
+    HOME,
+  );
+
+  expect(layer.head).toEqual([]);
+  expect(layer.elements).toEqual(["<script>snippet</script>"]);
+});
+
+test("a page whose only worker scripts are held still carries the runtime's head markup, and a page with none carries none", () => {
+  const declared = settings({
+    scripts: [{ name: "pixel", src: "https://example.com/p.js", category: "analytics" }],
+    pageTypes: { "/legal/**": { pixel: "off" } },
+    runtime: Object.assign(
+      ({ scripts }: { scripts: readonly unknown[] }) => ({
+        head: ["<script>snippet</script>"],
+        body: scripts.map(() => "<script type=\"text/x\"></script>"),
+      }),
+      { latePickup: { type: "text/x", event: "x-worker:update" } },
+    ),
+  });
+
+  const held = scriptElements(declared, HOME);
+  expect(held.head).toEqual(["<script>snippet</script>"]);
+  expect(held.elements).toHaveLength(1);
+  expect(held.elements[0]).toContain("https://example.com/p.js");
+
+  expect(scriptElements(declared, { locale: "en", path: "/legal/terms" }).head).toEqual([]);
+});
+
 test("a worker script with no runtime configured loads through the idle half of the loader", () => {
   const elements = emitted(
     settings({ scripts: [{ name: "tags", src: "https://example.com/t.js" }] }),

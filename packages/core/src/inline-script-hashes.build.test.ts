@@ -109,10 +109,10 @@ const ALL = `scripts: defineScripts({
         { name: "tags", src: "https://example.com/tags.js" },
         { name: "metrics", src: "https://example.com/metrics.js", strategy: "idle" },
       ],
-      runtime: ({ scripts }) => [
-        ${JSON.stringify(`<script>${SNIPPET}</script>`)},
-        ...scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
-      ],
+      runtime: ({ scripts }) => ({
+        head: [${JSON.stringify(`<script>${SNIPPET}</script>`)}],
+        body: scripts.map((s) => '<script type="text/partytown" src="' + s.src + '"></script>'),
+      }),
     }),
     beacon: { endpoint: "https://collector.example/rum" },
     prePaint: [${JSON.stringify(THEME)}, ${JSON.stringify(MOTION)}, ${JSON.stringify(THEME)}],
@@ -231,7 +231,7 @@ test("a page carrying all four kinds lists the hash of each, off the emitted doc
     const scripts = inlineScripts(documents.get(page.path) ?? "");
     const kinds = scripts.map(coreKind);
     expect(`${page.path}: ${kinds.join(",")}`).toBe(
-      `${page.path}: pre-paint,pre-paint,pre-paint,,speculation,,,,loader,beacon`,
+      `${page.path}: ,pre-paint,pre-paint,pre-paint,,speculation,,,loader,beacon`,
     );
 
     const core = scripts.filter((script) => coreKind(script) !== undefined);
