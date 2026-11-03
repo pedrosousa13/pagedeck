@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 261 checked messages pin 38952 of the 108882 fenced characters, and
+below**: the 261 checked messages pin 38952 of the 108905 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1315,7 +1315,7 @@ configured no runtime, a message that would be true and unfindable, since the
 author is looking at the field it says is not there.
 
 ```
-Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ["<script>…</script>"]
+Script settings: declares a script runtime this build cannot call — "partytown" — write the adapter the worker strategy loads through, as runtime: ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })
 ```
 
 A runtime's `latePickup` (#281) is refused the same way when the loader could

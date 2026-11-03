@@ -120,7 +120,7 @@ const ALL = `scripts: defineScripts({
 
 const NONE = `scripts: defineScripts({
       scripts: [{ name: "tags", src: "https://example.com/tags.js" }],
-      runtime: () => [${JSON.stringify(`<script>${SNIPPET}</script>`)}],
+      runtime: () => ({ body: [${JSON.stringify(`<script>${SNIPPET}</script>`)}] }),
     }),`;
 
 async function run(cwd: string, ...argv: string[]): Promise<string> {

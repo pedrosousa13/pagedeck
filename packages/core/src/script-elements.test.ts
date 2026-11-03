@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, test } from "vitest";
 import { beaconElement } from "./beacon.js";
 import { isScriptLoaderText, scriptElements } from "./script-elements.js";
-import type { ScriptsSetting } from "./scripts.js";
+import type { ScriptRuntimeMarkup, ScriptsSetting } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
 
 const HOME = { locale: "en", path: "/" };
@@ -90,7 +90,7 @@ test("a configured runtime is handed the worker loadout and its answer is emitte
       ],
       runtime: ({ scripts }) => {
         seen.push(scripts.map((script) => script.name));
-        return ["<script>snippet</script>", '<script type="text/x">tags</script>'];
+        return { body: ["<script>snippet</script>", '<script type="text/x">tags</script>'] };
       },
     }),
     HOME,
@@ -126,11 +126,11 @@ test("a runtime's head markup is the layer's head, and its body markup leads the
   expect(layer.elements[1]).toContain("https://example.com/c.js");
 });
 
-test("a runtime that returns a list puts nothing in the head", () => {
+test("a runtime that returns only body markup puts nothing in the head", () => {
   const layer = scriptElements(
     settings({
       scripts: [{ name: "tags", src: "https://example.com/t.js" }],
-      runtime: () => ["<script>snippet</script>"],
+      runtime: () => ({ body: ["<script>snippet</script>"] }),
     }),
     HOME,
   );
@@ -178,7 +178,7 @@ test("an override reaches the loader, so a page type can move one script off wor
       { name: "experiment", src: "https://example.com/e.js" },
     ],
     pageTypes: { "/blog/**": { experiment: "interaction" } },
-    runtime: ({ scripts }) => scripts.map(({ name }) => `<!--${name}-->`),
+    runtime: ({ scripts }) => ({ body: scripts.map(({ name }) => `<!--${name}-->`) }),
   });
 
   expect(emitted(declared, HOME)).toEqual([
@@ -244,7 +244,7 @@ test("a worker script taken off a page never reaches the runtime adapter", () =>
       pages: { "/": { tags: "off" } },
       runtime: () => {
         calls += 1;
-        return ["<script>snippet</script>"];
+        return { body: ["<script>snippet</script>"] };
       },
     }),
     HOME,
@@ -332,7 +332,7 @@ test("a runtime is not called on a page whose loadout reaches no worker script",
       ],
       runtime: () => {
         calls += 1;
-        return ["<script>snippet</script>"];
+        return { body: ["<script>snippet</script>"] };
       },
     }),
     HOME,
@@ -782,9 +782,9 @@ test("no other bare inline script is taken for the script loader", () => {
 
 test("a runtime is handed the request it always was, whether or not it declares files", () => {
   const requests: object[] = [];
-  const record = () => (request: object): readonly string[] => {
+  const record = () => (request: object): ScriptRuntimeMarkup => {
     requests.push(request);
-    return [];
+    return {};
   };
   const declared = (runtime: ScriptsSetting["runtime"]): ScriptsSetting =>
     settings({ scripts: [{ name: "tags", src: "https://example.com/t.js" }], runtime });
@@ -798,12 +798,14 @@ const LATE_PICKUP = { type: "text/partytown", event: "ptupdate" };
 
 function lateRuntime(requests: (readonly string[])[]): NonNullable<ScriptsSetting["runtime"]> {
   return Object.assign(
-    ({ scripts }: { scripts: readonly { src: string }[] }): readonly string[] => {
+    ({ scripts }: { scripts: readonly { src: string }[] }): ScriptRuntimeMarkup => {
       requests.push(scripts.map(({ src }) => src));
-      return [
-        "<script>/* snippet */</script>",
-        ...scripts.map(({ src }) => `<script type="text/partytown" src="${src}"></script>`),
-      ];
+      return {
+        body: [
+          "<script>/* snippet */</script>",
+          ...scripts.map(({ src }) => `<script type="text/partytown" src="${src}"></script>`),
+        ],
+      };
     },
     { latePickup: LATE_PICKUP },
   );

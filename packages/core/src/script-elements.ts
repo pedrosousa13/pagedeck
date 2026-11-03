@@ -103,13 +103,10 @@ export function scriptElements(
     }
   }
 
-  const markup =
+  const runtime: ScriptRuntimeMarkup =
     (worker.length === 0 && held.length === 0) || settings.runtime === undefined
-      ? []
+      ? {}
       : settings.runtime({ scripts: worker });
-  const runtime: ScriptRuntimeMarkup = Array.isArray(markup)
-    ? { body: markup }
-    : (markup as ScriptRuntimeMarkup);
   const key = facadeKey(facades);
   const placeholders = facades.map(
     ({ html, name, mount, script }, index): FacadePlaceholder => ({

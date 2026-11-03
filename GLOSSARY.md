@@ -164,11 +164,11 @@ worker-reaching script that declares one. A wrapper around such an adapter must
 carry `checksIntegrity` over, or the refusal no longer applies. The request is unchanged: the adapter
 still gets one page's `worker` loadout and nothing else.
 
-Since #283 an adapter may return `{ head, body }` in place of a list of
-elements. The `head` part goes into the `<head>`'s `head:script-runtime` block,
-ahead of every inline script the page runs, so a function the runtime forwards
-exists before page code calls it; `body` goes where the list always went. A
-list on its own is the body.
+Since #283 an adapter returns `{ head, body }`, either of which may be left
+out, in place of one list of elements. The `head` part goes into the `<head>`'s
+`head:script-runtime` block, ahead of every inline script the page runs, so a
+function the runtime forwards exists before page code calls it; `body` goes
+where the one list went, last in the `<body>`.
 
 Since #281 an adapter may also declare `latePickup`, a `type` and an `event`,
 when its mechanism picks up a script added after the page loaded. That is the
@@ -2172,10 +2172,10 @@ fills.** A `ScriptRuntimeAdapter`'s markup went last in the `<body>`, so a
 function a runtime forwards, Partytown's `forward`, did not exist yet for an
 inline script above it, and a call to it there threw. Partytown's own
 documentation puts its snippet in the `<head>` for that reason. So an adapter
-may return `{ head, body }` in place of a list, and `headElements` writes the
+returns `{ head, body }` in place of one list, and `headElements` writes the
 `head` part in a block of its own, the `head:script-runtime` block, between the
-font preloads and the pre-paint scripts. A list on its own is still the body,
-and the Partytown adapter returns its snippet as `head`.
+font preloads and the pre-paint scripts. `body` goes where the list went, and
+the Partytown adapter returns its snippet as `head`.
 
 It is #311's argument with a different supplier. The runtime supplies the
 markup; core still writes it, in the place the order gives it, and it is one

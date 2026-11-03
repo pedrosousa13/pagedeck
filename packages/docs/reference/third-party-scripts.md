@@ -209,18 +209,16 @@ the work. `@pagedeck/script-worker` is the reference adapter, on
 [Partytown](https://partytown.qwik.dev/), and the next section shows it.
 
 The adapter is handed **one page's `worker` loadout** and returns the finished
-HTML elements that load it, which the build writes into that page in the order
-they were returned. Scripts on the other three strategies are not handed over:
+HTML elements that load it, as `{ head, body }`: two lists, which the build
+writes into that page's `<head>` and `<body>` in the order they were returned.
+Scripts on the other three strategies are not handed over:
 they need no mechanism, and a mechanism should not get an opinion about a script
 you kept on the main thread on purpose. The elements are your bytes and are
 never read, rewritten or escaped.
 
-It is a list per page rather than a URL per script because every plausible
+They are lists per page rather than a URL per script because every plausible
 mechanism needs something emitted once per document (Partytown its snippet, a
 hand-rolled worker its bootstrap) as well as something per script.
-
-A list goes last in the `<body>`. To put part of it in the `<head>`, return
-`{ head, body }` instead:
 
 ```ts
 runtime: ({ scripts }) => ({
@@ -232,8 +230,9 @@ runtime: ({ scripts }) => ({
 The build writes `head` into the page's `<head>` after the font and module
 preloads and before your [pre-paint scripts](./page-head.md), so it runs before
 any inline script on the page. Use it for what page code calls, such as a
-function the mechanism forwards to its worker. `body` goes where a list goes.
-Both are your bytes, written as returned.
+function the mechanism forwards to its worker. `body` goes last in the
+`<body>`. Either may be left out, so a mechanism with nothing for the head
+returns `{ body: [...] }`.
 
 An adapter can also declare `files`, each a `name` and its `contents`, for the
 files its elements load from the site's own origin. The build writes them into
@@ -250,10 +249,10 @@ const files = [{ name: "boot.js", contents: "/* the worker's bootstrap */" }];
 defineScripts({
   scripts: [{ name: "tags", src: "https://example.com/gtm.js" }],
   runtime: Object.assign(
-    ({ scripts }) => [
-      `<script src="${scriptRuntimeBase(files)}boot.js"></script>`,
-      ...scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
-    ],
+    ({ scripts }) => ({
+      head: [`<script src="${scriptRuntimeBase(files)}boot.js"></script>`],
+      body: scripts.map((script) => `<script type="text/x-worker" src="${script.src}"></script>`),
+    }),
     { files },
   ),
 });
