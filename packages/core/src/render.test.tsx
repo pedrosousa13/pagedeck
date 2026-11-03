@@ -421,10 +421,14 @@ test("a prop-slot stash typed into rich text does not reach the page", async () 
   );
 });
 
-test("a data-pagedeck-* name neutralizing does not enumerate is left alone", async () => {
-  const html = await richText('<span data-pagedeck-consent="denied">x</span>');
+test("a page-output name no runtime reads is left alone, as ADR-0006 records", async () => {
+  const names =
+    '<span data-pagedeck-consent="denied">x</span>' +
+    '<span data-pagedeck-hydrated="">x</span>' +
+    '<span data-pagedeck-preview="x">x</span>' +
+    '<pagedeck-region data-note="x">x</pagedeck-region>';
 
-  expect(html).toBe('<div class="rich"><span data-pagedeck-consent="denied">x</span></div>');
+  expect(await richText(names)).toBe(`<div class="rich">${names}</div>`);
 });
 
 test("rich text that names the marker element in prose still says so", async () => {
