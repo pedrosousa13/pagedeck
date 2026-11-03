@@ -703,6 +703,7 @@ function refusedNodeNames(
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
     const { value } = next;
     if (typeof value !== "object" || value === null) continue;
+    if (isValidElement(value)) continue;
     if (seen.has(value)) continue;
     seen.add(value);
     // Pushed in reverse, so the stack walks sub-objects in key order.
