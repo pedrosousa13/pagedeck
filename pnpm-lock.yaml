@@ -604,6 +604,9 @@ importers:
         specifier: ^19.2.0
         version: 19.2.8
     devDependencies:
+      '@pagedeck/script-worker':
+        specifier: workspace:*
+        version: link:../script-worker
       '@tailwindcss/vite':
         specifier: 4.3.3
         version: 4.3.3(vite@8.3.5(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))

@@ -290,6 +290,12 @@ packages/site/parity-report.json
 packages/site/.pagedeck-a11y-harness/
 packages/site/.pagedeck-site-audit/
 
+# Everything `pnpm bench:loadout-lighthouse` writes
+# (`packages/site/src/loadout-lighthouse.harness.ts`, #277): one fixture site per
+# strategy mix and the report. The harness clears it at the start of a run, so the
+# report stays readable until the next one.
+packages/site/.pagedeck-loadout/
+
 # The fixture site `packages/search/src/multi-shard.build.test.ts` builds (#456)
 # — six pages naming 3,840 identifiers, which is a corpus whose index splits
 # across shards. Removed before and after each run, for the reason every entry
