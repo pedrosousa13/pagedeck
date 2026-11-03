@@ -1527,7 +1527,11 @@ async function stageSite(input: {
         : incremental.pinned.classes,
     foldTuning,
     variants: experimentVariants,
-    inlineScriptHashes: inlineScriptHashes(documents, section.prePaint ?? []),
+    inlineScriptHashes: inlineScriptHashes(
+      documents,
+      section.prePaint ?? [],
+      incremental?.reuse ?? [],
+    ),
     noindex: new Set(
       pages.filter((page) => notFound(page)).map((page) => pageKey(page)),
     ),
@@ -1644,12 +1648,25 @@ function inlinedScriptBytes(
   return bytes;
 }
 
+/**
+ * A carried document keeps the hashes recorded when its bytes were written:
+ * `build.prePaint` may have changed since, and its old text is still served.
+ */
 function inlineScriptHashes(
   documents: readonly { key: string; file: EmittedFile }[],
   prePaint: readonly string[],
+  carried: readonly ReusedPage[],
 ): Map<string, readonly string[]> {
+  const recorded = new Map(
+    carried.map(({ page, previous }) => [pageKey(page), previous.inlineScriptHashes]),
+  );
   const hashes = new Map<string, readonly string[]>();
   for (const { key, file } of documents) {
+    if (recorded.has(key)) {
+      const kept = recorded.get(key);
+      if (kept !== undefined) hashes.set(key, kept);
+      continue;
+    }
     const texts = coreInlineScripts(textOf(file.contents), prePaint);
     if (texts.length === 0) continue;
     const sources = texts.map((text) => {

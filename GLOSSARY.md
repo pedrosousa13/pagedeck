@@ -2191,7 +2191,9 @@ scripts, and an entry that closed the `<head>` would take them with it. `defineP
 hashes stay out of a page's `inlineScriptHashes`, as the body part's always
 did: core lists a head script as its own only when it can name it, the
 speculation rules or a `build.prePaint` text, and `runtime.inlineScriptHash` is
-where a site's policy takes the snippet's from. Ruled on #283 (2026-11-03).
+where a site's policy takes the snippet's from. A page an incremental build
+carries keeps the hashes recorded when its bytes were written, since the
+`build.prePaint` it was written with may since have changed. Ruled on #283 (2026-11-03).
 
 ### The framework names no CSS solution
 

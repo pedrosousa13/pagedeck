@@ -20,6 +20,7 @@ const FIXTURES = join(CORE, "..", "..", "fixtures", "src", "index.ts");
 const ALL_SITE = join(SITES, ".pagedeck-inline-hashes-all-test");
 const NONE_SITE = join(SITES, ".pagedeck-inline-hashes-none-test");
 const INCREMENTAL_SITE = join(SITES, ".pagedeck-inline-hashes-incremental-test");
+const PRE_PAINT_SITE = join(SITES, ".pagedeck-inline-hashes-pre-paint-test");
 
 const CONTENT_SCRIPTS =
   '<script>window.marker = "content-3f9a"</script><script type="speculationrules">{"prefetch":[]}</script>';
@@ -182,7 +183,7 @@ function read(dist: string): Omit<Built, "runtimeCalls"> {
 }
 
 afterAll(() => {
-  for (const root of [ALL_SITE, NONE_SITE, INCREMENTAL_SITE]) {
+  for (const root of [ALL_SITE, NONE_SITE, INCREMENTAL_SITE, PRE_PAINT_SITE]) {
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -321,4 +322,34 @@ test("an incremental build records the hashes a full build of the same store rec
     expect(hashes).toHaveLength(5);
   }
   expect(hashesOf(incremental)).toEqual(hashesOf(full));
+}, 360_000);
+
+test("a page an incremental build carries keeps the hashes of the bytes it carries, after build.prePaint changes", async () => {
+  // `runCli` imports the config once per process, so the edit goes through a list it holds.
+  const shared = globalThis as { prePaintTexts?: string[] };
+  shared.prePaintTexts = [THEME];
+  const root = site(PRE_PAINT_SITE, "prePaint: globalThis.prePaintTexts,");
+  const dist = join(root, "dist");
+  await run(root, "sync");
+  await run(root, "build");
+  const before = read(dist).manifest;
+
+  shared.prePaintTexts.splice(0, 1, MOTION);
+  writeFileSync(
+    join(root, "content", "en", "home.json"),
+    `${JSON.stringify({ rev: 2, data: { title: "home, edited" } })}\n`,
+  );
+  await run(root, "sync");
+  expect(await run(root, "build", "--incremental")).toContain("1 reused");
+  const { manifest, documents } = read(dist);
+
+  const post = manifest.pages.find((page) => page.path === "/post");
+  expect(documents.get("/post")).toContain(`<script>${THEME}</script>`);
+  expect(post?.inlineScriptHashes).toEqual(
+    before.pages.find((page) => page.path === "/post")?.inlineScriptHashes,
+  );
+  expect(post?.inlineScriptHashes).toContain(cspHash(THEME));
+  expect(manifest.pages.find((page) => page.path === "/")?.inlineScriptHashes).toEqual([
+    cspHash(MOTION),
+  ]);
 }, 360_000);
