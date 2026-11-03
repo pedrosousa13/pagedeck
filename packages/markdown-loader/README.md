@@ -139,12 +139,12 @@ as `TocEntry.slug` (issue #327).
 - **Apostrophes are dropped**, straight and curly, so `## What's next` is
   `#whats-next`. This is GitHub's and Astro's convention.
 - **The framework's names are taken out.** `data-pagedeck` as a whole
-  segment is removed, after the apostrophes are dropped, and so is a leading
-  `pagedeck-`, the namespace of the ids the framework looks up (issue #266).
-  `unescapedHtml` would rename either, and the `id` would no longer match its
-  slug. So "Pagedeck preview" is anchored at `#preview` and `## pagedeck sync`
-  at `#sync`, while `## Pagedeck` keeps `#pagedeck`.
+  segment is removed, after the apostrophes are dropped, so no heading can
+  mint an id in the framework's namespace. Only that segment is reserved, so a
+  heading such as "Pagedeck preview" can slug to `pagedeck-preview`, the id
+  `@pagedeck/preview` gives its preview container (ruled on #89). That id and
+  the others the framework looks up count as already used, so the heading is
+  numbered `pagedeck-preview-1`, which `unescapedHtml` leaves alone (#266).
 - **Never empty and never repeated.** A heading with nothing left is
   `section`, and a repeat is numbered `-1`, `-2`, skipping any heading slug
-  the document already uses. A numbered repeat of `pagedeck` loses the
-  prefix too, so it is `#1`.
+  the document already uses.

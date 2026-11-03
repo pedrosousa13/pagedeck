@@ -177,21 +177,29 @@ const FALLBACK_SLUG = "section";
 
 // `(?<![-\w])` is core's ASCII name boundary (`NAME_CHARACTER`), so a reserved name after a
 // non-ASCII letter is caught, as `neutralizeReservedNames` would rename it.
-const RESERVED = /^(?:pagedeck-|data-pagedeck(?:-|$))+|(?<![-\w])(?:data-pagedeck(?:-|$))+/g;
+const RESERVED = /(?<![-\w])(?:data-pagedeck(?:-|$))+/g;
 
-// `neutralizeReservedNames` renames `data-pagedeck-*` names in content, `id`s included, and an
-// `id` value starting `pagedeck-` (#266), so a heading's `id` would no longer match the slug its
-// table-of-contents link uses. One pass is a fixed point.
+// `neutralizeReservedNames` renames `data-pagedeck-*` names in content, `id`s included, so a
+// heading's `id` would no longer match the slug its table-of-contents link uses. One pass is a
+// fixed point.
 function unreserved(slug: string): string {
   return slug.replace(RESERVED, "");
 }
 
+// Core's `RESERVED_IDS`, which this package cannot import; `unescapedHtml` renames each, so a
+// heading slugged onto one is numbered instead (#266).
+const LOOKED_UP_IDS = [
+  "pagedeck-preview",
+  "pagedeck-consent-banner",
+  "pagedeck-consent-banner-manage",
+  "pagedeck-consent-banner-accept",
+];
+
 // Asks whether a slug is free, not how often its text was seen: "Options 1" owns `options-1`.
-// A number after `pagedeck` makes a reserved slug, so each candidate is unreserved again.
 function uniqueSlug(base: string, taken: Set<string>): string {
   let slug = base;
   for (let suffix = 1; taken.has(slug); suffix += 1) {
-    slug = unreserved(`${base}-${String(suffix)}`);
+    slug = `${base}-${String(suffix)}`;
   }
   taken.add(slug);
   return slug;
@@ -224,7 +232,7 @@ export async function createMarkdownRenderer(
       let titleSeen = false;
       let title: string | undefined;
       const toc: TocEntry[] = [];
-      const taken = new Set<string>();
+      const taken = new Set<string>(LOOKED_UP_IDS);
 
       const marked = new Marked({
         async: true,

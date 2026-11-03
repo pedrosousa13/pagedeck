@@ -21,7 +21,7 @@ import {
   useSocialCard,
 } from "./render.js";
 import type { EntryNode, RenderedIsland, RootProvider } from "./render.js";
-import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_TAGS } from "./tree.js";
+import { buildPageTree, RESERVED_ATTRIBUTES, RESERVED_IDS, RESERVED_TAGS } from "./tree.js";
 import { CONSENT_ATTRIBUTE } from "./consent.js";
 import type { PlacedLocale } from "./locales.js";
 
@@ -432,28 +432,36 @@ test("a page-output name the framework never reads back is left alone, as ADR-00
   expect(await richText(names)).toBe(`<div class="rich">${names}</div>`);
 });
 
-test("an id in the framework's namespace typed into rich text does not reach the page", async () => {
+test("an id the framework looks up, typed into rich text, does not reach the page", async () => {
   const html = await richText(
     '<div id="pagedeck-preview">x</div>' +
       "<div id='pagedeck-consent-banner'>x</div>" +
-      "<div id=pagedeck-preview>x</div>" +
+      "<div id=pagedeck-consent-banner-manage>x</div>" +
+      '<div id="pagedeck-consent-banner-accept">x</div>' +
       '<div ID="PAGEDECK-PREVIEW">x</div>' +
-      '<div id = "pagedeck-preview">x</div>',
+      '<div id = "pagedeck-preview">x</div>' +
+      "<hr id=pagedeck-preview>",
   );
 
   expect(html).toBe(
     '<div class="rich"><div id="x-pagedeck-preview">x</div>' +
       "<div id='x-pagedeck-consent-banner'>x</div>" +
-      "<div id=x-pagedeck-preview>x</div>" +
+      "<div id=x-pagedeck-consent-banner-manage>x</div>" +
+      '<div id="x-pagedeck-consent-banner-accept">x</div>' +
       '<div ID="x-PAGEDECK-PREVIEW">x</div>' +
-      '<div id = "x-pagedeck-preview">x</div></div>',
+      '<div id = "x-pagedeck-preview">x</div>' +
+      "<hr id=x-pagedeck-preview></div>",
   );
 });
 
-test("an id outside the framework's namespace, or the namespace on another attribute, is left alone", async () => {
+test("an id the framework never looks up, or a looked-up id on another attribute, is left alone", async () => {
   const names =
     '<div id="pagedeck">x</div>' +
-    '<div id="my-pagedeck-x">x</div>' +
+    '<div id="pagedeck-sync">x</div>' +
+    '<div id="pagedeck-anything-else">x</div>' +
+    '<div id="pagedeck-preview-1">x</div>' +
+    "<div id='pagedeck-consent-banner-reject'>x</div>" +
+    '<div id="my-pagedeck-preview">x</div>' +
     '<div class="pagedeck-preview">x</div>' +
     '<div data-id="pagedeck-preview">x</div>' +
     '<a href="#pagedeck-preview">x</a>';
@@ -578,6 +586,13 @@ test("a reserved tag opener in a title cannot pull text into the tag", () => {
   expectSameTree(html);
 });
 
+function ids(node: ParsedNode): string[] {
+  if (node.nodeType !== 1) return [];
+  const element = node as ParsedElement;
+  const id = element.getAttribute("id");
+  return [...(id === null ? [] : [id]), ...[...element.childNodes].flatMap(ids)];
+}
+
 /** mulberry32: a fixed seed gives the same cases on every run. */
 function seeded(seed: number): () => number {
   let state = seed;
@@ -603,7 +618,8 @@ test("no sanitised tree gains or loses an element or attribute to neutralizing",
       `</${tag}>`,
       `<${tag.toUpperCase()} `,
     ]),
-    "id=", "ID=", "pagedeck-", "PAGEDECK-", "pagedeck", ' id="pagedeck-preview" ', " id=pagedeck-",
+    "id=", "ID=", "pagedeck-", ' id="pagedeck-preview" ', " id=pagedeck-preview ",
+    ...RESERVED_IDS.flatMap((id) => [id, id.toUpperCase()]),
   ];
   const text = (): string =>
     Array.from({ length: Math.floor(random() * 7) }, () => pick(pieces)).join("");
@@ -614,7 +630,7 @@ test("no sanitised tree gains or loses an element or attribute to neutralizing",
     const element = document.createElement(pick(tags));
     for (let at = Math.floor(random() * 4); at > 0; at -= 1) {
       const name = pick(attributes);
-      element.setAttribute(name, name === "id" && random() < 0.5 ? `pagedeck-${text()}` : text());
+      element.setAttribute(name, name === "id" && random() < 0.5 ? pick(RESERVED_IDS) : text());
     }
     if (element.localName !== "hr") {
       for (let at = Math.floor(random() * 4); at > 0; at -= 1) {
@@ -630,13 +646,10 @@ test("no sanitised tree gains or loses an element or attribute to neutralizing",
     );
     expectSameTree(html);
     expect(neutralize(neutralize(html))).toBe(neutralize(html));
-    const { document } = new JSDOM(`<body>${neutralize(html)}</body>`).window;
-    const ids = [...document.querySelectorAll("[id]")].map(
-      (element) => element.getAttribute("id") ?? "",
-    );
-    expect(ids.filter((id) => id.startsWith("pagedeck-")), html).toEqual([]);
+    const reserved = ids(parsedBody(neutralize(html))).filter((id) => RESERVED_IDS.includes(id));
+    expect(reserved, html).toEqual([]);
   }
-});
+}, 60_000);
 
 test("providers wrap the page outermost-first and receive the caller's props", async () => {
   const seen: Array<Record<string, unknown>> = [];

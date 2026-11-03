@@ -45,6 +45,7 @@ import type {
   RootProvider,
 } from "@pagedeck/islands";
 import type { PlacedLocale } from "./locales.js";
+import { CONSENT_BANNER_ID } from "./consent.js";
 
 export type { PlacedLocale };
 export interface EntryNode {
@@ -181,8 +182,19 @@ export const RESERVED_ATTRIBUTES: readonly string[] = [
   SEARCH_ATTRIBUTE,
 ];
 
-/** The namespace of the ids the framework looks up with `getElementById` (#266). */
-const RESERVED_ID_PREFIX = "pagedeck-";
+export const PREVIEW_CONTAINER_ID = "pagedeck-preview";
+
+/** Every id the framework looks up with `getElementById` (#266). */
+export const RESERVED_IDS: readonly string[] = [
+  PREVIEW_CONTAINER_ID,
+  CONSENT_BANNER_ID,
+  `${CONSENT_BANNER_ID}-manage`,
+  `${CONSENT_BANNER_ID}-accept`,
+];
+
+const RESERVED_ID = `(?:${RESERVED_IDS.join("|")})`;
+
+const ID_EQUALS = `(?<!${NAME_CHARACTER})id\\s*=\\s*`;
 
 const RESERVED_NAMES = new RegExp(
   [
@@ -190,7 +202,9 @@ const RESERVED_NAMES = new RegExp(
     `(?<=(?<!${NAME_CHARACTER})data-)(?:${RESERVED_ATTRIBUTES.map((name) =>
       name.slice("data-".length),
     ).join("|")})(?!${NAME_CHARACTER})`,
-    `(?<=(?<!${NAME_CHARACTER})id\\s*=\\s*["']?)${RESERVED_ID_PREFIX}`,
+    `(?<=${ID_EQUALS}")${RESERVED_ID}(?=")`,
+    `(?<=${ID_EQUALS}')${RESERVED_ID}(?=')`,
+    `(?<=${ID_EQUALS})${RESERVED_ID}(?=[\\s>]|$)`,
   ].join("|"),
   "gi",
 );

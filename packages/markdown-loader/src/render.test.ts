@@ -204,11 +204,11 @@ test("a heading cannot break out of the id attribute it lands in", async () => {
   expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
 });
 
-const RESERVED = /^data-pagedeck(?:-|$)|^pagedeck-/;
+const RESERVED = /^data-pagedeck(?:-|$)/;
 
 test("a heading cannot slug onto the framework's reserved names", async () => {
   const rendered = await renderer.render(
-    "## data-pagedeck-island\n\n## Data Pagedeck Store Push\n\n## data-pagedeck-data-pagedeck-nested\n\n## data-pagedeck-slot\n\n## Data Pagedeck Props\n\n## database-pagedeck-notes\n\n## pagedeck-snapshot-url\n\n## Pagedeck island\n\n## pagedeck-pagedeck-preview\n\n## pagedeck-data-pagedeck-mode\n\n## Pagedeck\n\n## my-pagedeck-notes\n",
+    "## data-pagedeck-island\n\n## Data Pagedeck Store Push\n\n## data-pagedeck-data-pagedeck-nested\n\n## data-pagedeck-slot\n\n## Data Pagedeck Props\n\n## database-pagedeck-notes\n\n## pagedeck-snapshot-url\n",
     "d.md",
   );
   expect(rendered.toc.map((entry) => entry.slug)).toEqual([
@@ -218,12 +218,7 @@ test("a heading cannot slug onto the framework's reserved names", async () => {
     "slot",
     "props",
     "database-pagedeck-notes",
-    "snapshot-url",
-    "island-1",
-    "preview",
-    "mode",
-    "pagedeck",
-    "my-pagedeck-notes",
+    "pagedeck-snapshot-url",
   ]);
   for (const id of ids(rendered.html)) {
     expect(id).not.toMatch(RESERVED);
@@ -239,12 +234,19 @@ test("numbering a repeat cannot walk back into the namespace it was kept out of"
   expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
 });
 
-test("numbering a repeated heading cannot walk into the framework's id namespace", async () => {
-  const rendered = await renderer.render("## Pagedeck\n\n## Pagedeck\n\n## Pagedeck\n", "d.md");
-  for (const id of ids(rendered.html)) {
-    expect(id).not.toMatch(RESERVED);
-  }
-  expect(new Set(ids(rendered.html)).size).toBe(3);
+test("a heading cannot slug onto an id the framework looks up, so it is numbered instead", async () => {
+  const rendered = await renderer.render(
+    "## Pagedeck preview\n\n## pagedeck-consent-banner\n\n## Pagedeck consent banner manage\n\n## Pagedeck consent banner accept\n\n## Pagedeck preview\n\n## Pagedeck sync\n",
+    "d.md",
+  );
+  expect(rendered.toc.map((entry) => entry.slug)).toEqual([
+    "pagedeck-preview-1",
+    "pagedeck-consent-banner-1",
+    "pagedeck-consent-banner-manage-1",
+    "pagedeck-consent-banner-accept-1",
+    "pagedeck-preview-2",
+    "pagedeck-sync",
+  ]);
   expect(ids(rendered.html)).toEqual(rendered.toc.map((entry) => entry.slug));
 });
 
@@ -306,10 +308,10 @@ test("an outline entry's text is the heading's text content, never its markup", 
 test("an underscore inside a word is text, not emphasis, so the outline keeps it", async () => {
   const rendered = await renderer.render("### PAGEDECK_SNAPSHOT_URL\n", "d.md");
   expect(rendered.toc).toEqual([
-    { depth: 3, slug: "snapshot-url", text: "PAGEDECK_SNAPSHOT_URL" },
+    { depth: 3, slug: "pagedeck-snapshot-url", text: "PAGEDECK_SNAPSHOT_URL" },
   ]);
   expect(rendered.html).toContain(
-    '<h3 id="snapshot-url">PAGEDECK_SNAPSHOT_URL</h3>',
+    '<h3 id="pagedeck-snapshot-url">PAGEDECK_SNAPSHOT_URL</h3>',
   );
 });
 

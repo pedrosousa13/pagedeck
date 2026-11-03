@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { unescapedHtml } from "@pagedeck/core/tree";
+import { RESERVED_IDS, unescapedHtml } from "@pagedeck/core/tree";
 import { createMarkdownRenderer, parseFrontmatter } from "@pagedeck/markdown-loader";
 import { guides, PACKAGE } from "./pages.test-support.js";
 import { docsRenderer } from "./render.test-support.js";
@@ -48,18 +48,15 @@ test("a heading spelling a framework-reserved name still anchors after neutraliz
   expect(neutralizedHtml).toContain('<h2 id="slot">data-x-pagedeck-slot</h2>');
 });
 
-test("a heading that slugs into the framework's id namespace still anchors after neutralizing", async () => {
+test("a heading spelling an id the framework looks up still anchors after neutralizing", async () => {
   const renderer = await createMarkdownRenderer({ languages: [] });
   const rendered = await renderer.render(
-    "## Pagedeck island\n\n## pagedeck-preview\n\n## Pagedeck\n\n## Pagedeck\n",
+    RESERVED_IDS.map((id) => `## ${id}\n`).join("\n"),
     "d.md",
   );
-  const neutralizedHtml = unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html;
 
-  expect(neutralizedHtml).toBe(rendered.html);
-  expect(
-    [...neutralizedHtml.matchAll(/ id="([^"]*)"/g)].map((match) => match[1]),
-  ).toEqual(rendered.toc.map((entry) => entry.slug));
+  expect(rendered.toc.map((entry) => entry.slug)).toEqual(RESERVED_IDS.map((id) => `${id}-1`));
+  expect(unescapedHtml(rendered.html).dangerouslySetInnerHTML.__html).toBe(rendered.html);
 });
 
 test("a heading spelling a reserved name after a non-ASCII letter still anchors", async () => {
