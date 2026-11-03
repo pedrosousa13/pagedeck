@@ -95,9 +95,18 @@ test("the cap is 2 KiB", () => {
 });
 
 test("an excerpt cuts a long answer at 32 characters and leaves anything else alone", () => {
-  expect(excerpt("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")).toBe(
+  const keep = (text: string): string => text;
+  expect(excerpt("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", keep)).toBe(
     "data:image/svg+xml;base64,PHN2Zz…",
   );
-  expect(excerpt("javascript:alert(1)")).toBe("javascript:alert(1)");
-  expect(excerpt(17)).toBe(17);
+  expect(excerpt("javascript:alert(1)", keep)).toBe("javascript:alert(1)");
+  expect(excerpt(17, keep)).toBe(17);
+});
+
+test("an excerpt redacts before it cuts, so a cut cannot hide where a credential ends", () => {
+  const redact = (text: string): string => text.replace(/\/\/[^@]*@/, "//…@");
+
+  expect(
+    excerpt("https://user:hunter2-very-long-secret-token@cdn.example/x.jpg", redact),
+  ).toBe("https://…@cdn.example/x.jpg");
 });

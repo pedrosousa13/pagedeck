@@ -281,3 +281,21 @@ test("a concurrency below one is refused, naming this setting's field", async ()
   );
   expect(asked).toEqual([]);
 });
+
+test("a credential in a long answer is redacted before the answer is cut short", async () => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImagePreviews({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/a.jpg"),
+      probe: () => "https://user:hunter2-very-long-secret-token@cdn.example/x.jpg",
+    }),
+  );
+
+  expect(error.message).not.toContain("hunter2");
+  expect(error.message.split("\n")[1]).toBe(
+    '  "/a.jpg" on /en/home — "https://…@cdn.example/x.jpg" — not a base64 data URI of a png, jpeg, webp, avif or gif image',
+  );
+});

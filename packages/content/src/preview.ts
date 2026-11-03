@@ -30,9 +30,17 @@ export function imagePreviewFault(value: unknown): string | undefined {
 
 const EXCERPT_LENGTH = 32;
 
-/** A refused answer as a message quotes it: an over-cap one is kilobytes of base64. */
-export function excerpt(value: unknown): unknown {
-  return typeof value === "string" && value.length > EXCERPT_LENGTH
-    ? `${value.slice(0, EXCERPT_LENGTH)}…`
-    : value;
+/**
+ * A refused answer as a message quotes it: an over-cap one is kilobytes of base64.
+ * `redact` runs first, since a cut can drop the `@` that marks a credential's end.
+ */
+export function excerpt(
+  value: unknown,
+  redact: (text: string) => string,
+): unknown {
+  if (typeof value !== "string") return value;
+  const redacted = redact(value);
+  return redacted.length > EXCERPT_LENGTH
+    ? `${redacted.slice(0, EXCERPT_LENGTH)}…`
+    : redacted;
 }

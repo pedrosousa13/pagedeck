@@ -28,7 +28,7 @@ const CONCURRENCY_FIX =
 
 export function refuseUnusableConcurrency(
   collection: string,
-  setting: string,
+  setting: "imageColors" | "imagePreviews",
   /** What a sync that probes nothing would never cache, as "a color". */
   cached: string,
   declared: number | undefined,
@@ -78,7 +78,7 @@ function credentialEnd(value: string): number {
     : -1;
 }
 
-function redactSource(value: string): string {
+export function redactSource(value: string): string {
   const userinfo = credentialEnd(value);
   const stripped =
     userinfo === -1

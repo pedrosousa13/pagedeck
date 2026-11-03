@@ -52,8 +52,8 @@ contract gets an example or joins this list:
 - `@pagedeck/content/preview`: `MAX_PREVIEW_BYTES` and `imagePreviewFault`,
   which the sync and `imageAttributes` both run on a preview, and `excerpt`,
   which both refusals quote an answer through (#276).
-- `@pagedeck/core/images`: `imagePlaceholder`, the `style` `imageAttributes`
-  returns, and `ImagePlaceholderStyle` (#276).
+- `@pagedeck/core/images`: `ImagePlaceholderStyle`, the `style`
+  `imageAttributes` returns (#276).
 - `@pagedeck/content/escape`: `printable` and `quoteIdentifier`, which keep a
   value from outside out of a message's terminal controls (#730).
 - `@pagedeck/islands`: `entryId`, `hydrationContradiction`,

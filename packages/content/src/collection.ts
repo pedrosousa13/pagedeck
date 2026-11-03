@@ -432,8 +432,8 @@ async function runSync<TOut, TIn>(
   return result;
 }
 
-// Every entry of the collection, not only this sync's: a failed probe is not cached, and
-// a source reached only through unchanged entries would never be asked again.
+// Both probes read every entry of the collection, not only this sync's: a failed probe is
+// not cached, and a source reached only through unchanged entries would never be asked again.
 async function writeImageColors<TOut, TIn>(
   store: ContentStore,
   collection: Collection<TOut, TIn>,
@@ -457,8 +457,6 @@ async function writeImageColors<TOut, TIn>(
   });
 }
 
-// Every entry of the collection, not only this sync's: a failed probe is not cached, and
-// a source reached only through unchanged entries would never be asked again.
 async function writeImagePreviews<TOut, TIn>(
   store: ContentStore,
   collection: Collection<TOut, TIn>,

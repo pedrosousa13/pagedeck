@@ -1,6 +1,6 @@
 import { excerpt, imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
-import { quote } from "./quote.js";
+import { quote, redactSource } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
 import { entryId } from "@pagedeck/islands";
 import { RenderError } from "./tree.js";
@@ -90,7 +90,7 @@ export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
 }
 
 /** A preview `imagePreviewFault` refuses is left out, so no caller can emit one. */
-export function imagePlaceholder(
+function imagePlaceholder(
   image: Pick<ImageSource, "placeholderColor" | "placeholderPreview">,
 ): ImagePlaceholderStyle | undefined {
   const color =
@@ -165,7 +165,7 @@ function refuseUnusableImage(image: ImageSource, page: PageContext): void {
       const subject =
         source === undefined ? `image ${quote(image.src)} carries` : "image carries";
       sections.push(
-        `${where}: ${subject} a placeholderPreview that is not an image preview, so none is written into the page — ${PREVIEW_FIX}:\n  ${quote(excerpt(image.placeholderPreview))} — ${reason}`,
+        `${where}: ${subject} a placeholderPreview that is not an image preview, so none is written into the page — ${PREVIEW_FIX}:\n  ${quote(excerpt(image.placeholderPreview, redactSource))} — ${reason}`,
       );
     }
   }

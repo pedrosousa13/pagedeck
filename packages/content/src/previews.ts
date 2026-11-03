@@ -7,6 +7,7 @@ import {
   quoteSource,
   quoteValue,
   reasonOf,
+  redactSource,
   refuseUnusableConcurrency,
 } from "./probing.js";
 import type { ContentStore } from "./store.js";
@@ -76,7 +77,7 @@ export async function syncImagePreviews(
     if (reason !== undefined) {
       const entries = [...(entriesBySource.get(src) ?? [])].sort();
       faults.push(
-        `  ${quoteSource(src)} on ${printable(entries.join(", "))} — ${quoteValue(excerpt(answer))} — ${reason}`,
+        `  ${quoteSource(src)} on ${printable(entries.join(", "))} — ${quoteValue(excerpt(answer, redactSource))} — ${reason}`,
       );
       return;
     }
