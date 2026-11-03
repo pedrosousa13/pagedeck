@@ -141,23 +141,29 @@ const RUNTIME = 'Script runtime: "build.scripts.runtime" returned';
 const RUNTIME_SHAPE_FIX =
   'return an object whose head and body are each a list of element strings, either left out, such as ({ scripts }) => ({ head: ["<script>…</script>"], body: […] })';
 
-/** Double-quoted or bare only, as `HEAD_TOKEN` in `build.ts` reads a head tag. */
-const ATTRIBUTE = String.raw`\s+([^\s"'<>/=]+)(?:\s*=\s*"([^"]*)")?`;
+/** HTML's whitespace, not `\s`: a browser reads `\v` or U+00A0 as part of a name. */
+const SPACE = "[\\t\\n\\f\\r ]";
 
-const ATTRIBUTES = `((?:${ATTRIBUTE})*)\\s*`;
+/** Double-quoted or bare only, as `HEAD_TOKEN` in `build.ts` reads a head tag. */
+const ATTRIBUTE = `${SPACE}+([^\\t\\n\\f\\r "'<>/=]+)(?:${SPACE}*=${SPACE}*"([^"]*)")?`;
+
+const ATTRIBUTES = `((?:${ATTRIBUTE})*)${SPACE}*`;
 
 const HEAD_SCRIPT = new RegExp(String.raw`^<script${ATTRIBUTES}>([\s\S]*)</script>$`);
 
 const HEAD_VOID = new RegExp(String.raw`^<(link|meta)${ATTRIBUTES}/?>$`);
 
 const NOT_ONE_ELEMENT =
-  "not one <script>, <link> or <meta> element with double-quoted attributes";
+  "not one <script>, <link> or <meta> element with double-quoted attributes — write it as one such element, or move it to body, which this check does not read";
 
 const SPECULATION =
-  "a speculation rules block, and the page's one is the build's own, written from build.speculation";
+  "a speculation rules block, and the page's one is the build's own — declare the rules in build.speculation instead";
 
 const DOCUMENT_META =
-  "a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself";
+  "a <meta> carrying charset or http-equiv, which decides for the whole document — drop it: the build writes the charset, and a refresh or a policy belongs in a response header";
+
+const CHARACTER_REFERENCE =
+  'writes "&" in an attribute value, which a browser decodes as a character reference this check does not read — write the value without it, or move the entry to body';
 
 function runtimeAnswer(answer: unknown, page: PageIdentity): ScriptRuntimeMarkup {
   const at = quote(pageKey(page));
@@ -173,7 +179,7 @@ function runtimeAnswer(answer: unknown, page: PageIdentity): ScriptRuntimeMarkup
   ];
   if (faults.length > 0) {
     throw new ConfigError(
-      `${RUNTIME} ${String(faults.length)} ${faults.length === 1 ? "entry" : "entries"} for page ${at} this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — rewrite each entry below, or move it to body:\n${faults.join("\n")}`,
+      `${RUNTIME} ${String(faults.length)} ${faults.length === 1 ? "entry" : "entries"} for page ${at} this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — fix each entry as its line says:\n${faults.join("\n")}`,
     );
   }
   return answer as ScriptRuntimeMarkup;
@@ -185,11 +191,15 @@ function partFaults(
   entryFault: (entry: string) => string | undefined,
 ): string[] {
   if (part === undefined) return [];
-  if (!Array.isArray(part)) return [`  ${name} — ${quote(part)} — not a list`];
+  if (!Array.isArray(part)) {
+    return [`  ${name} — ${quote(part)} — not a list — write it as a list of element strings`];
+  }
   const entries: readonly unknown[] = part;
   return entries.flatMap((entry, index) => {
     const where = `  ${name}[${String(index)}]`;
-    if (typeof entry !== "string") return [`${where} — ${quote(entry)} — not a string`];
+    if (typeof entry !== "string") {
+      return [`${where} — ${quote(entry)} — not a string — write it as the element's markup`];
+    }
     const fault = entryFault(entry);
     return fault === undefined ? [] : [`${where} — ${quote(entry)} — ${fault}`];
   });
@@ -197,25 +207,29 @@ function partFaults(
 
 function headEntryFault(entry: string): string | undefined {
   const script = HEAD_SCRIPT.exec(entry);
+  const element = script === null ? HEAD_VOID.exec(entry) : null;
+  if (script === null && element === null) return NOT_ONE_ELEMENT;
+  const pairs = attributesOf((script === null ? element?.[2] : script[1]) ?? "");
+  const names = pairs.map(([name]) => name);
+  const repeated = names.find((name, index) => names.indexOf(name) !== index);
+  if (repeated !== undefined) {
+    return `declares ${quote(repeated)} more than once, and a browser keeps the first where a reader could take another — declare each attribute once`;
+  }
+  if (pairs.some(([, value]) => value.includes("&"))) return CHARACTER_REFERENCE;
+  const attributes = new Map(pairs);
   if (script !== null) {
-    const type = attributesOf(script[1] ?? "").get("type");
-    if (type?.trim().toLowerCase() === "speculationrules") return SPECULATION;
+    const type = attributes.get("type")?.replace(new RegExp(`^${SPACE}+|${SPACE}+$`, "g"), "");
+    if (type?.toLowerCase() === "speculationrules") return SPECULATION;
     return inlineScriptFault(script[script.length - 1] ?? "");
   }
-  const element = HEAD_VOID.exec(entry);
-  if (element === null) return NOT_ONE_ELEMENT;
-  const names = attributesOf(element[2] ?? "");
-  return element[1] === "meta" && (names.has("charset") || names.has("http-equiv"))
+  return element?.[1] === "meta" && (attributes.has("charset") || attributes.has("http-equiv"))
     ? DOCUMENT_META
     : undefined;
 }
 
-function attributesOf(text: string): Map<string, string> {
-  return new Map(
-    [...text.matchAll(new RegExp(ATTRIBUTE, "g"))].map((match) => [
-      (match[1] ?? "").toLowerCase(),
-      match[2] ?? "",
-    ]),
+function attributesOf(text: string): (readonly [string, string])[] {
+  return [...text.matchAll(new RegExp(ATTRIBUTE, "g"))].map(
+    (match) => [(match[1] ?? "").toLowerCase(), match[2] ?? ""] as const,
   );
 }
 

@@ -241,7 +241,9 @@ mechanism with nothing for the head returns `{ body: [...] }`.
 
 Each `head` entry must be exactly one `<script>…</script>`, `<link>` or
 `<meta>` element, written in lowercase with its attribute values in double
-quotes, and a script's text must not hold `</script` or `<!--`. An entry may
+quotes, each attribute named once, no `&` in a value and only spaces, tabs or
+line breaks between attributes, and a script's text must not hold `</script`
+or `<!--`. An entry may
 not speak for the whole document either: no `<script type="speculationrules">`,
 which the build writes from `build.speculation`, and no `<meta>` with `charset`
 or `http-equiv`. The build refuses any other entry when it writes the page,

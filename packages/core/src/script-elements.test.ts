@@ -881,9 +881,16 @@ test("a runtime answer that is a list, as the contract once was, is refused rath
 });
 
 const HEAD_FAULTS = (count: number): string =>
-  `Script runtime: "build.scripts.runtime" returned ${String(count)} entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — rewrite each entry below, or move it to body:`;
+  `Script runtime: "build.scripts.runtime" returned ${String(count)} entries for page "en /" this build cannot write — the head part goes into the page's <head> ahead of the pre-paint scripts, so each of its entries must be exactly one <script>…</script>, <link> or <meta> element with double-quoted attributes, which cannot close the <head>, reach into what follows it or speak for the whole document, and each part must be a list of strings — fix each entry as its line says:`;
 
-const NOT_ONE = "not one <script>, <link> or <meta> element with double-quoted attributes";
+const NOT_ONE =
+  "not one <script>, <link> or <meta> element with double-quoted attributes — write it as one such element, or move it to body, which this check does not read";
+
+const SPECULATES =
+  "a speculation rules block, and the page's one is the build's own — declare the rules in build.speculation instead";
+
+const WHOLE_DOCUMENT =
+  "a <meta> carrying charset or http-equiv, which decides for the whole document — drop it: the build writes the charset, and a refresh or a policy belongs in a response header";
 
 const CLOSES = `holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"`;
 
@@ -912,8 +919,8 @@ test("every head entry that is not one script, link or meta element is refused, 
       `  head[5] — "<script>x = '</script>'</script>" — ${CLOSES}`,
       '  head[6] — "<script>if (a <!-- b) {}</script>" — holds "<!--" — an HTML parser reads it as the start of an escaped script, after which a "<script" in the same snippet stops the closing tag from closing anything — write it as "<\\!--", or use a // comment',
       `  head[7] — "</head><body>" — ${NOT_ONE}`,
-      "  head[9] — 7 — not a string",
-      '  body — "<script></script>" — not a list',
+      "  head[9] — 7 — not a string — write it as the element's markup",
+      '  body — "<script></script>" — not a list — write it as a list of element strings',
     ].join("\n"),
   );
 });
@@ -953,13 +960,56 @@ test("a head entry that speaks for the whole document is refused", () => {
   ).toThrow(
     [
       HEAD_FAULTS(5),
-      `  head[0] — "<script type=\\"speculationrules\\">{\\"prefetch\\":[]}</script>" — a speculation rules block, and the page's one is the build's own, written from build.speculation`,
-      `  head[1] — "<script type=\\" SpeculationRules \\">{}</script>" — a speculation rules block, and the page's one is the build's own, written from build.speculation`,
-      `  head[2] — "<meta charset=\\"utf-8\\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself`,
-      `  head[3] — "<meta http-equiv=\\"refresh\\" content=\\"0;url=/elsewhere\\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself`,
-      `  head[4] — "<meta HTTP-EQUIV=\\"Content-Security-Policy\\" content=\\"script-src *\\">" — a <meta> carrying charset or http-equiv, which decides for the whole document, and the build writes the document's charset itself`,
+      `  head[0] — "<script type=\\"speculationrules\\">{\\"prefetch\\":[]}</script>" — ${SPECULATES}`,
+      `  head[1] — "<script type=\\" SpeculationRules \\">{}</script>" — ${SPECULATES}`,
+      `  head[2] — "<meta charset=\\"utf-8\\">" — ${WHOLE_DOCUMENT}`,
+      `  head[3] — "<meta http-equiv=\\"refresh\\" content=\\"0;url=/elsewhere\\">" — ${WHOLE_DOCUMENT}`,
+      `  head[4] — "<meta HTTP-EQUIV=\\"Content-Security-Policy\\" content=\\"script-src *\\">" — ${WHOLE_DOCUMENT}`,
     ].join("\n"),
   );
+});
+
+function headFaultLines(head: readonly string[]): string[] {
+  try {
+    answered({ head })();
+  } catch (error) {
+    return (error as Error).message.split("\n").slice(1);
+  }
+  return [];
+}
+
+test("only HTML's own whitespace separates a head entry's attributes", () => {
+  const smuggled = [
+    '<meta\vname="a">',
+    "<script\vx><script>alert(1)</script>",
+    '<meta\u00a0name="a">',
+    '<link rel="preload"\u2028href="/a.js">',
+    '<meta\uFEFFname="a">',
+  ];
+  const lines = headFaultLines(smuggled);
+
+  expect(lines).toHaveLength(smuggled.length);
+  lines.forEach((line, index) => {
+    expect(line.startsWith(`  head[${String(index)}] — `)).toBe(true);
+    expect(line.endsWith(NOT_ONE)).toBe(true);
+  });
+  expect(headFaultLines(['<link\trel="preload"\nhref="/a.js"\f\r as="script">'])).toEqual([]);
+});
+
+test("a head entry that names an attribute twice, or writes & in a value, is refused", () => {
+  expect(
+    headFaultLines([
+      '<script type="speculationrules" type="x">{}</script>',
+      '<meta name="a" NAME="b">',
+      '<script type="speculation&#114;ules">{}</script>',
+      '<link rel="preload" href="/a.js?x=1&amp;y=2">',
+    ]),
+  ).toEqual([
+    `  head[0] — "<script type=\\"speculationrules\\" type=\\"x\\">{}</script>" — declares "type" more than once, and a browser keeps the first where a reader could take another — declare each attribute once`,
+    `  head[1] — "<meta name=\\"a\\" NAME=\\"b\\">" — declares "name" more than once, and a browser keeps the first where a reader could take another — declare each attribute once`,
+    `  head[2] — "<script type=\\"speculation&#…" — writes "&" in an attribute value, which a browser decodes as a character reference this check does not read — write the value without it, or move the entry to body`,
+    `  head[3] — "<link rel=\\"preload\\" href=\\"/a.js?…" — writes "&" in an attribute value, which a browser decodes as a character reference this check does not read — write the value without it, or move the entry to body`,
+  ]);
 });
 
 test("an answer with either part left out, or both, is written as given", () => {
