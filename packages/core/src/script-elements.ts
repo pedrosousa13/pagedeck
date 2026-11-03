@@ -6,21 +6,12 @@ import {
   CONSENT_GLOBAL,
   CONSENT_GRANTED,
 } from "./consent.js";
-import { ConfigError } from "./exit.js";
-import { pageKey } from "./incremental.js";
-import { textOf } from "./links.js";
-import type { BrokenReference } from "./links.js";
-import { localeTree } from "./locales.js";
-import type { LocaleSet } from "./locales.js";
-import { collisionLines, fileHash, shortHash } from "./manifest.js";
-import type { EmittedFile } from "./manifest.js";
+import { shortHash } from "./manifest.js";
 import { loadedScriptStrategy, resolveConsentDefault } from "./scripts.js";
 import type {
   ConsentDefault,
   ScriptAttributes,
   ScriptDeclaration,
-  ScriptRuntimeAdapter,
-  ScriptRuntimeFile,
   ScriptsSetting,
 } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
@@ -125,122 +116,6 @@ export function scriptElements(
     placeholders,
     elements: [...runtime, ...(loader === undefined ? [] : [loader])],
   };
-}
-
-export const SCRIPT_RUNTIME_DIR = "/script-runtime/";
-
-const RUNTIME_HASH_LENGTH = 8;
-
-export interface ScriptRuntimeFiles {
-  readonly base: string;
-  readonly files: readonly {
-    readonly path: string;
-    readonly contents: string | Uint8Array;
-  }[];
-}
-
-/** Memoized: the build asks once per page, and the answer is per adapter. */
-const placedFiles = new WeakMap<ScriptRuntimeAdapter, ScriptRuntimeFiles | undefined>();
-
-export function scriptRuntimeFiles(
-  runtime: ScriptRuntimeAdapter | undefined,
-): ScriptRuntimeFiles | undefined {
-  if (runtime === undefined) return undefined;
-  if (placedFiles.has(runtime)) return placedFiles.get(runtime);
-  const declared = runtime.files ?? [];
-  const placed =
-    declared.length === 0
-      ? undefined
-      : placeFiles(declared);
-  placedFiles.set(runtime, placed);
-  return placed;
-}
-
-/** A function of the files alone, so an adapter can name it before any build. */
-export function scriptRuntimeBase(files: readonly ScriptRuntimeFile[]): string {
-  const digest = shortHash(
-    JSON.stringify(
-      files.map(({ name, contents }) => [
-        name,
-        fileHash(contents).slice("sha256:".length),
-      ]),
-    ),
-    RUNTIME_HASH_LENGTH,
-  );
-  return `${SCRIPT_RUNTIME_DIR}${digest}/`;
-}
-
-function placeFiles(declared: readonly ScriptRuntimeFile[]): ScriptRuntimeFiles {
-  const base = scriptRuntimeBase(declared);
-  return {
-    base,
-    files: declared.map(({ name, contents }) => ({
-      path: `${base}${name}`,
-      contents,
-    })),
-  };
-}
-
-export function scriptRuntimeOutput(input: {
-  runtime: ScriptRuntimeAdapter | undefined;
-  locales: LocaleSet;
-  emitted: readonly EmittedFile[];
-}): EmittedFile[] {
-  const placed = scriptRuntimeFiles(input.runtime);
-  if (placed === undefined) return [];
-  const trees = new Set<string>();
-  for (const locale of input.locales.values()) trees.add(localeTree(locale) ?? "");
-  const files: EmittedFile[] = [...trees].sort().flatMap((domain) =>
-    placed.files.map(
-      ({ path, contents }): EmittedFile => ({
-        ...(domain === "" ? {} : { domain }),
-        path,
-        kind: "asset",
-        hashed: true,
-        contents,
-      }),
-    ),
-  );
-  const collisions = collisionLines(files, input.emitted);
-  if (collisions.length > 0) {
-    throw new ConfigError(
-      `Script runtime: ${String(collisions.length)} ${
-        collisions.length === 1
-          ? "file the runtime adapter declared is"
-          : "files the runtime adapter declared are"
-      } at a deploy key this build already wrote — a deploy key holds one file, and the site's own pages, chunks and assets are written before the runtime's files are; move the page off that address:\n${collisions.join("\n")}`,
-    );
-  }
-  return files;
-}
-
-/**
- * A text search, not a link check: Partytown's snippet names its directory
- * inside script text, where no attribute carries it (#275).
- */
-export function movedRuntimeDirectories(input: {
-  reused: readonly EmittedFile[];
-  emitted: readonly EmittedFile[];
-  previous: readonly { path: string }[];
-}): BrokenReference[] {
-  const directory = (path: string): string =>
-    path.slice(0, path.indexOf("/", SCRIPT_RUNTIME_DIR.length) + 1);
-  const runtime = (path: string): boolean => path.startsWith(SCRIPT_RUNTIME_DIR);
-  const kept = new Set(
-    input.emitted.filter(({ path }) => runtime(path)).map(({ path }) => directory(path)),
-  );
-  const gone = [
-    ...new Set(
-      input.previous.filter(({ path }) => runtime(path)).map(({ path }) => directory(path)),
-    ),
-  ].filter((dir) => !kept.has(dir));
-  if (gone.length === 0) return [];
-  return input.reused.flatMap((file) => {
-    if (file.kind !== "html" || file.page === undefined) return [];
-    const text = textOf(file.contents);
-    const href = gone.find((dir) => text.includes(dir));
-    return href === undefined ? [] : [{ page: pageKey(file.page), href }];
-  });
 }
 
 const FACADE_KEY_LENGTH = 8;

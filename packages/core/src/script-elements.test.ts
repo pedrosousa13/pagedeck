@@ -1,15 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, test } from "vitest";
 import { beaconElement } from "./beacon.js";
-import { defineLocales } from "./locales.js";
-import {
-  isScriptLoaderText,
-  scriptElements,
-  scriptRuntimeBase,
-  scriptRuntimeFiles,
-  scriptRuntimeOutput,
-} from "./script-elements.js";
-import * as core from "./index.js";
+import { isScriptLoaderText, scriptElements } from "./script-elements.js";
 import type { ScriptsSetting } from "./scripts.js";
 import type { PageIdentity } from "./page-patterns.js";
 
@@ -745,97 +737,4 @@ test("a runtime is handed the request it always was, whether or not it declares 
   emitted(declared(Object.assign(record(), { files: [{ name: "a.js", contents: "" }] })), HOME);
 
   expect(requests.map((request) => Object.keys(request))).toEqual([["scripts"], ["scripts"]]);
-});
-
-test("a runtime's files are placed in a directory named by a hash of their names and bytes", () => {
-  const files = [
-    { name: "boot.js", contents: "self.boot = 1;" },
-    { name: "frame.html", contents: new TextEncoder().encode("<!doctype html>") },
-  ];
-  const runtime = Object.assign(() => [], { files });
-
-  const expected = createHash("sha256")
-    .update(
-      JSON.stringify(
-        files.map(({ name, contents }) => [
-          name,
-          createHash("sha256").update(contents).digest("hex"),
-        ]),
-      ),
-    )
-    .digest("hex")
-    .slice(0, 8);
-  expect(scriptRuntimeBase(files)).toBe(`/script-runtime/${expected}/`);
-  expect(core.scriptRuntimeBase).toBe(scriptRuntimeBase);
-  expect(scriptRuntimeFiles(runtime)).toEqual({
-    base: `/script-runtime/${expected}/`,
-    files: [
-      { path: `/script-runtime/${expected}/boot.js`, contents: files[0]?.contents },
-      { path: `/script-runtime/${expected}/frame.html`, contents: files[1]?.contents },
-    ],
-  });
-});
-
-test("a runtime's files move to a new directory when one byte of them changes", () => {
-  const one = scriptRuntimeFiles(
-    Object.assign(() => [], { files: [{ name: "boot.js", contents: "a" }] }),
-  );
-  const two = scriptRuntimeFiles(
-    Object.assign(() => [], { files: [{ name: "boot.js", contents: "b" }] }),
-  );
-
-  expect(one?.base).not.toBe(two?.base);
-});
-
-test("a runtime with no files, or an empty list, writes no directory", () => {
-  expect(scriptRuntimeFiles(undefined)).toBeUndefined();
-  expect(scriptRuntimeFiles(() => [])).toBeUndefined();
-  expect(scriptRuntimeFiles(Object.assign(() => [], { files: [] }))).toBeUndefined();
-});
-
-const BOOT = Object.assign(() => [], {
-  files: [{ name: "boot.js", contents: "self.boot = 1;" }],
-});
-
-test("a runtime's files are written into every domain tree, hashed, as assets", () => {
-  const base = scriptRuntimeFiles(BOOT)?.base ?? "";
-  const files = scriptRuntimeOutput({
-    runtime: BOOT,
-    locales: defineLocales({
-      en: { label: "English", direction: "ltr" },
-      de: { label: "Deutsch", direction: "ltr", domain: "example.de" },
-    }),
-    emitted: [],
-  });
-
-  expect(files).toEqual([
-    { path: `${base}boot.js`, kind: "asset", hashed: true, contents: "self.boot = 1;" },
-    {
-      domain: "example.de",
-      path: `${base}boot.js`,
-      kind: "asset",
-      hashed: true,
-      contents: "self.boot = 1;",
-    },
-  ]);
-});
-
-test("a site with no runtime files writes none", () => {
-  const locales = defineLocales({ en: { label: "English", direction: "ltr" } });
-  expect(scriptRuntimeOutput({ runtime: undefined, locales, emitted: [] })).toEqual([]);
-  expect(scriptRuntimeOutput({ runtime: () => [], locales, emitted: [] })).toEqual([]);
-});
-
-test("a runtime file at a key the build already wrote is refused, naming the key", () => {
-  const base = scriptRuntimeFiles(BOOT)?.base ?? "";
-
-  expect(() =>
-    scriptRuntimeOutput({
-      runtime: BOOT,
-      locales: defineLocales({ en: { label: "English", direction: "ltr" } }),
-      emitted: [{ path: `${base}boot.js`, kind: "html", contents: "" }],
-    }),
-  ).toThrow(
-    `Script runtime: 1 file the runtime adapter declared is at a deploy key this build already wrote — a deploy key holds one file, and the site's own pages, chunks and assets are written before the runtime's files are; move the page off that address:\n  "${base}boot.js" — the build already emitted an html file there`,
-  );
 });

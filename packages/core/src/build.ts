@@ -139,12 +139,8 @@ import type { PreviewSetting } from "./preview.js";
 import { buildPreview } from "./preview-build.js";
 import { planPreview } from "./preview-entry.js";
 import { robotsFiles } from "./robots.js";
-import {
-  isScriptLoaderText,
-  movedRuntimeDirectories,
-  scriptElements,
-  scriptRuntimeOutput,
-} from "./script-elements.js";
+import { isScriptLoaderText, scriptElements } from "./script-elements.js";
+import { movedRuntimeDirectories, scriptRuntimeOutput } from "./script-runtime.js";
 import type { FacadePlaceholder } from "./script-elements.js";
 import { beaconElement, isBeaconText } from "./beacon.js";
 import {
@@ -1462,7 +1458,7 @@ async function stageSite(input: {
     moved.push(
       ...movedRuntimeDirectories({
         reused: [...carried.values()],
-        emitted: files,
+        runtime: section.scripts?.runtime,
         previous: input.previous.files,
       }),
     );
