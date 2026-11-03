@@ -62,7 +62,11 @@ export interface ScriptRuntimeFile {
 export interface ScriptRuntimeAdapter {
   (request: ScriptRuntimeRequest): readonly string[];
   readonly files?: readonly ScriptRuntimeFile[];
-  /** `false` refuses, when the config loads, a worker script that declares `integrity`. */
+  /**
+   * `false` refuses, when the config loads, a worker script that declares
+   * `integrity`. A wrapper around an adapter must carry it over, or the
+   * refusal no longer applies.
+   */
   readonly checksIntegrity?: boolean;
 }
 

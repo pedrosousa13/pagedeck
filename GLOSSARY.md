@@ -160,7 +160,8 @@ what its elements load from the site's own origin. The build writes them under
 bytes, which `scriptRuntimeBase` returns before any build runs, so an adapter's
 markup can name it. An adapter that loads a script without checking its
 `integrity` declares `checksIntegrity: false`, and the config then refuses every
-worker-reaching script that declares one. The request is unchanged: the adapter
+worker-reaching script that declares one. A wrapper around such an adapter must
+carry `checksIntegrity` over, or the refusal no longer applies. The request is unchanged: the adapter
 still gets one page's `worker` loadout and nothing else.
 
 It earns an entry because **Image adapter**, above, says a future contract

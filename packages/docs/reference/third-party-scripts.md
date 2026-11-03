@@ -255,6 +255,9 @@ no page points at files the build no longer writes.
 An adapter that loads a script without checking its `integrity` says so with
 `checksIntegrity: false`. The config then refuses, when it loads, every script
 that can reach `worker` and declares `integrity`, all of them in one message.
+A function you wrap around such an adapter must carry `checksIntegrity` over,
+as it carries `files`; a wrapper that drops it turns the refusal off, and the
+scripts load unchecked.
 
 Core ships no adapter of its own, and that is not an oversight. It ships a
 generic URL-template adapter for [images](./images.md) because every image CDN
