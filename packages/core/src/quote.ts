@@ -30,11 +30,11 @@ function redactCredential(value: string): string {
     : `${ADDRESS_SCHEME.exec(value)?.[0] ?? ""}…@${value.slice(userinfo + 1)}`;
 }
 
-/** Cut at `?` only: `#` starts most colors, and no valid color holds a `?`. */
+/** Not cut at a leading `#`: it starts most colors, and no valid color holds another. */
 export function redactColor(value: string): string {
   const stripped = redactCredential(value);
-  const query = stripped.indexOf("?");
-  return query === -1 ? stripped : `${stripped.slice(0, query + 1)}…`;
+  const delimiter = stripped.search(/\?|(?<!^)#/);
+  return delimiter === -1 ? stripped : `${stripped.slice(0, delimiter + 1)}…`;
 }
 
 /**

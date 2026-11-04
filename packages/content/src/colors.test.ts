@@ -531,7 +531,8 @@ test("a cached color the check refuses is probed again, and refused if the probe
 test.each([
   ["red?api_key=SECRET", '"red?…"'],
   ["https://h/x?api_key=SECRET", '"https://h/x?…"'],
-])("a query in a refused answer, %s, is cut before it is quoted", async (answer, quoted) => {
+  ["https://h/cb#access_token=SECRET", '"https://h/cb#…"'],
+])("a query or fragment in a refused answer, %s, is cut before it is quoted", async (answer, quoted) => {
   const store = openTempStore();
 
   const error = await refusal(

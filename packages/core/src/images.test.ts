@@ -401,7 +401,8 @@ test("a credential in a refused color is still redacted", () => {
 test.each([
   ["red?api_key=SECRET", '"red?…"'],
   ["https://h/x?api_key=SECRET", '"https://h/x?…"'],
-])("a query in a refused color, %s, is cut before it is quoted", (color, quoted) => {
+  ["https://h/cb#access_token=SECRET", '"https://h/cb#…"'],
+])("a query or fragment in a refused color, %s, is cut before it is quoted", (color, quoted) => {
   const message = colorFault(color)?.message;
 
   expect(message).not.toContain("SECRET");
