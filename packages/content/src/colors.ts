@@ -6,7 +6,7 @@ import {
   quoteSource,
   quoteValue,
   reasonOf,
-  redactCredential,
+  redactColor,
   refuseUnusableConcurrency,
 } from "./probing.js";
 import type { ContentStore } from "./store.js";
@@ -106,10 +106,9 @@ export async function syncImageColors(
   }
 }
 
-// Not cut at `?` or `#` as a source is: a color answer is not a URL, and `#` starts most.
 function quoteAnswer(answer: unknown): string {
   return typeof answer === "string"
-    ? quoteIdentifier(excerpt(answer, redactCredential) as string)
+    ? quoteIdentifier(excerpt(answer, redactColor) as string)
     : quoteValue(answer);
 }
 

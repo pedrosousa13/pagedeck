@@ -5032,9 +5032,10 @@ the signed URL it just asked for, so the cut has to reach a *nested* string
 (rule 6). It is the same cut `quoteSource` above makes, deliberately at the same
 depth, because two copies cutting at different depths is a drift no reader
 of either message can see (#46). A string answer is quoted only up to its first
-32 characters, as a preview's is below, and is not cut at its first `?` or `#`
-as a source is: a color is not a URL, and a refused `"#ff00001"` cut there would
-read `"#…"`. A credential in front of a host is still dropped from it. A cached
+32 characters, as a preview's is below. It is cut at its first `?` and dropped
+of a credential in front of a host, as a source is, but not cut at its first
+`#`: `#` starts most colors, and a refused `"#ff00001"` cut there would read
+`"#…"`. A cached
 color that `imageColorFault` refuses, written before the check existed, counts
 as never asked, so the sync probes its source again.
 

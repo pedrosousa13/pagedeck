@@ -527,3 +527,24 @@ test("a cached color the check refuses is probed again, and refused if the probe
     `  "/a.jpg" on /en/home — "red" — ${NOT_A_COLOR}`,
   );
 });
+
+test.each([
+  ["red?api_key=SECRET", '"red?…"'],
+  ["https://h/x?api_key=SECRET", '"https://h/x?…"'],
+])("a query in a refused answer, %s, is cut before it is quoted", async (answer, quoted) => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/a.jpg"),
+      probe: () => answer,
+    }),
+  );
+
+  expect(error.message).not.toContain("SECRET");
+  expect(error.message.split("\n")[1]).toBe(
+    `  "/a.jpg" on /en/home — ${quoted} — ${NOT_A_COLOR}`,
+  );
+});

@@ -394,6 +394,18 @@ test("a credential in a refused color is still redacted", () => {
   );
 });
 
+test.each([
+  ["red?api_key=SECRET", '"red?…"'],
+  ["https://h/x?api_key=SECRET", '"https://h/x?…"'],
+])("a query in a refused color, %s, is cut before it is quoted", (color, quoted) => {
+  const message = colorFault(color)?.message;
+
+  expect(message).not.toContain("SECRET");
+  expect(message?.split("\n")[1]).toBe(
+    `  ${quoted} — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255`,
+  );
+});
+
 test.each(["rgb(1, 2,3)", "rgb(1 2,3)"])("a color mixing rgb() separators, %s, is refused", (value) => {
   expect(colorFault(value)).toBeInstanceOf(RenderError);
 });

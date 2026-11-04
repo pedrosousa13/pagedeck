@@ -1,6 +1,6 @@
 import { excerpt, imageColorFault, imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
-import { quote, quoteIdentifier, redactCredential, redactSource } from "./quote.js";
+import { quote, quoteIdentifier, redactColor, redactSource } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
 import { entryId } from "@pagedeck/islands";
 import { RenderError } from "./tree.js";
@@ -205,10 +205,9 @@ function refuseUnusableImage(
   if (sections.length > 0) throw new RenderError(sections.join("\n\n"));
 }
 
-// Not cut at `?` or `#` as a source is: a color is not a URL, and `#` starts most.
 function quoteColor(color: unknown): string {
   return typeof color === "string"
-    ? quoteIdentifier(excerpt(color, redactCredential) as string)
+    ? quoteIdentifier(excerpt(color, redactColor) as string)
     : quote(color);
 }
 

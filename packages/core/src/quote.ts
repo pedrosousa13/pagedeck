@@ -23,11 +23,18 @@ function credentialEnd(value: string): number {
     : -1;
 }
 
-export function redactCredential(value: string): string {
+function redactCredential(value: string): string {
   const userinfo = credentialEnd(value);
   return userinfo === -1
     ? value
     : `${ADDRESS_SCHEME.exec(value)?.[0] ?? ""}…@${value.slice(userinfo + 1)}`;
+}
+
+/** Cut at `?` only: `#` starts most colors, and no valid color holds a `?`. */
+export function redactColor(value: string): string {
+  const stripped = redactCredential(value);
+  const query = stripped.indexOf("?");
+  return query === -1 ? stripped : `${stripped.slice(0, query + 1)}…`;
 }
 
 /**
