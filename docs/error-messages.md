@@ -2821,8 +2821,9 @@ still look like the same rule.
 
 `urlTemplate` refuses a template with no `{width}`, one with no source
 placeholder, one holding a placeholder it cannot fill, and one whose text before
-the first source placeholder is not a URL with a host (#288), since the host
-check below would have no origin to hold a built URL to:
+the first source placeholder is neither a whole origin nor a path that starts
+with a single `/` (#288), such as `https://` or `https:`, since the host check
+below would have no origin to hold a built URL to:
 
 ```
 Image URL template: holds no "{src}" or "{srcParam}" placeholder, so every image would get the same URL — write the source where the CDN takes it, {src} in a path or {srcParam} in a query parameter, as "https://cdn.example{src}?w={width}"

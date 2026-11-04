@@ -619,7 +619,15 @@ test.each([
   expect(attributes.src).toBe(url);
 });
 
-test.each(["https://{src}?w={width}", "//{src}?w={width}", "mailto:{srcParam}?w={width}"])(
+test.each([
+  "https://{src}?w={width}",
+  "//{src}?w={width}",
+  "mailto:{srcParam}?w={width}",
+  "https:{src}?w={width}",
+  "https:/{src}?w={width}",
+  "http:{src}?w={width}",
+  "images/{src}?w={width}",
+])(
   "a url template whose text before the source names no host is refused: %j",
   (template) => {
     const error: unknown = (() => {

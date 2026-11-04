@@ -249,13 +249,17 @@ const SOURCE_PLACEHOLDER = /\{(src|srcParam)\}/;
 
 const OTHER_HOST = "builds a URL on another host than the one the template names";
 
-function originOf(url: string): string | undefined {
+function originOf(url: string, base?: string): string | undefined {
   try {
-    const origin = new URL(url, RELATIVE_BASE).origin;
+    const origin = new URL(url, base).origin;
     return origin === "null" ? undefined : origin;
   } catch {
     return undefined;
   }
+}
+
+function isSitePath(text: string): boolean {
+  return text.startsWith("/") && !text.startsWith("//");
 }
 
 function hostFault(
@@ -290,7 +294,8 @@ function hostFault(
       fix: 'start the path with "/", such as "/hero.jpg"',
     };
   }
-  if (originOf(url) === originOf(textBeforeSource)) return undefined;
+  const base = isSitePath(textBeforeSource) ? RELATIVE_BASE : undefined;
+  if (originOf(url, base) === originOf(textBeforeSource, base)) return undefined;
   if (placeholder === "srcParam") {
     return {
       reason: OTHER_HOST,
@@ -345,9 +350,11 @@ export function urlTemplate(template: string): ImageAdapter {
   const sourceMatch = SOURCE_PLACEHOLDER.exec(template);
   const placeholder = sourceMatch?.[1];
   const textBeforeSource = template.slice(0, sourceMatch?.index ?? 0);
+  const sampleTextBeforeSource = build(textBeforeSource, SAMPLE_REQUEST);
   if (
     textBeforeSource !== "" &&
-    originOf(build(textBeforeSource, SAMPLE_REQUEST)) === undefined
+    !isSitePath(sampleTextBeforeSource) &&
+    originOf(sampleTextBeforeSource) === undefined
   ) {
     sections.push(
       `Image URL template: the text before its source placeholder is not a URL with a host, so there is no host to keep each image URL on — write a whole origin or a path before the placeholder, as ${TEMPLATE_EXAMPLE} or "/images{src}?w={width}", or start the template with the placeholder`,

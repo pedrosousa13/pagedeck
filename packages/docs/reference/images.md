@@ -85,9 +85,11 @@ puts before the first `{src}` or `{srcParam}`:
   or an `http:` or `https:` URL. Any other scheme (`javascript:`, `data:`,
   `file:` and the rest) and a protocol-relative `//host` source are refused.
 
-A template whose text before the source placeholder is not a URL with a host,
-such as `https://{src}`, fails where you wrote it, since there would be no host
-to check against. An adapter function you write yourself is not checked.
+The text before the source placeholder must be a whole origin, such as
+`https://images.example`, or a path that starts with a single `/`, such as
+`/images`. Anything else, such as `https://{src}`, `https:{src}` or
+`images/{src}`, fails where you wrote it, since there would be no host to check
+against. An adapter function you write yourself is not checked.
 
 ### The other fields
 
