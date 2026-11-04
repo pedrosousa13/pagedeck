@@ -759,7 +759,7 @@ async function rawGet(
         resolve({
           status: response.statusCode ?? 0,
           type: response.headers["content-type"],
-          sniffing: response.headers["x-content-type-options"],
+          sniffing: response.headers["x-content-type-options"]?.toString(),
           body: Buffer.concat(chunks),
         }),
       );
