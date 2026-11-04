@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { openStore, syncImageColors } from "@pagedeck/content";
 import { expect, test } from "vitest";
 import { ConfigError } from "./exit.js";
 import {
@@ -736,3 +740,38 @@ test.each([
     );
   },
 );
+
+test("a stale cached color whose re-probe throws renders with no placeholder", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pagedeck-core-images-"));
+  const store = openStore(join(dir, "content.db"));
+  try {
+    store.setImageColor("/hero.jpg", "red");
+    const warnings: string[] = [];
+
+    await syncImageColors({
+      store,
+      collection: "pages",
+      sources: [{ src: "/hero.jpg", entry: "/en/home" }],
+      probe: () => {
+        throw new Error("502 Bad Gateway");
+      },
+      onWarning: (message) => warnings.push(message),
+    });
+
+    expect(warnings).toHaveLength(1);
+    const attributes = imageAttributes({
+      images: IMAGES,
+      image: {
+        src: "/hero.jpg",
+        width: 1600,
+        height: 900,
+        placeholderColor: store.getImageColor("/hero.jpg"),
+      },
+      page: PAGE,
+    });
+    expect(attributes.style).toBeUndefined();
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

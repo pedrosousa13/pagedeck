@@ -548,3 +548,36 @@ test.each([
     `  "/a.jpg" on /en/home — ${quoted} — ${NOT_A_COLOR}`,
   );
 });
+
+test("a cached color the check refuses is dropped when its re-probe throws, and asked for again next sync", async () => {
+  const store = openTempStore();
+  store.setImageColor("/a.jpg", "red");
+  store.setImageColor("/ok.jpg", "#2f3a28");
+  const warnings: string[] = [];
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/a.jpg", "/ok.jpg"),
+    probe: () => {
+      throw new Error("502 Bad Gateway");
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings).toEqual([
+    'Collection "pages": 1 image source could not be probed for a dominant color, so it renders with no placeholder — this is a warning and never a refusal, because a color is decoration and the host that serves the image is not this site\'s wiring; the next sync asks again:\n' +
+      '  "/a.jpg" — 502 Bad Gateway',
+  ]);
+  expect(store.hasImageColor("/a.jpg")).toBe(false);
+  expect(store.getImageColor("/ok.jpg")).toBe("#2f3a28");
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/a.jpg"),
+    probe: () => "#101010",
+  });
+
+  expect(store.getImageColor("/a.jpg")).toBe("#101010");
+});

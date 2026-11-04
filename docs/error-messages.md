@@ -5037,7 +5037,9 @@ of a credential in front of a host, as a source is, but not cut at its first
 `#`: `#` starts most colors, and a refused `"#ff00001"` cut there would read
 `"#…"`. A cached
 color that `imageColorFault` refuses, written before the check existed, counts
-as never asked, so the sync probes its source again.
+as never asked, so the sync probes its source again; if that probe throws, the
+warning above names the source and the cached color is deleted, so the image
+renders with no placeholder rather than failing the build.
 
 `imageAttributes` runs the same check before it writes a color, because a store
 file is pushed and pulled and a site can pass any string as

@@ -278,9 +278,11 @@ A store written before this feature existed has no colours in it and says so:
 the first build after an upgrade renders exactly as it did before rather than
 failing. A store written before these rules has colours in it that may break
 them, such as `red`. The next sync treats each of those as never asked and
-probes its source again, so a probe that now answers `#ff0000` replaces it, and
-one that still answers `red` fails that sync. A build run on such a store
-before that sync refuses the image, as below.
+probes its source again, so a probe that now answers `#ff0000` replaces it, one
+that still answers `red` fails that sync, and one that cannot reach the host
+drops it, so the image renders with no placeholder and the next sync asks
+again. A build run on such a store before that sync refuses the image, as
+below.
 
 **What happens when it goes wrong.** A source your probe cannot reach renders
 with no placeholder and never fails the sync; the sync warns, naming every

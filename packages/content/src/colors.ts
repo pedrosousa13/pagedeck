@@ -57,13 +57,18 @@ export async function syncImageColors(
     entries.add(entry);
     entriesBySource.set(src, entries);
   }
-  const unasked = [...entriesBySource.keys()].filter((src) => {
-    if (!store.hasImageColor(src)) return true;
-    const cached = store.getImageColor(src);
-    return cached !== undefined && imageColorFault(cached) !== undefined;
-  });
+  const refusedCache = new Set(
+    [...entriesBySource.keys()].filter((src) => {
+      const cached = store.getImageColor(src);
+      return cached !== undefined && imageColorFault(cached) !== undefined;
+    }),
+  );
+  const unasked = [...entriesBySource.keys()].filter(
+    (src) => !store.hasImageColor(src) || refusedCache.has(src),
+  );
 
   const learned = new Map<string, string | undefined>();
+  const dropped: string[] = [];
   const failures: string[] = [];
   const faults: string[] = [];
 
@@ -73,6 +78,7 @@ export async function syncImageColors(
       answer = await probe(src);
     } catch (error) {
       failures.push(`  ${quoteSource(src)} — ${reasonOf(error)}`);
+      if (refusedCache.has(src)) dropped.push(src);
       return;
     }
     const reason = answer === undefined ? undefined : imageColorFault(answer);
@@ -93,10 +99,11 @@ export async function syncImageColors(
     throw new CollectionError(colorFaultReport(collection, [...faults].sort()));
   }
 
-  if (learned.size > 0) {
+  if (learned.size > 0 || dropped.length > 0) {
     const rows = [...learned.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
     store.transaction(() => {
       for (const [src, color] of rows) store.setImageColor(src, color);
+      for (const src of [...dropped].sort()) store.deleteImageColor(src);
     });
   }
 
