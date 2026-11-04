@@ -756,15 +756,21 @@ A script with no `integrity` gets neither attribute, and a site that declares
 none gets the same pages it got before the field existed.
 
 The build refuses a value when it loads your config if the value is not a
-string, is empty, or has no `sha256-`, `sha384-` or `sha512-` hash in it. A
-browser ignores integrity metadata that it cannot parse and runs the script
-with no check, so a mistyped value would give you no protection and no warning.
-Here the digest was copied without its `sha384-` prefix:
+string or is empty, and it refuses each token of the value that is not a
+`sha256-`, `sha384-` or `sha512-` hash with a digest of that algorithm's length
+in base64. A browser skips a token it cannot parse. If no valid token is left,
+the browser runs the script with no check, so a mistyped value gives you no
+protection and no warning. A digest of the wrong length matches no file, so the
+browser blocks the script on every page. Here the digest was copied without its
+`sha384-` prefix, and a second copy lost its last character:
 
 ```
-Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:
-  scripts[0] — "integrity" — "oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC" — holds no sha256-, sha384- or sha512- hash, and a browser ignores integrity it cannot parse, so the script would load unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+Script settings: declares 2 script fields that cannot be loaded from — declare each as the type its own line names:
+  scripts[0] — "integrity" — "oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC" — not a sha256-, sha384- or sha512- hash, and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+  scripts[1] — "integrity" — "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8w" — a digest of 63 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
 ```
+
+The error lists every bad token of every script at once.
 
 The build does not compute or fetch hashes for you. Copy the value from the
 vendor's release page.

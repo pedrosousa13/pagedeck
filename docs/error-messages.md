@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 265 checked messages pin 39911 of the 111297 fenced characters, and
+below**: the 265 checked messages pin 39865 of the 112034 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1444,27 +1444,49 @@ back is a key whose trailing space nobody reading a CI log will see), and every
 character of the name that failed is named, in the order it appears, so one edit
 fixes the key.
 
-Two more lines are about the integrity metadata a pinned vendor bundle is
-checked against (#314), and both sit under the same type headline, because
-`integrity` is one more field of a declaration that its own edit fixes:
+The integrity metadata a pinned vendor bundle is checked against (#314) gets
+lines of its own under the same type headline, because `integrity` is one more
+field of a declaration that its own edit fixes. The first is the value read
+back; each other line quotes one whitespace-separated token, so a value with two
+bad tokens gets two lines, and every bad token of every script is reported in
+the one message (#291):
 
 ```
-Script settings: declares 2 script fields that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 4 script fields that cannot be loaded from — declare each as the type its own line names:
   scripts[0] — "integrity" — "" — not integrity metadata — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
-  scripts[1] — "integrity" — "oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC" — holds no sha256-, sha384- or sha512- hash, and a browser ignores integrity it cannot parse, so the script would load unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+  scripts[1] — "integrity" — "oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC" — not a sha256-, sha384- or sha512- hash, and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+  scripts[2] — "integrity" — "sha384-" — no digest after "sha384-", and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
+  scripts[3] — "integrity" — "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8w" — a digest of 63 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
 ```
 
 The first line is the type read back: a `.js` config is never typechecked, so a
 number or an empty string reaches this door as readily as a hash.
 
-**The second line refuses a string the type accepts, and it is the permitted
+**The other lines refuse strings the type accepts, and they are the permitted
 exception to the two-doors rule the attribute lines argue above.** That rule
-forbids a refusal of what `tsc` passed *and the browser honours*. A value with
-no `sha256-`, `sha384-` or `sha512-` token is not honoured: a browser ignores
-integrity metadata it cannot parse and runs the script unchecked, with nothing
-in the console a site would read. The config passes, the page ships, and the
-check the site declared is not made. Refusing it at config load is the only
-place the fault can be seen.
+forbids a refusal of what `tsc` passed *and the browser honours*. A token is
+honoured when it is `sha256-`, `sha384-` or `sha512-` followed by the digest of
+that algorithm in base64, standard or URL-safe, padded right or not at all, and
+optionally `?` and options. Anything else fails one of two ways, and Chromium
+151 shows both (#291, measured on a local fixture):
+
+- **It fails open.** A token with another algorithm (`md5-`, `SHA384-`), no
+  digest (`sha384-`, `sha512-?`), or a character outside base64
+  (`sha384-!!!not`) is skipped with a console error. With no valid token left,
+  the browser runs the script unchecked, and nobody who runs the site reads a
+  visitor's console. The config passes, the page ships, and the check the site
+  declared is not made. Refusing it at config load is the only place the fault
+  can be seen. These lines say "runs the script unchecked".
+- **It fails closed.** A base64 digest of the wrong length (`sha384-AAAA`,
+  `sha384-abc`, a digest cut short in the copy) is kept, matches no file, and
+  the browser blocks the script on every page. That is loud, but only in a
+  visitor's browser, and the length is known at config load. These lines say
+  "matches no file".
+
+A digest of the right length padded wrong (`=` inside it, or more `=` than its
+algorithm takes) is refused with no claim about the browser, since Chromium 151
+ignores trailing `=` it does not need; the line states the shape the
+algorithm's digest takes instead.
 
 **The token check is lowercase-only on purpose.** Every vendor prints the
 algorithm in lowercase, and the two ways to be wrong are not the same size.
