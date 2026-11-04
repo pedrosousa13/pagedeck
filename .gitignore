@@ -74,6 +74,9 @@ packages/core/.pagedeck-dev-worker-fallback/
 # Another: a site a dev server compiles in process and closes (#167).
 packages/core/.pagedeck-dev-compiled/
 
+# Another: a site with no script runtime, which serves nothing under /script-runtime/ (#282).
+packages/core/.pagedeck-dev-no-runtime/
+
 # The fixture site `packages/core/src/dev-upstreams.test.ts` writes (#141).
 packages/core/.pagedeck-dev-upstreams/
 

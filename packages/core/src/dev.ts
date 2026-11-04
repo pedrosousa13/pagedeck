@@ -32,6 +32,7 @@ import { compileIslands } from "./react-compiler.js";
 import { renderPage } from "./render.js";
 import { covers } from "./routing.js";
 import type { UpstreamRule } from "./routing.js";
+import { scriptRuntimeContentType, scriptRuntimeFiles } from "./script-runtime.js";
 import { workerConsentWarning, workerFallbackWarning } from "./scripts.js";
 import { redactTarget } from "./snapshot.js";
 import { stamp, trackSiteModules } from "./site-modules.js";
@@ -200,8 +201,10 @@ export async function startDevServer(
     });
     http.on("request", (request, response) => {
       const upstream = upstreamFor(site.current.section, request);
-      if (upstream === undefined) vite.middlewares(request, response);
-      else forwardRequest(upstream, request, response, input.err);
+      if (upstream !== undefined) forwardRequest(upstream, request, response, input.err);
+      else if (!serveRuntimeFile(site.current.runtimeFiles, request, response)) {
+        vite.middlewares(request, response);
+      }
     });
     // Vite's own listener answers only its HMR path, "/", which no upstream
     // prefix covers, so the two never both write to one socket.
@@ -247,6 +250,12 @@ interface SiteState {
   upstreams: UpstreamSources;
   foldStrategy: ReturnType<typeof resolveFoldStrategy>;
   styles: readonly string[];
+  runtimeFiles: ReadonlyMap<string, RuntimeFile>;
+}
+
+interface RuntimeFile {
+  type: string;
+  contents: Buffer;
 }
 
 function reportConfigFaults(
@@ -277,7 +286,31 @@ function siteState(
     styles: (section.css ?? []).map((path) =>
       devFileUrl(resolvePath(root, path), root),
     ),
+    runtimeFiles: new Map(
+      scriptRuntimeFiles(section.scripts?.runtime).map(({ name, path, contents }) => [
+        path,
+        { type: scriptRuntimeContentType(name), contents: Buffer.from(contents) },
+      ]),
+    ),
   };
+}
+
+/** An exact match on the path as sent, never a path built from it. */
+function serveRuntimeFile(
+  files: ReadonlyMap<string, RuntimeFile>,
+  request: IncomingMessage,
+  response: ServerResponse,
+): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const url = request.url ?? "/";
+  const query = url.indexOf("?");
+  const file = files.get(query === -1 ? url : url.slice(0, query));
+  if (file === undefined) return false;
+  response.statusCode = 200;
+  response.setHeader("content-type", file.type);
+  response.setHeader("content-length", file.contents.length);
+  response.end(request.method === "HEAD" ? undefined : file.contents);
+  return true;
 }
 
 function devFileUrl(file: string, root: string): string {

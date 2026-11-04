@@ -26,22 +26,50 @@ export function scriptRuntimeBase(files: readonly ScriptRuntimeFile[]): string {
   return `${SCRIPT_RUNTIME_DIR}${digest}/`;
 }
 
+export interface PlacedRuntimeFile extends ScriptRuntimeFile {
+  readonly path: string;
+}
+
+export function scriptRuntimeFiles(
+  runtime: ScriptRuntimeAdapter | undefined,
+): PlacedRuntimeFile[] {
+  const declared = runtime?.files ?? [];
+  if (declared.length === 0) return [];
+  const base = scriptRuntimeBase(declared);
+  return declared.map(({ name, contents }) => ({ name, path: `${base}${name}`, contents }));
+}
+
+const CONTENT_TYPES: ReadonlyMap<string, string> = new Map([
+  [".js", "text/javascript; charset=utf-8"],
+  [".mjs", "text/javascript; charset=utf-8"],
+  [".html", "text/html; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
+  [".wasm", "application/wasm"],
+]);
+
+/** The build records no type: a host names one from the file's extension, as this does for dev. */
+export function scriptRuntimeContentType(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return (dot === -1 ? undefined : CONTENT_TYPES.get(name.slice(dot))) ?? "application/octet-stream";
+}
+
 export function scriptRuntimeOutput(input: {
   runtime: ScriptRuntimeAdapter | undefined;
   locales: LocaleSet;
   emitted: readonly EmittedFile[];
 }): EmittedFile[] {
-  const declared = input.runtime?.files ?? [];
+  const declared = scriptRuntimeFiles(input.runtime);
   if (declared.length === 0) return [];
-  const base = scriptRuntimeBase(declared);
   const trees = new Set<string>();
   for (const locale of input.locales.values()) trees.add(localeTree(locale) ?? "");
   const placed = [...trees].sort().flatMap((domain) =>
-    declared.map(({ name, contents }) => ({
+    declared.map(({ name, path, contents }) => ({
       name,
       file: {
         ...(domain === "" ? {} : { domain }),
-        path: `${base}${name}`,
+        path,
         kind: "asset",
         hashed: true,
         contents,

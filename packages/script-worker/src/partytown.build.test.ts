@@ -1,7 +1,7 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -201,6 +201,56 @@ test("Partytown's files are written once, hashed, under the directory the snippe
     );
   }
 });
+
+const CONTENT_TYPES: Readonly<Record<string, string>> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+};
+
+async function startDev(cwd: string): Promise<{ origin: string; stop(): Promise<void> }> {
+  const child = spawn(process.execPath, [BIN, "dev", "--port", "0"], { cwd });
+  const stop = (): Promise<void> =>
+    new Promise((done) => {
+      if (child.exitCode !== null || child.signalCode !== null) done();
+      else {
+        child.on("exit", () => done());
+        child.kill("SIGTERM");
+      }
+    });
+  const origin = await new Promise<string>((resolve, reject) => {
+    let out = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      out += chunk;
+      const found = /at (http:\/\/[^\s]+)/.exec(out);
+      if (found !== null) resolve(found[1] as string);
+    });
+    child.on("exit", (code) => {
+      reject(new Error(`pagedeck dev exited with ${String(code)} before it was listening:\n${out}`));
+    });
+  });
+  return { origin, stop };
+}
+
+test("pagedeck dev serves each file the build wrote under /script-runtime/, with the same bytes and the type its name gives", async () => {
+  const dev = await startDev(SITE);
+  try {
+    const rows = manifest.files.filter((file) => file.path.startsWith("/script-runtime/"));
+    expect(rows).toHaveLength(4);
+    for (const { path } of rows) {
+      const response = await fetch(`${dev.origin}${path}`);
+      expect({ path, status: response.status, type: response.headers.get("content-type") }).toEqual({
+        path,
+        status: 200,
+        type: CONTENT_TYPES[extname(path)],
+      });
+      expect(Buffer.from(await response.arrayBuffer()).equals(readFileSync(join(OUT, path)))).toBe(true);
+    }
+  } finally {
+    await dev.stop();
+  }
+}, 120_000);
 
 test("the hash the runtime reports is the hash of the snippet every page carries", async () => {
   const { runtime } = (await import(join(SITE, "src", "scripts.ts"))) as {
