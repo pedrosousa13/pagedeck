@@ -350,7 +350,7 @@ test("every option that is unknown or of the wrong type is refused by name, toge
   expect(call).toThrow(ConfigError);
   expect(call).toThrow(
     [
-      'Partytown runtime "build.scripts.runtime": 4 options are not ones this runtime takes — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but forward, resolveUrl, globalFns, mainWindowAccessors, loadScriptsOnMainThread, fallbackTimeout and strictProxyHas:',
+      'Partytown runtime "build.scripts.runtime": 4 options this runtime cannot take — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but forward, resolveUrl, globalFns, mainWindowAccessors, loadScriptsOnMainThread, fallbackTimeout and strictProxyHas:',
       '  "forwrd" — not an option this runtime takes',
       '  "debug" — not an option this runtime takes',
       '  "fallbackTimeout" — Infinity is not a finite number 0 or more',
@@ -401,4 +401,38 @@ test("a valid config writes the snippet it wrote before #290, so a pinned CSP ha
   expect(definePartytown().inlineScriptHash).toBe(
     "'sha256-+btblDztaAZ3NXe34xvcHxTWd9rwzKSCcVsvacjny4w='",
   );
+});
+
+const BREAKOUT = "</script><img src=x onerror=alert(1)>";
+
+/** Safe on the first read, the breakout on every read after it. */
+function safeOnce<T>(safe: T): () => T | string {
+  let reads = 0;
+  return () => (reads++ === 0 ? safe : BREAKOUT);
+}
+
+test("an option that reads safe when checked and breaks out when built is refused by the text the build emits (#290)", () => {
+  for (const options of [
+    () => Object.defineProperty({}, "fallbackTimeout", { enumerable: true, get: safeOnce(5000) }),
+    () => {
+      const read = safeOnce(5000);
+      return new Proxy({ fallbackTimeout: 5000 }, {
+        get: (target, key) => (key === "fallbackTimeout" ? read() : Reflect.get(target, key)),
+      });
+    },
+    () => ({ globalFns: [{ toJSON: safeOnce("gtag") }] }),
+  ]) {
+    const call = (): unknown => definePartytown(options() as never);
+    expect(call).toThrow(ConfigError);
+    expect(call).toThrow(
+      'Partytown runtime "build.scripts.runtime": the snippet Partytown writes holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"; no option held it when checked, so pass each option as a plain value that reads the same every time',
+    );
+  }
+});
+
+test("a fallbackTimeout that cannot be turned into a string is still refused with a ConfigError (#290)", () => {
+  const call = (): unknown => definePartytown({ fallbackTimeout: Object.create(null) as never });
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow('  "fallbackTimeout" — an object is not a finite number 0 or more');
 });

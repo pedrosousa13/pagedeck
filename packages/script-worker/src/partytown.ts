@@ -66,7 +66,7 @@ const ACCEPTED_OPTIONS = [
   "loadScriptsOnMainThread",
   "fallbackTimeout",
   "strictProxyHas",
-] as const;
+] as const satisfies readonly (keyof PartytownOptions)[];
 
 /** The options the snippet carries as written, which an option's text can break out of. */
 const WRITTEN_OPTIONS = [
@@ -97,12 +97,15 @@ export function definePartytown(options: PartytownOptions = {}): PartytownRuntim
       lib,
       ...(routes === undefined ? {} : { resolveUrl: resolveUrlFunction(routes) }),
     } as PartytownConfig);
+  const config = snippetAt("/");
   const lib = libDirPath();
   const files: readonly ScriptRuntimeFile[] = [
     ...LIB_FILES.map((name) => ({ name, contents: readFileSync(join(lib, name)) })),
-    { name: CONFIG_FILE, contents: snippetAt("/") },
+    { name: CONFIG_FILE, contents: config },
   ];
   const snippet = snippetAt(scriptRuntimeBase(files));
+  const emitted = emittedSnippetFaultReport([config, snippet]);
+  if (emitted !== undefined) throw new ConfigError(emitted);
   const element = `<script>${snippet}</script>`;
 
   const runtime = ({ scripts }: ScriptRuntimeRequest): Required<ScriptRuntimeMarkup> => ({
@@ -128,21 +131,35 @@ function optionsFaultReport(options: PartytownOptions): string | undefined {
       name === "fallbackTimeout" &&
       !(typeof value === "number" && Number.isFinite(value) && value >= 0)
     ) {
-      return [`  "fallbackTimeout" — ${shown(value)} is not a finite number 0 or more`];
+      return [`  "fallbackTimeout" — ${describedValue(value)} is not a finite number 0 or more`];
     }
     if (name === "strictProxyHas" && typeof value !== "boolean") {
-      return [`  "strictProxyHas" — ${shown(value)} is not true or false`];
+      return [`  "strictProxyHas" — ${describedValue(value)} is not true or false`];
     }
     return [];
   });
   if (faults.length === 0) return undefined;
   return `${WHERE}: ${String(faults.length)} ${
-    faults.length === 1 ? "option is not one" : "options are not ones"
-  } this runtime takes — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but ${ACCEPTED_OPTIONS.slice(0, -1).join(", ")} and ${ACCEPTED_OPTIONS[ACCEPTED_OPTIONS.length - 1]}:\n${faults.join("\n")}`;
+    faults.length === 1 ? "option" : "options"
+  } this runtime cannot take — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but ${ACCEPTED_OPTIONS.slice(0, -1).join(", ")} and ${ACCEPTED_OPTIONS[ACCEPTED_OPTIONS.length - 1]}:\n${faults.join("\n")}`;
 }
 
-function shown(value: unknown): string {
-  return typeof value === "string" ? JSON.stringify(value) : String(value);
+function describedValue(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "function") return "a function";
+  if (typeof value === "object" && value !== null) return "an object";
+  return String(value);
+}
+
+/** Catches an option that read safe when checked and different when built (#290). */
+function emittedSnippetFaultReport(texts: readonly string[]): string | undefined {
+  for (const text of texts) {
+    const fault = inlineScriptFault(text);
+    if (fault !== undefined) {
+      return `${WHERE}: the snippet Partytown writes ${fault}; no option held it when checked, so pass each option as a plain value that reads the same every time`;
+    }
+  }
+  return undefined;
 }
 
 function writtenOptionsFaultReport(options: PartytownOptions): string | undefined {
