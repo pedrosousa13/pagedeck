@@ -16,7 +16,7 @@ The citations are checked on every run by
 `packages/core/src/source-citations.test.ts`, here and in every other document
 and source comment in the repo (#426). Counting a citation as a prose pairing of
 a name with a repo source path (the forms `x` (`path`), `x` in `path`, and
-`x` at/from `path`, outside fenced blocks), there are 134 below, 121 of them
+`x` at/from `path`, outside fenced blocks), there are 135 below, 122 of them
 distinct, naming functions and the types, classes and constants beside them, and
 each names a file that declares or re-exports it. The rule is written down
 because two readers applying different ones get different totals: the 2026-09-09
@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 344 messages fenced
-below, 267 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 345 messages fenced
+below, 268 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 267 checked messages pin 40289 of the 113157 fenced characters, and
+below**: the 268 checked messages pin 40378 of the 113765 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -5008,16 +5008,22 @@ one rule was true for as long as nobody edited either (#383).
 
 **One refusal sits under the same seam and it is the site's own function**,
 which is `build.links.external.probe`'s bargain one door along. A color probe
-answering with something that is not a string is a declared function returning
-the wrong kind on every run until somebody edits it, so it is a
+answering with something that is not a CSS color is a declared function
+returning the wrong kind on every run until somebody edits it, so it is a
 `CollectionError` and exit 2, while a probe that *throws* is the warning above,
-because a throw is the host and not the code. It is collected and thrown after
-the pass, before anything is cached (rule 5): a probe that answers wrongly for
-one source answers wrongly for all of them.
+because a throw is the host and not the code. An answer is held to
+`imageColorFault` (`packages/content/src/preview.ts`), which admits only `#`
+and 3, 4, 6 or 8 hex digits or a plain `rgb()`, because it is written into a
+`style` attribute where `red;background-image:url(…)` would add a declaration
+(#286). It is collected and thrown after the pass, before anything is cached
+(rule 5): a probe that answers wrongly for one source answers wrongly for all
+of them. It names the entries that hold each source (rule 2), because a source
+refused here is a page that would otherwise ship without its color:
 
 ```
-Collection "pages": the image color probe answered 1 source with something that is not a CSS color — return a CSS color such as "#2f3a28", or undefined for an image that has none:
-  "/uploads/a.jpg" — 17 — not a string
+Collection "pages": the image color probe answered 2 sources with something that is not a CSS color — return a CSS color as "#" and 3, 4, 6 or 8 hex digits, such as "#2f3a28", or as rgb() of three whole numbers from 0 to 255, such as "rgb(47 58 40)", or undefined for an image that has none:
+  "/uploads/a.jpg" on /de/home, /en/home — 17 — not a string
+  "/uploads/b.jpg" on /en/home — "red;background-image:url(https:/…" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255
 ```
 
 The value is quoted through `quoteValue`, which is `quote`'s replacer and not a
@@ -5025,7 +5031,18 @@ bare `JSON.stringify`: a probe answering with the CDN's response object carries
 the signed URL it just asked for, so the cut has to reach a *nested* string
 (rule 6). It is the same cut `quoteSource` above makes, deliberately at the same
 depth, because two copies cutting at different depths is a drift no reader
-of either message can see (#46).
+of either message can see (#46). A string answer is quoted only up to its first
+32 characters, as a preview's is below.
+
+`imageAttributes` runs the same check before it writes a color, because a store
+file is pushed and pulled and a site can pass any string as
+`placeholderColor`. There it is a page's failure, so it names the entry and the
+image and is a `RenderError`:
+
+```
+Entry /en/home: image "/uploads/hero.jpg" carries a placeholderColor that is not a CSS color, so none is written into the page — pass the answer the sync cached for it, store.getImageColor(src), or leave the field out:
+  "var(--brand)" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255
+```
 
 A declared `imageColors.concurrency` that is not a whole number of probes above
 zero is refused beside it, before any request is made, rather than repaired:
@@ -5046,11 +5063,9 @@ Collection "pages": 1 image source could not be probed for a preview, so it rend
   "/uploads/hero.jpg" — 502 Bad Gateway
 ```
 
-Its refusal is the color probe's, with two differences. An answer is held to
-`imagePreviewFault` (`packages/content/src/preview.ts`) and not only to being a
-string, because it is written into a CSS `url()` inside a `style` attribute.
-And it names the entries that hold each source (rule 2), because a source
-refused here is a page that would otherwise ship without its preview. The
+Its refusal is the color probe's in shape. An answer is held to
+`imagePreviewFault` (`packages/content/src/preview.ts`), a different grammar,
+because it is written into a CSS `url()` inside a `style` attribute. The
 answer is quoted only up to its first 32 characters, since an oversized one is
 kilobytes of base64:
 

@@ -695,6 +695,9 @@ cached in the store by source and rendered as that image's background until it
 loads (`ContentStore.getImageColor`, `ImageSource.placeholderColor`). It is a
 value, not an image: an **Image preview** is a picture, and this is one
 property in a `style`, which stays under the preview when both are cached.
+`imageColorFault` (`packages/content/src/preview.ts`) admits only `#` and 3, 4,
+6 or 8 hex digits or a plain `rgb()`, at sync and again in `imageAttributes`,
+because anything looser can add a declaration to that `style` (#286).
 _Avoid_: placeholder image, LQIP, blur-up, thumbnail, average color (it is what
 the site's probe decided, and core never says how)
 
@@ -708,13 +711,13 @@ decision below. Core ships none, for the same reason: it decodes no images, so
 a site asks its CDN for the asset a few pixels wide, or makes one some other
 way.
 
-The one thing it adds is a check on the answer before it is cached:
+Its check on the answer before it is cached is its own:
 `imagePreviewFault` (`packages/content/src/preview.ts`) admits only a base64
 png, jpeg, webp, avif or gif data URI of at most `MAX_PREVIEW_BYTES`, and
 anything else fails the sync naming the collection, each entry holding the
-source, the source, the cap and the fix. A color answer goes into a `style`
-property as text React escapes; a preview goes into a CSS `url()` inside that
-property, so it is held to an alphabet that cannot close either.
+source, the source, the cap and the fix. A preview goes into a CSS `url()`
+inside a `style` property, so it is held to an alphabet that cannot close
+either.
 _Avoid_: LQIP generator, thumbnail adapter (it is not an adapter, for the
 dominant-color probe's reason), blur probe (the blur is what core does with
 the answer)

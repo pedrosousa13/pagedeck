@@ -52,8 +52,11 @@ contract gets an example or joins this list:
   `DEFAULT_PREVIEW_CONCURRENCY`, which a collection's `imagePreviews` runs
   for it (#276).
 - `@pagedeck/content/preview`: `MAX_PREVIEW_BYTES` and `imagePreviewFault`,
-  which the sync and `imageAttributes` both run on a preview, and `excerpt`,
-  which both refusals quote an answer through (#276).
+  which the sync and `imageAttributes` both run on a preview, `imageColorFault`,
+  which both run on a dominant color (#286), and `excerpt`, which every
+  refusal of either quotes an answer through (#276).
+- `@pagedeck/content`: `ImageColorSource`, the source and entry
+  `syncImageColors` takes (#286).
 - `@pagedeck/core/images`: `ImagePlaceholderStyle`, the `style`
   `imageAttributes` returns (#276).
 - `@pagedeck/content/escape`: `printable` and `quoteIdentifier`, which keep a

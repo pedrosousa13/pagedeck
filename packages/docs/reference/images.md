@@ -257,6 +257,22 @@ It becomes `style="background-color:…"`, which changes nothing the browser
 reserves space with: the `width` and `height` above already do that, and the
 colour cannot move anything.
 
+**An answer has to be one of these, or the sync fails:**
+
+- `#` and 3, 4, 6 or 8 hex digits, such as `#2f3a28` or `#2f3a28cc`;
+- `rgb()` of three whole numbers from 0 to 255, separated by one space or by a
+  comma with an optional space after it, such as `rgb(47 58 40)` or
+  `rgb(47, 58, 40)`.
+
+Nothing else is a colour here: no colour names, no `hsl()`, no percentages, no
+alpha in `rgb()`, and no space before or after the value. That is what keeps
+the answer inside its one `style` property: there is no semicolon, quote,
+backslash or `url(` it could hold to add a declaration of its own.
+`imageAttributes` checks a colour again before it writes one, so a store file
+that was edited by hand, or a string you made yourself, cannot skip the check;
+`imageColorFault` from `@pagedeck/content/preview` is the check, if you want to
+run it yourself.
+
 A store written before this feature existed has no colours in it and says so:
 `getImageColor` answers `undefined` for every source until a sync has run, so
 the first build after an upgrade renders exactly as it did before rather than
@@ -270,7 +286,7 @@ entries that changed, so a source that failed during an outage is retried
 without anybody editing the page it is on. A source with no colour to
 give (return `undefined`) is remembered as answered, so it is asked about
 once and never again. Only a probe that answers with something that is not a
-string stops the run, because that is your code rather than a host.
+colour stops the run, because that is your code rather than a host.
 
 Returning `undefined` and throwing are therefore two different statements, and
 it is worth being deliberate about which one your probe makes.
@@ -460,13 +476,23 @@ Collection "pages": "imageColors.concurrency" is not a number of probes — writ
   0 — below one, and a sync that may run no probe at all would never cache a color
 ```
 
-**A colour that is not a colour.** Your probe answering with anything but a
-string or `undefined` is a declaration that will answer that way on every run,
-so the sync stops and names every source it happened for:
+**A colour that is not a colour.** Your probe answering with anything outside
+the rules above, or with something that is not a string, will answer that way
+on every run, so the sync stops, after the entries are written, naming every
+source it happened for, the entries that hold it, and the start of what came
+back. Nothing that run answered is cached, the valid answers included:
 
 ```
-Collection "pages": the image color probe answered 1 source with something that is not a CSS color — return a CSS color such as "#2f3a28", or undefined for an image that has none:
-  "/uploads/a.jpg" — 17 — not a string
+Collection "pages": the image color probe answered 2 sources with something that is not a CSS color — return a CSS color as "#" and 3, 4, 6 or 8 hex digits, such as "#2f3a28", or as rgb() of three whole numbers from 0 to 255, such as "rgb(47 58 40)", or undefined for an image that has none:
+  "/uploads/a.jpg" on /de/home, /en/home — 17 — not a string
+  "/uploads/b.jpg" on /en/home — "red;background-image:url(https:/…" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255
+```
+
+The same check at render names the page and the image:
+
+```
+Entry /en/home: image "/uploads/hero.jpg" carries a placeholderColor that is not a CSS color, so none is written into the page — pass the answer the sync cached for it, store.getImageColor(src), or leave the field out:
+  "var(--brand)" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255
 ```
 
 **A preview that is not a preview.** Any answer outside the rules above stops
