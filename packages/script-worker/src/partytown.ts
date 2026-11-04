@@ -77,7 +77,18 @@ const WRITTEN_OPTIONS = [
 ] as const;
 
 const ROUTES_FIX =
-  'resolveUrl: { "https://collector.example": "/vendor/collector/" }';
+  'resolveUrl: { "https://collector.example.com": "/vendor/collector/" }';
+
+const RESERVED_DOMAINS = [
+  "local",
+  "internal",
+  "lan",
+  "home.arpa",
+  "test",
+  "localhost",
+  "invalid",
+  "example",
+] as const;
 
 const PATH_PREFIX = /^\/(?:[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)+$/;
 
@@ -239,8 +250,12 @@ function originFault(key: string): string | undefined {
   ) {
     return "not an https origin with nothing after the host";
   }
+  const reserved = reservedDomain(url.hostname);
+  if (reserved !== undefined) {
+    return `names a host in the reserved or private-use domain "${reserved}", which is not a vendor's DNS name`;
+  }
   if (!isDnsName(url.hostname)) {
-    return 'names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name';
+    return 'names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name';
   }
   if (url.origin !== key) {
     return `not written as the origin it names — write it as ${JSON.stringify(url.origin)}`;
@@ -254,9 +269,14 @@ function isDnsName(host: string): boolean {
     host.includes(".") &&
     !host.endsWith(".") &&
     !host.startsWith("[") &&
-    !/^\d+\.\d+\.\d+\.\d+$/.test(host) &&
-    !host.endsWith(".localhost")
+    !/^\d+\.\d+\.\d+\.\d+$/.test(host)
   );
+}
+
+/** The parsed host is already lowercased, percent-decoded and in its punycode form. */
+function reservedDomain(host: string): string | undefined {
+  const name = host.endsWith(".") ? host.slice(0, -1) : host;
+  return RESERVED_DOMAINS.find((domain) => name === domain || name.endsWith(`.${domain}`));
 }
 
 function isPathPrefix(value: string): boolean {

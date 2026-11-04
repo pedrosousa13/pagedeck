@@ -68,8 +68,8 @@ test("every option the snippet carries moves the runtime's directory", () => {
   const plain = base({});
 
   for (const options of [
-    { resolveUrl: { "https://collector.example": "/vendor/collector/" } },
-    { resolveUrl: { "https://collector.example": "/vendor/other/" } },
+    { resolveUrl: { "https://collector.example.com": "/vendor/collector/" } },
+    { resolveUrl: { "https://collector.example.com": "/vendor/other/" } },
     { forward: ["dataLayer.push"] },
     { loadScriptsOnMainThread: [/ab\.js$/] },
     { loadScriptsOnMainThread: [/cd\.js$/] },
@@ -168,18 +168,18 @@ test("resolveUrl sends a declared vendor origin to the path prefix this site pro
   const resolve = workerResolveUrl(
     inlineText(
       definePartytown({
-        resolveUrl: { "https://collector.example": "/vendor/collector/" },
+        resolveUrl: { "https://collector.example.com": "/vendor/collector/" },
       })({ scripts: [TAGS] }).head[0],
     ),
   );
   const page = new URL("https://site.example/pricing");
 
   for (const type of ["fetch", "xhr", "script", "image", "sendBeacon"]) {
-    expect(resolve(new URL("https://collector.example/g/collect?v=2"), page, type)?.href).toBe(
+    expect(resolve(new URL("https://collector.example.com/g/collect?v=2"), page, type)?.href).toBe(
       "https://site.example/vendor/collector/g/collect?v=2",
     );
   }
-  expect(resolve(new URL("https://collector.example//evil.example/x"), page, "fetch")?.href).toBe(
+  expect(resolve(new URL("https://collector.example.com//evil.example/x"), page, "fetch")?.href).toBe(
     "https://site.example/vendor/collector//evil.example/x",
   );
 });
@@ -188,13 +188,13 @@ test("resolveUrl never proxies a document: an iframe keeps the vendor's own orig
   const resolve = workerResolveUrl(
     inlineText(
       definePartytown({
-        resolveUrl: { "https://collector.example": "/vendor/collector/" },
+        resolveUrl: { "https://collector.example.com": "/vendor/collector/" },
       })({ scripts: [TAGS] }).head[0],
     ),
   );
 
   expect(
-    resolve(new URL("https://collector.example/frame"), new URL("https://site.example/"), "iframe"),
+    resolve(new URL("https://collector.example.com/frame"), new URL("https://site.example/"), "iframe"),
   ).toBeUndefined();
 });
 
@@ -202,17 +202,17 @@ test("resolveUrl leaves every origin it was not given to Partytown's default", (
   const resolve = workerResolveUrl(
     inlineText(
       definePartytown({
-        resolveUrl: { "https://collector.example": "/vendor/collector/" },
+        resolveUrl: { "https://collector.example.com": "/vendor/collector/" },
       })({ scripts: [TAGS] }).head[0],
     ),
   );
   const page = new URL("https://site.example/");
 
   for (const href of [
-    "https://evil.example/?u=https://collector.example/",
-    "https://collector.example.evil.example/g",
-    "http://collector.example/g",
-    "https://collector.example:8443/g",
+    "https://evil.example/?u=https://collector.example.com/",
+    "https://collector.example.com.evil.example/g",
+    "http://collector.example.com/g",
+    "https://collector.example.com:8443/g",
     "https://site.example/vendor/collector/x",
   ]) {
     expect(`${href}: ${String(resolve(new URL(href), page, "fetch"))}`).toBe(`${href}: undefined`);
@@ -229,16 +229,16 @@ test("every resolveUrl route that is not an https origin to a path prefix on thi
   const call = (): unknown =>
     definePartytown({
       resolveUrl: {
-        "https://ok.example": "/vendor/ok/",
+        "https://ok.example.com": "/vendor/ok/",
         "https://a.example/path": "/vendor/a/",
         "http://b.example": "/vendor/b/",
         "https://user@c.example": "/vendor/c/",
-        "https://d.example": "//evil.example/",
-        "https://e.example": "/vendor/e",
-        "https://f.example": "/vendor/../f/",
-        "https://g.example": "https://evil.example/",
+        "https://d.example.com": "//evil.example/",
+        "https://e.example.com": "/vendor/e",
+        "https://f.example.com": "/vendor/../f/",
+        "https://g.example.com": "https://evil.example/",
         "http://h.example": "vendor/h",
-        "https://i.example.": "/vendor/i/",
+        "https://i.example.com.": "/vendor/i/",
         "https://127.0.0.1": "/vendor/j/",
         "https://[::1]": "/vendor/k/",
         "https://localhost": "/vendor/l/",
@@ -249,20 +249,20 @@ test("every resolveUrl route that is not an https origin to a path prefix on thi
   expect(call).toThrow(ConfigError);
   expect(call).toThrow(
     [
-      'Partytown runtime "build.scripts.runtime": "resolveUrl" declares 13 routes this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin of a vendor\'s DNS name, with no path, and each value as a path prefix that starts and ends with "/", such as resolveUrl: { "https://collector.example": "/vendor/collector/" }:',
+      'Partytown runtime "build.scripts.runtime": "resolveUrl" declares 13 routes this runtime cannot take — a route sends a request for one vendor origin to one path prefix on this site, which an upstream forwards to that origin, so a page cannot steer it anywhere else — write each key as the https origin of a vendor\'s DNS name, with no path, and each value as a path prefix that starts and ends with "/", such as resolveUrl: { "https://collector.example.com": "/vendor/collector/" }:',
       '  "https://a.example/path" — not an https origin with nothing after the host',
       '  "http://b.example" — not an https origin with nothing after the host',
       '  "https://user@c.example" — not an https origin with nothing after the host',
-      '  "https://d.example" → "//evil.example/" — not a path prefix on this site',
-      '  "https://e.example" → "/vendor/e" — not a path prefix on this site',
-      '  "https://f.example" → "/vendor/../f/" — not a path prefix on this site',
-      '  "https://g.example" → "https://evil.example/" — not a path prefix on this site',
+      '  "https://d.example.com" → "//evil.example/" — not a path prefix on this site',
+      '  "https://e.example.com" → "/vendor/e" — not a path prefix on this site',
+      '  "https://f.example.com" → "/vendor/../f/" — not a path prefix on this site',
+      '  "https://g.example.com" → "https://evil.example/" — not a path prefix on this site',
       '  "http://h.example" → "vendor/h" — not an https origin with nothing after the host, and not a path prefix on this site',
-      '  "https://i.example." — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://127.0.0.1" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://[::1]" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://localhost" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://m.localhost" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://i.example.com." — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
+      '  "https://127.0.0.1" — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
+      '  "https://[::1]" — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
+      '  "https://localhost" — names a host in the reserved or private-use domain "localhost", which is not a vendor\'s DNS name',
+      '  "https://m.localhost" — names a host in the reserved or private-use domain "localhost", which is not a vendor\'s DNS name',
     ].join("\n"),
   );
 });
@@ -275,7 +275,7 @@ test("a key the URL parser respells is refused for what it names, or told the or
         "https://127.1": "/vendor/b/",
         "https://0x7f.1": "/vendor/c/",
         "https://2130706433": "/vendor/d/",
-        "https://Collector.example": "/vendor/e/",
+        "https://Collector.example.com": "/vendor/e/",
         "https://intranet": "/vendor/f/",
       },
     });
@@ -283,14 +283,63 @@ test("a key the URL parser respells is refused for what it names, or told the or
   expect(call).toThrow(ConfigError);
   expect(call).toThrow(
     [
-      '  "https://LOCALHOST" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://127.1" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://0x7f.1" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://2130706433" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
-      '  "https://Collector.example" — not written as the origin it names — write it as "https://collector.example"',
-      '  "https://intranet" — names a host ending in ".", an IP address, localhost or a single label, which is not a vendor\'s DNS name',
+      '  "https://LOCALHOST" — names a host in the reserved or private-use domain "localhost", which is not a vendor\'s DNS name',
+      '  "https://127.1" — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
+      '  "https://0x7f.1" — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
+      '  "https://2130706433" — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
+      '  "https://Collector.example.com" — not written as the origin it names — write it as "https://collector.example.com"',
+      '  "https://intranet" — names a host ending in ".", an IP address or a single label, which is not a vendor\'s DNS name',
     ].join("\n"),
   );
+});
+
+test("a key in a reserved or private-use domain is refused, in any case and with a trailing dot", () => {
+  for (const domain of ["local", "internal", "lan", "home.arpa", "test", "localhost", "invalid", "example"]) {
+    const keys = [
+      `https://vendor.${domain}`,
+      `https://VENDOR.${domain.toUpperCase()}`,
+      `https://vendor.${domain}.`,
+      `https://${domain}`,
+      `https://${domain}.`,
+    ];
+    const call = (): unknown =>
+      definePartytown({ resolveUrl: Object.fromEntries(keys.map((key) => [key, "/vendor/x/"])) });
+
+    expect(call).toThrow(ConfigError);
+    expect(call).toThrow(
+      keys
+        .map(
+          (key) =>
+            `  ${JSON.stringify(key)} — names a host in the reserved or private-use domain "${domain}", which is not a vendor's DNS name`,
+        )
+        .join("\n"),
+    );
+  }
+});
+
+test("a key the URL parser respells into a reserved domain is refused for that domain", () => {
+  const call = (): unknown =>
+    definePartytown({
+      resolveUrl: { "https://x.%6Cocal": "/vendor/a/", "https://x.ｌｏｃａｌ": "/vendor/b/" },
+    });
+
+  expect(call).toThrow(
+    [
+      '  "https://x.%6Cocal" — names a host in the reserved or private-use domain "local", which is not a vendor\'s DNS name',
+      '  "https://x.ｌｏｃａｌ" — names a host in the reserved or private-use domain "local", which is not a vendor\'s DNS name',
+    ].join("\n"),
+  );
+});
+
+test("a public vendor host, or one that only contains a reserved name as a label, is accepted", () => {
+  for (const key of [
+    "https://www.googletagmanager.com",
+    "https://local.example.com",
+    "https://test.vendor.io",
+    "https://collector.examples.net",
+  ]) {
+    expect(() => definePartytown({ resolveUrl: { [key]: "/vendor/x/" } })).not.toThrow();
+  }
 });
 
 test("an option that would end the snippet's own script element is refused by name before any page carries it", () => {
@@ -314,7 +363,7 @@ test("the snippet Partytown writes passes core's inline script check with every 
   const snippet = inlineText(
     definePartytown({
       forward: ["dataLayer.push", ["fbq", { preserveBehavior: true }]],
-      resolveUrl: { "https://collector.example": "/vendor/collector/" },
+      resolveUrl: { "https://collector.example.com": "/vendor/collector/" },
       globalFns: ["gtag"],
       mainWindowAccessors: ["config"],
       loadScriptsOnMainThread: ["https://example.com/main.js", /main\.js$/],
@@ -390,14 +439,14 @@ test("a valid config writes the snippet it wrote before #290, so a pinned CSP ha
   expect(
     definePartytown({
       forward: ["dataLayer.push", ["fbq", { preserveBehavior: true }]],
-      resolveUrl: { "https://collector.example": "/vendor/collector/" },
+      resolveUrl: { "https://collector.example.com": "/vendor/collector/" },
       globalFns: ["gtag"],
       mainWindowAccessors: ["config"],
       loadScriptsOnMainThread: ["https://example.com/main.js", /main\.js$/],
       fallbackTimeout: 5000,
       strictProxyHas: true,
     }).inlineScriptHash,
-  ).toBe("'sha256-g69oB++1aqVkDDiiPcg1B1VAnYFELn68bpEYOeKOqwk='");
+  ).toBe("'sha256-Gess4etWuNnT5pc0DwWs9l+Jrs556HgRi0FOXwyVNTk='");
   expect(definePartytown().inlineScriptHash).toBe(
     "'sha256-+btblDztaAZ3NXe34xvcHxTWd9rwzKSCcVsvacjny4w='",
   );
