@@ -455,3 +455,75 @@ test("an rgb() answer is cached exactly as the probe gave it", async () => {
 
   expect(store.getImageColor("/hero.jpg")).toBe("rgb(47, 58, 40)");
 });
+
+test("a refused answer starting with # is quoted whole, not cut at the #", async () => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/a.jpg", "/b.jpg", "/c.jpg"),
+      probe: (src) =>
+        ({ "/a.jpg": "#ff00001", "/b.jpg": "#ff0000\n", "/c.jpg": "#fff;background:url(x)" })[src],
+    }),
+  );
+
+  expect(error.message.split("\n").slice(1)).toEqual([
+    `  "/a.jpg" on /en/home — "#ff00001" — ${NOT_A_COLOR}`,
+    `  "/b.jpg" on /en/home — "#ff0000\\n" — ${NOT_A_COLOR}`,
+    `  "/c.jpg" on /en/home — "#fff;background:url(x)" — ${NOT_A_COLOR}`,
+  ]);
+});
+
+test("a credential in a refused answer is still redacted", async () => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/a.jpg"),
+      probe: () => "https://u:p@evil.example/x",
+    }),
+  );
+
+  expect(error.message).not.toContain("u:p");
+  expect(error.message.split("\n")[1]).toBe(
+    `  "/a.jpg" on /en/home — "https://…@evil.example/x" — ${NOT_A_COLOR}`,
+  );
+});
+
+test("a cached color the check refuses is probed again, and refused if the probe still answers it", async () => {
+  const store = openTempStore();
+  store.setImageColor("/a.jpg", "red");
+  store.setImageColor("/b.jpg", "red");
+  store.setImageColor("/none.jpg", undefined);
+  const asked: string[] = [];
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/b.jpg", "/none.jpg"),
+    probe: (src) => {
+      asked.push(src);
+      return "#2f3a28";
+    },
+  });
+
+  expect(asked).toEqual(["/b.jpg"]);
+  expect(store.getImageColor("/b.jpg")).toBe("#2f3a28");
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/a.jpg"),
+      probe: () => "red",
+    }),
+  );
+
+  expect(error.message.split("\n")[1]).toBe(
+    `  "/a.jpg" on /en/home — "red" — ${NOT_A_COLOR}`,
+  );
+});

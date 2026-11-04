@@ -78,12 +78,15 @@ function credentialEnd(value: string): number {
     : -1;
 }
 
-export function redactSource(value: string): string {
+export function redactCredential(value: string): string {
   const userinfo = credentialEnd(value);
-  const stripped =
-    userinfo === -1
-      ? value
-      : `${ADDRESS_SCHEME.exec(value)?.[0] ?? ""}…@${value.slice(userinfo + 1)}`;
+  return userinfo === -1
+    ? value
+    : `${ADDRESS_SCHEME.exec(value)?.[0] ?? ""}…@${value.slice(userinfo + 1)}`;
+}
+
+export function redactSource(value: string): string {
+  const stripped = redactCredential(value);
   const delimiter = stripped.search(SOURCE_DELIMITER);
   return delimiter === -1 ? stripped : `${stripped.slice(0, delimiter + 1)}…`;
 }

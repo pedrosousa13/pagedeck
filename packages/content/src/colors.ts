@@ -1,12 +1,12 @@
 import { CollectionError } from "./collection.js";
-import { printable } from "./escape.js";
+import { printable, quoteIdentifier } from "./escape.js";
 import { excerpt, imageColorFault } from "./preview.js";
 import {
   inFlight,
   quoteSource,
   quoteValue,
   reasonOf,
-  redactSource,
+  redactCredential,
   refuseUnusableConcurrency,
 } from "./probing.js";
 import type { ContentStore } from "./store.js";
@@ -57,9 +57,11 @@ export async function syncImageColors(
     entries.add(entry);
     entriesBySource.set(src, entries);
   }
-  const unasked = [...entriesBySource.keys()].filter(
-    (src) => !store.hasImageColor(src),
-  );
+  const unasked = [...entriesBySource.keys()].filter((src) => {
+    if (!store.hasImageColor(src)) return true;
+    const cached = store.getImageColor(src);
+    return cached !== undefined && imageColorFault(cached) !== undefined;
+  });
 
   const learned = new Map<string, string | undefined>();
   const failures: string[] = [];
@@ -77,7 +79,7 @@ export async function syncImageColors(
     if (reason !== undefined) {
       const entries = [...(entriesBySource.get(src) ?? [])].sort();
       faults.push(
-        `  ${quoteSource(src)} on ${printable(entries.join(", "))} — ${quoteValue(excerpt(answer, redactSource))} — ${reason}`,
+        `  ${quoteSource(src)} on ${printable(entries.join(", "))} — ${quoteAnswer(answer)} — ${reason}`,
       );
       return;
     }
@@ -102,6 +104,13 @@ export async function syncImageColors(
     // Sorted: probes run concurrently, so completion order is a race.
     onWarning?.(colorFailureWarning(collection, [...failures].sort()));
   }
+}
+
+// Not cut at `?` or `#` as a source is: a color answer is not a URL, and `#` starts most.
+function quoteAnswer(answer: unknown): string {
+  return typeof answer === "string"
+    ? quoteIdentifier(excerpt(answer, redactCredential) as string)
+    : quoteValue(answer);
 }
 
 const COLOR_FIX =

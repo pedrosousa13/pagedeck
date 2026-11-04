@@ -119,6 +119,8 @@ test.each([
   "rgb(47 58 40)",
   "rgb(0, 0, 0)",
   "rgb(255,255,255)",
+  "rgb(1, 2, 3)",
+  "rgb(1,2,3)",
 ])("%s is a color", (value) => {
   expect(imageColorFault(value)).toBeUndefined();
 });
@@ -140,6 +142,9 @@ test.each([
   ["a channel over 255", "rgb(256 0 0)"],
   ["an rgb() with a declaration after it", "rgb(1 2 3);color:red"],
   ["whitespace", " #2f3a28"],
+  ["a comma and a comma-space mixed", "rgb(1, 2,3)"],
+  ["a space and a comma mixed", "rgb(1 2,3)"],
+  ["a comma and a space mixed", "rgb(1,2 3)"],
 ])("an answer holding %s is not a color", (_name, value) => {
   expect(imageColorFault(value)).toBe(NOT_A_COLOR);
 });

@@ -97,6 +97,10 @@ const DECLARATIONS: readonly (readonly [string, RegExp])[] = [
     /^(?:export )?function credentialEnd\(value: string\): number \{[\s\S]*?^\}$/m,
   ],
   [
+    "redactCredential",
+    /^(?:export )?function redactCredential\(value: string\): string \{[\s\S]*?^\}$/m,
+  ],
+  [
     "redactSource",
     /^(?:export )?function redactSource\(value: string\): string \{[\s\S]*?^\}$/m,
   ],

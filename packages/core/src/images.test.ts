@@ -376,7 +376,29 @@ test("a refused color is quoted with its reason", () => {
   );
 });
 
-test.each(["#abc", "#abcd", "#2f3a28", "#2f3a28ff", "rgb(58 47 40)", "rgb(58, 47, 40)"])(
+test("a refused color starting with # is quoted whole, not cut at the #", () => {
+  expect(colorFault("#ff00001")?.message.split("\n")[1]).toBe(
+    '  "#ff00001" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+  expect(colorFault("#fff;background:url(x)")?.message.split("\n")[1]).toBe(
+    '  "#fff;background:url(x)" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+});
+
+test("a credential in a refused color is still redacted", () => {
+  const message = colorFault("https://u:p@evil.example/x")?.message;
+
+  expect(message).not.toContain("u:p");
+  expect(message?.split("\n")[1]).toBe(
+    '  "https://…@evil.example/x" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+});
+
+test.each(["rgb(1, 2,3)", "rgb(1 2,3)"])("a color mixing rgb() separators, %s, is refused", (value) => {
+  expect(colorFault(value)).toBeInstanceOf(RenderError);
+});
+
+test.each(["#abc", "#abcd", "#2f3a28", "#2f3a28ff", "rgb(58 47 40)", "rgb(58, 47, 40)", "rgb(58,47,40)"])(
   "the color %s renders exactly as given",
   (placeholderColor) => {
     expect(

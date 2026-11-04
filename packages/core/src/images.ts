@@ -1,6 +1,6 @@
 import { excerpt, imageColorFault, imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
-import { quote, redactSource } from "./quote.js";
+import { quote, quoteIdentifier, redactCredential, redactSource } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
 import { entryId } from "@pagedeck/islands";
 import { RenderError } from "./tree.js";
@@ -185,7 +185,7 @@ function refuseUnusableImage(
         ? "image carries"
         : `image ${quote(image.src)} carries`;
       sections.push(
-        `${where}: ${subject} a placeholderColor that is not a CSS color, so none is written into the page — ${COLOR_FIX}:\n  ${quote(excerpt(image.placeholderColor, redactSource))} — ${reason}`,
+        `${where}: ${subject} a placeholderColor that is not a CSS color, so none is written into the page — ${COLOR_FIX}:\n  ${quoteColor(image.placeholderColor)} — ${reason}`,
       );
     }
   }
@@ -203,6 +203,13 @@ function refuseUnusableImage(
   }
 
   if (sections.length > 0) throw new RenderError(sections.join("\n\n"));
+}
+
+// Not cut at `?` or `#` as a source is: a color is not a URL, and `#` starts most.
+function quoteColor(color: unknown): string {
+  return typeof color === "string"
+    ? quoteIdentifier(excerpt(color, redactCredential) as string)
+    : quote(color);
 }
 
 const COLOR_FIX =

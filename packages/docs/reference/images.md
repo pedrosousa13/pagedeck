@@ -260,9 +260,9 @@ colour cannot move anything.
 **An answer has to be one of these, or the sync fails:**
 
 - `#` and 3, 4, 6 or 8 hex digits, such as `#2f3a28` or `#2f3a28cc`;
-- `rgb()` of three whole numbers from 0 to 255, separated by one space or by a
-  comma with an optional space after it, such as `rgb(47 58 40)` or
-  `rgb(47, 58, 40)`.
+- `rgb()` of three whole numbers from 0 to 255, separated by one space, by a
+  comma, or by a comma and one space, the same separator both times, such as
+  `rgb(47 58 40)`, `rgb(47,58,40)` or `rgb(47, 58, 40)`.
 
 Nothing else is a colour here: no colour names, no `hsl()`, no percentages, no
 alpha in `rgb()`, and no space before or after the value. That is what keeps
@@ -276,7 +276,11 @@ run it yourself.
 A store written before this feature existed has no colours in it and says so:
 `getImageColor` answers `undefined` for every source until a sync has run, so
 the first build after an upgrade renders exactly as it did before rather than
-failing.
+failing. A store written before these rules has colours in it that may break
+them, such as `red`. The next sync treats each of those as never asked and
+probes its source again, so a probe that now answers `#ff0000` replaces it, and
+one that still answers `red` fails that sync. A build run on such a store
+before that sync refuses the image, as below.
 
 **What happens when it goes wrong.** A source your probe cannot reach renders
 with no placeholder and never fails the sync; the sync warns, naming every

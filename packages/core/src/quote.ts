@@ -23,16 +23,19 @@ function credentialEnd(value: string): number {
     : -1;
 }
 
+export function redactCredential(value: string): string {
+  const userinfo = credentialEnd(value);
+  return userinfo === -1
+    ? value
+    : `${ADDRESS_SCHEME.exec(value)?.[0] ?? ""}…@${value.slice(userinfo + 1)}`;
+}
+
 /**
  * Userinfo is cut before the query: a raw `?` in a password would otherwise end
  * the quote inside the credential.
  */
 export function redactSource(value: string): string {
-  const userinfo = credentialEnd(value);
-  const stripped =
-    userinfo === -1
-      ? value
-      : `${ADDRESS_SCHEME.exec(value)?.[0] ?? ""}…@${value.slice(userinfo + 1)}`;
+  const stripped = redactCredential(value);
   const delimiter = stripped.search(SOURCE_DELIMITER);
   return delimiter === -1 ? stripped : `${stripped.slice(0, delimiter + 1)}…`;
 }

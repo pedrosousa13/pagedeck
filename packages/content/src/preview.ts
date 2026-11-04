@@ -32,7 +32,7 @@ const CHANNEL = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
 
 // Strict on purpose: anything looser can add a declaration to the style attribute (#286).
 const COLOR = new RegExp(
-  `^(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgb\\(${CHANNEL}(?: ${CHANNEL}){2}\\)|rgb\\(${CHANNEL}(?:, ?${CHANNEL}){2}\\))$`,
+  `^(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgb\\(${CHANNEL}(?: ${CHANNEL}){2}\\)|rgb\\(${CHANNEL}(?:, ${CHANNEL}){2}\\)|rgb\\(${CHANNEL}(?:,${CHANNEL}){2}\\))$`,
 );
 
 /** `undefined` for an answer safe to emit as a dominant color; otherwise why it is not. */
