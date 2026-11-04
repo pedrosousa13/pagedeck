@@ -158,7 +158,8 @@ Since #275 an adapter may also declare `files`, each a name and its bytes, for
 what its elements load from the site's own origin. The build writes them under
 `/script-runtime/<hash>/`, a directory named by a hash of every file's name and
 bytes, which `scriptRuntimeBase` returns before any build runs, so an adapter's
-markup can name it. An adapter that loads a script without checking its
+markup can name it. Since #282 `pagedeck dev` serves the same files at the same
+paths, and only those. An adapter that loads a script without checking its
 `integrity` declares `checksIntegrity: false`, and the config then refuses every
 worker-reaching script that declares one. A wrapper around such an adapter must
 carry `checksIntegrity` over, or the refusal no longer applies. The request is unchanged: the adapter
