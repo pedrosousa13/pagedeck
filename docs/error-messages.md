@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 340 messages fenced
-below, 263 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 341 messages fenced
+below, 264 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 263 checked messages pin 39526 of the 110726 fenced characters, and
+below**: the 264 checked messages pin 39647 of the 111018 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2837,7 +2837,8 @@ and these refusals are read in CI logs where nothing masks a string the site
 composed. So a fault is stated by placeholder name (what the author typed, and
 not a secret), and the fix carries an example template of the framework's own
 instead of the site's. No message this module can produce ever quotes a *built*
-URL either: every refusal happens before the adapter is called.
+URL either: the one check that reads a built URL, the host check below, quotes
+only the source.
 
 `imageAttributes` is the last, and it is the CLS guard #43's third criterion
 asks for: an `<img>` with no `width` and `height` reserves no space, so
@@ -2862,6 +2863,25 @@ no image to have dimensions, so its dimension verdict is about nothing:
 Entry /en/home: image source is not usable, so no URL can be built for it — pass the asset's own path or URL, such as "/hero.jpg":
   "   " — the source is only whitespace
 ```
+
+A usable source that would move the image off the host its `urlTemplate`
+names is the same paragraph's position under its own headline (#288). The
+content author chose the source, and the site chose the CDN, so the build
+refuses a source that picks a host rather than letting the page load from it:
+
+```
+Entry /en/home: image source would move the image off the host the URL template names, so content could load it from any host — pass the asset's own path, starting with "/", such as "/hero.jpg":
+  ".evil.test/hero.jpg" — does not start with "/", so it runs on into the host the template names
+```
+
+The line's reason is one of four. A source after a bare origin that does not
+start with `/` is refused rather than given one, because a guessed slash would
+hide a source the CMS holds wrong. Any other built URL whose origin is not the
+template's own reads "builds a URL on another host than the one the template
+names". A template that starts with `{src}` refuses a `javascript:` or
+`data:` source as "not a path or a web address", and a `//host` one as "a
+protocol-relative URL, which names a host of its own". The source is quoted cut, as above, and a userinfo
+prefix is dropped with the rest of rule 6's credentials.
 
 That report collects every fault of *one* image and no more, and the level is
 the argument rather than a shortcut. A page's images are computed one call at a

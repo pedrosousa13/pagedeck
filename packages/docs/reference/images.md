@@ -68,6 +68,24 @@ to the request.
 A template with no `{width}`, no source placeholder, or a placeholder that is not
 on this list fails immediately, where you wrote it.
 
+**A source cannot move the image to another host.** Your CMS writes the
+source, so `urlTemplate` checks each URL it builds from `{src}` against what
+your template puts before it:
+
+- **After an origin**, as in `https://images.example{src}`, the source must
+  start with `/`. A missing slash is refused, not added: `.evil.test/x.jpg`
+  would otherwise build a URL on `images.example.evil.test`, and `:8080/x.jpg`
+  one on another port.
+- **After any other text**, the built URL must keep the origin that text
+  names. A path template such as `/images{src}` keeps the image on your own
+  site, so `/` and `/evil.test/x.jpg` cannot join into `//evil.test/x.jpg`.
+- **When the template starts with `{src}`**, the source is your own path or a
+  web address: a `javascript:` URL, a `data:` URL or a protocol-relative
+  `//host` source is refused.
+
+`{srcParam}` is escaped as a query parameter, so it cannot change the host and
+needs no check. An adapter function you write yourself is not checked.
+
 ### The other fields
 
 - **`widths`**: the sizes your layout actually uses. Order and duplicates do
@@ -414,6 +432,14 @@ with no source there is no image to have dimensions:
 ```
 Entry /en/home: image source is not usable, so no URL can be built for it — pass the asset's own path or URL, such as "/hero.jpg":
   "   " — the source is only whitespace
+```
+
+A source that would move the image off your template's host is refused in the
+same place:
+
+```
+Entry /en/home: image source would move the image off the host the URL template names, so content could load it from any host — pass the asset's own path, starting with "/", such as "/hero.jpg":
+  ".evil.test/hero.jpg" — does not start with "/", so it runs on into the host the template names
 ```
 
 **A concurrency that is not a count.** `{ concurrency: 0 }` asks for a sync that
