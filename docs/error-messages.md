@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 340 messages fenced
-below, 263 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 342 messages fenced
+below, 265 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 263 checked messages pin 39526 of the 110726 fenced characters, and
+below**: the 265 checked messages pin 39911 of the 111297 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -2820,7 +2820,10 @@ is how one of them comes to cut a different depth from the other while both
 still look like the same rule.
 
 `urlTemplate` refuses a template with no `{width}`, one with no source
-placeholder, and one holding a placeholder it cannot fill:
+placeholder, one holding a placeholder it cannot fill, and one whose text before
+the first source placeholder is neither a whole origin nor a path that starts
+with a single `/` (#288), such as `https://` or `https:`, since the host check
+below would have no origin to hold a built URL to:
 
 ```
 Image URL template: holds no "{src}" or "{srcParam}" placeholder, so every image would get the same URL — write the source where the CDN takes it, {src} in a path or {srcParam} in a query parameter, as "https://cdn.example{src}?w={width}"
@@ -2829,6 +2832,8 @@ Image URL template: holds no "{width}" placeholder, so every srcset entry would 
 
 Image URL template: holds 1 placeholder this adapter cannot fill — correct each to one of: {src}, {srcParam}, {width}, {quality}, {format}:
   "{quailty}"
+
+Image URL template: the text before its source placeholder is not a URL with a host, so there is no host to keep each image URL on — write a whole origin or a path before the placeholder, as "https://cdn.example{src}?w={width}" or "/images{src}?w={width}", or start the template with the placeholder
 ```
 
 **No message here quotes the template, and that is rule 6 rather than
@@ -2837,7 +2842,8 @@ and these refusals are read in CI logs where nothing masks a string the site
 composed. So a fault is stated by placeholder name (what the author typed, and
 not a secret), and the fix carries an example template of the framework's own
 instead of the site's. No message this module can produce ever quotes a *built*
-URL either: every refusal happens before the adapter is called.
+URL either: the one check that reads a built URL, the host check below, quotes
+only the source.
 
 `imageAttributes` is the last, and it is the CLS guard #43's third criterion
 asks for: an `<img>` with no `width` and `height` reserves no space, so
@@ -2862,6 +2868,28 @@ no image to have dimensions, so its dimension verdict is about nothing:
 Entry /en/home: image source is not usable, so no URL can be built for it — pass the asset's own path or URL, such as "/hero.jpg":
   "   " — the source is only whitespace
 ```
+
+A usable source that would take the image off the host its `urlTemplate`
+allows is the same paragraph's position under its own headline (#288). The
+content author chose the source, and the site chose the CDN, so the build
+refuses a source that picks a host rather than letting the page load from it:
+
+```
+Entry /en/home: image source takes the image off the host its URL template allows, so content could choose where it loads from — start the path with "/", such as "/hero.jpg":
+  ".evil.test/hero.jpg" — does not start with "/", so it runs on into the host the template names
+```
+
+The line's reason is one of four, and each carries its own fix in the
+headline, as `sourceFault`'s paragraph does. A `{src}` after a bare origin that
+does not start with `/` is refused rather than given one, because a guessed
+slash would hide a source the CMS holds wrong. Any other built URL whose origin
+is not the template's own, from `{src}` or `{srcParam}`, reads "builds a URL on
+another host than the one the template names". A template that starts with
+`{src}` takes a path or an `http:` or `https:` URL: any other scheme is "not a
+path or a web address", and a `//host` source is "a protocol-relative URL,
+which names a host of its own". The source is cut at its `?` or `#` before it
+is quoted, as above, and a userinfo prefix is dropped with the rest of rule 6's
+credentials.
 
 That report collects every fault of *one* image and no more, and the level is
 the argument rather than a shortcut. A page's images are computed one call at a

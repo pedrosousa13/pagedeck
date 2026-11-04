@@ -362,7 +362,7 @@ test("an unusable image source is reported above the dimensions, and redacted", 
   const error: unknown = (() => {
     try {
       imageAttributes({
-        images: IMAGES,
+        images: { ...IMAGES, adapter: urlTemplate("{src}?w={width}") },
         image: {
           src: "https://cdn.example/hero.jpg?signature=SECRET",
           width: 0,
@@ -513,3 +513,135 @@ test("a dimension that is not a finite number is quoted as what was written", ()
 
   expect((error as Error).message).toContain("  width — NaN — not a number");
 });
+
+const OFF_HOST =
+  "Entry /en/home: image source takes the image off the host its URL template allows, so content could choose where it loads from";
+
+const SLASH_FIX = 'start the path with "/", such as "/hero.jpg"';
+
+function sourceRefusal(template: string, src: string): unknown {
+  try {
+    imageAttributes({
+      images: { ...IMAGES, adapter: urlTemplate(template) },
+      image: { src, width: 1600, height: 900 },
+      page: PAGE,
+    });
+  } catch (thrown: unknown) {
+    return thrown;
+  }
+  return undefined;
+}
+
+function refusedFor(template: string, src: string): string {
+  const error = sourceRefusal(template, src);
+  expect(error).toBeInstanceOf(RenderError);
+  return (error as Error).message;
+}
+
+test.each([
+  [".evil.test/x", '".evil.test/x"'],
+  ["@evil.test/x", '"…@evil.test/x"'],
+  [":8080/x", '":8080/x"'],
+  ["x.jpg", '"x.jpg"'],
+])(
+  "a source %j after the template's origin is refused for not starting with a slash",
+  (src, quoted) => {
+    expect(refusedFor("https://cdn.example{src}?w={width}", src)).toBe(
+      `${OFF_HOST} — ${SLASH_FIX}:\n  ${quoted} — does not start with "/", so it runs on into the host the template names`,
+    );
+  },
+);
+
+test("a source that would turn a path template into a protocol-relative URL is refused", () => {
+  expect(refusedFor("/{src}?w={width}", "/evil.test/x")).toBe(
+    `${OFF_HOST} — pass a source that keeps the URL on that host, such as "hero.jpg" where the template already writes the "/" before it:\n` +
+      '  "/evil.test/x" — builds a URL on another host than the one the template names',
+  );
+});
+
+test("a {srcParam} source after the template's origin is refused for reaching the host", () => {
+  expect(refusedFor("https://cdn.example{srcParam}?w={width}", ".evil.test")).toBe(
+    `${OFF_HOST} — write {srcParam} inside a query parameter of the template, such as "https://cdn.example/resize?url={srcParam}&w={width}", where no source can reach the host:\n` +
+      '  ".evil.test" — builds a URL on another host than the one the template names',
+  );
+});
+
+const SCHEME_FIX = "pass the asset's own path, or an http: or https: URL";
+
+test.each([
+  ["javascript:x", "javascript"],
+  ["JavaScript:x", "javascript"],
+  ["data:image/png;base64,AAAA", "data"],
+  ["vbscript:x", "vbscript"],
+  ["file:///etc/x.jpg", "file"],
+  ["blob:https://evil.test/1", "blob"],
+])("a template that starts with {src} refuses %j", (src, scheme) => {
+  expect(refusedFor("{src}?w={width}", src)).toBe(
+    `${OFF_HOST} — ${SCHEME_FIX}:\n  ${JSON.stringify(src)} — a ${scheme}: URL, not a path or a web address`,
+  );
+});
+
+test("a template that starts with {src} refuses a protocol-relative source", () => {
+  expect(refusedFor("{src}?w={width}", "//evil.test/x")).toBe(
+    `${OFF_HOST} — pass the asset's own path, or write the scheme its URL is served on, such as "https://images.example/hero.jpg":\n` +
+      '  "//evil.test/x" — a protocol-relative URL, which names a host of its own',
+  );
+});
+
+test("a refused source's query and userinfo are redacted where it is quoted", () => {
+  const message = refusedFor(
+    "https://cdn.example{src}?w={width}",
+    "https://user:pw@evil.test/x.jpg?signature=SECRET",
+  );
+
+  expect(message).toContain('  "https://…@evil.test/x.jpg?…" — does not start with "/"');
+  expect(message).not.toContain("SECRET");
+  expect(message).not.toContain("pw");
+});
+
+test.each([
+  ["{src}?w={width}", "/uploads/hero.jpg", "/uploads/hero.jpg?w=320"],
+  ["{src}?w={width}", "https://media.example/hero.jpg", "https://media.example/hero.jpg?w=320"],
+  ["{src}?w={width}", "HTTP://media.example/hero.jpg", "HTTP://media.example/hero.jpg?w=320"],
+  ["{src}?w={width}", " javascript:x", "%20javascript:x?w=320"],
+  ["{srcParam}?w={width}", "javascript:x", "javascript%3Ax?w=320"],
+  ["https://cdn.example{src}?w={width}", "//evil.test/x", "https://cdn.example//evil.test/x?w=320"],
+  ["https://cdn.example/w_{width}{src}", "x.jpg", "https://cdn.example/w_320x.jpg"],
+  ["https://cdn.example/r?u={srcParam}&w={width}", "https://evil.test/x", "https://cdn.example/r?u=https%3A%2F%2Fevil.test%2Fx&w=320"],
+  ["/images{src}-{width}", "/hero", "/images/hero-320"],
+])("a template %j keeps the source %j on its own host", (template, src, url) => {
+  const attributes = imageAttributes({
+    images: { ...IMAGES, adapter: urlTemplate(template), widths: [320] },
+    image: { src, width: 1600, height: 900 },
+    page: PAGE,
+  });
+
+  expect(attributes.src).toBe(url);
+});
+
+test.each([
+  "https://{src}?w={width}",
+  "//{src}?w={width}",
+  "mailto:{srcParam}?w={width}",
+  "https:{src}?w={width}",
+  "https:/{src}?w={width}",
+  "http:{src}?w={width}",
+  "images/{src}?w={width}",
+])(
+  "a url template whose text before the source names no host is refused: %j",
+  (template) => {
+    const error: unknown = (() => {
+      try {
+        urlTemplate(template);
+      } catch (thrown: unknown) {
+        return thrown;
+      }
+      return undefined;
+    })();
+
+    expect(error).toBeInstanceOf(ConfigError);
+    expect((error as Error).message).toBe(
+      'Image URL template: the text before its source placeholder is not a URL with a host, so there is no host to keep each image URL on — write a whole origin or a path before the placeholder, as "https://cdn.example{src}?w={width}" or "/images{src}?w={width}", or start the template with the placeholder',
+    );
+  },
+);
