@@ -122,7 +122,6 @@ function candidateWidths(
 }
 
 const SOURCE_FIX = 'pass the asset\'s own path or URL, such as "/hero.jpg"';
-const HOST_FIX = 'pass the asset\'s own path, starting with "/", such as "/hero.jpg"';
 const DIMENSION_FIX = "pass the asset's own pixel width and height";
 
 function refuseUnusableImage(
@@ -150,10 +149,10 @@ function refuseUnusableImage(
       : undefined;
   if (offHost !== undefined) {
     sections.push(
-      `${where}: image source would move the image off the host the URL template names, so content could load it from any host — ${HOST_FIX}:\n  ${quote(image.src)} — ${offHost}`,
+      `${where}: image source takes the image off the host its URL template allows, so content could choose where it loads from — ${offHost.fix}:\n  ${quote(image.src)} — ${offHost.reason}`,
     );
   }
-  const source = unusable ?? offHost;
+  const sourceRefused = unusable !== undefined || offHost !== undefined;
 
   const dimensions = [
     ["width", image.width],
@@ -166,10 +165,9 @@ function refuseUnusableImage(
       : [`  ${field} — ${quote(value)} — ${reason}`];
   });
   if (faults.length > 0) {
-    const subject =
-      source === undefined
-        ? `image ${quote(image.src)} declares`
-        : "image declares";
+    const subject = sourceRefused
+      ? "image declares"
+      : `image ${quote(image.src)} declares`;
     const count =
       faults.length === 1
         ? "1 intrinsic dimension that is not a pixel size"
@@ -182,8 +180,9 @@ function refuseUnusableImage(
   if (image.placeholderPreview !== undefined) {
     const reason = imagePreviewFault(image.placeholderPreview);
     if (reason !== undefined) {
-      const subject =
-        source === undefined ? `image ${quote(image.src)} carries` : "image carries";
+      const subject = sourceRefused
+        ? "image carries"
+        : `image ${quote(image.src)} carries`;
       sections.push(
         `${where}: ${subject} a placeholderPreview that is not an image preview, so none is written into the page — ${PREVIEW_FIX}:\n  ${quote(excerpt(image.placeholderPreview, redactSource))} — ${reason}`,
       );
@@ -228,9 +227,14 @@ const TEMPLATE_EXAMPLE = '"https://cdn.example{src}?w={width}"';
  */
 const PATH_DELIMITERS = /[?#&=+,]/g;
 
+interface HostFault {
+  readonly reason: string;
+  readonly fix: string;
+}
+
 const HOST_CHECKS = new WeakMap<
   ImageAdapter,
-  (request: ImageRequest) => string | undefined
+  (request: ImageRequest) => HostFault | undefined
 >();
 
 const RELATIVE_BASE = "https://relative.invalid/";
@@ -239,39 +243,71 @@ const BARE_ORIGIN = /^(?:[a-z][a-z\d+.-]*:)?\/\/[^/?#]*$/i;
 
 const SCHEME = /^([a-z][a-z\d+.-]*):/i;
 
-const NOT_AN_ADDRESS = ["javascript", "data"];
+const WEB_SCHEMES = ["http", "https"];
+
+const SOURCE_PLACEHOLDER = /\{(src|srcParam)\}/;
+
+const OTHER_HOST = "builds a URL on another host than the one the template names";
+
+function originOf(url: string): string | undefined {
+  try {
+    const origin = new URL(url, RELATIVE_BASE).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return undefined;
+  }
+}
 
 function hostFault(
-  before: string,
+  placeholder: string,
+  textBeforeSource: string,
   url: string,
   src: string,
-): string | undefined {
-  if (before === "") {
+): HostFault | undefined {
+  if (textBeforeSource === "") {
     const scheme = SCHEME.exec(url)?.[1]?.toLowerCase();
-    if (scheme !== undefined && NOT_AN_ADDRESS.includes(scheme)) {
-      return `a ${scheme}: URL, not a path or a web address`;
+    if (scheme !== undefined && !WEB_SCHEMES.includes(scheme)) {
+      return {
+        reason: `a ${scheme}: URL, not a path or a web address`,
+        fix: "pass the asset's own path, or an http: or https: URL",
+      };
     }
     if (url.startsWith("//")) {
-      return "a protocol-relative URL, which names a host of its own";
+      return {
+        reason: "a protocol-relative URL, which names a host of its own",
+        fix: 'pass the asset\'s own path, or write the scheme its URL is served on, such as "https://images.example/hero.jpg"',
+      };
     }
     return undefined;
   }
-  if (BARE_ORIGIN.test(before) && !src.startsWith("/")) {
-    return 'does not start with "/", so it runs on into the host the template names';
+  if (
+    placeholder === "src" &&
+    BARE_ORIGIN.test(textBeforeSource) &&
+    !src.startsWith("/")
+  ) {
+    return {
+      reason: 'does not start with "/", so it runs on into the host the template names',
+      fix: 'start the path with "/", such as "/hero.jpg"',
+    };
   }
-  const origin = (text: string): string | undefined => {
-    try {
-      return new URL(text, RELATIVE_BASE).origin;
-    } catch {
-      return undefined;
-    }
+  if (originOf(url) === originOf(textBeforeSource)) return undefined;
+  if (placeholder === "srcParam") {
+    return {
+      reason: OTHER_HOST,
+      fix: 'write {srcParam} inside a query parameter of the template, such as "https://cdn.example/resize?url={srcParam}&w={width}", where no source can reach the host',
+    };
+  }
+  return {
+    reason: OTHER_HOST,
+    fix: 'pass a source that keeps the URL on that host, such as "hero.jpg" where the template already writes the "/" before it',
   };
-  const expected = origin(before);
-  if (expected !== undefined && origin(url) !== expected) {
-    return "builds a URL on another host than the one the template names";
-  }
-  return undefined;
 }
+const SAMPLE_REQUEST: ImageRequest = {
+  src: "",
+  width: 1,
+  quality: 1,
+  format: "auto",
+};
 
 export function urlTemplate(template: string): ImageAdapter {
   const found = [...template.matchAll(PLACEHOLDER)].map(
@@ -302,21 +338,37 @@ export function urlTemplate(template: string): ImageAdapter {
       ).join(", ")}:\n${lines}`,
     );
   }
-  if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
 
   // One pass, so a value that spells a placeholder is never expanded again.
   const build = (text: string, request: ImageRequest): string =>
     text.replace(PLACEHOLDER, (_match, name: string) => fill(name, request));
+  const sourceMatch = SOURCE_PLACEHOLDER.exec(template);
+  const placeholder = sourceMatch?.[1];
+  const textBeforeSource = template.slice(0, sourceMatch?.index ?? 0);
+  if (
+    textBeforeSource !== "" &&
+    originOf(build(textBeforeSource, SAMPLE_REQUEST)) === undefined
+  ) {
+    sections.push(
+      `Image URL template: the text before its source placeholder is not a URL with a host, so there is no host to keep each image URL on — write a whole origin or a path before the placeholder, as ${TEMPLATE_EXAMPLE} or "/images{src}?w={width}", or start the template with the placeholder`,
+    );
+  }
+  if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
+
   const adapter: ImageAdapter = (request) => build(template, request);
-  const at = template.indexOf("{src}");
-  if (at !== -1) {
-    const before = template.slice(0, at);
+  if (placeholder !== undefined) {
     HOST_CHECKS.set(adapter, (request) =>
-      hostFault(build(before, request), adapter(request), request.src),
+      hostFault(
+        placeholder,
+        build(textBeforeSource, request),
+        adapter(request),
+        request.src,
+      ),
     );
   }
   return adapter;
 }
+
 
 function fill(name: string, request: ImageRequest): string {
   switch (name) {
