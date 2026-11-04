@@ -377,7 +377,9 @@ test("an unusable image source is reported above the dimensions, and redacted", 
   })();
 
   expect((error as Error).message).toBe(
-    'Entry /en/home: image "https://cdn.example/hero.jpg?…" declares 1 intrinsic dimension that is not a pixel size, so the browser reserves no space for it and the page shifts as it loads — pass the asset\'s own pixel width and height:\n' +
+    'Entry /en/home: image source would move the image off the host the URL template names, so content could load it from any host — pass the asset\'s own path, starting with "/", such as "/hero.jpg":\n' +
+      '  "https://cdn.example/hero.jpg?…" — does not start with "/", so it runs on into the host the template names\n\n' +
+      'Entry /en/home: image declares 1 intrinsic dimension that is not a pixel size, so the browser reserves no space for it and the page shifts as it loads — pass the asset\'s own pixel width and height:\n' +
       "  width — 0 — not a whole number of pixels above zero",
   );
 });
@@ -512,4 +514,80 @@ test("a dimension that is not a finite number is quoted as what was written", ()
   })();
 
   expect((error as Error).message).toContain("  width — NaN — not a number");
+});
+
+const HOST_HEADLINE =
+  'Entry /en/home: image source would move the image off the host the URL template names, so content could load it from any host — pass the asset\'s own path, starting with "/", such as "/hero.jpg":';
+
+function sourceRefusal(template: string, src: string): unknown {
+  try {
+    imageAttributes({
+      images: { ...IMAGES, adapter: urlTemplate(template) },
+      image: { src, width: 1600, height: 900 },
+      page: PAGE,
+    });
+  } catch (thrown: unknown) {
+    return thrown;
+  }
+  return undefined;
+}
+
+test.each([
+  [".evil.test/x", '".evil.test/x"'],
+  ["@evil.test/x", '"…@evil.test/x"'],
+  [":8080/x", '":8080/x"'],
+  ["x.jpg", '"x.jpg"'],
+])(
+  "a source %j after the template's origin is refused for not starting with a slash",
+  (src, quoted) => {
+    const error = sourceRefusal("https://cdn.example{src}?w={width}", src);
+
+    expect(error).toBeInstanceOf(RenderError);
+    expect((error as Error).message).toBe(
+      `${HOST_HEADLINE}\n  ${quoted} — does not start with "/", so it runs on into the host the template names`,
+    );
+  },
+);
+
+test("a source that would turn a path template into a protocol-relative URL is refused", () => {
+  const error = sourceRefusal("/{src}?w={width}", "/evil.test/x");
+
+  expect(error).toBeInstanceOf(RenderError);
+  expect((error as Error).message).toBe(
+    `${HOST_HEADLINE}\n  "/evil.test/x" — builds a URL on another host than the one the template names`,
+  );
+});
+
+test.each([
+  ["//evil.test/x", "a protocol-relative URL, which names a host of its own"],
+  ["javascript:x", "a javascript: URL, not a path or a web address"],
+  ["JavaScript:x", "a javascript: URL, not a path or a web address"],
+  ["data:image/png;base64,AAAA", "a data: URL, not a path or a web address"],
+])(
+  "a template that starts with {src} refuses %j",
+  (src, reason) => {
+    const error = sourceRefusal("{src}?w={width}", src);
+
+    expect(error).toBeInstanceOf(RenderError);
+    expect((error as Error).message).toBe(
+      `${HOST_HEADLINE}\n  ${JSON.stringify(src)} — ${reason}`,
+    );
+  },
+);
+
+test.each([
+  ["{src}?w={width}", "/uploads/hero.jpg", "/uploads/hero.jpg?w=320"],
+  ["{src}?w={width}", "https://media.example/hero.jpg", "https://media.example/hero.jpg?w=320"],
+  ["{src}?w={width}", " javascript:x", "%20javascript:x?w=320"],
+  ["https://cdn.example{src}?w={width}", "//evil.test/x", "https://cdn.example//evil.test/x?w=320"],
+  ["https://cdn.example/w_{width}{src}", "x.jpg", "https://cdn.example/w_320x.jpg"],
+  ["/images{src}-{width}", "/hero", "/images/hero-320"],
+])("a template %j keeps the source %j on its own host", (template, src, url) => {
+  const attributes = imageAttributes({
+    images: { ...IMAGES, adapter: urlTemplate(template), widths: [320] },
+    image: { src, width: 1600, height: 900 },
+    page: PAGE,
+  });
+
+  expect(attributes.src).toBe(url);
 });

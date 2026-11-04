@@ -63,7 +63,7 @@ export interface ImageAttributesInput {
 
 export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
   const { images, image, page } = input;
-  refuseUnusableImage(image, page);
+  refuseUnusableImage(images, image, page);
   const style = imagePlaceholder(image);
 
   const widths = candidateWidths(images.widths, image.width);
@@ -122,18 +122,38 @@ function candidateWidths(
 }
 
 const SOURCE_FIX = 'pass the asset\'s own path or URL, such as "/hero.jpg"';
+const HOST_FIX = 'pass the asset\'s own path, starting with "/", such as "/hero.jpg"';
 const DIMENSION_FIX = "pass the asset's own pixel width and height";
 
-function refuseUnusableImage(image: ImageSource, page: PageContext): void {
+function refuseUnusableImage(
+  images: ImagesSetting,
+  image: ImageSource,
+  page: PageContext,
+): void {
   const where = `Entry ${entryId(page)}`;
   const sections: string[] = [];
 
-  const source = sourceFault(image.src);
-  if (source !== undefined) {
+  const unusable = sourceFault(image.src);
+  if (unusable !== undefined) {
     sections.push(
-      `${where}: image source is not usable, so no URL can be built for it — ${SOURCE_FIX}:\n  ${source}`,
+      `${where}: image source is not usable, so no URL can be built for it — ${SOURCE_FIX}:\n  ${unusable}`,
     );
   }
+  const offHost =
+    unusable === undefined
+      ? HOST_CHECKS.get(images.adapter)?.({
+          src: image.src,
+          width: images.widths[0] ?? image.width,
+          quality: images.quality,
+          format: images.format,
+        })
+      : undefined;
+  if (offHost !== undefined) {
+    sections.push(
+      `${where}: image source would move the image off the host the URL template names, so content could load it from any host — ${HOST_FIX}:\n  ${quote(image.src)} — ${offHost}`,
+    );
+  }
+  const source = unusable ?? offHost;
 
   const dimensions = [
     ["width", image.width],
@@ -208,6 +228,51 @@ const TEMPLATE_EXAMPLE = '"https://cdn.example{src}?w={width}"';
  */
 const PATH_DELIMITERS = /[?#&=+,]/g;
 
+const HOST_CHECKS = new WeakMap<
+  ImageAdapter,
+  (request: ImageRequest) => string | undefined
+>();
+
+const RELATIVE_BASE = "https://relative.invalid/";
+
+const BARE_ORIGIN = /^(?:[a-z][a-z\d+.-]*:)?\/\/[^/?#]*$/i;
+
+const SCHEME = /^([a-z][a-z\d+.-]*):/i;
+
+const NOT_AN_ADDRESS = ["javascript", "data"];
+
+function hostFault(
+  before: string,
+  url: string,
+  src: string,
+): string | undefined {
+  if (before === "") {
+    const scheme = SCHEME.exec(url)?.[1]?.toLowerCase();
+    if (scheme !== undefined && NOT_AN_ADDRESS.includes(scheme)) {
+      return `a ${scheme}: URL, not a path or a web address`;
+    }
+    if (url.startsWith("//")) {
+      return "a protocol-relative URL, which names a host of its own";
+    }
+    return undefined;
+  }
+  if (BARE_ORIGIN.test(before) && !src.startsWith("/")) {
+    return 'does not start with "/", so it runs on into the host the template names';
+  }
+  const origin = (text: string): string | undefined => {
+    try {
+      return new URL(text, RELATIVE_BASE).origin;
+    } catch {
+      return undefined;
+    }
+  };
+  const expected = origin(before);
+  if (expected !== undefined && origin(url) !== expected) {
+    return "builds a URL on another host than the one the template names";
+  }
+  return undefined;
+}
+
 export function urlTemplate(template: string): ImageAdapter {
   const found = [...template.matchAll(PLACEHOLDER)].map(
     ([, name]) => name as string,
@@ -240,10 +305,17 @@ export function urlTemplate(template: string): ImageAdapter {
   if (sections.length > 0) throw new ConfigError(sections.join("\n\n"));
 
   // One pass, so a value that spells a placeholder is never expanded again.
-  return (request) =>
-    template.replace(PLACEHOLDER, (_match, name: string) =>
-      fill(name, request),
+  const build = (text: string, request: ImageRequest): string =>
+    text.replace(PLACEHOLDER, (_match, name: string) => fill(name, request));
+  const adapter: ImageAdapter = (request) => build(template, request);
+  const at = template.indexOf("{src}");
+  if (at !== -1) {
+    const before = template.slice(0, at);
+    HOST_CHECKS.set(adapter, (request) =>
+      hostFault(build(before, request), adapter(request), request.src),
     );
+  }
+  return adapter;
 }
 
 function fill(name: string, request: ImageRequest): string {
