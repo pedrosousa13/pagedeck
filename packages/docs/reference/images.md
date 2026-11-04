@@ -69,8 +69,8 @@ A template with no `{width}`, no source placeholder, or a placeholder that is no
 on this list fails immediately, where you wrote it.
 
 **A source cannot move the image to another host.** Your CMS writes the
-source, so `urlTemplate` checks each URL it builds from `{src}` against what
-your template puts before it:
+source, so `urlTemplate` checks each URL it builds against what your template
+puts before the first `{src}` or `{srcParam}`:
 
 - **After an origin**, as in `https://images.example{src}`, the source must
   start with `/`. A missing slash is refused, not added: `.evil.test/x.jpg`
@@ -79,12 +79,15 @@ your template puts before it:
 - **After any other text**, the built URL must keep the origin that text
   names. A path template such as `/images{src}` keeps the image on your own
   site, so `/` and `/evil.test/x.jpg` cannot join into `//evil.test/x.jpg`.
-- **When the template starts with `{src}`**, the source is your own path or a
-  web address: a `javascript:` URL, a `data:` URL or a protocol-relative
-  `//host` source is refused.
+  `{srcParam}` is checked the same way: it is escaped for a query parameter,
+  but written straight after an origin it still runs into the host.
+- **When the template starts with `{src}`**, the source must be your own path
+  or an `http:` or `https:` URL. Any other scheme (`javascript:`, `data:`,
+  `file:` and the rest) and a protocol-relative `//host` source are refused.
 
-`{srcParam}` is escaped as a query parameter, so it cannot change the host and
-needs no check. An adapter function you write yourself is not checked.
+A template whose text before the source placeholder is not a URL with a host,
+such as `https://{src}`, fails where you wrote it, since there would be no host
+to check against. An adapter function you write yourself is not checked.
 
 ### The other fields
 
@@ -411,6 +414,10 @@ Image URL template: holds 1 placeholder this adapter cannot fill — correct eac
   "{quailty}"
 ```
 
+```
+Image URL template: the text before its source placeholder is not a URL with a host, so there is no host to keep each image URL on — write a whole origin or a path before the placeholder, as "https://cdn.example{src}?w={width}" or "/images{src}?w={width}", or start the template with the placeholder
+```
+
 Your template is never printed in any of these, and neither is a URL built from
 one: image CDN URLs carry signing keys, and these messages are read in CI logs.
 For the same reason, every value quoted above is cut at its `?` or `#`.
@@ -434,11 +441,12 @@ Entry /en/home: image source is not usable, so no URL can be built for it — pa
   "   " — the source is only whitespace
 ```
 
-A source that would move the image off your template's host is refused in the
-same place:
+A source that would take the image off your template's host is refused in the
+same place. The fix depends on why it was refused, so it changes with the
+reason on the second line:
 
 ```
-Entry /en/home: image source would move the image off the host the URL template names, so content could load it from any host — pass the asset's own path, starting with "/", such as "/hero.jpg":
+Entry /en/home: image source takes the image off the host its URL template allows, so content could choose where it loads from — start the path with "/", such as "/hero.jpg":
   ".evil.test/hero.jpg" — does not start with "/", so it runs on into the host the template names
 ```
 
