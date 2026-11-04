@@ -664,6 +664,9 @@ function declarationFaults(
       "src",
       `${quote(src)} — not a script source — write the URL or path the script is served from, such as "https://example.com/analytics.js"`,
     ]);
+  } else {
+    const reason = srcFault(src);
+    if (reason !== undefined) faults.push(["src", `${quote(src)} — ${reason}`]);
   }
   const strategy = value("strategy");
   if (strategy !== undefined && !isStrategy(strategy)) {
@@ -710,6 +713,26 @@ function declarationFaults(
     }
   }
   return faults;
+}
+
+/** Anywhere, not only at the ends: the URL parser also drops a tab or newline mid-scheme (#292). */
+const STRIPPED_BY_URL_PARSER = /[\u0000- \u007f]/;
+
+function srcFault(src: string): string | undefined {
+  if (STRIPPED_BY_URL_PARSER.test(src)) {
+    return "a source holding whitespace or a control character, which a browser strips or drops before it reads the URL — delete it, or percent-encode it if the URL needs it";
+  }
+  if (/^\/(?![/\\])/.test(src) || isHttpsUrl(src)) return undefined;
+  return `not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"`;
+}
+
+function isHttpsUrl(src: string): boolean {
+  if (!/^https:/i.test(src)) return false;
+  try {
+    return new URL(src).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function integrityTokenFault(token: string): string | undefined {

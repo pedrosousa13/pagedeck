@@ -270,6 +270,63 @@ test("every unusable field of every declared script is reported with the type it
   );
 });
 
+const SRC_FIX =
+  'write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"';
+
+function srcFaults(...srcs: readonly string[]): string | undefined {
+  return scriptsFaultReport(
+    { scripts: srcs.map((src, index) => ({ name: `s${String(index)}`, src })) },
+    "Script settings",
+  );
+}
+
+test("a source that is not an https: URL or a single-slash path is refused, every one named", () => {
+  expect(
+    srcFaults(
+      "javascript:alert(1)",
+      "data:text/javascript,alert(1)",
+      "http://example.com/a.js",
+      "//example.com/a.js",
+    ),
+  ).toBe(
+    [
+      "Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "src" — "javascript:alert(1)" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — ${SRC_FIX}`,
+      `  scripts[1] — "src" — "data:text/javascript,alert(1)" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — ${SRC_FIX}`,
+      `  scripts[2] — "src" — "http://example.com/a.js" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — ${SRC_FIX}`,
+      `  scripts[3] — "src" — "//example.com/a.js" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — ${SRC_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("an https: URL in any case and a single-slash path are sources", () => {
+  expect(
+    srcFaults("https://example.com/a.js", "HTTPS://example.com/a.js", "/x.js", "/a/b.js?v=1"),
+  ).toBeUndefined();
+});
+
+test("a backslash that a browser reads as a second slash is refused", () => {
+  const report = srcFaults("/\\example.com/a.js", "\\\\example.com/a.js", "https:", "https://");
+  expect(report).toContain("declares 4 script fields that cannot be loaded from");
+  expect(report).toContain('scripts[0] — "src" — "/\\\\example.com/a.js" — not an https: URL');
+  expect(report).toContain('scripts[1] — "src" — "\\\\\\\\example.com/a.js" — not an https: URL');
+});
+
+test("whitespace or a control character a browser strips before it reads the scheme is refused", () => {
+  const report = srcFaults(" javascript:alert(1)", "java\tscript:alert(1)", "/x.js\n", "/\t/example.com/a.js");
+  const reason =
+    "a source holding whitespace or a control character, which a browser strips or drops before it reads the URL — delete it, or percent-encode it if the URL needs it";
+  expect(report).toBe(
+    [
+      "Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "src" — " javascript:alert(1)" — ${reason}`,
+      `  scripts[1] — "src" — "java\\tscript:alert(1)" — ${reason}`,
+      `  scripts[2] — "src" — "/x.js\\n" — ${reason}`,
+      `  scripts[3] — "src" — "/\\t/example.com/a.js" — ${reason}`,
+    ].join("\n"),
+  );
+});
+
 test("a list entry that is not a declaration at all is its own paragraph", () => {
   const report = scriptsFaultReport(
     { scripts: [ANALYTICS, "https://example.com/a.js"] },

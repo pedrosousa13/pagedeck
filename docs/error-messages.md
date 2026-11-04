@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 345 messages fenced
-below, 268 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 346 messages fenced
+below, 269 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 268 checked messages pin 40378 of the 113765 fenced characters, and
+below**: the 269 checked messages pin 40463 of the 114389 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1266,6 +1266,20 @@ Script settings: declares 4 script fields that cannot be loaded from — declare
   scripts[1] — "src" — 7 — not a script source — write the URL or path the script is served from, such as "https://example.com/analytics.js"
   scripts[1] — "strategy" — "lazy" — not a loading strategy — write one of: worker, idle, interaction, facade
   scripts[2] — "facade.html" — "  " — not placeholder HTML — write the markup the page shows until the script loads, such as "<button>Chat</button>"
+```
+
+A source that is a string is still refused unless it is an `https:` URL or a
+path that starts with a single `/` (#292). A `data:` source on the `worker`
+strategy would run inside the runtime's worker, where the page's CSP does not
+reach, and an `http:` or protocol-relative one loads without HTTPS. A source
+holding whitespace or a control character is refused before its scheme is read,
+because a browser strips or drops those first, and `"java\tscript:"` is
+`javascript:` to it:
+
+```
+Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:
+  scripts[0] — "src" — "data:text/javascript,alert(1)" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"
+  scripts[1] — "src" — "java\tscript:alert(1)" — a source holding whitespace or a control character, which a browser strips or drops before it reads the URL — delete it, or percent-encode it if the URL needs it
 ```
 
 A list entry that is not a declaration at all is a paragraph of its own rather

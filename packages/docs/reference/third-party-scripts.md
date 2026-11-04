@@ -56,6 +56,19 @@ deliberate: a container id, a region or a version changes in a vendor's URL
 without the site meaning anything by it, and an override keyed by one would stop
 applying the day the tag was reissued.
 
+`src` is an `https:` URL, such as `"https://example.com/gtm.js"`, or a path on
+your own site that starts with a single `/`, such as `"/metrics.js"`. Anything
+else fails the build: `http:`, `data:` and `javascript:` sources, a
+protocol-relative `"//example.com/gtm.js"`, a relative `"metrics.js"`, and a
+source holding whitespace or a control character, which a browser strips before
+it reads the scheme. A `data:` source on the `worker` strategy would run inside
+the runtime's worker, where the page's Content-Security-Policy does not reach.
+
+```
+Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:
+  scripts[0] — "src" — "http://example.com/gtm.js" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"
+```
+
 `defineScripts` checks the whole section when the config loads, so a
 misspelled strategy or an override naming a script that does not exist is a
 build failure with the fix in it, not a page that quietly loads nothing.
