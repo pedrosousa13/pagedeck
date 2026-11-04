@@ -1,7 +1,7 @@
 import { CONSENT_DENIED, CONSENT_EVENT, CONSENT_GRANTED } from "./consent.js";
 import { ConfigError } from "./exit.js";
 import { matchingPattern, parsePatterns, patternMapFaultReport } from "./page-patterns.js";
-import { quote, quoteIdentifier } from "./quote.js";
+import { quote } from "./quote.js";
 import type { ConsentCategory } from "./consent.js";
 import type { PageIdentity } from "./page-patterns.js";
 
@@ -305,14 +305,14 @@ const ATTRIBUTES_FIX =
   'write a map of data attribute to value, as attributes: { "data-domain": "example.com" }';
 const INTEGRITY_FIX =
   'write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"';
-const INTEGRITY_TOKEN = /^(sha256|sha384|sha512)-([^?]*)/;
 const DIGEST_SHAPES = {
-  sha256: { characters: 43, padding: 1, shape: '43 base64 characters, then one "=" or none' },
-  sha384: { characters: 64, padding: 0, shape: "64 base64 characters, unpadded" },
-  sha512: { characters: 86, padding: 2, shape: '86 base64 characters, then "==" or none' },
+  sha256: { characters: 43, padding: 1 },
+  sha384: { characters: 64, padding: 0 },
+  sha512: { characters: 86, padding: 2 },
 } as const;
-const SKIPPED =
-  "and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked";
+const INTEGRITY_PREFIXES = Object.keys(DIGEST_SHAPES).map((algorithm) => `${algorithm}-`);
+const UNCHECKED_LOAD_REASON =
+  "a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked";
 const ATTRIBUTE_KEY_REASON =
   'not a data attribute name — write a key of the form data-<name>, such as "data-domain"';
 /**
@@ -637,7 +637,7 @@ function declarationSections(
   }
   if (faults.length > 0) {
     sections.push(
-      `${heading}: declares ${count(faultyFields.size, "script field")} that cannot be loaded from — declare each as the type its own line names:\n${faults.join("\n")}`,
+      `${heading}: declares ${count(faultyFields.size, "script field")} that cannot be loaded from — declare each as the lines that name it say:\n${faults.join("\n")}`,
     );
   }
   return sections;
@@ -700,7 +700,7 @@ function declarationFaults(
       for (const token of integrity.split(/[\t\n\f\r ]+/)) {
         const reason = integrityTokenFault(token);
         if (reason !== undefined) {
-          faults.push(["integrity", `${quoteIdentifier(token)} — ${reason} — ${INTEGRITY_FIX}`]);
+          faults.push(["integrity", `${quoteToken(token)} — ${reason} — ${INTEGRITY_FIX}`]);
         }
       }
     }
@@ -710,25 +710,43 @@ function declarationFaults(
 
 function integrityTokenFault(token: string): string | undefined {
   if (token === "") return undefined;
-  const match = INTEGRITY_TOKEN.exec(token);
-  if (match === null) return `not a sha256-, sha384- or sha512- hash, ${SKIPPED}`;
-  const algorithm = match[1] as keyof typeof DIGEST_SHAPES;
-  const digest = match[2] ?? "";
-  if (digest === "") return `no digest after "${algorithm}-", ${SKIPPED}`;
+  const known = Object.entries(DIGEST_SHAPES).find(([algorithm]) =>
+    token.startsWith(`${algorithm}-`),
+  );
+  if (known === undefined) {
+    return `not a ${INTEGRITY_PREFIXES.slice(0, -1).join(", ")} or ${INTEGRITY_PREFIXES.at(-1) ?? ""} hash, and ${UNCHECKED_LOAD_REASON}`;
+  }
+  const [algorithm, { characters, padding }] = known;
+  const digest = token.slice(algorithm.length + 1).split("?", 1)[0] ?? "";
+  if (digest === "") return `no digest after "${algorithm}-", and ${UNCHECKED_LOAD_REASON}`;
   if (!/^[A-Za-z0-9+/_=-]+$/.test(digest)) {
-    return `a digest that is not base64, ${SKIPPED}`;
+    return `a digest that is not base64, and ${UNCHECKED_LOAD_REASON}`;
   }
-  const { characters, padding, shape } = DIGEST_SHAPES[algorithm];
-  const body = digest.replace(/=+$/, "");
-  const pad = digest.length - body.length;
-  const length = digest.replace(/=/g, "").length;
+  if (!/^[^=]+={0,2}$/.test(digest)) {
+    return 'a digest with "=" where base64 takes none, and Firefox and WebKit skip a token like it and, with no valid token left, run the script unchecked';
+  }
+  if (/[+/]/.test(digest) && /[-_]/.test(digest)) {
+    return 'a digest that mixes base64\'s "+" or "/" with the URL-safe "-" or "_", so Firefox and WebKit match it to no file and block the script';
+  }
+  const shape = `a ${algorithm} digest is ${String(characters)} base64 characters, ${
+    padding === 0 ? "unpadded" : `then ${JSON.stringify("=".repeat(padding))} or none`
+  }`;
+  const length = digest.replace(/=+$/, "").length;
   if (length !== characters) {
-    return `a digest of ${String(length)} base64 characters, where a ${algorithm} digest is ${shape}, so it matches no file and a browser that checks against it blocks the script`;
+    return `a digest of ${String(length)} base64 characters, where ${shape}, so it matches no file and a browser that checks against it blocks the script`;
   }
-  if (body.includes("=") || (pad !== 0 && pad !== padding)) {
-    return `a digest padded wrong, where a ${algorithm} digest is ${shape}`;
+  const pad = digest.length - length;
+  if (pad !== 0 && pad !== padding) {
+    return `a digest padded wrong, where ${shape}, so Firefox matches it to no file and blocks the script`;
   }
   return undefined;
+}
+
+function quoteToken(token: string): string {
+  return JSON.stringify(token).replace(
+    /[^\x20-\x7e]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
 }
 
 function attributeFaults(
