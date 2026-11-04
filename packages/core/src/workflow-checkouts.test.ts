@@ -24,6 +24,24 @@ function indentOf(line: string): number {
   return line.length - line.trimStart().length;
 }
 
+const USES =
+  /(?:^\s*(?:-\s+)?|[{,]\s*)(?:uses|"uses"|'uses')\s*:\s*(["']?)([^\s"',}]*)\1/;
+
+const WITH = /^(?:with|"with"|'with')\s*:\s*(.*)$/;
+
+const PERSIST_FALSE =
+  /^(?:persist-credentials|"persist-credentials"|'persist-credentials')\s*:\s*(["']?)false\1\s*(?:#.*)?$/;
+
+const FLOW_WITH = /[{,]\s*(?:with|"with"|'with')\s*:\s*\{([^}]*)\}/;
+
+function isCheckout(text: string): boolean {
+  return (USES.exec(text)?.[2] ?? "").startsWith("actions/checkout@");
+}
+
+function flowSetsFalse(inner: string): boolean {
+  return inner.split(",").some((entry) => PERSIST_FALSE.test(entry.trim()));
+}
+
 function checkouts(source: string, file: string): Checkout[] {
   const lines = source.split("\n");
   const found: Checkout[] = [];
@@ -41,18 +59,53 @@ function checkouts(source: string, file: string): Checkout[] {
       end += 1;
     }
     const step = lines.slice(start, end);
+    const head = first.slice(keyColumn);
 
-    const isCheckout = step.some(
-      (line, offset) =>
-        /^\s*(?:-\s+)?uses:\s*actions\/checkout@/.test(line) &&
-        (offset === 0 || indentOf(line) === keyColumn),
-    );
-    if (!isCheckout) return;
+    if (head.startsWith("{")) {
+      const text = [head, ...step.slice(1).map((line) => line.trim())].join(
+        " ",
+      );
+      if (!isCheckout(text)) return;
+      const inner = FLOW_WITH.exec(text)?.[1];
+      found.push({
+        file,
+        line: start + 1,
+        persistsCredentials: inner === undefined || !flowSetsFalse(inner),
+      });
+      return;
+    }
 
-    const persistsCredentials = !step.some((line) =>
-      /^\s*persist-credentials:\s*["']?false["']?\s*(?:#.*)?$/.test(line),
+    const keys = step.flatMap((line, offset) =>
+      offset === 0
+        ? [{ offset, text: head }]
+        : indentOf(line) === keyColumn
+          ? [{ offset, text: line.trim() }]
+          : [],
     );
-    found.push({ file, line: start + 1, persistsCredentials });
+    if (!keys.some(({ text }) => isCheckout(text))) return;
+
+    let setsFalse = false;
+    for (const { offset, text } of keys) {
+      const withKey = WITH.exec(text);
+      if (withKey === null) continue;
+      const rest = (withKey[1] ?? "").trim();
+      if (rest.startsWith("{")) {
+        setsFalse ||= flowSetsFalse(rest.replace(/^\{|\}\s*(?:#.*)?$/g, ""));
+        continue;
+      }
+      const body = [];
+      for (const line of step.slice(offset + 1)) {
+        if (line.trim() === "" || line.trimStart().startsWith("#")) continue;
+        if (indentOf(line) <= keyColumn) break;
+        body.push(line);
+      }
+      const childColumn = indentOf(body[0] ?? "");
+      setsFalse ||= body.some(
+        (line) =>
+          indentOf(line) === childColumn && PERSIST_FALSE.test(line.trim()),
+      );
+    }
+    found.push({ file, line: start + 1, persistsCredentials: !setsFalse });
   });
 
   return found;
@@ -84,3 +137,60 @@ function persistingReport(persisting: readonly Checkout[]): string {
     .join("\n");
   return `Workflow checkouts: ${String(persisting.length)} actions/checkout step${persisting.length === 1 ? " leaves" : "s leave"} the job's token in .git/config, where every later step, PR code included, can read it — add persist-credentials: false under the step's with:; a later step that must authenticate to git gets the credentials passed to it explicitly (#294):\n${list}`;
 }
+
+function faultsIn(source: string): string[] {
+  return checkouts(source, "fixture.yml")
+    .filter((step) => step.persistsCredentials)
+    .map(({ line }) => String(line));
+}
+
+const SHA = "11d5960a326750d5838078e36cf38b85af677262";
+
+test("checkouts() counts a checkout written with quoted keys and values, or as a flow mapping", () => {
+  const source = [
+    "jobs:",
+    "  build:",
+    "    steps:",
+    `      - uses: "actions/checkout@${SHA}" # v4.4.0`,
+    "      - name: Quoted key",
+    `        'uses': actions/checkout@${SHA} # v4.4.0`,
+    `      - { name: Flow, uses: actions/checkout@${SHA} }`,
+    `      - { "uses": 'actions/checkout@${SHA}', with: { persist-credentials: false } }`,
+    "      - name: Not a checkout",
+    `        uses: actions/setup-node@${SHA} # v4.4.0`,
+  ].join("\n");
+  expect(checkouts(source, "fixture.yml")).toHaveLength(4);
+  expect(faultsIn(source)).toEqual(["4", "5", "7"]);
+});
+
+test("checkouts() counts persist-credentials only directly under the step's with:, and only as false", () => {
+  const source = [
+    "jobs:",
+    "  build:",
+    "    steps:",
+    `      - uses: actions/checkout@${SHA} # v4.4.0`,
+    "        env:",
+    "          persist-credentials: false",
+    `      - uses: actions/checkout@${SHA} # v4.4.0`,
+    "        run: |",
+    "          persist-credentials: false",
+    `      - uses: actions/checkout@${SHA} # v4.4.0`,
+    "        with:",
+    "          persist-credentials: ${{ inputs.persist }}",
+    `      - uses: actions/checkout@${SHA} # v4.4.0`,
+    "        with:",
+    "          nested:",
+    "            persist-credentials: false",
+    `      - uses: actions/checkout@${SHA} # v4.4.0`,
+    "        with:",
+    "          fetch-depth: 0",
+    '          persist-credentials: "false"',
+    `      - uses: actions/checkout@${SHA} # v4.4.0`,
+    "        with: { persist-credentials: 'false' }",
+    "      - with:",
+    "          persist-credentials: false # never stored",
+    `        uses: actions/checkout@${SHA} # v4.4.0`,
+  ].join("\n");
+  expect(checkouts(source, "fixture.yml")).toHaveLength(7);
+  expect(faultsIn(source)).toEqual(["4", "7", "10", "13"]);
+});
