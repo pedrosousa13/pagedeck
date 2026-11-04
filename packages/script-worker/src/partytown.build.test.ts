@@ -242,7 +242,7 @@ export const scripts = defineScripts({
     { name: "tags", src: "https://example.com/gtm.js" },
     { name: "pixel", src: "https://example.com/pixel.js", category: "analytics" },
   ],
-  runtime: definePartytown({ resolveUrl: { "https://collector.example": ${JSON.stringify(prefix)} } }),
+  runtime: definePartytown({ resolveUrl: { "https://collector.example.com": ${JSON.stringify(prefix)} } }),
 });
 `;
 }

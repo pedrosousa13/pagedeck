@@ -331,7 +331,7 @@ import { definePartytown } from "@pagedeck/script-worker";
 
 export const runtime = definePartytown({
   forward: ["dataLayer.push"],
-  resolveUrl: { "https://collector.example": "/vendor/collector/" },
+  resolveUrl: { "https://collector.example.com": "/vendor/collector/" },
 });
 
 export const scripts = defineScripts({
@@ -395,7 +395,7 @@ Some vendor endpoints refuse a request from a worker, or send no CORS headers.
 Partytown's answer is to proxy them. `resolveUrl` is a map from the vendor's
 `https` origin to a path prefix on your site. A request from a worker script to
 that exact origin goes to the prefix instead, with the path and query appended:
-`https://collector.example/g/collect?v=2` becomes
+`https://collector.example.com/g/collect?v=2` becomes
 `/vendor/collector/g/collect?v=2` on your origin. A request to any other origin
 is left alone, and so is an iframe's document, from any origin: a route never
 serves a vendor's page from your origin.
@@ -414,7 +414,9 @@ origin, so a vendor's response arrives with your origin's authority. Have it:
   `Content-Security-Policy: sandbox` on every response.
 
 A key that is not an `https` origin with nothing after the host, a key whose
-host ends in `.`, is an IP address or is `localhost`, and a value that is not a
+host ends in `.`, is an IP address or is a single label, a key whose host is in
+a reserved or private-use domain (`.local`, `.internal`, `.lan`, `.home.arpa`,
+`.test`, `.localhost`, `.invalid` or `.example`), and a value that is not a
 path starting and ending with `/`, are refused when the config loads.
 
 ### The snippet's hash for a Content-Security-Policy
