@@ -77,7 +77,7 @@ export async function syncImageColors(
     try {
       answer = await probe(src);
     } catch (error) {
-      failures.push(`  ${quoteSource(src)} — ${reasonOf(error)}`);
+      failures.push(`  ${quoteSource(src)} — ${reasonOf(error, src)}`);
       if (refusedCache.has(src)) dropped.push(src);
       return;
     }

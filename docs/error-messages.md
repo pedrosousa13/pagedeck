@@ -3747,11 +3747,15 @@ Collection "pages": entry id "/en/x\u001b[2K\rpagedeck: sync complete\n\u009b2K\
 `colorFailureWarning` takes both doors. An image source is the entry's, so it
 is quoted through `quoteIdentifier` after `redactSource` cuts it. The probe's
 own text goes through `printable`, because a probe that throws often names the
-source it failed on. For the same reason every `http(s)` run in that text goes
-through `redactSource` first (`reasonOf`, `packages/content/src/probing.ts`,
-#289), so `GET https://cdn.example/x.jpg?token=SECRET answered 403` prints as
-`GET https://cdn.example/x.jpg?… answered 403` and a `user:pass@` in front of
-the host prints as `…@`. The run ends at whitespace, so a `)` or `,` written
+source it failed on. For the same reason that text is cut before it is
+printed (`reasonOf`, `packages/content/src/probing.ts`, #289). Each place the
+text repeats the source is replaced with the source as `redactSource` cuts it,
+which reaches a root-relative or scheme-relative source too, so
+`GET /img/x.jpg?token=SECRET answered 403` prints as
+`GET /img/x.jpg?… answered 403`. Then every run that starts with `//`, or with
+a scheme of any kind and `//` (`https:`, `wss:`, `postgres:`), goes through
+`redactSource` as well: its query is cut and a `user:pass@` in front of the
+host prints as `…@`. A run ends at whitespace, so a `)` or `,` written
 straight after a URL with no query stays in the text, and after a URL with one
 it is cut with the query. `previewFailureWarning` below shares the helper.
 

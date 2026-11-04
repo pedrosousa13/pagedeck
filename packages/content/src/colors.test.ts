@@ -301,6 +301,70 @@ test("a credential in front of the host is dropped before the source is quoted",
   expect(warnings[0]).not.toContain("s3cret");
 });
 
+test.each([
+  ["scheme-relative", "//cdn.example/x.jpg?token=SECRET", '  "//cdn.example/x.jpg?…" — GET //cdn.example/x.jpg?… answered 403'],
+  ["root-relative", "/img/x.jpg?token=SECRET", '  "/img/x.jpg?…" — GET /img/x.jpg?… answered 403'],
+])("a %s source named in the probe's thrown message is cut as its quote is", async (_form, src, line) => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", src),
+    probe: (asked) => {
+      throw new Error(`GET ${asked} answered 403`);
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(line);
+  expect(warnings[0]).not.toContain("SECRET");
+});
+
+test("a URL of any scheme in the probe's thrown message loses its credential and its query", async () => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/a.jpg"),
+    probe: () => {
+      throw new Error(
+        "pool postgres://app:SECRET@db.internal/assets refused, wss://feed.example/live?token=SECRET closed",
+      );
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(
+    '  "/a.jpg" — pool postgres://…@db.internal/assets refused, wss://feed.example/live?… closed',
+  );
+  expect(warnings[0]).not.toContain("SECRET");
+});
+
+test("punctuation after a URL stays when the URL has no query, and is cut with a query", async () => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/a.jpg"),
+    probe: () => {
+      throw new Error(
+        "redirected (https://cdn.example/a.jpg), then (https://cdn.example/b.jpg?sig=SECRET), gave up",
+      );
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(
+    '  "/a.jpg" — redirected (https://cdn.example/a.jpg), then (https://cdn.example/b.jpg?… gave up',
+  );
+});
+
 test("a URL in the probe's thrown message loses its credential and its query before the warning prints it", async () => {
   const store = openTempStore();
   const warnings: string[] = [];

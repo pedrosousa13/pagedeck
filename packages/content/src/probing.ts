@@ -52,11 +52,15 @@ function concurrencyFault(value: unknown, cached: string): string | undefined {
   return undefined;
 }
 
-export function reasonOf(error: unknown): string {
+const MESSAGE_ADDRESS = /(?:\b[a-z][a-z\d+.-]*:)?\/\/\S+/gi;
+
+export function reasonOf(error: unknown, src: string): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message === ""
-    ? "the probe threw with no message"
-    : printable(message.replace(/https?:\/\/\S+/gi, redactSource));
+  if (message === "") return "the probe threw with no message";
+  const named = src === "" ? message : message.split(src).join(redactSource(src));
+  return printable(
+    named.replace(MESSAGE_ADDRESS, (address) => redactSource(address)),
+  );
 }
 
 // A copy of `packages/core/src/quote.ts`'s rule 6 cut, which this package cannot import;
