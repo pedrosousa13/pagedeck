@@ -748,16 +748,18 @@ async function rawGet(
   path: string,
   method = "GET",
   at: string = origin,
-): Promise<{ status: number; type: string | undefined; body: Buffer }> {
+  headers: Record<string, string> = {},
+): Promise<{ status: number; type: string | undefined; sniffing: string | undefined; body: Buffer }> {
   const { request } = await import("node:http");
   return await new Promise((resolve, reject) => {
-    const sent = request(`${at}/`, { path, method }, (response) => {
+    const sent = request(`${at}/`, { path, method, headers }, (response) => {
       const chunks: Buffer[] = [];
       response.on("data", (chunk: Buffer) => chunks.push(chunk));
       response.on("end", () =>
         resolve({
           status: response.statusCode ?? 0,
           type: response.headers["content-type"],
+          sniffing: response.headers["x-content-type-options"],
           body: Buffer.concat(chunks),
         }),
       );
@@ -774,7 +776,12 @@ test("each file the script runtime declares is served at the build's path, with 
   const base = scriptRuntimeBase(RUNTIME_FILES);
   for (const { name, contents, type } of RUNTIME_FILES) {
     const served = await rawGet(`${base}${name}`);
-    expect({ name, status: served.status, type: served.type }).toEqual({ name, status: 200, type });
+    expect({ name, status: served.status, type: served.type, sniffing: served.sniffing }).toEqual({
+      name,
+      status: 200,
+      type,
+      sniffing: "nosniff",
+    });
     expect(served.body.equals(Buffer.from(contents))).toBe(true);
 
     const head = await rawGet(`${base}${name}?v=1`, "HEAD");
@@ -785,6 +792,18 @@ test("each file the script runtime declares is served at the build's path, with 
       length: 0,
     });
   }
+}, 60_000);
+
+test("a runtime file is refused to a Host header pagedeck dev does not allow, as a page is", async () => {
+  const path = `${scriptRuntimeBase(RUNTIME_FILES)}${RUNTIME_FILES[0].name}`;
+  const foreign = { host: "evil.example" };
+  const page = await rawGet("/hot", "GET", origin, foreign);
+  expect(page.status).toBe(403);
+
+  const file = await rawGet(path, "GET", origin, foreign);
+  expect(file.status).toBe(403);
+  expect(file.body.toString("utf8")).toBe(page.body.toString("utf8"));
+  expect((await rawGet(path, "GET", origin, { host: "localhost" })).status).toBe(200);
 }, 60_000);
 
 test("a path under the runtime's directory that names no declared file is answered as any unknown path is", async () => {

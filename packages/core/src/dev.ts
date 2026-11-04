@@ -11,7 +11,7 @@ import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
 import { dirname, relative, resolve as resolvePath, sep } from "node:path";
 import { createServer as createViteServer } from "vite";
-import type { ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 import { openStoreReadOnly } from "@pagedeck/content";
 import type { ContentStoreReader } from "@pagedeck/content";
 import { documentHtml } from "./build.js";
@@ -175,6 +175,7 @@ export async function startDevServer(
             throw new ConfigError(message);
           },
         }),
+        serveRuntimeFiles(() => site.current.runtimeFiles),
         compileIslands({ err: input.err }).plugin,
         serveGeneratedEntries(entrySources, config.configPath),
         // Last: a site plugin ahead of these could claim the generated entries'
@@ -202,10 +203,8 @@ export async function startDevServer(
     });
     http.on("request", (request, response) => {
       const upstream = upstreamFor(site.current.section, request);
-      if (upstream !== undefined) forwardRequest(upstream, request, response, input.err);
-      else if (!serveRuntimeFile(site.current.runtimeFiles, request, response)) {
-        vite.middlewares(request, response);
-      }
+      if (upstream === undefined) vite.middlewares(request, response);
+      else forwardRequest(upstream, request, response, input.err);
     });
     // Vite's own listener answers only its HMR path, "/", which no upstream
     // prefix covers, so the two never both write to one socket.
@@ -296,22 +295,28 @@ function siteState(
   };
 }
 
-/** An exact match on the path as sent, never a path built from it. */
-function serveRuntimeFile(
-  files: ReadonlyMap<string, RuntimeFile>,
-  request: IncomingMessage,
-  response: ServerResponse,
-): boolean {
-  if (request.method !== "GET" && request.method !== "HEAD") return false;
-  const url = request.url ?? "/";
-  const query = url.indexOf("?");
-  const file = files.get(query === -1 ? url : url.slice(0, query));
-  if (file === undefined) return false;
-  response.statusCode = 200;
-  response.setHeader("content-type", file.type);
-  response.setHeader("content-length", file.contents.length);
-  response.end(request.method === "HEAD" ? undefined : file.contents);
-  return true;
+/**
+ * In `configureServer`: behind Vite's host check and CORS, ahead of its transform,
+ * which would take a `.js` request for a module. Matches the path as sent, exactly.
+ */
+function serveRuntimeFiles(files: () => ReadonlyMap<string, RuntimeFile>): Plugin {
+  return {
+    name: "pagedeck:script-runtime-files",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.method !== "GET" && request.method !== "HEAD") return next();
+        const url = request.url ?? "/";
+        const query = url.indexOf("?");
+        const file = files().get(query === -1 ? url : url.slice(0, query));
+        if (file === undefined) return next();
+        response.statusCode = 200;
+        response.setHeader("content-type", file.type);
+        response.setHeader("content-length", file.contents.length);
+        response.setHeader("x-content-type-options", "nosniff");
+        response.end(request.method === "HEAD" ? undefined : file.contents);
+      });
+    },
+  };
 }
 
 function devFileUrl(file: string, root: string): string {
