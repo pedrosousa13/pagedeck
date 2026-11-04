@@ -1,13 +1,14 @@
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { readFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { chromium } from "playwright";
 import type { Browser, Page as BrowserPage } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { CONSENT_EVENT, CONSENT_GLOBAL, readManifest } from "@pagedeck/core";
+import { CONSENT_EVENT, CONSENT_GLOBAL, contentTypeOf, readManifest } from "@pagedeck/core";
+import { startDev } from "./dev-server.test-support.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -19,12 +20,6 @@ const BIN = join(PACKAGE, "..", "core", "dist", "bin.js");
 
 /** `pixel` is categorized and held; `tags` is not, and shows the worker is running. */
 const SCRIPTS = ["tags", "pixel"] as const;
-
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".txt": "text/plain; charset=utf-8",
-};
 
 interface Served {
   readonly origin: string;
@@ -79,7 +74,7 @@ function serveSite(dist: string, files: ReadonlySet<string>): Promise<Served> {
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
     const file = path === "/" ? "/index.html" : path;
-    const type = CONTENT_TYPES[extname(file)];
+    const type = contentTypeOf(file);
     if (!files.has(file) || type === undefined) {
       response.statusCode = 404;
       response.end(`Consent worker harness: the build emitted no file at ${path}`);
@@ -164,36 +159,6 @@ function forwardedCall(caller: string): string {
 
 async function run(verb: string): Promise<void> {
   await execFileAsync(process.execPath, [BIN, verb], { cwd: SITE });
-}
-
-/** `pagedeck dev` over the same site, which serves the runtime's files itself (#282). */
-async function startDev(): Promise<{ origin: string; stop(): Promise<void> }> {
-  const child = spawn(process.execPath, [BIN, "dev", "--port", "0"], { cwd: SITE });
-  const stop = (): Promise<void> =>
-    new Promise((done) => {
-      if (child.exitCode !== null || child.signalCode !== null) done();
-      else {
-        child.on("exit", () => done());
-        child.kill("SIGTERM");
-      }
-    });
-  const origin = await new Promise<string>((resolve, reject) => {
-    let out = "";
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      out += chunk;
-      const found = /at (http:\/\/[^\s]+)/.exec(out);
-      if (found !== null) resolve(found[1] as string);
-    });
-    child.on("exit", (code) => {
-      reject(
-        new Error(
-          `Consent worker harness: pagedeck dev exited with ${String(code)} before it was listening — it wrote:\n${out}`,
-        ),
-      );
-    });
-  });
-  return { origin, stop };
 }
 
 let browser: Browser;
@@ -355,7 +320,7 @@ test("a category granted when the page loads runs the held script in the worker,
 });
 
 test("under pagedeck dev, Partytown registers its service worker and the worker script reports from the worker", async () => {
-  const dev = await startDev();
+  const dev = await startDev(BIN, SITE);
   try {
     const { page, errors, finish } = await open(false, dev.origin);
     await workerRan();
