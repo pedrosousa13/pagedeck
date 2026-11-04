@@ -52,7 +52,7 @@ function concurrencyFault(value: unknown, cached: string): string | undefined {
   return undefined;
 }
 
-const MESSAGE_ADDRESS = /(?:\b[a-z][a-z\d+.-]*:)?\/\/\S+/gi;
+const MESSAGE_ADDRESS = /(?<![a-z\d+.-])[a-z][a-z\d+.-]*:\/\/\S+|\/\/\S+/gi;
 
 export function reasonOf(error: unknown, src: string): string {
   const message = error instanceof Error ? error.message : String(error);
