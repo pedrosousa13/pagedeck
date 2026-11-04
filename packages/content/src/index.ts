@@ -22,7 +22,11 @@ export type {
   TemplateUsage,
 } from "./collection.js";
 export { DEFAULT_COLOR_CONCURRENCY, syncImageColors } from "./colors.js";
-export type { ImageColorProbe, SyncImageColorsInput } from "./colors.js";
+export type {
+  ImageColorProbe,
+  ImageColorSource,
+  SyncImageColorsInput,
+} from "./colors.js";
 export { DEFAULT_PREVIEW_CONCURRENCY, syncImagePreviews } from "./previews.js";
 export type {
   ImagePreviewProbe,

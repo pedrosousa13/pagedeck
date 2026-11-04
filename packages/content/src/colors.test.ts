@@ -4,8 +4,19 @@ import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { CollectionError } from "./collection.js";
 import { DEFAULT_COLOR_CONCURRENCY, syncImageColors } from "./colors.js";
+import type { ImageColorSource } from "./colors.js";
 import { openStore } from "./store.js";
 import type { ContentStore } from "./store.js";
+
+function on(entry: string, ...srcs: string[]): ImageColorSource[] {
+  return srcs.map((src) => ({ src, entry }));
+}
+
+const FIX =
+  'return a CSS color as "#" and 3, 4, 6 or 8 hex digits, such as "#2f3a28", or as rgb() of three whole numbers from 0 to 255, such as "rgb(47 58 40)", or undefined for an image that has none';
+
+const NOT_A_COLOR =
+  'not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255';
 
 const tempDirs: string[] = [];
 const openStores: ContentStore[] = [];
@@ -49,7 +60,7 @@ test("one unique source is probed once, however many images name it", async () =
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/hero.jpg", "/hero.jpg", "/hero.jpg"],
+    sources: on("/en/home", "/hero.jpg", "/hero.jpg", "/hero.jpg"),
     probe,
   });
 
@@ -64,7 +75,7 @@ test("a second sync over the same sources issues no requests at all", async () =
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/hero.jpg", "/logo.svg"],
+    sources: on("/en/home", "/hero.jpg", "/logo.svg"),
     probe: first.probe,
   });
   expect(first.asked).toHaveLength(2);
@@ -73,7 +84,7 @@ test("a second sync over the same sources issues no requests at all", async () =
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/hero.jpg", "/logo.svg"],
+    sources: on("/en/home", "/hero.jpg", "/logo.svg"),
     probe: second.probe,
   });
 
@@ -82,7 +93,7 @@ test("a second sync over the same sources issues no requests at all", async () =
 
 test("no more probes are in flight at once than the concurrency allows", async () => {
   const store = openTempStore();
-  const sources = ["/a.jpg", "/b.jpg", "/c.jpg", "/d.jpg", "/e.jpg"];
+  const sources = on("/en/home", "/a.jpg", "/b.jpg", "/c.jpg", "/d.jpg", "/e.jpg");
   const limited = countingProbe({});
 
   await syncImageColors({
@@ -99,7 +110,7 @@ test("no more probes are in flight at once than the concurrency allows", async (
 
 test("the concurrency ceiling is the limit and not the shape of the loop", async () => {
   const store = openTempStore();
-  const sources = ["/a.jpg", "/b.jpg", "/c.jpg", "/d.jpg", "/e.jpg"];
+  const sources = on("/en/home", "/a.jpg", "/b.jpg", "/c.jpg", "/d.jpg", "/e.jpg");
   const wide = countingProbe({});
 
   // The control: with the limit raised, the same probe reaches five at once.
@@ -121,7 +132,7 @@ test("a source whose probe throws keeps its color absent and takes the sync with
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/hero.jpg", "/broken.jpg"],
+    sources: on("/en/home", "/hero.jpg", "/broken.jpg"),
     probe: (src) => {
       if (src === "/broken.jpg") throw new Error("502 Bad Gateway");
       return "#2f3a28";
@@ -143,8 +154,8 @@ test("a failed probe is retried by the next sync, and succeeds", async () => {
     return "#2f3a28";
   };
 
-  await syncImageColors({ store, collection: "pages", sources: ["/hero.jpg"], probe });
-  await syncImageColors({ store, collection: "pages", sources: ["/hero.jpg"], probe });
+  await syncImageColors({ store, collection: "pages", sources: on("/en/home", "/hero.jpg"), probe });
+  await syncImageColors({ store, collection: "pages", sources: on("/en/home", "/hero.jpg"), probe });
 
   expect(attempts).toBe(2);
   expect(store.getImageColor("/hero.jpg")).toBe("#2f3a28");
@@ -157,7 +168,7 @@ test("every failed source is reported in one warning, not the first of them", as
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/b.jpg", "/a.jpg", "/ok.jpg"],
+    sources: on("/en/home", "/b.jpg", "/a.jpg", "/ok.jpg"),
     probe: (src) => {
       if (src === "/ok.jpg") return "#2f3a28";
       throw new Error(src === "/a.jpg" ? "timed out" : "502 Bad Gateway");
@@ -178,7 +189,7 @@ test("a probe that answers with something that is not a color is a wiring fault"
   const error: unknown = await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/a.jpg", "/b.jpg"],
+    sources: on("/en/home", "/a.jpg", "/b.jpg"),
     probe: (src) => (src === "/a.jpg" ? (17 as unknown as string) : "#2f3a28"),
   }).then(
     () => undefined,
@@ -187,8 +198,8 @@ test("a probe that answers with something that is not a color is a wiring fault"
 
   expect(error).toBeInstanceOf(CollectionError);
   expect((error as Error).message).toBe(
-    'Collection "pages": the image color probe answered 1 source with something that is not a CSS color — return a CSS color such as "#2f3a28", or undefined for an image that has none:\n' +
-      "  \"/a.jpg\" — 17 — not a string",
+    `Collection "pages": the image color probe answered 1 source with something that is not a CSS color — ${FIX}:\n` +
+      "  \"/a.jpg\" on /en/home — 17 — not a string",
   );
 });
 
@@ -198,7 +209,7 @@ test("a nested signed URL in a bad answer is cut at its query before it is quote
   const error: unknown = await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/a.jpg"],
+    sources: on("/en/home", "/a.jpg"),
     probe: () =>
       ({
         url: "https://cdn.example/hero.jpg?sig=SECRET",
@@ -209,8 +220,8 @@ test("a nested signed URL in a bad answer is cut at its query before it is quote
   );
 
   expect((error as Error).message).toBe(
-    'Collection "pages": the image color probe answered 1 source with something that is not a CSS color — return a CSS color such as "#2f3a28", or undefined for an image that has none:\n' +
-      '  "/a.jpg" — {"url":"https://cdn.example/hero.jpg?…"} — not a string',
+    `Collection "pages": the image color probe answered 1 source with something that is not a CSS color — ${FIX}:\n` +
+      '  "/a.jpg" on /en/home — {"url":"https://cdn.example/hero.jpg?…"} — not a string',
   );
   expect((error as Error).message).not.toContain("SECRET");
 });
@@ -228,7 +239,7 @@ test("a bad answer's control characters are escaped, nested or not", async () =>
   const error: unknown = await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/a.jpg", "/b.jpg"],
+    sources: on("/en/home", "/a.jpg", "/b.jpg"),
     probe: (src) =>
       (src === "/a.jpg"
         ? { color: CONTROLS }
@@ -242,10 +253,10 @@ test("a bad answer's control characters are escaped, nested or not", async () =>
   expect(lines).toHaveLength(3);
   for (const line of lines) expect(line).not.toMatch(RAW_CONTROL);
   expect(lines[1]).toBe(
-    '  "/a.jpg" — {"color":"\\u001b[2K\\r\\n\\u009b\\u2028"} — not a string',
+    '  "/a.jpg" on /en/home — {"color":"\\u001b[2K\\r\\n\\u009b\\u2028"} — not a string',
   );
   expect(lines[2]).toBe(
-    '  "/b.jpg" — Symbol(\ufffd[2K\ufffd\ufffd\ufffd\u2028) — not a string',
+    '  "/b.jpg" on /en/home — Symbol(\ufffd[2K\ufffd\ufffd\ufffd\u2028) — not a string',
   );
 });
 
@@ -255,7 +266,7 @@ test("a concurrency holding control characters is escaped in the refusal", async
   const error: unknown = await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/a.jpg"],
+    sources: on("/en/home", "/a.jpg"),
     probe: () => undefined,
     concurrency: CONTROLS as unknown as number,
   }).then(
@@ -276,7 +287,7 @@ test("a credential in front of the host is dropped before the source is quoted",
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["https://reader:s3cret@cdn.example/a.jpg"],
+    sources: on("/en/home", "https://reader:s3cret@cdn.example/a.jpg"),
     probe: () => {
       throw new Error("401 Unauthorized");
     },
@@ -297,7 +308,7 @@ test("a concurrency below one is refused, naming the field and the fix", async (
   const error: unknown = await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/a.jpg"],
+    sources: on("/en/home", "/a.jpg"),
     probe,
     concurrency: 0,
   }).then(
@@ -324,7 +335,7 @@ test("a hostile source and the probe's text about it reach the warning with thei
   await syncImageColors({
     store,
     collection: "pages",
-    sources: [src],
+    sources: on("/en/home", src),
     probe: (asked) => {
       throw new Error(`no image at ${asked}\r\npagedeck: sync complete`);
     },
@@ -336,4 +347,111 @@ test("a hostile source and the probe's text about it reach the warning with thei
   expect(lines.slice(1)).toEqual([
     '  "/x\\u009b2K\\u001b[1G.jpg" — no image at /x\ufffd2K\ufffd[1G.jpg\ufffd\ufffdpagedeck: sync complete',
   ]);
+});
+
+async function refusal(sync: Promise<void>): Promise<Error> {
+  const error: unknown = await sync.then(
+    () => undefined,
+    (thrown: unknown) => thrown,
+  );
+  expect(error).toBeInstanceOf(CollectionError);
+  return error as Error;
+}
+
+test.each([
+  ["a semicolon", "red;background-image:url(https://evil.example/x)"],
+  ["a url(", "url(https://evil.example/x)"],
+  ["a quote", '#fff"'],
+  ["a backslash", "#2f3a28\\"],
+  ["a newline", "#2f3a28\n"],
+  ["an expression(", "expression(alert(1))"],
+  ["a var(", "var(--brand)"],
+])("an answer holding %s fails the sync and is cached as nothing", async (_name, answer) => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/hero.jpg"),
+      probe: () => answer,
+    }),
+  );
+
+  expect(error.message).toMatch(
+    /^Collection "pages": the image color probe answered 1 source with something that is not a CSS color — .+:\n {2}"\/hero\.jpg" on \/en\/home — .+ — not "#"/,
+  );
+  expect(store.hasImageColor("/hero.jpg")).toBe(false);
+});
+
+test("a bad color names every entry holding its source, and every bad source, in one refusal", async () => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: [...on("/en/home", "/b.jpg", "/a.jpg"), ...on("/de/home", "/a.jpg")],
+      probe: (src) => (src === "/a.jpg" ? "red;color:blue" : "var(--x)"),
+    }),
+  );
+
+  expect(error.message).toBe(
+    `Collection "pages": the image color probe answered 2 sources with something that is not a CSS color — ${FIX}:\n` +
+      `  "/a.jpg" on /de/home, /en/home — "red;color:blue" — ${NOT_A_COLOR}\n` +
+      `  "/b.jpg" on /en/home — "var(--x)" — ${NOT_A_COLOR}`,
+  );
+});
+
+test("one refused color caches none of the run's valid answers, so the next sync asks for them again", async () => {
+  const store = openTempStore();
+  let hostile = true;
+  const asked: string[] = [];
+  const probe = (src: string): string => {
+    asked.push(src);
+    return src === "/a.jpg" && hostile ? "url(x)" : "#2f3a28";
+  };
+  const sources = on("/en/home", "/a.jpg", "/b.jpg");
+
+  await refusal(syncImageColors({ store, collection: "pages", sources, probe }));
+
+  expect(store.hasImageColor("/b.jpg")).toBe(false);
+
+  hostile = false;
+  asked.length = 0;
+  await syncImageColors({ store, collection: "pages", sources, probe });
+
+  expect([...asked].sort()).toEqual(["/a.jpg", "/b.jpg"]);
+  expect(store.getImageColor("/b.jpg")).toBe("#2f3a28");
+});
+
+test("a credential in a refused color is redacted before it is quoted", async () => {
+  const store = openTempStore();
+
+  const error = await refusal(
+    syncImageColors({
+      store,
+      collection: "pages",
+      sources: on("/en/home", "/a.jpg"),
+      probe: () => "https://user:hunter2-very-long-secret@cdn.example/x.jpg",
+    }),
+  );
+
+  expect(error.message).not.toContain("hunter2");
+  expect(error.message.split("\n")[1]).toBe(
+    `  "/a.jpg" on /en/home — "https://…@cdn.example/x.jpg" — ${NOT_A_COLOR}`,
+  );
+});
+
+test("an rgb() answer is cached exactly as the probe gave it", async () => {
+  const store = openTempStore();
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/hero.jpg"),
+    probe: () => "rgb(47, 58, 40)",
+  });
+
+  expect(store.getImageColor("/hero.jpg")).toBe("rgb(47, 58, 40)");
 });

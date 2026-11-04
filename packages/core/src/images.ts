@@ -1,4 +1,4 @@
-import { excerpt, imagePreviewFault } from "@pagedeck/content/preview";
+import { excerpt, imageColorFault, imagePreviewFault } from "@pagedeck/content/preview";
 import { ConfigError } from "./exit.js";
 import { quote, redactSource } from "./quote.js";
 import type { PageContext } from "@pagedeck/islands";
@@ -89,12 +89,13 @@ export function imageAttributes(input: ImageAttributesInput): ImageAttributes {
   };
 }
 
-/** A preview `imagePreviewFault` refuses is left out, so no caller can emit one. */
+/** A color or preview its fault check refuses is left out, so no caller can emit one. */
 function imagePlaceholder(
   image: Pick<ImageSource, "placeholderColor" | "placeholderPreview">,
 ): ImagePlaceholderStyle | undefined {
   const color =
-    image.placeholderColor === undefined
+    image.placeholderColor === undefined ||
+    imageColorFault(image.placeholderColor) !== undefined
       ? undefined
       : { backgroundColor: image.placeholderColor };
   const preview = image.placeholderPreview;
@@ -177,6 +178,18 @@ function refuseUnusableImage(
     );
   }
 
+  if (image.placeholderColor !== undefined) {
+    const reason = imageColorFault(image.placeholderColor);
+    if (reason !== undefined) {
+      const subject = sourceRefused
+        ? "image carries"
+        : `image ${quote(image.src)} carries`;
+      sections.push(
+        `${where}: ${subject} a placeholderColor that is not a CSS color, so none is written into the page — ${COLOR_FIX}:\n  ${quote(excerpt(image.placeholderColor, redactSource))} — ${reason}`,
+      );
+    }
+  }
+
   if (image.placeholderPreview !== undefined) {
     const reason = imagePreviewFault(image.placeholderPreview);
     if (reason !== undefined) {
@@ -192,6 +205,8 @@ function refuseUnusableImage(
   if (sections.length > 0) throw new RenderError(sections.join("\n\n"));
 }
 
+const COLOR_FIX =
+  "pass the answer the sync cached for it, store.getImageColor(src), or leave the field out";
 const PREVIEW_FIX =
   "pass the answer the sync cached for it, store.getImagePreview(src), or leave the field out";
 

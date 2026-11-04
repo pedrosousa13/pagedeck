@@ -442,10 +442,11 @@ async function writeImageColors<TOut, TIn>(
   const setting = collection.imageColors;
   if (setting === undefined) return;
 
-  const sources: string[] = [];
-  for (const entry of store.listEntries<TOut>(collection.name)) {
-    sources.push(...setting.extractSources(entry));
-  }
+  const sources = store.listEntries<TOut>(collection.name).flatMap((entry) =>
+    setting
+      .extractSources(entry)
+      .map((src) => ({ src, entry: `/${entry.locale}/${entry.path}` })),
+  );
 
   await syncImageColors({
     store,

@@ -332,6 +332,63 @@ test("a refused preview is quoted cut short, and names its reason", () => {
   );
 });
 
+function colorFault(placeholderColor: unknown): Error | undefined {
+  try {
+    imageAttributes({
+      images: IMAGES,
+      image: {
+        src: "/hero.jpg",
+        width: 1600,
+        height: 900,
+        placeholderColor: placeholderColor as string,
+      },
+      page: PAGE,
+    });
+  } catch (thrown: unknown) {
+    return thrown as Error;
+  }
+  return undefined;
+}
+
+test.each([
+  ["a semicolon", "red;background-image:url(https://evil.example/x)"],
+  ["a url(", "url(https://evil.example/x)"],
+  ["a double quote", '#fff"'],
+  ["a single quote", "#fff'"],
+  ["a backslash", "#2f3a28\\"],
+  ["a newline", "#2f3a28\n"],
+  ["an expression(", "expression(alert(1))"],
+  ["a var(", "var(--brand)"],
+  ["a non-string", 17],
+])("a color holding %s is refused at render and never emitted", (_name, value) => {
+  const error = colorFault(value);
+
+  expect(error).toBeInstanceOf(RenderError);
+  expect(error?.message).toMatch(
+    /^Entry \/en\/home: image "\/hero\.jpg" carries a placeholderColor that is not a CSS color, so none is written into the page — pass the answer the sync cached for it, store\.getImageColor\(src\), or leave the field out:\n {2}.+ — .+$/,
+  );
+});
+
+test("a refused color is quoted with its reason", () => {
+  expect(colorFault("red;color:blue")?.message).toBe(
+    'Entry /en/home: image "/hero.jpg" carries a placeholderColor that is not a CSS color, so none is written into the page — pass the answer the sync cached for it, store.getImageColor(src), or leave the field out:\n' +
+      '  "red;color:blue" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+});
+
+test.each(["#abc", "#abcd", "#2f3a28", "#2f3a28ff", "rgb(58 47 40)", "rgb(58, 47, 40)"])(
+  "the color %s renders exactly as given",
+  (placeholderColor) => {
+    expect(
+      imageAttributes({
+        images: IMAGES,
+        image: { src: "/hero.jpg", width: 1600, height: 900, placeholderColor },
+        page: PAGE,
+      }).style,
+    ).toStrictEqual({ backgroundColor: placeholderColor });
+  },
+);
+
 test("an image with no intrinsic dimensions fails the build naming the page and the image", () => {
   const error: unknown = (() => {
     try {
