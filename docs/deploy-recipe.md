@@ -596,7 +596,9 @@ guess them. Without a type, the harness origin served JavaScript and CSS as
 stores an untyped object as `binary/octet-stream`, and that includes HTML.
 
 **Where they come from.** `packages/site/src/deploy-metadata.ts` maps the
-manifest row of each file. `DeployTarget.put` receives the result, and
+manifest row of each file, with the extension table `CONTENT_TYPES` in
+`packages/core/src/content-types.ts`, which `pagedeck dev` also serves a script
+runtime's files with. `DeployTarget.put` receives the result, and
 `presignedTarget` sends it as the `Content-Type` and `Cache-Control` request
 headers. The filesystem target has no place to keep them and ignores them.
 
@@ -607,7 +609,9 @@ headers. The filesystem target has no place to keep them and ignores them.
 | kind `html` | `text/html; charset=utf-8` |
 | kind `js` | `text/javascript; charset=utf-8` |
 | kind `css` | `text/css; charset=utf-8` |
-| `.json` (`manifest.json` and `.pagedeck/manifests/*.json` too) | `application/json; charset=utf-8` |
+| `.js`, `.mjs` | `text/javascript; charset=utf-8` |
+| `.json` (`manifest.json` and `.pagedeck/manifests/*.json` too), `.map` | `application/json; charset=utf-8` |
+| `.webmanifest` | `application/manifest+json` |
 | `.xml` | `application/xml; charset=utf-8` |
 | `.txt`, `*.deployed-at`, `_headers`, `_redirects` | `text/plain; charset=utf-8` |
 | `.woff2` | `font/woff2` |
@@ -615,9 +619,10 @@ headers. The filesystem target has no place to keep them and ignores them.
 | `.jpg`, `.jpeg` | `image/jpeg` |
 | `.svg` | `image/svg+xml` |
 | `.ico` | `image/x-icon` |
-| any other extension | `application/octet-stream` |
+| `.wasm` | `application/wasm` |
+| any other extension, no extension, or a name starting with `.` | `application/octet-stream` |
 
-An asset row gets its type from its extension. A file with an extension the
+An asset row gets its type from its extension, in any case. A file with an extension the
 table does not know is sent as `application/octet-stream`. After the upload,
 the run prints a `Deploy: sent N files as application/octet-stream` line and
 names each file. A browser downloads such a file and does not display it, so

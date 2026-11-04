@@ -102,8 +102,8 @@ function describeUntyped(untyped: readonly string[]): readonly string[] {
   if (untyped.length === 0) return [];
   const headline =
     untyped.length === 1
-      ? `sent 1 file as ${UNKNOWN_TYPE}, because the deploy knows no type for its extension, so a browser downloads it rather than showing it — rename the file, or add its extension to the table in packages/site/src/deploy-metadata.ts:`
-      : `sent ${String(untyped.length)} files as ${UNKNOWN_TYPE}, because the deploy knows no type for their extensions, so a browser downloads them rather than showing them — rename the files, or add their extensions to the table in packages/site/src/deploy-metadata.ts:`;
+      ? `sent 1 file as ${UNKNOWN_TYPE}, because the deploy knows no type for its extension, so a browser downloads it rather than showing it — rename the file, or add its extension to CONTENT_TYPES in packages/core/src/content-types.ts:`
+      : `sent ${String(untyped.length)} files as ${UNKNOWN_TYPE}, because the deploy knows no type for their extensions, so a browser downloads them rather than showing them — rename the files, or add their extensions to CONTENT_TYPES in packages/core/src/content-types.ts:`;
   return [`Deploy: ${headline}`, ...untyped.map((key) => `  ${quoteIdentifier(key)}`)];
 }
 

@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import { contentTypeOf } from "@pagedeck/core";
 import type { FileKind } from "@pagedeck/core";
 import {
   documentMetadata,
@@ -100,4 +101,10 @@ test("the deploy's own documents are typed and revalidated", () => {
   expect(documentMetadata("/_redirects")).toEqual(text);
   expect(documentMetadata("//example.com/_redirects")).toEqual(text);
   expect(documentMetadata("/_unknown")).toEqual({ contentType: UNKNOWN_TYPE, cacheControl: "no-cache" });
+});
+
+test("a deployed asset gets the type pagedeck dev serves a script runtime's file with", () => {
+  for (const path of ["/script-runtime/0a1b2c3d/boot.mjs", "/script-runtime/0a1b2c3d/probe.WASM", "/assets/app.js.map"]) {
+    expect(fileMetadata(row(path, "asset")).contentType, path).toBe(contentTypeOf(path));
+  }
 });

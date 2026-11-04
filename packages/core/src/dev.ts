@@ -32,7 +32,8 @@ import { compileIslands } from "./react-compiler.js";
 import { renderPage } from "./render.js";
 import { covers } from "./routing.js";
 import type { UpstreamRule } from "./routing.js";
-import { scriptRuntimeContentType, scriptRuntimeFiles } from "./script-runtime.js";
+import { contentTypeOf } from "./content-types.js";
+import { scriptRuntimeFiles } from "./script-runtime.js";
 import { workerConsentWarning, workerFallbackWarning } from "./scripts.js";
 import { redactTarget } from "./snapshot.js";
 import { stamp, trackSiteModules } from "./site-modules.js";
@@ -289,7 +290,7 @@ function siteState(
     runtimeFiles: new Map(
       scriptRuntimeFiles(section.scripts?.runtime).map(({ name, path, contents }) => [
         path,
-        { type: scriptRuntimeContentType(name), contents: Buffer.from(contents) },
+        { type: contentTypeOf(name) ?? "application/octet-stream", contents: Buffer.from(contents) },
       ]),
     ),
   };
