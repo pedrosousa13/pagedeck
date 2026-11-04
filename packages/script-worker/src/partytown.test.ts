@@ -436,3 +436,23 @@ test("a fallbackTimeout that cannot be turned into a string is still refused wit
   expect(call).toThrow(ConfigError);
   expect(call).toThrow('  "fallbackTimeout" — an object is not a finite number 0 or more');
 });
+
+test("a bigint fallbackTimeout is shown as a bigint, so the refusal does not read like a valid value (#290)", () => {
+  expect(() => definePartytown({ fallbackTimeout: 1n as never })).toThrow(
+    '  "fallbackTimeout" — 1n is not a finite number 0 or more',
+  );
+});
+
+test("a written option that cannot be read is refused by name with a ConfigError (#290)", () => {
+  const revocable = Proxy.revocable([], {});
+  revocable.revoke();
+  const call = (): unknown => definePartytown({ globalFns: revocable.proxy });
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow(
+    [
+      'Partytown runtime "build.scripts.runtime": 1 option this runtime cannot take — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but forward, resolveUrl, globalFns, mainWindowAccessors, loadScriptsOnMainThread, fallbackTimeout and strictProxyHas:',
+      `  "globalFns" — cannot be read (Cannot perform 'get' on a proxy that has been revoked) — pass a plain value`,
+    ].join("\n"),
+  );
+});
