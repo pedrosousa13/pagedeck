@@ -48,6 +48,9 @@ this repository:
     `PreviewBridge` (#713). Rename the page or the heading, and change the
     notice in `packages/core/src/cli.ts` with it. `favicon.test.ts` and
     `page-head.test.ts` hold the warnings those pages quote to the catalogue.
+    `third-party-scripts.test.ts` holds the `src` refusals
+    `reference/third-party-scripts.md` and the catalogue quote to what
+    `defineScripts` throws (#292).
   - `link-checking.test.ts` compiles `reference/link-checking.md`'s
     `src/probe.ts` fence against the real `LinkProbe` and runs it with `fetch`
     stubbed: each literal internal host throws with no request, and a public
