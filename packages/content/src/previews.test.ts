@@ -155,6 +155,29 @@ test("a source whose probe throws is warned about, left uncached and asked again
   expect(store.getImagePreview("/broken.jpg")).toBe(PREVIEW);
 });
 
+test("a URL in the probe's thrown message loses its credential and its query before the warning prints it", async () => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImagePreviews({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "https://cdn.example/x.jpg?token=SECRET"),
+    probe: (asked) => {
+      throw new Error(
+        `GET ${asked} answered 403 after https://reader:s3cret@old.example/x.jpg`,
+      );
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(
+    '  "https://cdn.example/x.jpg?…" — GET https://cdn.example/x.jpg?… answered 403 after https://…@old.example/x.jpg',
+  );
+  expect(warnings[0]).not.toContain("SECRET");
+  expect(warnings[0]).not.toContain("s3cret");
+});
+
 test("a malformed answer fails the sync naming the collection, every entry and the source, with the fix", async () => {
   const store = openTempStore();
 

@@ -54,7 +54,9 @@ function concurrencyFault(value: unknown, cached: string): string | undefined {
 
 export function reasonOf(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message === "" ? "the probe threw with no message" : printable(message);
+  return message === ""
+    ? "the probe threw with no message"
+    : printable(message.replace(/https?:\/\/\S+/gi, redactSource));
 }
 
 // A copy of `packages/core/src/quote.ts`'s rule 6 cut, which this package cannot import;

@@ -301,6 +301,29 @@ test("a credential in front of the host is dropped before the source is quoted",
   expect(warnings[0]).not.toContain("s3cret");
 });
 
+test("a URL in the probe's thrown message loses its credential and its query before the warning prints it", async () => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImageColors({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "https://cdn.example/x.jpg?token=SECRET"),
+    probe: (asked) => {
+      throw new Error(
+        `GET ${asked} answered 403 after https://reader:s3cret@old.example/x.jpg`,
+      );
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(
+    '  "https://cdn.example/x.jpg?…" — GET https://cdn.example/x.jpg?… answered 403 after https://…@old.example/x.jpg',
+  );
+  expect(warnings[0]).not.toContain("SECRET");
+  expect(warnings[0]).not.toContain("s3cret");
+});
+
 test("a concurrency below one is refused, naming the field and the fix", async () => {
   const store = openTempStore();
   const { asked, probe } = countingProbe({});
