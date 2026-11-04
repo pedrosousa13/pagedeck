@@ -70,7 +70,7 @@ export async function syncImagePreviews(
     try {
       answer = await probe(src);
     } catch (error) {
-      failures.push(`  ${quoteSource(src)} — ${reasonOf(error)}`);
+      failures.push(`  ${quoteSource(src)} — ${reasonOf(error, src)}`);
       return;
     }
     const reason = answer === undefined ? undefined : imagePreviewFault(answer);

@@ -155,6 +155,72 @@ test("a source whose probe throws is warned about, left uncached and asked again
   expect(store.getImagePreview("/broken.jpg")).toBe(PREVIEW);
 });
 
+test.each([
+  ["scheme-relative", "//cdn.example/x.jpg?token=SECRET", '  "//cdn.example/x.jpg?…" — GET //cdn.example/x.jpg?… answered 403'],
+  ["root-relative", "/img/x.jpg?token=SECRET", '  "/img/x.jpg?…" — GET /img/x.jpg?… answered 403'],
+])("a %s source named in the probe's thrown message is cut as its quote is", async (_form, src, line) => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImagePreviews({
+    store,
+    collection: "pages",
+    sources: on("/en/home", src),
+    probe: (asked) => {
+      throw new Error(`GET ${asked} answered 403`);
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(line);
+  expect(warnings[0]).not.toContain("SECRET");
+});
+
+test("a URL of any scheme in the probe's thrown message loses its credential and its query", async () => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImagePreviews({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "/a.jpg"),
+    probe: () => {
+      throw new Error(
+        "pool postgres://app:SECRET@db.internal/assets refused, wss://feed.example/live?token=SECRET closed",
+      );
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(
+    '  "/a.jpg" — pool postgres://…@db.internal/assets refused, wss://feed.example/live?… closed',
+  );
+  expect(warnings[0]).not.toContain("SECRET");
+});
+
+test("a URL in the probe's thrown message loses its credential and its query before the warning prints it", async () => {
+  const store = openTempStore();
+  const warnings: string[] = [];
+
+  await syncImagePreviews({
+    store,
+    collection: "pages",
+    sources: on("/en/home", "https://cdn.example/x.jpg?token=SECRET"),
+    probe: (asked) => {
+      throw new Error(
+        `GET ${asked} answered 403 after https://reader:s3cret@old.example/x.jpg`,
+      );
+    },
+    onWarning: (message) => warnings.push(message),
+  });
+
+  expect(warnings[0]?.split("\n")[1]).toBe(
+    '  "https://cdn.example/x.jpg?…" — GET https://cdn.example/x.jpg?… answered 403 after https://…@old.example/x.jpg',
+  );
+  expect(warnings[0]).not.toContain("SECRET");
+  expect(warnings[0]).not.toContain("s3cret");
+});
+
 test("a malformed answer fails the sync naming the collection, every entry and the source, with the fix", async () => {
   const store = openTempStore();
 
