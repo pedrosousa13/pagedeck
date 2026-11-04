@@ -1,7 +1,7 @@
 import { CONSENT_DENIED, CONSENT_EVENT, CONSENT_GRANTED } from "./consent.js";
 import { ConfigError } from "./exit.js";
 import { matchingPattern, parsePatterns, patternMapFaultReport } from "./page-patterns.js";
-import { quote } from "./quote.js";
+import { quote, quoteIdentifier } from "./quote.js";
 import type { ConsentCategory } from "./consent.js";
 import type { PageIdentity } from "./page-patterns.js";
 
@@ -305,7 +305,14 @@ const ATTRIBUTES_FIX =
   'write a map of data attribute to value, as attributes: { "data-domain": "example.com" }';
 const INTEGRITY_FIX =
   'write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"';
-const INTEGRITY_TOKEN = /^sha(?:256|384|512)-/;
+const INTEGRITY_TOKEN = /^(sha256|sha384|sha512)-([^?]*)/;
+const DIGEST_SHAPES = {
+  sha256: { characters: 43, padding: 1, shape: '43 base64 characters, then one "=" or none' },
+  sha384: { characters: 64, padding: 0, shape: "64 base64 characters, unpadded" },
+  sha512: { characters: 86, padding: 2, shape: '86 base64 characters, then "==" or none' },
+} as const;
+const SKIPPED =
+  "and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked";
 const ATTRIBUTE_KEY_REASON =
   'not a data attribute name — write a key of the form data-<name>, such as "data-domain"';
 /**
@@ -591,6 +598,7 @@ function declarationSections(
   const notDeclarations: string[] = [];
   const unknown: string[] = [];
   const faults: string[] = [];
+  const faultyFields = new Set<string>();
   const sections: string[] = [];
 
   declared.forEach((script, index) => {
@@ -609,6 +617,7 @@ function declarationSections(
       Object.hasOwn(fields, key) ? fields[key] : undefined;
     for (const [key, reason] of declarationFaults(value)) {
       faults.push(`  ${at} — ${JSON.stringify(key)} — ${reason}`);
+      faultyFields.add(`${at} ${key}`);
     }
   });
 
@@ -628,7 +637,7 @@ function declarationSections(
   }
   if (faults.length > 0) {
     sections.push(
-      `${heading}: declares ${count(faults.length, "script field")} that cannot be loaded from — declare each as the type its own line names:\n${faults.join("\n")}`,
+      `${heading}: declares ${count(faultyFields.size, "script field")} that cannot be loaded from — declare each as the type its own line names:\n${faults.join("\n")}`,
     );
   }
   return sections;
@@ -687,16 +696,39 @@ function declarationFaults(
         "integrity",
         `${quote(integrity)} — not integrity metadata — ${INTEGRITY_FIX}`,
       ]);
-    } else if (
-      !integrity.split(/[\t\n\f\r ]+/).some((token) => INTEGRITY_TOKEN.test(token))
-    ) {
-      faults.push([
-        "integrity",
-        `${quote(integrity)} — holds no sha256-, sha384- or sha512- hash, and a browser ignores integrity it cannot parse, so the script would load unchecked — ${INTEGRITY_FIX}`,
-      ]);
+    } else {
+      for (const token of integrity.split(/[\t\n\f\r ]+/)) {
+        const reason = integrityTokenFault(token);
+        if (reason !== undefined) {
+          faults.push(["integrity", `${quoteIdentifier(token)} — ${reason} — ${INTEGRITY_FIX}`]);
+        }
+      }
     }
   }
   return faults;
+}
+
+function integrityTokenFault(token: string): string | undefined {
+  if (token === "") return undefined;
+  const match = INTEGRITY_TOKEN.exec(token);
+  if (match === null) return `not a sha256-, sha384- or sha512- hash, ${SKIPPED}`;
+  const algorithm = match[1] as keyof typeof DIGEST_SHAPES;
+  const digest = match[2] ?? "";
+  if (digest === "") return `no digest after "${algorithm}-", ${SKIPPED}`;
+  if (!/^[A-Za-z0-9+/_=-]+$/.test(digest)) {
+    return `a digest that is not base64, ${SKIPPED}`;
+  }
+  const { characters, padding, shape } = DIGEST_SHAPES[algorithm];
+  const body = digest.replace(/=+$/, "");
+  const pad = digest.length - body.length;
+  const length = digest.replace(/=/g, "").length;
+  if (length !== characters) {
+    return `a digest of ${String(length)} base64 characters, where a ${algorithm} digest is ${shape}, so it matches no file and a browser that checks against it blocks the script`;
+  }
+  if (body.includes("=") || (pad !== 0 && pad !== padding)) {
+    return `a digest padded wrong, where a ${algorithm} digest is ${shape}`;
+  }
+  return undefined;
 }
 
 function attributeFaults(

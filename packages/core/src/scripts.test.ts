@@ -458,17 +458,41 @@ test("an attribute map that is not a map is its own line, with nothing enumerate
   );
 });
 
-test("integrity metadata is a field this build reads", () => {
+const SHA256 = "sha256-tdElM+RL4sC4HGbyE42jlYTmEorBu+lN6IrC+dWRD2A=";
+const SHA384 =
+  "sha384-5FfBCzQ1Vtj7E7RYy8sbesHkODYMt8s0Mbp51zito92HrGRcj7RVGOKZvLnQFPSM";
+const SHA512 =
+  "sha512-+WSrRbu22D3UOxEhGjgusR67iHNqTEV+BwNTknJjCeHTEEco05TDGIq8UXUcC2KYbZQeFe27152qB2nvHvHqwg==";
+const INTEGRITY_FIX =
+  'write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"';
+const SKIPPED =
+  "and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked";
+
+test("integrity metadata of every algorithm is a field this build reads", () => {
   expect(
     scriptsFaultReport(
       {
         scripts: [
-          {
-            ...ANALYTICS,
-            integrity:
-              "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC",
-          },
-          { ...CHAT, integrity: "md5-abc sha512-def" },
+          { ...ANALYTICS, integrity: SHA256 },
+          { ...CHAT, integrity: SHA384 },
+          { name: "video", src: "/v.js", integrity: `${SHA512} ${SHA384}` },
+          { name: "map", src: "/m.js", integrity: ` ${SHA384}\n${SHA256}\t` },
+        ],
+      },
+      "Script settings",
+    ),
+  ).toBeUndefined();
+});
+
+test("a digest in the URL-safe alphabet, unpadded, or followed by options is read", () => {
+  expect(
+    scriptsFaultReport(
+      {
+        scripts: [
+          { ...ANALYTICS, integrity: "sha384-11LCxR-6DimqGQVwqdQlPkQHegWNMpf6OlYw1b0BJiL5fCisrtMTtcg7uZDKp9qF" },
+          { ...CHAT, integrity: SHA256.slice(0, -1) },
+          { name: "video", src: "/v.js", integrity: SHA512.slice(0, -2) },
+          { name: "map", src: "/m.js", integrity: `${SHA256}?ct=application/javascript` },
         ],
       },
       "Script settings",
@@ -491,11 +515,85 @@ test("integrity a browser would not check the script against is refused at the c
   expect(report).toBe(
     [
       "Script settings: declares 3 script fields that cannot be loaded from — declare each as the type its own line names:",
-      '  scripts[0] — "integrity" — 7 — not integrity metadata — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"',
-      '  scripts[1] — "integrity" — "" — not integrity metadata — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"',
-      '  scripts[2] — "integrity" — "md5-abc SHA384-def" — holds no sha256-, sha384- or sha512- hash, and a browser ignores integrity it cannot parse, so the script would load unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"',
+      `  scripts[0] — "integrity" — 7 — not integrity metadata — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "" — not integrity metadata — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "md5-abc" — not a sha256-, sha384- or sha512- hash, ${SKIPPED} — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "SHA384-def" — not a sha256-, sha384- or sha512- hash, ${SKIPPED} — ${INTEGRITY_FIX}`,
     ].join("\n"),
   );
+});
+
+test("a digest that is empty or not base64 is refused, every bad token across every script at once", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: "sha384-" },
+        { ...CHAT, integrity: `${SHA384} sha384-!!!not base64!!!` },
+        { name: "video", src: "/v.js", integrity: "sha512-?" },
+      ],
+    },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the type its own line names:",
+      `  scripts[0] — "integrity" — "sha384-" — no digest after "sha384-", ${SKIPPED} — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "sha384-!!!not" — a digest that is not base64, ${SKIPPED} — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "base64!!!" — not a sha256-, sha384- or sha512- hash, ${SKIPPED} — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "sha512-?" — no digest after "sha512-", ${SKIPPED} — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a base64 digest of the wrong length for its algorithm is refused, because it matches no file", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: "sha384-AAAA" },
+        { ...CHAT, integrity: `sha256-${SHA384.slice("sha384-".length)}` },
+        { name: "video", src: "/v.js", integrity: "sha384-abc" },
+      ],
+    },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the type its own line names:",
+      `  scripts[0] — "integrity" — "sha384-AAAA" — a digest of 4 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "sha256-${SHA384.slice("sha384-".length)}" — a digest of 64 base64 characters, where a sha256 digest is 43 base64 characters, then one "=" or none, so it matches no file and a browser that checks against it blocks the script — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "sha384-abc" — a digest of 3 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a digest of the right length padded wrong is refused", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: `${SHA384}=` },
+        { ...CHAT, integrity: `${SHA256}=` },
+        { name: "video", src: "/v.js", integrity: `${SHA384.slice(0, 20)}=${SHA384.slice(20)}` },
+      ],
+    },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the type its own line names:",
+      `  scripts[0] — "integrity" — "${SHA384}=" — a digest padded wrong, where a sha384 digest is 64 base64 characters, unpadded — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "${SHA256}=" — a digest padded wrong, where a sha256 digest is 43 base64 characters, then one "=" or none — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "${SHA384.slice(0, 20)}=${SHA384.slice(20)}" — a digest padded wrong, where a sha384 digest is 64 base64 characters, unpadded — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("defineScripts refuses a malformed digest as the config loader does", () => {
+  expect(() =>
+    defineScripts({ scripts: [{ ...ANALYTICS, integrity: "sha384-" }] }),
+  ).toThrow(ConfigError);
 });
 
 test("a script field this build does not read is its own paragraph", () => {
@@ -733,8 +831,8 @@ test("a categorized script with integrity is refused once it can reach a late-pi
     scriptsFaultReport(
       {
         scripts: [
-          { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
-          { name: "held", src: "/held.js", strategy: "idle", integrity: "sha384-e", category: "analytics" },
+          { name: "gated", src: "/gated.js", integrity: SHA384, category: "analytics" },
+          { name: "held", src: "/held.js", strategy: "idle", integrity: SHA384, category: "analytics" },
         ],
         runtime,
       },
@@ -941,10 +1039,10 @@ test("a runtime that checks no integrity refuses every script that can reach wor
   const runtime = Object.assign(() => ({}), { checksIntegrity: false });
   const settings = {
     scripts: [
-      { name: "tags", src: "/tags.js", integrity: "sha384-a" },
-      { name: "pixel", src: "/pixel.js", strategy: "idle", integrity: "sha384-b" },
-      { name: "chat", src: "/chat.js", strategy: "idle", integrity: "sha384-c" },
-      { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
+      { name: "tags", src: "/tags.js", integrity: SHA384 },
+      { name: "pixel", src: "/pixel.js", strategy: "idle", integrity: SHA384 },
+      { name: "chat", src: "/chat.js", strategy: "idle", integrity: SHA384 },
+      { name: "gated", src: "/gated.js", integrity: SHA384, category: "analytics" },
       { name: "plain", src: "/plain.js" },
     ],
     pages: { "/pricing": { pixel: "worker" } },
@@ -965,7 +1063,7 @@ test("the integrity refusal is reported beside an unrelated fault, not held back
   const report = scriptsFaultReport(
     {
       scripts: [
-        { name: "tags", src: "/tags.js", integrity: "sha384-a" },
+        { name: "tags", src: "/tags.js", integrity: SHA384 },
         { name: "broken", src: "", strategy: "idle" },
       ],
       runtime: Object.assign(() => ({}), { checksIntegrity: false }),
