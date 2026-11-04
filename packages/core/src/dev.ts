@@ -30,10 +30,10 @@ import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
 import { compileIslands } from "./react-compiler.js";
 import { renderPage } from "./render.js";
-import { covers } from "./routing.js";
+import { COVERED_BY_UPSTREAM_FIX, covers } from "./routing.js";
 import type { UpstreamRule } from "./routing.js";
 import { contentTypeOf } from "./content-types.js";
-import { scriptRuntimeFiles } from "./script-runtime.js";
+import { scriptRuntimeFiles, scriptRuntimeOutput } from "./script-runtime.js";
 import { workerConsentWarning, workerFallbackWarning } from "./scripts.js";
 import { redactTarget } from "./snapshot.js";
 import { stamp, trackSiteModules } from "./site-modules.js";
@@ -259,14 +259,41 @@ interface RuntimeFile {
 }
 
 function reportConfigFaults(
-  { section, upstreams }: SiteState,
+  state: SiteState,
   err: (line: string) => void,
 ): void {
+  const { section, upstreams } = state;
   if (upstreams.missing !== undefined) err(upstreams.missing);
+  const over = upstreamsOverRuntimeFiles(state);
+  if (over !== undefined) err(over);
   const warning = workerFallbackWarning(section.scripts);
   if (warning !== undefined) err(warning);
   const consent = workerConsentWarning(section.scripts);
   if (consent !== undefined) err(consent);
+}
+
+function upstreamsOverRuntimeFiles({ config, section }: SiteState): string | undefined {
+  const files = scriptRuntimeOutput({
+    runtime: section.scripts?.runtime,
+    locales: section.pages.locales,
+    emitted: [],
+  });
+  const lines: string[] = [];
+  let count = 0;
+  (section.routing?.upstreams ?? []).forEach(({ domain, prefix }, index) => {
+    const claims = files
+      .filter((file) => file.domain === domain && covers(prefix, file.path))
+      .map((file) => `    "${file.path}" — a file this build emits`)
+      .sort();
+    if (claims.length === 0) return;
+    count++;
+    const tree = domain === undefined ? "the default tree" : `the "${domain}" tree`;
+    lines.push(`  upstreams[${String(index)}] — "${prefix}" in ${tree} covers:`, ...claims);
+  });
+  if (count === 0) return undefined;
+  return `Config "${config.configPath}": "build.routing" declares ${
+    count === 1 ? "1 upstream prefix" : `${String(count)} upstream prefixes`
+  } over files the script runtime declares, which pagedeck build refuses and pagedeck dev forwards to the app — ${COVERED_BY_UPSTREAM_FIX}:\n${lines.join("\n")}`;
 }
 
 function siteState(

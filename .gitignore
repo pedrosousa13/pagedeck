@@ -79,6 +79,7 @@ packages/core/.pagedeck-dev-no-runtime/
 
 # The fixture site `packages/core/src/dev-upstreams.test.ts` writes (#141).
 packages/core/.pagedeck-dev-upstreams/
+packages/core/.pagedeck-dev-upstreams-shadowed/
 
 # The fixture site `packages/core/src/site-modules.test.ts` writes (#703).
 packages/core/.pagedeck-site-modules-test/
