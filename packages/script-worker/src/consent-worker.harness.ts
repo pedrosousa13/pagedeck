@@ -365,11 +365,16 @@ test("under pagedeck dev, Partytown registers its service worker and the worker 
       () => (globalThis as { partytown?: { lib?: string } }).partytown?.lib ?? "",
     );
     expect(lib).toMatch(/^\/script-runtime\/[0-9a-f]{8}\/$/);
-    const scopes = await page.evaluate(async () =>
-      (await navigator.serviceWorker.getRegistrations()).map(
+    const scopes = await page.evaluate(async () => {
+      const { serviceWorker } = (
+        globalThis as unknown as {
+          navigator: { serviceWorker: { getRegistrations(): Promise<{ scope: string }[]> } };
+        }
+      ).navigator;
+      return (await serviceWorker.getRegistrations()).map(
         (registration) => new URL(registration.scope).pathname,
-      ),
-    );
+      );
+    });
     expect(scopes).toEqual([lib]);
     expect(errors).toEqual([]);
     await finish();
