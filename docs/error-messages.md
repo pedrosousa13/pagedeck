@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 265 checked messages pin 39865 of the 112034 fenced characters, and
+below**: the 265 checked messages pin 39862 of the 112030 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1261,7 +1261,7 @@ four different ways, so a headline carrying one would carry the wrong one three
 times out of four:
 
 ```
-Script settings: declares 4 script fields that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "name" — "" — not a script name — write the name an override addresses this script by, such as "analytics"
   scripts[1] — "src" — 7 — not a script source — write the URL or path the script is served from, such as "https://example.com/analytics.js"
   scripts[1] — "strategy" — "lazy" — not a loading strategy — write one of: worker, idle, interaction, facade
@@ -1368,7 +1368,7 @@ the rest (#47). A category that is not one is a line under the type faults,
 because it is one more field of a declaration that four different edits can fix:
 
 ```
-Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "category" — "analytic" — not a consent category — write one of: analytics, functional, marketing, necessary
 ```
 
@@ -1400,7 +1400,7 @@ Four more lines are about the attribute map a vendor is configured through
 is one more field of a declaration that its own edit fixes:
 
 ```
-Script settings: declares 4 script fields that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "attributes" — "data-domain=example.com" — not an attribute map — write a map of data attribute to value, as attributes: { "data-domain": "example.com" }
   scripts[1] — "attributes.data-" — not a data attribute name — write a key of the form data-<name>, such as "data-domain"
   scripts[2] — "attributes.data-domain " — a name setAttribute throws on — it holds 1 character outside XML's Name production, " " (U+0020), and the loader sets every declared attribute as it runs, so one key like this stops script loading on every page that carries it; delete it, or write the name the vendor documents, such as "data-domain"
@@ -1452,7 +1452,7 @@ bad tokens gets two lines, and every bad token of every script is reported in
 the one message (#291):
 
 ```
-Script settings: declares 4 script fields that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "integrity" — "" — not integrity metadata — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
   scripts[1] — "integrity" — "oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC" — not a sha256-, sha384- or sha512- hash, and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
   scripts[2] — "integrity" — "sha384-" — no digest after "sha384-", and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
@@ -1466,27 +1466,30 @@ number or an empty string reaches this door as readily as a hash.
 exception to the two-doors rule the attribute lines argue above.** That rule
 forbids a refusal of what `tsc` passed *and the browser honours*. A token is
 honoured when it is `sha256-`, `sha384-` or `sha512-` followed by the digest of
-that algorithm in base64, standard or URL-safe, padded right or not at all, and
-optionally `?` and options. Anything else fails one of two ways, and Chromium
-151 shows both (#291, measured on a local fixture):
+that algorithm in base64, in the standard or the URL-safe alphabet alone,
+padded right or not at all, and optionally `?` and options: Chromium 151,
+Firefox 153 and WebKit 26.5 each matched all four forms against the file. The
+token is quoted with every character outside printable ASCII escaped, so a
+no-break space copied in with the hash reads as `\u00a0`, not as a space.
+Anything else fails one of two ways, and the three browsers show both (#291,
+measured on a local fixture):
 
 - **It fails open.** A token with another algorithm (`md5-`, `SHA384-`), no
   digest (`sha384-`, `sha512-?`), or a character outside base64
-  (`sha384-!!!not`) is skipped with a console error. With no valid token left,
+  (`sha384-!!!not`) is skipped by all three. In Firefox and WebKit so is a
+  digest with `=` inside it or more than two at its end (`sha384-AA=A`,
+  `sha384-A===`), which Chromium keeps and blocks on. With no valid token left,
   the browser runs the script unchecked, and nobody who runs the site reads a
   visitor's console. The config passes, the page ships, and the check the site
   declared is not made. Refusing it at config load is the only place the fault
-  can be seen. These lines say "runs the script unchecked".
+  can be seen. These lines end "the script unchecked".
 - **It fails closed.** A base64 digest of the wrong length (`sha384-AAAA`,
-  `sha384-abc`, a digest cut short in the copy) is kept, matches no file, and
-  the browser blocks the script on every page. That is loud, but only in a
-  visitor's browser, and the length is known at config load. These lines say
-  "matches no file".
-
-A digest of the right length padded wrong (`=` inside it, or more `=` than its
-algorithm takes) is refused with no claim about the browser, since Chromium 151
-ignores trailing `=` it does not need; the line states the shape the
-algorithm's digest takes instead.
+  `sha384-abc`, a digest cut short in the copy) is kept by all three, matches
+  no file, and the browser blocks the script on every page. A digest mixing the
+  two alphabets is blocked by Firefox and WebKit, and one with `=` its
+  algorithm does not take, by Firefox; Chromium matches both. That is loud, but
+  only in a visitor's browser, and the fault is known at config load. These
+  lines say "no file" and name the browsers that block.
 
 **The token check is lowercase-only on purpose.** Every vendor prints the
 algorithm in lowercase, and the two ways to be wrong are not the same size.

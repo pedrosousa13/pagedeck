@@ -169,7 +169,7 @@ more value in it.
 nothing else. Writing `"off"` there fails the build:
 
 ```
-Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "strategy" — "off" — not a loading strategy — write one of: worker, idle, interaction, facade
 ```
 
@@ -664,7 +664,7 @@ along with a bare `"data-"`: the type cannot refuse that one, and its `dataset`
 key is the empty string, so no vendor reads it.
 
 ```
-Script settings: declares 2 script fields that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "attributes.src" — not a data attribute name — write a key of the form data-<name>, such as "data-domain"
   scripts[0] — "attributes.data-" — not a data attribute name — write a key of the form data-<name>, such as "data-domain"
 ```
@@ -689,7 +689,7 @@ space is an ordinary typo, so this is worth catching early, and the build
 catches it when it loads your config:
 
 ```
-Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "attributes.data-domain " — a name setAttribute throws on — it holds 1 character outside XML's Name production, " " (U+0020), and the loader sets every declared attribute as it runs, so one key like this stops script loading on every page that carries it; delete it, or write the name the vendor documents, such as "data-domain"
 ```
 
@@ -758,14 +758,14 @@ none gets the same pages it got before the field existed.
 The build refuses a value when it loads your config if the value is not a
 string or is empty, and it refuses each token of the value that is not a
 `sha256-`, `sha384-` or `sha512-` hash with a digest of that algorithm's length
-in base64. A browser skips a token it cannot parse. If no valid token is left,
-the browser runs the script with no check, so a mistyped value gives you no
-protection and no warning. A digest of the wrong length matches no file, so the
+in base64, in one alphabet, padded right or not at all. A browser skips a
+token it cannot parse. If no valid token is left, the browser runs the script
+with no check, so a mistyped value gives you no protection and no warning. A digest of the wrong length matches no file, so the
 browser blocks the script on every page. Here the digest was copied without its
 `sha384-` prefix, and a second copy lost its last character:
 
 ```
-Script settings: declares 2 script fields that cannot be loaded from — declare each as the type its own line names:
+Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "integrity" — "oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC" — not a sha256-, sha384- or sha512- hash, and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
   scripts[1] — "integrity" — "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8w" — a digest of 63 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
 ```
