@@ -261,6 +261,7 @@ An adapter can also declare `files`, each a `name` and its `contents`, for the
 files its elements load from the site's own origin. The build writes them into
 one directory, `/script-runtime/<hash>/`, where the hash covers every file's
 name and bytes, and marks them as hashed, so a host may cache them for good.
+`pagedeck dev` serves the same files at the same addresses.
 `scriptRuntimeBase(files)`, from `@pagedeck/core`, returns that directory, so an
 adapter knows the address before any build runs:
 
@@ -373,7 +374,7 @@ became `idle`, is gone.
 `fallbackTimeout` and `strictProxyHas`, and `resolveUrl`, which is the next
 section. It sets `lib` itself, to the runtime's directory.
 
-Three things to know before you choose it:
+Two things to know before you choose it:
 
 - **Service-worker mode only.** Partytown's other mode needs a page that is
   cross-origin isolated, which breaks most third-party embeds, so its file is
@@ -385,9 +386,6 @@ Three things to know before you choose it:
   script from inside its worker without an integrity check, so the hash you
   pinned would not be checked. Declare `strategy: "idle"` for that script,
   which keeps the check.
-- **`pagedeck dev` does not serve the runtime's files.** In development
-  Partytown cannot register its service worker, and after `fallbackTimeout`
-  runs the scripts on the main thread.
 
 ### Send a vendor endpoint through your own origin with `resolveUrl`
 

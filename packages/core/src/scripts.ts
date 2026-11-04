@@ -541,7 +541,7 @@ function latePickupSection(
 
 const RUNTIME_FILE_FIX = '{ name: "worker.js", contents: "…" }';
 /** One path segment a URL and a file system read alike. */
-const RUNTIME_FILE_NAME = /^(?!\.\.?$)[A-Za-z0-9._-]+$/;
+const RUNTIME_FILE_NAME = /^(?!\.)[A-Za-z0-9._-]+$/;
 
 function runtimeFilesSection(
   files: unknown,
@@ -555,7 +555,7 @@ function runtimeFilesSection(
   const declared: readonly unknown[] = files;
   const lines: string[] = [];
   const faulty = new Set<number>();
-  const named = new Map<string, string>();
+  const named = new Map<string, { at: string; name: string }>();
   declared.forEach((file, index) => {
     const before = lines.length;
     const at = `  ${field}.files[${String(index)}]`;
@@ -571,12 +571,16 @@ function runtimeFilesSection(
       : undefined;
     if (typeof name !== "string" || !RUNTIME_FILE_NAME.test(name)) {
       lines.push(`${at} — "name" — ${quote(name)} — not a plain file name`);
-    } else if (named.has(name)) {
-      lines.push(
-        `${at} — "name" — ${quote(name)} — ${named.get(name) ?? ""} has the same name`,
-      );
     } else {
-      named.set(name, at.trim());
+      const other = named.get(name.toLowerCase());
+      if (other === undefined) named.set(name.toLowerCase(), { at: at.trim(), name });
+      else if (other.name === name) {
+        lines.push(`${at} — "name" — ${quote(name)} — ${other.at} has the same name`);
+      } else {
+        lines.push(
+          `${at} — "name" — ${quote(name)} — ${other.at} has the same name in another case, and a disk that ignores case holds one file for both`,
+        );
+      }
     }
     if (typeof contents !== "string" && !(contents instanceof Uint8Array)) {
       lines.push(`${at} — "contents" — ${quote(contents)} — not a string or bytes`);
@@ -584,7 +588,7 @@ function runtimeFilesSection(
     if (lines.length > before) faulty.add(index);
   });
   if (lines.length === 0) return undefined;
-  return `${heading}: declares ${count(faulty.size, "script runtime file")} this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name, unique among them, and its contents as a string or bytes, such as ${RUNTIME_FILE_FIX}:\n${lines.join("\n")}`;
+  return `${heading}: declares ${count(faulty.size, "script runtime file")} this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name that does not start with ".", unique among them in any case, and its contents as a string or bytes, such as ${RUNTIME_FILE_FIX}:\n${lines.join("\n")}`;
 }
 
 function count(n: number, noun: string): string {

@@ -11,7 +11,7 @@ import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
 import { dirname, relative, resolve as resolvePath, sep } from "node:path";
 import { createServer as createViteServer } from "vite";
-import type { ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 import { openStoreReadOnly } from "@pagedeck/content";
 import type { ContentStoreReader } from "@pagedeck/content";
 import { documentHtml } from "./build.js";
@@ -30,8 +30,10 @@ import { collectPages } from "./pages.js";
 import type { Page } from "./pages.js";
 import { compileIslands } from "./react-compiler.js";
 import { renderPage } from "./render.js";
-import { covers } from "./routing.js";
+import { COVERED_BY_UPSTREAM_FIX, covers } from "./routing.js";
 import type { UpstreamRule } from "./routing.js";
+import { contentTypeOf } from "./content-types.js";
+import { scriptRuntimeFiles, scriptRuntimeOutput } from "./script-runtime.js";
 import { workerConsentWarning, workerFallbackWarning } from "./scripts.js";
 import { redactTarget } from "./snapshot.js";
 import { stamp, trackSiteModules } from "./site-modules.js";
@@ -173,6 +175,7 @@ export async function startDevServer(
             throw new ConfigError(message);
           },
         }),
+        serveRuntimeFiles(() => site.current.runtimeFiles),
         compileIslands({ err: input.err }).plugin,
         serveGeneratedEntries(entrySources, config.configPath),
         // Last: a site plugin ahead of these could claim the generated entries'
@@ -247,17 +250,50 @@ interface SiteState {
   upstreams: UpstreamSources;
   foldStrategy: ReturnType<typeof resolveFoldStrategy>;
   styles: readonly string[];
+  runtimeFiles: ReadonlyMap<string, RuntimeFile>;
+}
+
+interface RuntimeFile {
+  type: string;
+  contents: Buffer;
 }
 
 function reportConfigFaults(
-  { section, upstreams }: SiteState,
+  state: SiteState,
   err: (line: string) => void,
 ): void {
+  const { section, upstreams } = state;
   if (upstreams.missing !== undefined) err(upstreams.missing);
+  const over = upstreamsOverRuntimeFiles(state);
+  if (over !== undefined) err(over);
   const warning = workerFallbackWarning(section.scripts);
   if (warning !== undefined) err(warning);
   const consent = workerConsentWarning(section.scripts);
   if (consent !== undefined) err(consent);
+}
+
+function upstreamsOverRuntimeFiles({ config, section }: SiteState): string | undefined {
+  const files = scriptRuntimeOutput({
+    runtime: section.scripts?.runtime,
+    locales: section.pages.locales,
+    emitted: [],
+  });
+  const lines: string[] = [];
+  let count = 0;
+  (section.routing?.upstreams ?? []).forEach(({ domain, prefix }, index) => {
+    const claims = files
+      .filter((file) => file.domain === domain && covers(prefix, file.path))
+      .map((file) => `    "${file.path}" — a file this build emits`)
+      .sort();
+    if (claims.length === 0) return;
+    count++;
+    const tree = domain === undefined ? "the default tree" : `the "${domain}" tree`;
+    lines.push(`  upstreams[${String(index)}] — "${prefix}" in ${tree} covers:`, ...claims);
+  });
+  if (count === 0) return undefined;
+  return `Config "${config.configPath}": "build.routing" declares ${
+    count === 1 ? "1 upstream prefix" : `${String(count)} upstream prefixes`
+  } over files the script runtime declares, which pagedeck build refuses and pagedeck dev forwards to the app — ${COVERED_BY_UPSTREAM_FIX}:\n${lines.join("\n")}`;
 }
 
 function siteState(
@@ -277,6 +313,36 @@ function siteState(
     styles: (section.css ?? []).map((path) =>
       devFileUrl(resolvePath(root, path), root),
     ),
+    runtimeFiles: new Map(
+      scriptRuntimeFiles(section.scripts?.runtime).map(({ name, path, contents }) => [
+        path,
+        { type: contentTypeOf(name) ?? "application/octet-stream", contents: Buffer.from(contents) },
+      ]),
+    ),
+  };
+}
+
+/**
+ * In `configureServer`: behind Vite's host check and CORS, ahead of its transform,
+ * which would take a `.js` request for a module. Matches the path as sent, exactly.
+ */
+function serveRuntimeFiles(files: () => ReadonlyMap<string, RuntimeFile>): Plugin {
+  return {
+    name: "pagedeck:script-runtime-files",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.method !== "GET" && request.method !== "HEAD") return next();
+        const url = request.url ?? "/";
+        const query = url.indexOf("?");
+        const file = files().get(query === -1 ? url : url.slice(0, query));
+        if (file === undefined) return next();
+        response.statusCode = 200;
+        response.setHeader("content-type", file.type);
+        response.setHeader("content-length", file.contents.length);
+        response.setHeader("x-content-type-options", "nosniff");
+        response.end(request.method === "HEAD" ? undefined : file.contents);
+      });
+    },
   };
 }
 

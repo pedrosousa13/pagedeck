@@ -8,10 +8,13 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import type { DevServer } from "./dev.js";
+import { DIAGNOSTIC_MARKER } from "./diagnostic-marker.js";
+import { scriptRuntimeBase } from "./script-runtime.js";
 
 const execFileAsync = promisify(execFile);
 
 const SITE = join(import.meta.dirname, "..", ".pagedeck-dev-upstreams");
+const SHADOWED = join(import.meta.dirname, "..", ".pagedeck-dev-upstreams-shadowed");
 const BIN = join(import.meta.dirname, "..", "dist", "bin.js");
 
 const REQUEST_TIMEOUT = 20_000;
@@ -201,6 +204,7 @@ afterAll(async () => {
   await dev?.close();
   if (app !== undefined) await close(app);
   rmSync(SITE, { recursive: true, force: true });
+  rmSync(SHADOWED, { recursive: true, force: true });
 }, 30_000);
 
 test("a GET under an upstream prefix reaches the app with its full path and query, and the app's answer comes back", async () => {
@@ -450,3 +454,96 @@ test("a module the browser requests that imports only the app's types is served,
   expect(await page.text()).toContain(`server ${APP_MARKER}`);
   expect(lines).toEqual([]);
 }, REQUEST_TIMEOUT);
+
+const SHADOWED_FILES = [
+  { name: "boot.js", contents: "self.boot = 1;\n" },
+  { name: "frame.html", contents: "<!doctype html>\n" },
+];
+
+function writeShadowedSite(): void {
+  rmSync(SHADOWED, { recursive: true, force: true });
+  mkdirSync(join(SHADOWED, "src"), { recursive: true });
+  mkdirSync(join(SHADOWED, "content", "en"), { recursive: true });
+  writeFileSync(join(SHADOWED, "src", "Prose.js"), `export default function Prose() { return "prose-0f4e"; }\n`);
+  writeFileSync(
+    join(SHADOWED, "content", "en", "home.json"),
+    `${JSON.stringify({ rev: 1, data: { title: "home" } })}\n`,
+  );
+  writeFileSync(
+    join(SHADOWED, "pagedeck.config.ts"),
+    `
+import { defineConfig, defineLocales, definePages, defineScripts, fromCollection } from "@pagedeck/core";
+import { createFixtureLoader } from "@pagedeck/fixtures";
+
+const pages = {
+  name: "pages",
+  loader: createFixtureLoader(${JSON.stringify(join(SHADOWED, "content"))}),
+  schema: false,
+};
+
+export default defineConfig({
+  store: "./content.db",
+  collections: [pages],
+  build: {
+    outDir: "./dist",
+    scripts: defineScripts({
+      scripts: [{ name: "tags", src: "https://example.com/tags.js", strategy: "worker" }],
+      runtime: Object.assign(() => ({ body: [] }), { files: ${JSON.stringify(SHADOWED_FILES)} }),
+    }),
+    pages: definePages({
+      trailingSlash: "never",
+      locales: defineLocales({ en: { label: "en", direction: "ltr" } }),
+      sources: [fromCollection(pages, { route: (entry) => "/" + entry.path })],
+    }),
+    components: { prose: "./src/Prose.js" },
+    content: () => ({ tree: [{ component: "prose" }] }),
+    routing: {
+      upstreams: [
+        { prefix: "/api/", dev: ${JSON.stringify(appUrl)} },
+        { prefix: "/script-runtime/", dev: ${JSON.stringify(appUrl)} },
+      ],
+    },
+  },
+});
+`,
+  );
+}
+
+test("an upstream prefix over a script runtime's files is reported at startup, as the build refuses it, and the app answers them", async () => {
+  writeShadowedSite();
+  await execFileAsync(process.execPath, [BIN, "sync"], { cwd: SHADOWED });
+  const { loadConfig } = await import("./config.js");
+  const { startDevServer } = await import("./dev.js");
+  const reported: string[] = [];
+  const shadowed = await startDevServer({
+    config: await loadConfig(SHADOWED),
+    port: 0,
+    err: (line) => reported.push(line),
+  });
+  try {
+    const base = scriptRuntimeBase(SHADOWED_FILES);
+    expect(reported).toEqual([
+      `Config "${join(SHADOWED, "pagedeck.config.ts")}": "build.routing" declares 1 upstream prefix over files the script runtime declares, which pagedeck build refuses and pagedeck dev forwards to the app — move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there:\n  upstreams[1] — "/script-runtime/" in the default tree covers:\n    "${base}boot.js" — a file this build emits\n    "${base}frame.html" — a file this build emits`,
+    ]);
+
+    const before = received.length;
+    const answer = await fetch(`${shadowed.url}${base}boot.js`);
+    expect(answer.status).toBe(201);
+    expect(received.slice(before).map(({ url }) => url)).toEqual([`${base}boot.js`]);
+  } finally {
+    await shadowed.close();
+  }
+
+  const built = await execFileAsync(process.execPath, [BIN, "build"], { cwd: SHADOWED }).then(
+    () => "",
+    (error: { stderr: string }) =>
+      error.stderr
+        .split("\n")
+        .map((line) => line.replace(`${DIAGNOSTIC_MARKER} `, ""))
+        .join("\n"),
+  );
+  const base = scriptRuntimeBase(SHADOWED_FILES);
+  expect(built).toContain(
+    `1 upstream prefix covers paths this build serves — move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there:\n  "/script-runtime/" in the default tree — build.routing.upstreams[1] covers:\n    "${base}boot.js" — a file this build emits\n    "${base}frame.html" — a file this build emits`,
+  );
+}, 120_000);

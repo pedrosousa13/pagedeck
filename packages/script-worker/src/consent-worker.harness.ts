@@ -2,12 +2,13 @@ import { execFile } from "node:child_process";
 import { readFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { chromium } from "playwright";
 import type { Browser, Page as BrowserPage } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { CONSENT_EVENT, CONSENT_GLOBAL, readManifest } from "@pagedeck/core";
+import { CONSENT_EVENT, CONSENT_GLOBAL, contentTypeOf, readManifest } from "@pagedeck/core";
+import { startDev } from "./dev-server.test-support.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -19,12 +20,6 @@ const BIN = join(PACKAGE, "..", "core", "dist", "bin.js");
 
 /** `pixel` is categorized and held; `tags` is not, and shows the worker is running. */
 const SCRIPTS = ["tags", "pixel"] as const;
-
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".txt": "text/plain; charset=utf-8",
-};
 
 interface Served {
   readonly origin: string;
@@ -79,7 +74,7 @@ function serveSite(dist: string, files: ReadonlySet<string>): Promise<Served> {
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
     const file = path === "/" ? "/index.html" : path;
-    const type = CONTENT_TYPES[extname(file)];
+    const type = contentTypeOf(file);
     if (!files.has(file) || type === undefined) {
       response.statusCode = 404;
       response.end(`Consent worker harness: the build emitted no file at ${path}`);
@@ -203,6 +198,7 @@ afterAll(async () => {
 
 async function open(
   grantedAtLoad = false,
+  at: string = site?.origin ?? "",
 ): Promise<{ page: BrowserPage; errors: string[]; finish(): Promise<void> }> {
   vendorRequests.length = 0;
   const context = await browser.newContext();
@@ -214,7 +210,7 @@ async function open(
   }
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
-  await page.goto(`${site?.origin ?? ""}/`);
+  await page.goto(`${at}/`);
   return { page, errors, finish: () => context.close() };
 }
 
@@ -322,3 +318,32 @@ test("a category granted when the page loads runs the held script in the worker,
   expect(errors).toEqual([]);
   await finish();
 });
+
+test("under pagedeck dev, Partytown registers its service worker and the worker script reports from the worker", async () => {
+  const dev = await startDev(BIN, SITE);
+  try {
+    const { page, errors, finish } = await open(false, dev.origin);
+    await workerRan();
+
+    expect(requested("tags")).not.toContain("/hit?script=tags&where=main");
+    const lib = await page.evaluate(
+      () => (globalThis as { partytown?: { lib?: string } }).partytown?.lib ?? "",
+    );
+    expect(lib).toMatch(/^\/script-runtime\/[0-9a-f]{8}\/$/);
+    const scopes = await page.evaluate(async () => {
+      const { serviceWorker } = (
+        globalThis as unknown as {
+          navigator: { serviceWorker: { getRegistrations(): Promise<{ scope: string }[]> } };
+        }
+      ).navigator;
+      return (await serviceWorker.getRegistrations()).map(
+        (registration) => new URL(registration.scope).pathname,
+      );
+    });
+    expect(scopes).toEqual([lib]);
+    expect(errors).toEqual([]);
+    await finish();
+  } finally {
+    await dev.stop();
+  }
+}, 120_000);

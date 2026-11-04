@@ -204,7 +204,7 @@ const UNROUTED_EXPERIMENT_FIX =
 const CONTESTED_EXPERIMENT_FIX = "give each page one experiment";
 const RESERVED_SEGMENT_FIX = `move the page out of "${VARIANT_PREFIX}", or drop the experiments in its tree`;
 const RESERVED_KEY_FIX = `move each off "${DEPLOY_MANIFEST_PATH}" and out of "${DEPLOY_DIRECTORY}/"; every target answers 404 there, so nothing routed at one of them is ever served`;
-const COVERED_BY_UPSTREAM_FIX =
+export const COVERED_BY_UPSTREAM_FIX =
   "move the app under a prefix no page, file or redirect uses, or move what it covers; a request under an upstream prefix goes to the app, so the host never serves what the build wrote there";
 const UNREACHABLE_HEADERS_FIX =
   "set those headers in the app, or delete the rule; every answer under an upstream prefix is the app's, and no host adds the site's headers to it";

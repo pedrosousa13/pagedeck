@@ -1,3 +1,4 @@
+import { contentTypeOf } from "@pagedeck/core";
 import type { FileKind } from "@pagedeck/core";
 
 export interface ObjectMetadata {
@@ -16,28 +17,12 @@ const JAVASCRIPT = "text/javascript; charset=utf-8";
 const CSS = "text/css; charset=utf-8";
 const PLAIN = "text/plain; charset=utf-8";
 
-const BY_EXTENSION: ReadonlyMap<string, string> = new Map([
-  [".html", HTML],
-  [".js", JAVASCRIPT],
-  [".css", CSS],
-  [".json", "application/json; charset=utf-8"],
-  [".xml", "application/xml; charset=utf-8"],
-  [".txt", PLAIN],
-  [".woff2", "font/woff2"],
-  [".png", "image/png"],
-  [".webp", "image/webp"],
-  [".jpg", "image/jpeg"],
-  [".jpeg", "image/jpeg"],
-  [".svg", "image/svg+xml"],
-  [".avif", "image/avif"],
-  [".ico", "image/x-icon"],
-  [".deployed-at", PLAIN],
-]);
-
 const BY_NAME: ReadonlyMap<string, string> = new Map([
   ["_headers", PLAIN],
   ["_redirects", PLAIN],
 ]);
+
+const RETENTION_EXTENSION = ".deployed-at";
 
 const BY_KIND: Readonly<Record<Exclude<FileKind, "asset">, string>> = {
   html: HTML,
@@ -53,9 +38,10 @@ function typeOfName(path: string): string {
   const name = baseName(path);
   const named = BY_NAME.get(name);
   if (named !== undefined) return named;
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0) return UNKNOWN_TYPE;
-  return BY_EXTENSION.get(name.slice(dot).toLowerCase()) ?? UNKNOWN_TYPE;
+  if (name.toLowerCase().endsWith(RETENTION_EXTENSION) && name.length > RETENTION_EXTENSION.length) {
+    return PLAIN;
+  }
+  return contentTypeOf(name) ?? UNKNOWN_TYPE;
 }
 
 // A page revalidates even on a `hashed` row: a retraction has to reach it (#555).

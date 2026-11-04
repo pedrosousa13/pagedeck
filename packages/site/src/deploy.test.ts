@@ -1735,7 +1735,7 @@ test("a deploy names each file it sent as application/octet-stream (#560)", asyn
     (line) => lines.push(line),
   );
   expect(lines).toContain(
-    "Deploy: sent 1 file as application/octet-stream, because the deploy knows no type for its extension, so a browser downloads it rather than showing it — rename the file, or add its extension to the table in packages/site/src/deploy-metadata.ts:",
+    "Deploy: sent 1 file as application/octet-stream, because the deploy knows no type for its extension, so a browser downloads it rather than showing it — rename the file, or add its extension to CONTENT_TYPES in packages/core/src/content-types.ts:",
   );
   expect(lines).toContain('  "/downloads/notes.tar.zst"');
 });
@@ -1758,7 +1758,7 @@ test("a deploy names every file it sent as application/octet-stream under one pl
   const lines: string[] = [];
   await runDeploy({ to: two, source, origin: scratch(), apply: true }, (line) => lines.push(line));
   const at = lines.indexOf(
-    "Deploy: sent 2 files as application/octet-stream, because the deploy knows no type for their extensions, so a browser downloads them rather than showing them — rename the files, or add their extensions to the table in packages/site/src/deploy-metadata.ts:",
+    "Deploy: sent 2 files as application/octet-stream, because the deploy knows no type for their extensions, so a browser downloads them rather than showing them — rename the files, or add their extensions to CONTENT_TYPES in packages/core/src/content-types.ts:",
   );
   expect(at).toBeGreaterThan(-1);
   expect(lines.slice(at + 1, at + 3).sort()).toEqual(['  "/LICENSE"', '  "/downloads/a.zst"']);

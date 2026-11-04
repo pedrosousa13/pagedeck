@@ -9,6 +9,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { lanAddresses } from "./cli.js";
 import { ConfigError, EXIT_CODES } from "./exit.js";
 import { MEMO_CACHE_INIT } from "./react-compiler.test-support.js";
+import { scriptRuntimeBase } from "./script-runtime.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -33,6 +34,23 @@ const UNSYNCED = join(import.meta.dirname, "..", ".pagedeck-dev-unsynced");
 const FALLBACK = join(import.meta.dirname, "..", ".pagedeck-dev-worker-fallback");
 
 const COMPILED = join(import.meta.dirname, "..", ".pagedeck-dev-compiled");
+
+const NO_RUNTIME = join(import.meta.dirname, "..", ".pagedeck-dev-no-runtime");
+
+/** A string, an HTML page and bytes no text decoding would keep. */
+const RUNTIME_FILES = [
+  { name: "boot-dev.js", contents: "self.runtimeBoot = 'runtime-boot-6b1e';\n", type: "text/javascript; charset=utf-8" },
+  { name: "frame.html", contents: "<!doctype html><p>runtime-frame-0d4c</p>\n", type: "text/html; charset=utf-8" },
+  { name: "probe.wasm", contents: new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 0xff, 0xfe]), type: "application/wasm" },
+] as const;
+
+function runtimeFilesSource(): string {
+  return `[${RUNTIME_FILES.map(({ name, contents }) =>
+    `{ name: ${JSON.stringify(name)}, contents: ${
+      typeof contents === "string" ? JSON.stringify(contents) : `new Uint8Array(${JSON.stringify([...contents])})`
+    } }`,
+  ).join(", ")}]`;
+}
 
 const STARTUP_TIMEOUT = 60_000;
 const MESSAGE_TIMEOUT = 20_000;
@@ -259,12 +277,15 @@ export default defineConfig({
         { name: "metrics", src: "https://example.com/metrics-dev-7e21.js", strategy: "idle" },
         { name: "widget", src: "https://example.com/widget-dev-4c88.js", strategy: "worker" },
       ],
-      runtime: ({ scripts }) => ({
-        body: [
-          '<script>marker-worker-boot-2f5a</script>',
-          ...scripts.map((s) => '<script type="text/worker" src="' + s.src + '"></script>'),
-        ],
-      }),
+      runtime: Object.assign(
+        ({ scripts }) => ({
+          body: [
+            '<script>marker-worker-boot-2f5a</script>',
+            ...scripts.map((s) => '<script type="text/worker" src="' + s.src + '"></script>'),
+          ],
+        }),
+        { files: ${runtimeFilesSource()} },
+      ),
     }),
     pages: definePages({
       trailingSlash: "never",
@@ -722,6 +743,89 @@ test("a page carries the third-party script layer the site declared", async () =
   expect(page.body).not.toContain('load(["https://example.com/widget-dev-4c88.js"');
 }, 60_000);
 
+/** Through `node:http`, which sends the path as written: `fetch` resolves `..` and respells escapes first. */
+async function rawGet(
+  path: string,
+  method = "GET",
+  at: string = origin,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; type: string | undefined; sniffing: string | undefined; body: Buffer }> {
+  const { request } = await import("node:http");
+  return await new Promise((resolve, reject) => {
+    const sent = request(`${at}/`, { path, method, headers }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk: Buffer) => chunks.push(chunk));
+      response.on("end", () =>
+        resolve({
+          status: response.statusCode ?? 0,
+          type: response.headers["content-type"],
+          sniffing: response.headers["x-content-type-options"]?.toString(),
+          body: Buffer.concat(chunks),
+        }),
+      );
+      response.on("error", reject);
+    });
+    sent.on("error", reject);
+    sent.end();
+  });
+}
+
+const UNROUTED = "Dev server: no page of this site is routed at";
+
+test("each file the script runtime declares is served at the build's path, with its bytes and content type", async () => {
+  const base = scriptRuntimeBase(RUNTIME_FILES);
+  for (const { name, contents, type } of RUNTIME_FILES) {
+    const served = await rawGet(`${base}${name}`);
+    expect({ name, status: served.status, type: served.type, sniffing: served.sniffing }).toEqual({
+      name,
+      status: 200,
+      type,
+      sniffing: "nosniff",
+    });
+    expect(served.body.equals(Buffer.from(contents))).toBe(true);
+
+    const head = await rawGet(`${base}${name}?v=1`, "HEAD");
+    expect({ name, status: head.status, type: head.type, length: head.body.length }).toEqual({
+      name,
+      status: 200,
+      type,
+      length: 0,
+    });
+  }
+}, 60_000);
+
+test("a runtime file is refused to a Host header pagedeck dev does not allow, as a page is", async () => {
+  const path = `${scriptRuntimeBase(RUNTIME_FILES)}${RUNTIME_FILES[0].name}`;
+  const foreign = { host: "evil.example" };
+  const page = await rawGet("/hot", "GET", origin, foreign);
+  expect(page.status).toBe(403);
+
+  const file = await rawGet(path, "GET", origin, foreign);
+  expect(file.status).toBe(403);
+  expect(file.body.toString("utf8")).toBe(page.body.toString("utf8"));
+  expect((await rawGet(path, "GET", origin, { host: "localhost" })).status).toBe(200);
+}, 60_000);
+
+test("a path under the runtime's directory that names no declared file is answered as any unknown path is", async () => {
+  const base = scriptRuntimeBase(RUNTIME_FILES);
+  const unknown = await rawGet("/nope");
+  expect(unknown.status).toBe(404);
+  for (const path of [
+    `${base}missing.js`,
+    `${base}boot-dev.js/`,
+    `${base}boot%2Ddev.js`,
+    `${base}../boot-dev.js`,
+    `${base}..%2Fboot-dev.js`,
+    `${base}%2e%2e/boot-dev.js`,
+    `/script-runtime/00000000/boot-dev.js`,
+    `/script-runtime/`,
+  ]) {
+    const served = await rawGet(path);
+    expect({ path, status: served.status }).toEqual({ path, status: 404 });
+    expect(served.body.toString("utf8")).toContain(UNROUTED);
+  }
+}, 60_000);
+
 test("a 404 quotes the path it was asked for, cut at the query", async () => {
   const missing = await get("/nope?token=secret-b41d");
   expect(missing.status).toBe(404);
@@ -1019,6 +1123,31 @@ test("a worker script with no runtime is reported once per config, not per page"
     await server.close();
   }
   rmSync(FALLBACK, { recursive: true, force: true });
+}, 120_000);
+
+test("a site with no script runtime serves nothing under /script-runtime/", async () => {
+  rmSync(NO_RUNTIME, { recursive: true, force: true });
+  writeFallbackSite("telemetry", NO_RUNTIME);
+  await execFileAsync(process.execPath, [BIN, "sync"], { cwd: NO_RUNTIME });
+
+  const { loadConfig } = await import("./config.js");
+  const { startDevServer } = await import("./dev.js");
+  const server = await startDevServer({
+    config: await loadConfig(NO_RUNTIME),
+    port: 0,
+    err: () => undefined,
+  });
+  try {
+    const base = scriptRuntimeBase(RUNTIME_FILES);
+    for (const path of ["/script-runtime/", `${base}boot-dev.js`, `${base}partytown-sw.js`]) {
+      const served = await rawGet(path, "GET", server.url);
+      expect({ path, status: served.status }).toEqual({ path, status: 404 });
+      expect(served.body.toString("utf8")).toContain(UNROUTED);
+    }
+  } finally {
+    await server.close();
+    rmSync(NO_RUNTIME, { recursive: true, force: true });
+  }
 }, 120_000);
 
 async function announcementOf(

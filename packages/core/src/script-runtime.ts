@@ -26,22 +26,34 @@ export function scriptRuntimeBase(files: readonly ScriptRuntimeFile[]): string {
   return `${SCRIPT_RUNTIME_DIR}${digest}/`;
 }
 
+export interface PlacedRuntimeFile extends ScriptRuntimeFile {
+  readonly path: string;
+}
+
+export function scriptRuntimeFiles(
+  runtime: ScriptRuntimeAdapter | undefined,
+): PlacedRuntimeFile[] {
+  const declared = runtime?.files ?? [];
+  if (declared.length === 0) return [];
+  const base = scriptRuntimeBase(declared);
+  return declared.map(({ name, contents }) => ({ name, path: `${base}${name}`, contents }));
+}
+
 export function scriptRuntimeOutput(input: {
   runtime: ScriptRuntimeAdapter | undefined;
   locales: LocaleSet;
   emitted: readonly EmittedFile[];
 }): EmittedFile[] {
-  const declared = input.runtime?.files ?? [];
+  const declared = scriptRuntimeFiles(input.runtime);
   if (declared.length === 0) return [];
-  const base = scriptRuntimeBase(declared);
   const trees = new Set<string>();
   for (const locale of input.locales.values()) trees.add(localeTree(locale) ?? "");
   const placed = [...trees].sort().flatMap((domain) =>
-    declared.map(({ name, contents }) => ({
+    declared.map(({ name, path, contents }) => ({
       name,
       file: {
         ...(domain === "" ? {} : { domain }),
-        path: `${base}${name}`,
+        path,
         kind: "asset",
         hashed: true,
         contents,

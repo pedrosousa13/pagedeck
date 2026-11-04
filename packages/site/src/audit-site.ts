@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { extname, join, normalize as normalizePath } from "node:path";
 import { promisify } from "node:util";
 import { brotliCompressSync, gzipSync } from "node:zlib";
-import { budgetReportPath, readManifest } from "@pagedeck/core";
+import { budgetReportPath, contentTypeOf, readManifest } from "@pagedeck/core";
 import { servedUrl, totalBytes } from "./audit.js";
 import { BASELINE_URLS } from "./parity-baseline.js";
 import type { PayloadBytes } from "./audit.js";
@@ -67,23 +67,6 @@ export async function buildAuditSite(site: string): Promise<string> {
   return join(site, "site");
 }
 
-// No default: a chunk served as `application/octet-stream` does not run, and the
-// audit would score a page whose islands never hydrated.
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".ico": "image/x-icon",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json",
-  ".map": "application/json",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain; charset=utf-8",
-  ".webmanifest": "application/manifest+json",
-  ".webp": "image/webp",
-  ".woff2": "font/woff2",
-};
-
 export interface ServedOrigin {
   readonly origin: string;
   close(): Promise<void>;
@@ -104,11 +87,13 @@ export function serveBuild(root: string): Promise<ServedOrigin> {
       response.end("not found");
       return;
     }
-    const type = CONTENT_TYPES[extname(file)];
+    // No default: a chunk served as `application/octet-stream` does not run, and the
+    // audit would score a page whose islands never hydrated.
+    const type = contentTypeOf(file);
     if (type === undefined) {
       response.statusCode = 500;
       response.end(
-        `Audit origin "${path}": the build emitted a "${extname(file)}" file and this server maps no content type for it, so a browser would not know what to do with it — add the type to CONTENT_TYPES in packages/site/src/audit-site.ts`,
+        `Audit origin "${path}": the build emitted a "${extname(file)}" file and this server maps no content type for it, so a browser would not know what to do with it — add the type to CONTENT_TYPES in packages/core/src/content-types.ts`,
       );
       return;
     }

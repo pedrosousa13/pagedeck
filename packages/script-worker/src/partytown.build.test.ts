@@ -5,10 +5,11 @@ import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { DIAGNOSTIC_MARKER, readManifest } from "@pagedeck/core";
+import { contentTypeOf, DIAGNOSTIC_MARKER, readManifest } from "@pagedeck/core";
 import type { Manifest } from "@pagedeck/core";
 import { libDirPath } from "@qwik.dev/partytown/utils";
 import { ABSENT_FAVICON } from "../../core/src/favicon.test-support.js";
+import { startDev } from "./dev-server.test-support.js";
 import type { PartytownRuntime } from "./partytown.js";
 
 const execFileAsync = promisify(execFile);
@@ -201,6 +202,25 @@ test("Partytown's files are written once, hashed, under the directory the snippe
     );
   }
 });
+
+test("pagedeck dev serves each file the build wrote under /script-runtime/, with the same bytes and the type its name gives", async () => {
+  const dev = await startDev(BIN, SITE);
+  try {
+    const rows = manifest.files.filter((file) => file.path.startsWith("/script-runtime/"));
+    expect(rows).toHaveLength(4);
+    for (const { path } of rows) {
+      const response = await fetch(`${dev.origin}${path}`);
+      expect({ path, status: response.status, type: response.headers.get("content-type") }).toEqual({
+        path,
+        status: 200,
+        type: contentTypeOf(path),
+      });
+      expect(Buffer.from(await response.arrayBuffer()).equals(readFileSync(join(OUT, path)))).toBe(true);
+    }
+  } finally {
+    await dev.stop();
+  }
+}, 120_000);
 
 test("the hash the runtime reports is the hash of the snippet every page carries", async () => {
   const { runtime } = (await import(join(SITE, "src", "scripts.ts"))) as {
