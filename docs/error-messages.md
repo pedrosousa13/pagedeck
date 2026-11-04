@@ -30,8 +30,8 @@ The messages themselves are checked on every run by
 `packages/core/src/catalogued-messages.test.ts` (#444), whose unit is a message
 rather than a name. A message is held against the one string or template
 literal in shipping source that produces it end to end, with the spans that
-literal interpolates left as holes it cannot read. **Of the 342 messages fenced
-below, 265 are checked that way and 77 are not**, and that test lists the 77
+literal interpolates left as holes it cannot read. **Of the 343 messages fenced
+below, 266 are checked that way and 77 are not**, and that test lists the 77
 one by one with the reason each is out: 75 because the producer assembles the
 message from more than one literal, 1 because the fence quotes an excerpt
 rather than a whole message, and 1 because Babel wrote it rather than this
@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 265 checked messages pin 39862 of the 112030 fenced characters, and
+below**: the 266 checked messages pin 40142 of the 112654 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1333,6 +1333,18 @@ A `latePickup` that is not an object at all is one line, naming the field:
 
 ```
 Script settings: declares a late pickup the script loader cannot write — runtime.latePickup — "ptupdate" — declare it as latePickup: { type: "text/x-worker", event: "x-worker:update" }
+```
+
+A runtime's `files` (#275) are refused one line per file the build could not
+write. A name is one path segment that does not start with `.`, and two names
+that differ only by case are refused too, since a disk that ignores case writes
+them to one file (#282):
+
+```
+Script settings: declares 3 script runtime files this build cannot write — the build writes every file into one directory named by their hash, which scriptRuntimeBase returns, so give each a plain file name that does not start with ".", unique among them in any case, and its contents as a string or bytes, such as { name: "worker.js", contents: "…" }:
+  runtime.files[1] — "name" — ".htaccess" — not a plain file name
+  runtime.files[2] — "name" — "SW.js" — runtime.files[0] has the same name in another case, and a disk that ignores case holds one file for both
+  runtime.files[3] — "contents" — 42 — not a string or bytes
 ```
 
 What a runtime returns is read once per page, when the page is written (#283).
