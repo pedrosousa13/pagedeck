@@ -58,6 +58,16 @@ const LATE_PICKUP: ScriptRuntimeLatePickup = { type: "text/partytown", event: "p
  */
 const CONFIG_FILE = "partytown-config.txt";
 
+const ACCEPTED_OPTIONS = [
+  "forward",
+  "resolveUrl",
+  "globalFns",
+  "mainWindowAccessors",
+  "loadScriptsOnMainThread",
+  "fallbackTimeout",
+  "strictProxyHas",
+] as const;
+
 /** The options the snippet carries as written, which an option's text can break out of. */
 const WRITTEN_OPTIONS = [
   "forward",
@@ -73,12 +83,12 @@ const PATH_PREFIX = /^\/(?:[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)+$/;
 
 export function definePartytown(options: PartytownOptions = {}): PartytownRuntime {
   const routes = options.resolveUrl;
-  if (routes !== undefined) {
-    const report = routesFaultReport(routes);
-    if (report !== undefined) throw new ConfigError(report);
-  }
-  const written = writtenOptionsFaultReport(options);
-  if (written !== undefined) throw new ConfigError(written);
+  const reports = [
+    routes === undefined ? undefined : routesFaultReport(routes),
+    optionsFaultReport(options),
+    writtenOptionsFaultReport(options),
+  ].filter((report) => report !== undefined);
+  if (reports.length > 0) throw new ConfigError(reports.join("\n"));
 
   const { resolveUrl: _, ...passed } = options;
   const snippetAt = (lib: string): string =>
@@ -107,15 +117,39 @@ export function definePartytown(options: PartytownOptions = {}): PartytownRuntim
   });
 }
 
+function optionsFaultReport(options: PartytownOptions): string | undefined {
+  const accepted: readonly string[] = ACCEPTED_OPTIONS;
+  const faults = Object.entries(options).flatMap(([name, value]: [string, unknown]) => {
+    if (!accepted.includes(name)) {
+      return [`  ${JSON.stringify(name)} — not an option this runtime takes`];
+    }
+    if (value === undefined) return [];
+    if (
+      name === "fallbackTimeout" &&
+      !(typeof value === "number" && Number.isFinite(value) && value >= 0)
+    ) {
+      return [`  "fallbackTimeout" — ${shown(value)} is not a finite number 0 or more`];
+    }
+    if (name === "strictProxyHas" && typeof value !== "boolean") {
+      return [`  "strictProxyHas" — ${shown(value)} is not true or false`];
+    }
+    return [];
+  });
+  if (faults.length === 0) return undefined;
+  return `${WHERE}: ${String(faults.length)} ${
+    faults.length === 1 ? "option is not one" : "options are not ones"
+  } this runtime takes — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but ${ACCEPTED_OPTIONS.slice(0, -1).join(", ")} and ${ACCEPTED_OPTIONS[ACCEPTED_OPTIONS.length - 1]}:\n${faults.join("\n")}`;
+}
+
+function shown(value: unknown): string {
+  return typeof value === "string" ? JSON.stringify(value) : String(value);
+}
+
 function writtenOptionsFaultReport(options: PartytownOptions): string | undefined {
   const faults = WRITTEN_OPTIONS.flatMap((name) => {
     const value = options[name];
     if (value === undefined) return [];
-    const fault = inlineScriptFault(
-      JSON.stringify(value, (_key, item: unknown) =>
-        item instanceof RegExp ? item.source : item,
-      ),
-    );
+    const fault = inlineScriptFault(partytownSnippet({ [name]: value } as PartytownConfig));
     return fault === undefined ? [] : [`  ${JSON.stringify(name)} — ${fault}`];
   });
   if (faults.length === 0) return undefined;

@@ -372,7 +372,9 @@ became `idle`, is gone.
 [configuration](https://partytown.qwik.dev/configuration) describes:
 `forward`, `globalFns`, `mainWindowAccessors`, `loadScriptsOnMainThread`,
 `fallbackTimeout` and `strictProxyHas`, and `resolveUrl`, which is the next
-section. It sets `lib` itself, to the runtime's directory.
+section. It sets `lib` itself, to the runtime's directory. Any other option is
+refused when the config loads, and so are a `fallbackTimeout` that is not a
+finite number 0 or more and a `strictProxyHas` that is not `true` or `false`.
 
 Two things to know before you choose it:
 
