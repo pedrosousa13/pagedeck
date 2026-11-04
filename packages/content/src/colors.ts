@@ -1,9 +1,12 @@
 import { CollectionError } from "./collection.js";
+import { printable, quoteIdentifier } from "./escape.js";
+import { excerpt, imageColorFault } from "./preview.js";
 import {
   inFlight,
   quoteSource,
   quoteValue,
   reasonOf,
+  redactColor,
   refuseUnusableConcurrency,
 } from "./probing.js";
 import type { ContentStore } from "./store.js";
@@ -19,11 +22,17 @@ export type ImageColorProbe = (
 /** Bounded by what one image host tolerates: under the six-per-origin cap browsers use. */
 export const DEFAULT_COLOR_CONCURRENCY = 4;
 
+export interface ImageColorSource {
+  readonly src: string;
+  /** The entry holding it, as `/locale/path`, for the refusal to name. */
+  readonly entry: string;
+}
+
 export interface SyncImageColorsInput {
   store: ContentStore;
   collection: string;
   /** Duplicates allowed; deduplicating is this module's job. */
-  sources: readonly string[];
+  sources: readonly ImageColorSource[];
   probe: ImageColorProbe;
   /** Defaults to `DEFAULT_COLOR_CONCURRENCY`. */
   concurrency?: number;
@@ -42,27 +51,45 @@ export async function syncImageColors(
   const concurrency = input.concurrency ?? DEFAULT_COLOR_CONCURRENCY;
   refuseUnusableConcurrency(collection, "imageColors", "a color", input.concurrency);
 
-  const unasked = [...new Set(input.sources)].filter(
-    (src) => !store.hasImageColor(src),
+  const entriesBySource = new Map<string, Set<string>>();
+  for (const { src, entry } of input.sources) {
+    const entries = entriesBySource.get(src) ?? new Set<string>();
+    entries.add(entry);
+    entriesBySource.set(src, entries);
+  }
+  const refusedCache = new Set(
+    [...entriesBySource.keys()].filter((src) => {
+      const cached = store.getImageColor(src);
+      return cached !== undefined && imageColorFault(cached) !== undefined;
+    }),
+  );
+  const unasked = [...entriesBySource.keys()].filter(
+    (src) => !store.hasImageColor(src) || refusedCache.has(src),
   );
 
   const learned = new Map<string, string | undefined>();
+  const dropped: string[] = [];
   const failures: string[] = [];
   const faults: string[] = [];
 
   await inFlight(unasked, concurrency, async (src) => {
-    let answer: string | undefined;
+    let answer: unknown;
     try {
       answer = await probe(src);
     } catch (error) {
       failures.push(`  ${quoteSource(src)} — ${reasonOf(error)}`);
+      if (refusedCache.has(src)) dropped.push(src);
       return;
     }
-    if (answer !== undefined && typeof answer !== "string") {
-      faults.push(`  ${quoteSource(src)} — ${quoteValue(answer)} — not a string`);
+    const reason = answer === undefined ? undefined : imageColorFault(answer);
+    if (reason !== undefined) {
+      const entries = [...(entriesBySource.get(src) ?? [])].sort();
+      faults.push(
+        `  ${quoteSource(src)} on ${printable(entries.join(", "))} — ${quoteAnswer(answer)} — ${reason}`,
+      );
       return;
     }
-    learned.set(src, answer);
+    learned.set(src, answer as string | undefined);
   });
 
   // A non-color answer is the site's probe at fault, exit 2 (rule 7); an unreachable host
@@ -72,10 +99,11 @@ export async function syncImageColors(
     throw new CollectionError(colorFaultReport(collection, [...faults].sort()));
   }
 
-  if (learned.size > 0) {
+  if (learned.size > 0 || dropped.length > 0) {
     const rows = [...learned.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
     store.transaction(() => {
       for (const [src, color] of rows) store.setImageColor(src, color);
+      for (const src of [...dropped].sort()) store.deleteImageColor(src);
     });
   }
 
@@ -85,10 +113,15 @@ export async function syncImageColors(
   }
 }
 
-const COLOR_FIX =
-  'return a CSS color such as "#2f3a28", or undefined for an image that has none';
+function quoteAnswer(answer: unknown): string {
+  return typeof answer === "string"
+    ? quoteIdentifier(excerpt(answer, redactColor) as string)
+    : quoteValue(answer);
+}
 
-// Names no entry: one deduplicated source may stand for forty pages (rule 2 waived).
+const COLOR_FIX =
+  'return a CSS color as "#" and 3, 4, 6 or 8 hex digits, such as "#2f3a28", or as rgb() of three whole numbers from 0 to 255, such as "rgb(47 58 40)", or undefined for an image that has none';
+
 function colorFaultReport(collection: string, faults: readonly string[]): string {
   const count =
     faults.length === 1

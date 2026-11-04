@@ -108,6 +108,8 @@ export interface ContentStore extends ContentStoreReader {
   upsertUsage(record: UsageRecord): void;
   /** `undefined` records a source with no color; a failed probe is not recorded. */
   setImageColor(src: string, color: string | undefined): void;
+  /** Leaves the source unprobed, so the next sync asks for it again. */
+  deleteImageColor(src: string): void;
   /** `undefined` records a source with no preview; a failed probe is not recorded. */
   setImagePreview(src: string, preview: string | undefined): void;
   clearUsage(collection: string, locale: string, path: string): void;
@@ -533,6 +535,9 @@ export function openStore(path: string): ContentStore {
         `INSERT INTO image_colors (src, color) VALUES (?, ?)
          ON CONFLICT (src) DO UPDATE SET color = excluded.color`,
       ).run(src, color ?? null);
+    },
+    deleteImageColor(src) {
+      db.prepare("DELETE FROM image_colors WHERE src = ?").run(src);
     },
     setImagePreview(src, preview) {
       db.prepare(

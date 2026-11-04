@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { syncImageColors } from "./colors.js";
+import type { ImageColorSource } from "./colors.js";
 import { openStore } from "./store.js";
 import type { ContentStore } from "./store.js";
 
@@ -12,6 +13,10 @@ const ASSETS: Record<string, [number, number, number]> = {
   "/hero.jpg": [47, 58, 40],
   "/card.jpg": [200, 16, 16],
 };
+
+function on(entry: string, ...srcs: string[]): ImageColorSource[] {
+  return srcs.map((src) => ({ src, entry }));
+}
 
 const requested: string[] = [];
 
@@ -65,7 +70,7 @@ async function probe(src: string): Promise<string | undefined> {
 }
 
 test("a first sync asks the origin once per unique source and a second asks it nothing", async () => {
-  const sources = ["/hero.jpg", "/card.jpg", "/hero.jpg", "/card.jpg"];
+  const sources = on("/en/home", "/hero.jpg", "/card.jpg", "/hero.jpg", "/card.jpg");
 
   await syncImageColors({ store, collection: "pages", sources, probe });
 
@@ -86,7 +91,7 @@ test("a source the origin answers 404 for degrades to no placeholder and is aske
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/missing.jpg"],
+    sources: on("/en/home", "/missing.jpg"),
     probe,
     onWarning: (message) => warnings.push(message),
   });
@@ -101,7 +106,7 @@ test("a source the origin answers 404 for degrades to no placeholder and is aske
   await syncImageColors({
     store,
     collection: "pages",
-    sources: ["/missing.jpg"],
+    sources: on("/en/home", "/missing.jpg"),
     probe,
     onWarning: () => undefined,
   });

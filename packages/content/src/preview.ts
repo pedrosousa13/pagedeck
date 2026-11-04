@@ -28,6 +28,22 @@ export function imagePreviewFault(value: unknown): string | undefined {
   return undefined;
 }
 
+const CHANNEL = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+
+// Strict on purpose: anything looser can add a declaration to the style attribute (#286).
+const COLOR = new RegExp(
+  `^(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgb\\(${CHANNEL}(?: ${CHANNEL}){2}\\)|rgb\\(${CHANNEL}(?:, ${CHANNEL}){2}\\)|rgb\\(${CHANNEL}(?:,${CHANNEL}){2}\\))$`,
+);
+
+/** `undefined` for an answer safe to emit as a dominant color; otherwise why it is not. */
+export function imageColorFault(value: unknown): string | undefined {
+  if (typeof value !== "string") return "not a string";
+  if (!COLOR.test(value)) {
+    return 'not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255';
+  }
+  return undefined;
+}
+
 const EXCERPT_LENGTH = 32;
 
 /**

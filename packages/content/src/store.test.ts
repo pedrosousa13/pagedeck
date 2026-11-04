@@ -960,6 +960,17 @@ test("a source probed with no color is recorded as probed and never asked again"
   expect(store.hasImageColor("/uploads/logo.svg")).toBe(true);
 });
 
+test("a deleted color leaves its source unprobed, and deleting an absent one is no fault", () => {
+  const store = openTempStore();
+  store.setImageColor("/uploads/hero.jpg", "#2f3a28");
+
+  store.deleteImageColor("/uploads/hero.jpg");
+  store.deleteImageColor("/uploads/never.jpg");
+
+  expect(store.getImageColor("/uploads/hero.jpg")).toBeUndefined();
+  expect(store.hasImageColor("/uploads/hero.jpg")).toBe(false);
+});
+
 test("a later color for one source replaces the earlier one", () => {
   const store = openTempStore();
 

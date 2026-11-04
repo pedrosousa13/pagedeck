@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { MAX_PREVIEW_BYTES, excerpt, imagePreviewFault } from "./preview.js";
+import { MAX_PREVIEW_BYTES, excerpt, imageColorFault, imagePreviewFault } from "./preview.js";
 
 const PAYLOAD = "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
 
@@ -109,4 +109,46 @@ test("an excerpt redacts before it cuts, so a cut cannot hide where a credential
   expect(
     excerpt("https://user:hunter2-very-long-secret-token@cdn.example/x.jpg", redact),
   ).toBe("https://…@cdn.example/x.jpg");
+});
+
+test.each([
+  "#abc",
+  "#ABCD",
+  "#2f3a28",
+  "#2f3a28ff",
+  "rgb(47 58 40)",
+  "rgb(0, 0, 0)",
+  "rgb(255,255,255)",
+  "rgb(1, 2, 3)",
+  "rgb(1,2,3)",
+])("%s is a color", (value) => {
+  expect(imageColorFault(value)).toBeUndefined();
+});
+
+const NOT_A_COLOR =
+  'not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255';
+
+test.each([
+  ["a semicolon", "red;background-image:url(https://evil.example/x)"],
+  ["a url(", "url(https://evil.example/x)"],
+  ["a double quote", '"#2f3a28"'],
+  ["a single quote", "'#2f3a28'"],
+  ["a backslash", "#2f3a28\\"],
+  ["a newline", "#2f3a28\n"],
+  ["an expression(", "expression(alert(1))"],
+  ["a var(", "var(--brand)"],
+  ["a named color", "red"],
+  ["five hex digits", "#2f3a2"],
+  ["a channel over 255", "rgb(256 0 0)"],
+  ["an rgb() with a declaration after it", "rgb(1 2 3);color:red"],
+  ["whitespace", " #2f3a28"],
+  ["a comma and a comma-space mixed", "rgb(1, 2,3)"],
+  ["a space and a comma mixed", "rgb(1 2,3)"],
+  ["a comma and a space mixed", "rgb(1,2 3)"],
+])("an answer holding %s is not a color", (_name, value) => {
+  expect(imageColorFault(value)).toBe(NOT_A_COLOR);
+});
+
+test("a non-string is not a color", () => {
+  expect(imageColorFault(17)).toBe("not a string");
 });

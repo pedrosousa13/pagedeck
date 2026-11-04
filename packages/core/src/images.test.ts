@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { openStore, syncImageColors } from "@pagedeck/content";
 import { expect, test } from "vitest";
 import { ConfigError } from "./exit.js";
 import {
@@ -332,6 +336,98 @@ test("a refused preview is quoted cut short, and names its reason", () => {
   );
 });
 
+function colorFault(placeholderColor: unknown): Error | undefined {
+  try {
+    imageAttributes({
+      images: IMAGES,
+      image: {
+        src: "/hero.jpg",
+        width: 1600,
+        height: 900,
+        placeholderColor: placeholderColor as string,
+      },
+      page: PAGE,
+    });
+  } catch (thrown: unknown) {
+    return thrown as Error;
+  }
+  return undefined;
+}
+
+test.each([
+  ["a semicolon", "red;background-image:url(https://evil.example/x)"],
+  ["a url(", "url(https://evil.example/x)"],
+  ["a double quote", '#fff"'],
+  ["a single quote", "#fff'"],
+  ["a backslash", "#2f3a28\\"],
+  ["a newline", "#2f3a28\n"],
+  ["an expression(", "expression(alert(1))"],
+  ["a var(", "var(--brand)"],
+  ["a non-string", 17],
+])("a color holding %s is refused at render and never emitted", (_name, value) => {
+  const error = colorFault(value);
+
+  expect(error).toBeInstanceOf(RenderError);
+  expect(error?.message).toMatch(
+    /^Entry \/en\/home: image "\/hero\.jpg" carries a placeholderColor that is not a CSS color, so none is written into the page — pass the answer the sync cached for it, store\.getImageColor\(src\), or leave the field out:\n {2}.+ — .+$/,
+  );
+});
+
+test("a refused color is quoted with its reason", () => {
+  expect(colorFault("red;color:blue")?.message).toBe(
+    'Entry /en/home: image "/hero.jpg" carries a placeholderColor that is not a CSS color, so none is written into the page — pass the answer the sync cached for it, store.getImageColor(src), or leave the field out:\n' +
+      '  "red;color:blue" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+});
+
+test("a refused color starting with # is quoted whole, not cut at the #", () => {
+  expect(colorFault("#ff00001")?.message.split("\n")[1]).toBe(
+    '  "#ff00001" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+  expect(colorFault("#fff;background:url(x)")?.message.split("\n")[1]).toBe(
+    '  "#fff;background:url(x)" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+});
+
+test("a credential in a refused color is still redacted", () => {
+  const message = colorFault("https://u:p@evil.example/x")?.message;
+
+  expect(message).not.toContain("u:p");
+  expect(message?.split("\n")[1]).toBe(
+    '  "https://…@evil.example/x" — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255',
+  );
+});
+
+test.each([
+  ["red?api_key=SECRET", '"red?…"'],
+  ["https://h/x?api_key=SECRET", '"https://h/x?…"'],
+  ["https://h/cb#access_token=SECRET", '"https://h/cb#…"'],
+])("a query or fragment in a refused color, %s, is cut before it is quoted", (color, quoted) => {
+  const message = colorFault(color)?.message;
+
+  expect(message).not.toContain("SECRET");
+  expect(message?.split("\n")[1]).toBe(
+    `  ${quoted} — not "#" and 3, 4, 6 or 8 hex digits, or rgb() of three whole numbers from 0 to 255`,
+  );
+});
+
+test.each(["rgb(1, 2,3)", "rgb(1 2,3)"])("a color mixing rgb() separators, %s, is refused", (value) => {
+  expect(colorFault(value)).toBeInstanceOf(RenderError);
+});
+
+test.each(["#abc", "#abcd", "#2f3a28", "#2f3a28ff", "rgb(58 47 40)", "rgb(58, 47, 40)", "rgb(58,47,40)"])(
+  "the color %s renders exactly as given",
+  (placeholderColor) => {
+    expect(
+      imageAttributes({
+        images: IMAGES,
+        image: { src: "/hero.jpg", width: 1600, height: 900, placeholderColor },
+        page: PAGE,
+      }).style,
+    ).toStrictEqual({ backgroundColor: placeholderColor });
+  },
+);
+
 test("an image with no intrinsic dimensions fails the build naming the page and the image", () => {
   const error: unknown = (() => {
     try {
@@ -645,3 +741,38 @@ test.each([
     );
   },
 );
+
+test("a stale cached color whose re-probe throws renders with no placeholder", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pagedeck-core-images-"));
+  const store = openStore(join(dir, "content.db"));
+  try {
+    store.setImageColor("/hero.jpg", "red");
+    const warnings: string[] = [];
+
+    await syncImageColors({
+      store,
+      collection: "pages",
+      sources: [{ src: "/hero.jpg", entry: "/en/home" }],
+      probe: () => {
+        throw new Error("502 Bad Gateway");
+      },
+      onWarning: (message) => warnings.push(message),
+    });
+
+    expect(warnings).toHaveLength(1);
+    const attributes = imageAttributes({
+      images: IMAGES,
+      image: {
+        src: "/hero.jpg",
+        width: 1600,
+        height: 900,
+        placeholderColor: store.getImageColor("/hero.jpg"),
+      },
+      page: PAGE,
+    });
+    expect(attributes.style).toBeUndefined();
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
