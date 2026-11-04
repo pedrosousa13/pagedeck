@@ -305,7 +305,14 @@ const ATTRIBUTES_FIX =
   'write a map of data attribute to value, as attributes: { "data-domain": "example.com" }';
 const INTEGRITY_FIX =
   'write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"';
-const INTEGRITY_TOKEN = /^sha(?:256|384|512)-/;
+const DIGEST_SHAPES = {
+  sha256: { characters: 43, padding: 1 },
+  sha384: { characters: 64, padding: 0 },
+  sha512: { characters: 86, padding: 2 },
+} as const;
+const INTEGRITY_PREFIXES = Object.keys(DIGEST_SHAPES).map((algorithm) => `${algorithm}-`);
+const UNCHECKED_LOAD_REASON =
+  "a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked";
 const ATTRIBUTE_KEY_REASON =
   'not a data attribute name — write a key of the form data-<name>, such as "data-domain"';
 /**
@@ -591,6 +598,7 @@ function declarationSections(
   const notDeclarations: string[] = [];
   const unknown: string[] = [];
   const faults: string[] = [];
+  const faultyFields = new Set<string>();
   const sections: string[] = [];
 
   declared.forEach((script, index) => {
@@ -609,6 +617,7 @@ function declarationSections(
       Object.hasOwn(fields, key) ? fields[key] : undefined;
     for (const [key, reason] of declarationFaults(value)) {
       faults.push(`  ${at} — ${JSON.stringify(key)} — ${reason}`);
+      faultyFields.add(`${at} ${key}`);
     }
   });
 
@@ -628,7 +637,7 @@ function declarationSections(
   }
   if (faults.length > 0) {
     sections.push(
-      `${heading}: declares ${count(faults.length, "script field")} that cannot be loaded from — declare each as the type its own line names:\n${faults.join("\n")}`,
+      `${heading}: declares ${count(faultyFields.size, "script field")} that cannot be loaded from — declare each as the lines that name it say:\n${faults.join("\n")}`,
     );
   }
   return sections;
@@ -687,16 +696,57 @@ function declarationFaults(
         "integrity",
         `${quote(integrity)} — not integrity metadata — ${INTEGRITY_FIX}`,
       ]);
-    } else if (
-      !integrity.split(/[\t\n\f\r ]+/).some((token) => INTEGRITY_TOKEN.test(token))
-    ) {
-      faults.push([
-        "integrity",
-        `${quote(integrity)} — holds no sha256-, sha384- or sha512- hash, and a browser ignores integrity it cannot parse, so the script would load unchecked — ${INTEGRITY_FIX}`,
-      ]);
+    } else {
+      for (const token of integrity.split(/[\t\n\f\r ]+/)) {
+        const reason = integrityTokenFault(token);
+        if (reason !== undefined) {
+          faults.push(["integrity", `${quoteToken(token)} — ${reason} — ${INTEGRITY_FIX}`]);
+        }
+      }
     }
   }
   return faults;
+}
+
+function integrityTokenFault(token: string): string | undefined {
+  if (token === "") return undefined;
+  const known = Object.entries(DIGEST_SHAPES).find(([algorithm]) =>
+    token.startsWith(`${algorithm}-`),
+  );
+  if (known === undefined) {
+    return `not a ${INTEGRITY_PREFIXES.slice(0, -1).join(", ")} or ${INTEGRITY_PREFIXES.at(-1) ?? ""} hash, and ${UNCHECKED_LOAD_REASON}`;
+  }
+  const [algorithm, { characters, padding }] = known;
+  const digest = token.slice(algorithm.length + 1).split("?", 1)[0] ?? "";
+  if (digest === "") return `no digest after "${algorithm}-", and ${UNCHECKED_LOAD_REASON}`;
+  if (!/^[A-Za-z0-9+/_=-]+$/.test(digest)) {
+    return `a digest that is not base64, and ${UNCHECKED_LOAD_REASON}`;
+  }
+  if (!/^[^=]+={0,2}$/.test(digest)) {
+    return 'a digest with "=" where base64 takes none, and Firefox and WebKit skip a token like it and, with no valid token left, run the script unchecked';
+  }
+  if (/[+/]/.test(digest) && /[-_]/.test(digest)) {
+    return 'a digest that mixes base64\'s "+" or "/" with the URL-safe "-" or "_", so Firefox and WebKit match it to no file and block the script';
+  }
+  const shape = `a ${algorithm} digest is ${String(characters)} base64 characters, ${
+    padding === 0 ? "unpadded" : `then ${JSON.stringify("=".repeat(padding))} or none`
+  }`;
+  const length = digest.replace(/=+$/, "").length;
+  if (length !== characters) {
+    return `a digest of ${String(length)} base64 characters, where ${shape}, so it matches no file and a browser that checks against it blocks the script`;
+  }
+  const pad = digest.length - length;
+  if (pad !== 0 && pad !== padding) {
+    return `a digest padded wrong, where ${shape}, so Firefox matches it to no file and blocks the script`;
+  }
+  return undefined;
+}
+
+function quoteToken(token: string): string {
+  return JSON.stringify(token).replace(
+    /[^\x20-\x7e]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
 }
 
 function attributeFaults(

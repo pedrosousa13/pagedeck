@@ -261,7 +261,7 @@ test("every unusable field of every declared script is reported with the type it
 
   expect(report).toBe(
     [
-      "Script settings: declares 4 script fields that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "name" — "" — not a script name — write the name an override addresses this script by, such as "analytics"',
       '  scripts[1] — "src" — 7 — not a script source — write the URL or path the script is served from, such as "https://example.com/analytics.js"',
       '  scripts[1] — "strategy" — "lazy" — not a loading strategy — write one of: worker, idle, interaction, facade',
@@ -326,7 +326,7 @@ test("a site can name the map, and the name is where the key is refused", () => 
     ),
   ).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "attributes.async" — not a data attribute name — write a key of the form data-<name>, such as "data-domain"',
     ].join("\n"),
   );
@@ -358,7 +358,7 @@ test("an attribute key the loader owns is refused at the config door as well", (
 
   expect(report).toBe(
     [
-      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "attributes.src" — not a data attribute name — write a key of the form data-<name>, such as "data-domain"',
       '  scripts[1] — "attributes.data-domain" — 7 — not an attribute value — write the text the vendor reads, such as "example.com"',
     ].join("\n"),
@@ -394,7 +394,7 @@ test("the bare prefix configures nothing, and the type cannot refuse it", () => 
 
   expect(report).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "attributes.data-" — not a data attribute name — write a key of the form data-<name>, such as "data-domain"',
     ].join("\n"),
   );
@@ -413,7 +413,7 @@ test("a key setAttribute would throw on is refused, and the character is named",
 
   expect(report).toBe(
     [
-      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "attributes.data-domain " — a name setAttribute throws on — it holds 1 character outside XML\'s Name production, " " (U+0020), and the loader sets every declared attribute as it runs, so one key like this stops script loading on every page that carries it; delete it, or write the name the vendor documents, such as "data-domain"',
       '  scripts[1] — "attributes.data-a b" — a name setAttribute throws on — it holds 1 character outside XML\'s Name production, " " (U+0020), and the loader sets every declared attribute as it runs, so one key like this stops script loading on every page that carries it; delete it, or write the name the vendor documents, such as "data-domain"',
     ].join("\n"),
@@ -428,7 +428,7 @@ test("every character a name cannot hold is named once, in the order it appears"
 
   expect(report).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "attributes.data-<a b b>" — a name setAttribute throws on — it holds 3 characters outside XML\'s Name production, "<" (U+003C), " " (U+0020), ">" (U+003E), and the loader sets every declared attribute as it runs, so one key like this stops script loading on every page that carries it; delete them, or write the name the vendor documents, such as "data-domain"',
     ].join("\n"),
   );
@@ -452,28 +452,103 @@ test("an attribute map that is not a map is its own line, with nothing enumerate
     ),
   ).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "attributes" — "data-domain=example.com" — not an attribute map — write a map of data attribute to value, as attributes: { "data-domain": "example.com" }',
     ].join("\n"),
   );
 });
 
-test("integrity metadata is a field this build reads", () => {
+const SHA256 = "sha256-tdElM+RL4sC4HGbyE42jlYTmEorBu+lN6IrC+dWRD2A=";
+const SHA384 =
+  "sha384-5FfBCzQ1Vtj7E7RYy8sbesHkODYMt8s0Mbp51zito92HrGRcj7RVGOKZvLnQFPSM";
+const SHA512 =
+  "sha512-+WSrRbu22D3UOxEhGjgusR67iHNqTEV+BwNTknJjCeHTEEco05TDGIq8UXUcC2KYbZQeFe27152qB2nvHvHqwg==";
+const STANDARD_384 = "sha384-O7gYYbdDKh7AsZ8oxBKKAnqpsV4RyvG6XUahHKZ++9vHt9FM/1025Nu7ul7E+uQY";
+const URL_SAFE_384 = "sha384-O7gYYbdDKh7AsZ8oxBKKAnqpsV4RyvG6XUahHKZ--9vHt9FM_1025Nu7ul7E-uQY";
+const INTEGRITY_FIX =
+  'write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"';
+const UNCHECKED =
+  "and a browser skips a token it cannot parse and, with no valid token left, runs the script unchecked";
+
+test("integrity metadata of every algorithm is a field this build reads", () => {
   expect(
     scriptsFaultReport(
       {
         scripts: [
-          {
-            ...ANALYTICS,
-            integrity:
-              "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC",
-          },
-          { ...CHAT, integrity: "md5-abc sha512-def" },
+          { ...ANALYTICS, integrity: SHA256 },
+          { ...CHAT, integrity: SHA384 },
+          { name: "video", src: "/v.js", integrity: `${SHA512} ${SHA384}` },
+          { name: "map", src: "/m.js", integrity: ` ${SHA384}\n${SHA256}\t` },
         ],
       },
       "Script settings",
     ),
   ).toBeUndefined();
+});
+
+test("a digest in either alphabet alone, unpadded, or followed by options is read", () => {
+  expect(
+    scriptsFaultReport(
+      {
+        scripts: [
+          { ...ANALYTICS, integrity: `${STANDARD_384} ${URL_SAFE_384}` },
+          { ...CHAT, integrity: SHA256.slice(0, -1) },
+          { name: "video", src: "/v.js", integrity: SHA512.slice(0, -2) },
+          { name: "map", src: "/m.js", integrity: `${SHA256}?ct=application/javascript` },
+        ],
+      },
+      "Script settings",
+    ),
+  ).toBeUndefined();
+});
+
+test("an unknown algorithm is refused beside a valid token, though a browser would check the valid one", () => {
+  const report = scriptsFaultReport(
+    { scripts: [{ ...ANALYTICS, integrity: `md5-abc ${SHA512}` }] },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — "md5-abc" — not a sha256-, sha384- or sha512- hash, ${UNCHECKED} — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a digest mixing the standard and URL-safe alphabets is refused", () => {
+  const plusAndDash = STANDARD_384.replace("/", "-");
+  const slashAndUnderscore = STANDARD_384.replace(/\+/g, "_");
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: plusAndDash },
+        { ...CHAT, integrity: slashAndUnderscore },
+      ],
+    },
+    "Script settings",
+  );
+
+  const reason =
+    'a digest that mixes base64\'s "+" or "/" with the URL-safe "-" or "_", so Firefox and WebKit match it to no file and block the script';
+  expect(report).toBe(
+    [
+      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — "${plusAndDash}" — ${reason} — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "${slashAndUnderscore}" — ${reason} — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a token is quoted with every character outside printable ASCII escaped, so none reads as a space", () => {
+  const report = scriptsFaultReport(
+    { scripts: [{ ...ANALYTICS, integrity: `${SHA384}\u00a0\u2003\u2028\ufeffé` }] },
+    "Script settings",
+  );
+
+  expect(report).toContain(
+    `  scripts[0] — "integrity" — "${SHA384}\\u00a0\\u2003\\u2028\\ufeff\\u00e9" — a digest that is not base64, ${UNCHECKED} — ${INTEGRITY_FIX}`,
+  );
 });
 
 test("integrity a browser would not check the script against is refused at the config door", () => {
@@ -490,12 +565,107 @@ test("integrity a browser would not check the script against is refused at the c
 
   expect(report).toBe(
     [
-      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the type its own line names:",
-      '  scripts[0] — "integrity" — 7 — not integrity metadata — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"',
-      '  scripts[1] — "integrity" — "" — not integrity metadata — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"',
-      '  scripts[2] — "integrity" — "md5-abc SHA384-def" — holds no sha256-, sha384- or sha512- hash, and a browser ignores integrity it cannot parse, so the script would load unchecked — write the hash the vendor publishes for this exact file, such as "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"',
+      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — 7 — not integrity metadata — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "" — not integrity metadata — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "md5-abc" — not a sha256-, sha384- or sha512- hash, ${UNCHECKED} — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "SHA384-def" — not a sha256-, sha384- or sha512- hash, ${UNCHECKED} — ${INTEGRITY_FIX}`,
     ].join("\n"),
   );
+});
+
+test("a digest that is empty or not base64 is refused, every bad token across every script at once", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: "sha384-" },
+        { ...CHAT, integrity: `${SHA384} sha384-!!!not base64!!!` },
+        { name: "video", src: "/v.js", integrity: "sha512-?" },
+      ],
+    },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — "sha384-" — no digest after "sha384-", ${UNCHECKED} — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "sha384-!!!not" — a digest that is not base64, ${UNCHECKED} — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "base64!!!" — not a sha256-, sha384- or sha512- hash, ${UNCHECKED} — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "sha512-?" — no digest after "sha512-", ${UNCHECKED} — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a base64 digest of the wrong length for its algorithm is refused, because it matches no file", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: "sha384-AAAA" },
+        { ...CHAT, integrity: `sha256-${SHA384.slice("sha384-".length)}` },
+        { name: "video", src: "/v.js", integrity: "sha384-abc" },
+      ],
+    },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 3 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — "sha384-AAAA" — a digest of 4 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "sha256-${SHA384.slice("sha384-".length)}" — a digest of 64 base64 characters, where a sha256 digest is 43 base64 characters, then "=" or none, so it matches no file and a browser that checks against it blocks the script — ${INTEGRITY_FIX}`,
+      `  scripts[2] — "integrity" — "sha384-abc" — a digest of 3 base64 characters, where a sha384 digest is 64 base64 characters, unpadded, so it matches no file and a browser that checks against it blocks the script — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a digest of the right length padded wrong is refused", () => {
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: `${SHA384}=` },
+        { ...CHAT, integrity: `${SHA256}=` },
+      ],
+    },
+    "Script settings",
+  );
+
+  expect(report).toBe(
+    [
+      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — "${SHA384}=" — a digest padded wrong, where a sha384 digest is 64 base64 characters, unpadded, so Firefox matches it to no file and blocks the script — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "${SHA256}=" — a digest padded wrong, where a sha256 digest is 43 base64 characters, then "=" or none, so Firefox matches it to no file and blocks the script — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("a digest with \"=\" inside it or more than two at its end is refused, because Firefox and WebKit skip it", () => {
+  const inside = `${SHA384.slice(0, 20)}=${SHA384.slice(20)}`;
+  const report = scriptsFaultReport(
+    {
+      scripts: [
+        { ...ANALYTICS, integrity: inside },
+        { ...CHAT, integrity: "sha384-A===" },
+      ],
+    },
+    "Script settings",
+  );
+
+  const reason =
+    'a digest with "=" where base64 takes none, and Firefox and WebKit skip a token like it and, with no valid token left, run the script unchecked';
+  expect(report).toBe(
+    [
+      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "integrity" — "${inside}" — ${reason} — ${INTEGRITY_FIX}`,
+      `  scripts[1] — "integrity" — "sha384-A===" — ${reason} — ${INTEGRITY_FIX}`,
+    ].join("\n"),
+  );
+});
+
+test("defineScripts refuses a malformed digest as the config loader does", () => {
+  expect(() =>
+    defineScripts({ scripts: [{ ...ANALYTICS, integrity: "sha384-" }] }),
+  ).toThrow(ConfigError);
 });
 
 test("a script field this build does not read is its own paragraph", () => {
@@ -596,7 +766,7 @@ test("a declaration cannot take a script off, and its refusal names only the str
     ),
   ).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "strategy" — "off" — not a loading strategy — write one of: worker, idle, interaction, facade',
     ].join("\n"),
   );
@@ -622,7 +792,7 @@ test("an override is silent about membership when no declaration gave a name to 
     ),
   ).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "name" — 7 — not a script name — write the name an override addresses this script by, such as "analytics"',
     ].join("\n"),
   );
@@ -733,8 +903,8 @@ test("a categorized script with integrity is refused once it can reach a late-pi
     scriptsFaultReport(
       {
         scripts: [
-          { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
-          { name: "held", src: "/held.js", strategy: "idle", integrity: "sha384-e", category: "analytics" },
+          { name: "gated", src: "/gated.js", integrity: SHA384, category: "analytics" },
+          { name: "held", src: "/held.js", strategy: "idle", integrity: SHA384, category: "analytics" },
         ],
         runtime,
       },
@@ -941,10 +1111,10 @@ test("a runtime that checks no integrity refuses every script that can reach wor
   const runtime = Object.assign(() => ({}), { checksIntegrity: false });
   const settings = {
     scripts: [
-      { name: "tags", src: "/tags.js", integrity: "sha384-a" },
-      { name: "pixel", src: "/pixel.js", strategy: "idle", integrity: "sha384-b" },
-      { name: "chat", src: "/chat.js", strategy: "idle", integrity: "sha384-c" },
-      { name: "gated", src: "/gated.js", integrity: "sha384-d", category: "analytics" },
+      { name: "tags", src: "/tags.js", integrity: SHA384 },
+      { name: "pixel", src: "/pixel.js", strategy: "idle", integrity: SHA384 },
+      { name: "chat", src: "/chat.js", strategy: "idle", integrity: SHA384 },
+      { name: "gated", src: "/gated.js", integrity: SHA384, category: "analytics" },
       { name: "plain", src: "/plain.js" },
     ],
     pages: { "/pricing": { pixel: "worker" } },
@@ -965,7 +1135,7 @@ test("the integrity refusal is reported beside an unrelated fault, not held back
   const report = scriptsFaultReport(
     {
       scripts: [
-        { name: "tags", src: "/tags.js", integrity: "sha384-a" },
+        { name: "tags", src: "/tags.js", integrity: SHA384 },
         { name: "broken", src: "", strategy: "idle" },
       ],
       runtime: Object.assign(() => ({}), { checksIntegrity: false }),
@@ -1152,7 +1322,7 @@ test("a category that is not one is refused at construction", () => {
     ),
   ).toBe(
     [
-      "Script settings: declares 1 script field that cannot be loaded from — declare each as the type its own line names:",
+      "Script settings: declares 1 script field that cannot be loaded from — declare each as the lines that name it say:",
       '  scripts[0] — "category" — "analytic" — not a consent category — write one of: analytics, functional, marketing, necessary',
     ].join("\n"),
   );

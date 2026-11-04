@@ -129,8 +129,8 @@ test("every worker script that declares integrity is refused when the config loa
   const call = (): unknown =>
     defineScripts({
       scripts: [
-        { ...TAGS, integrity: "sha384-abc" },
-        { name: "pixel", src: "/pixel.js", integrity: "sha256-def" },
+        { ...TAGS, integrity: "sha384-5FfBCzQ1Vtj7E7RYy8sbesHkODYMt8s0Mbp51zito92HrGRcj7RVGOKZvLnQFPSM" },
+        { name: "pixel", src: "/pixel.js", integrity: "sha256-tdElM+RL4sC4HGbyE42jlYTmEorBu+lN6IrC+dWRD2A=" },
         { name: "plain", src: "/plain.js" },
       ],
       runtime,
@@ -155,7 +155,7 @@ test("Partytown picks up a late script, so a categorized worker script stays on 
 test("a categorized worker script that declares integrity is refused under Partytown, as an uncategorized one is", () => {
   const call = (): unknown =>
     defineScripts({
-      scripts: [{ ...TAGS, category: "analytics", integrity: "sha384-abc" }],
+      scripts: [{ ...TAGS, category: "analytics", integrity: "sha384-5FfBCzQ1Vtj7E7RYy8sbesHkODYMt8s0Mbp51zito92HrGRcj7RVGOKZvLnQFPSM" }],
       runtime: definePartytown(),
     });
 

@@ -139,7 +139,7 @@ const ATTRS_SCRIPTS = `scripts: defineScripts({
         { name: "analytics", src: "https://example.com/analytics.js", strategy: "idle", attributes: { "data-domain": "marker-domain-7f31.example" } },
         { name: "chat", src: "https://example.com/chat.js", strategy: "interaction" },
         { name: "comments", src: "https://example.com/comments.js", strategy: "facade", facade: { html: "<button>marker-comments-2d9a</button>" }, attributes: { "data-repo": "marker-repo-5b8c/site" } },
-        { name: "widget", src: "https://example.com/widget@1.2.3.js", strategy: "idle", category: "analytics", integrity: "sha384-marker-integrity-3e7a" },
+        { name: "widget", src: "https://example.com/widget@1.2.3.js", strategy: "idle", category: "analytics", integrity: "sha384-marker-integrity-3e7a0000000000000000000000000000000000000000000" },
       ],
     }),`;
 
@@ -526,7 +526,7 @@ test("a declared integrity survives the config loader and reaches the page with 
   const html = attrs.get("/") ?? "";
 
   expect(html).toContain(
-    '[["https://example.com/widget@1.2.3.js","integrity","sha384-marker-integrity-3e7a","crossorigin","anonymous"],"analytics",0]',
+    '[["https://example.com/widget@1.2.3.js","integrity","sha384-marker-integrity-3e7a0000000000000000000000000000000000000000000","crossorigin","anonymous"],"analytics",0]',
   );
 }, 120_000);
 
