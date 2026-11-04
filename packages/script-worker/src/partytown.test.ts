@@ -325,3 +325,134 @@ test("the snippet Partytown writes passes core's inline script check with every 
 
   expect(inlineScriptFault(snippet)).toBeUndefined();
 });
+
+test("an option no type check reached is refused when it would end the snippet's script element (#290)", () => {
+  for (const options of [
+    { fallbackTimeout: "1</script><b>x</b>" },
+    { strictProxyHas: "true</script><b>x</b>" },
+    { debug: "</script><b>x</b>" },
+  ]) {
+    const call = (): unknown => definePartytown(options as never);
+    expect(call).toThrow(ConfigError);
+    expect(call).toThrow(Object.keys(options)[0]);
+  }
+});
+
+test("every option that is unknown or of the wrong type is refused by name, together, with the accepted options listed (#290)", () => {
+  const call = (): unknown =>
+    definePartytown({
+      forwrd: ["dataLayer.push"],
+      debug: true,
+      fallbackTimeout: Number.POSITIVE_INFINITY,
+      strictProxyHas: "true",
+    } as never);
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow(
+    [
+      'Partytown runtime "build.scripts.runtime": 4 options this runtime cannot take — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but forward, resolveUrl, globalFns, mainWindowAccessors, loadScriptsOnMainThread, fallbackTimeout and strictProxyHas:',
+      '  "forwrd" — not an option this runtime takes',
+      '  "debug" — not an option this runtime takes',
+      '  "fallbackTimeout" — Infinity is not a finite number 0 or more',
+      '  "strictProxyHas" — "true" is not true or false',
+    ].join("\n"),
+  );
+});
+
+test("a negative fallbackTimeout is refused by name (#290)", () => {
+  expect(() => definePartytown({ fallbackTimeout: -1 })).toThrow(
+    '  "fallbackTimeout" — -1 is not a finite number 0 or more',
+  );
+});
+
+test("a function in a written option is checked as the text Partytown writes for it, not as JSON drops it (#290)", () => {
+  const call = (): unknown =>
+    definePartytown({
+      globalFns: [new Function('return "</script>"')],
+    } as never);
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow('  "globalFns" — holds "</script"');
+});
+
+test("every fault in the options and the routes is reported in one error (#290)", () => {
+  const call = (): unknown =>
+    definePartytown({
+      resolveUrl: { "http://b.example": "/vendor/b/" },
+      debug: true,
+      forward: ["x</script>"],
+    } as never);
+
+  expect(call).toThrow(/"resolveUrl" declares 1 route[\s\S]*"debug" — not an option[\s\S]*"forward" — holds "<\/script"/);
+});
+
+test("a valid config writes the snippet it wrote before #290, so a pinned CSP hash still matches", () => {
+  expect(
+    definePartytown({
+      forward: ["dataLayer.push", ["fbq", { preserveBehavior: true }]],
+      resolveUrl: { "https://collector.example": "/vendor/collector/" },
+      globalFns: ["gtag"],
+      mainWindowAccessors: ["config"],
+      loadScriptsOnMainThread: ["https://example.com/main.js", /main\.js$/],
+      fallbackTimeout: 5000,
+      strictProxyHas: true,
+    }).inlineScriptHash,
+  ).toBe("'sha256-g69oB++1aqVkDDiiPcg1B1VAnYFELn68bpEYOeKOqwk='");
+  expect(definePartytown().inlineScriptHash).toBe(
+    "'sha256-+btblDztaAZ3NXe34xvcHxTWd9rwzKSCcVsvacjny4w='",
+  );
+});
+
+const BREAKOUT = "</script><img src=x onerror=alert(1)>";
+
+/** Safe on the first read, the breakout on every read after it. */
+function safeOnce<T>(safe: T): () => T | string {
+  let reads = 0;
+  return () => (reads++ === 0 ? safe : BREAKOUT);
+}
+
+test("an option that reads safe when checked and breaks out when built is refused by the text the build emits (#290)", () => {
+  for (const options of [
+    () => Object.defineProperty({}, "fallbackTimeout", { enumerable: true, get: safeOnce(5000) }),
+    () => {
+      const read = safeOnce(5000);
+      return new Proxy({ fallbackTimeout: 5000 }, {
+        get: (target, key) => (key === "fallbackTimeout" ? read() : Reflect.get(target, key)),
+      });
+    },
+    () => ({ globalFns: [{ toJSON: safeOnce("gtag") }] }),
+  ]) {
+    const call = (): unknown => definePartytown(options() as never);
+    expect(call).toThrow(ConfigError);
+    expect(call).toThrow(
+      'Partytown runtime "build.scripts.runtime": the snippet Partytown writes holds "</script" — an HTML parser ends the script element there, so the rest of the snippet is parsed as markup — write the sequence so it is not one, as "<\\/script"; no option held it when checked, so pass each option as a plain value that reads the same every time',
+    );
+  }
+});
+
+test("a fallbackTimeout that cannot be turned into a string is still refused with a ConfigError (#290)", () => {
+  const call = (): unknown => definePartytown({ fallbackTimeout: Object.create(null) as never });
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow('  "fallbackTimeout" — an object is not a finite number 0 or more');
+});
+
+test("a bigint fallbackTimeout is shown as a bigint, so the refusal does not read like a valid value (#290)", () => {
+  expect(() => definePartytown({ fallbackTimeout: 1n as never })).toThrow(
+    '  "fallbackTimeout" — 1n is not a finite number 0 or more',
+  );
+});
+
+test("a written option that cannot be read is refused by name with a ConfigError (#290)", () => {
+  const revocable = Proxy.revocable([], {});
+  revocable.revoke();
+  const call = (): unknown => definePartytown({ globalFns: revocable.proxy });
+
+  expect(call).toThrow(ConfigError);
+  expect(call).toThrow(
+    [
+      'Partytown runtime "build.scripts.runtime": 1 option this runtime cannot take — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but forward, resolveUrl, globalFns, mainWindowAccessors, loadScriptsOnMainThread, fallbackTimeout and strictProxyHas:',
+      `  "globalFns" — cannot be read (Cannot perform 'get' on a proxy that has been revoked) — pass a plain value`,
+    ].join("\n"),
+  );
+});

@@ -58,6 +58,16 @@ const LATE_PICKUP: ScriptRuntimeLatePickup = { type: "text/partytown", event: "p
  */
 const CONFIG_FILE = "partytown-config.txt";
 
+const ACCEPTED_OPTIONS = [
+  "forward",
+  "resolveUrl",
+  "globalFns",
+  "mainWindowAccessors",
+  "loadScriptsOnMainThread",
+  "fallbackTimeout",
+  "strictProxyHas",
+] as const satisfies readonly (keyof PartytownOptions)[];
+
 /** The options the snippet carries as written, which an option's text can break out of. */
 const WRITTEN_OPTIONS = [
   "forward",
@@ -73,12 +83,13 @@ const PATH_PREFIX = /^\/(?:[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)+$/;
 
 export function definePartytown(options: PartytownOptions = {}): PartytownRuntime {
   const routes = options.resolveUrl;
-  if (routes !== undefined) {
-    const report = routesFaultReport(routes);
-    if (report !== undefined) throw new ConfigError(report);
-  }
-  const written = writtenOptionsFaultReport(options);
-  if (written !== undefined) throw new ConfigError(written);
+  const written = writtenTexts(options);
+  const reports = [
+    routes === undefined ? undefined : routesFaultReport(routes),
+    optionsFaultReport(options, written),
+    writtenOptionsFaultReport(written),
+  ].filter((report) => report !== undefined);
+  if (reports.length > 0) throw new ConfigError(reports.join("\n"));
 
   const { resolveUrl: _, ...passed } = options;
   const snippetAt = (lib: string): string =>
@@ -87,12 +98,15 @@ export function definePartytown(options: PartytownOptions = {}): PartytownRuntim
       lib,
       ...(routes === undefined ? {} : { resolveUrl: resolveUrlFunction(routes) }),
     } as PartytownConfig);
+  const config = snippetAt("/");
   const lib = libDirPath();
   const files: readonly ScriptRuntimeFile[] = [
     ...LIB_FILES.map((name) => ({ name, contents: readFileSync(join(lib, name)) })),
-    { name: CONFIG_FILE, contents: snippetAt("/") },
+    { name: CONFIG_FILE, contents: config },
   ];
   const snippet = snippetAt(scriptRuntimeBase(files));
+  const emitted = emittedSnippetFaultReport([config, snippet]);
+  if (emitted !== undefined) throw new ConfigError(emitted);
   const element = `<script>${snippet}</script>`;
 
   const runtime = ({ scripts }: ScriptRuntimeRequest): Required<ScriptRuntimeMarkup> => ({
@@ -107,15 +121,78 @@ export function definePartytown(options: PartytownOptions = {}): PartytownRuntim
   });
 }
 
-function writtenOptionsFaultReport(options: PartytownOptions): string | undefined {
-  const faults = WRITTEN_OPTIONS.flatMap((name) => {
-    const value = options[name];
+function optionsFaultReport(
+  options: PartytownOptions,
+  written: WrittenTexts,
+): string | undefined {
+  const accepted: readonly string[] = ACCEPTED_OPTIONS;
+  const faults = Object.entries(options).flatMap(([name, value]: [string, unknown]) => {
+    if (!accepted.includes(name)) {
+      return [`  ${JSON.stringify(name)} — not an option this runtime takes`];
+    }
     if (value === undefined) return [];
-    const fault = inlineScriptFault(
-      JSON.stringify(value, (_key, item: unknown) =>
-        item instanceof RegExp ? item.source : item,
-      ),
-    );
+    if (
+      name === "fallbackTimeout" &&
+      !(typeof value === "number" && Number.isFinite(value) && value >= 0)
+    ) {
+      return [`  "fallbackTimeout" — ${describedValue(value)} is not a finite number 0 or more`];
+    }
+    if (name === "strictProxyHas" && typeof value !== "boolean") {
+      return [`  "strictProxyHas" — ${describedValue(value)} is not true or false`];
+    }
+    const text = written.get(name);
+    if (text instanceof Error) {
+      return [`  ${JSON.stringify(name)} — cannot be read (${text.message}) — pass a plain value`];
+    }
+    return [];
+  });
+  if (faults.length === 0) return undefined;
+  return `${WHERE}: ${String(faults.length)} ${
+    faults.length === 1 ? "option" : "options"
+  } this runtime cannot take — write fallbackTimeout as a finite number of milliseconds, 0 or more, strictProxyHas as true or false, and no option but ${ACCEPTED_OPTIONS.slice(0, -1).join(", ")} and ${ACCEPTED_OPTIONS[ACCEPTED_OPTIONS.length - 1]}:\n${faults.join("\n")}`;
+}
+
+function describedValue(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "function") return "a function";
+  if (typeof value === "object" && value !== null) return "an object";
+  if (typeof value === "bigint") return `${String(value)}n`;
+  return String(value);
+}
+
+/** Catches an option that read safe when checked and different when built (#290). */
+function emittedSnippetFaultReport(texts: readonly string[]): string | undefined {
+  for (const text of texts) {
+    const fault = inlineScriptFault(text);
+    if (fault !== undefined) {
+      return `${WHERE}: the snippet Partytown writes ${fault}; no option held it when checked, so pass each option as a plain value that reads the same every time`;
+    }
+  }
+  return undefined;
+}
+
+/** The snippet Partytown writes for each written option set, or what reading the option threw. */
+type WrittenTexts = ReadonlyMap<string, string | Error>;
+
+function writtenTexts(options: PartytownOptions): WrittenTexts {
+  return new Map(
+    WRITTEN_OPTIONS.flatMap((name): [string, string | Error][] => {
+      const value = options[name];
+      if (value === undefined) return [];
+      try {
+        return [[name, partytownSnippet({ [name]: value } as PartytownConfig)]];
+      } catch (error) {
+        return [
+          [name, error instanceof Error ? error : new Error("a value that is not an Error was thrown")],
+        ];
+      }
+    }),
+  );
+}
+
+function writtenOptionsFaultReport(written: WrittenTexts): string | undefined {
+  const faults = [...written].flatMap(([name, text]) => {
+    const fault = text instanceof Error ? undefined : inlineScriptFault(text);
     return fault === undefined ? [] : [`  ${JSON.stringify(name)} — ${fault}`];
   });
   if (faults.length === 0) return undefined;
