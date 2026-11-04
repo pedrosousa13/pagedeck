@@ -715,24 +715,22 @@ function declarationFaults(
   return faults;
 }
 
-/** Anywhere, not only at the ends: the URL parser also drops a tab or newline mid-scheme (#292). */
-const STRIPPED_BY_URL_PARSER = /[\u0000- \u007f]/;
+/** All of them, though the URL parser encodes a space mid-path: a source never needs one raw (#292). */
+const SPACE_OR_CONTROL = /[\u0000-\u0020\u007f]/;
 
 function srcFault(src: string): string | undefined {
-  if (STRIPPED_BY_URL_PARSER.test(src)) {
-    return "a source holding whitespace or a control character, which a browser strips or drops before it reads the URL — delete it, or percent-encode it if the URL needs it";
+  if (SPACE_OR_CONTROL.test(src)) {
+    return "a source holding whitespace or a control character, which a browser strips, drops or encodes before it reads the URL — delete it, or percent-encode it if the URL needs it";
   }
-  if (/^\/(?![/\\])/.test(src) || isHttpsUrl(src)) return undefined;
-  return `not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"`;
-}
-
-function isHttpsUrl(src: string): boolean {
-  if (!/^https:/i.test(src)) return false;
-  try {
-    return new URL(src).protocol === "https:";
-  } catch {
-    return false;
+  if (/^\/(?![/\\])/.test(src)) return undefined;
+  const url = /^https:/i.test(src) && URL.canParse(src) ? new URL(src) : undefined;
+  if (url?.protocol !== "https:") {
+    return `not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"`;
   }
+  if (url.username !== "" || url.password !== "") {
+    return "an https: URL with a user name or password, which every page that loads the script would publish and a browser may refuse to load — drop the user name and password";
+  }
+  return undefined;
 }
 
 function integrityTokenFault(token: string): string | undefined {

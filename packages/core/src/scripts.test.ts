@@ -305,17 +305,35 @@ test("an https: URL in any case and a single-slash path are sources", () => {
   ).toBeUndefined();
 });
 
-test("a backslash that a browser reads as a second slash is refused", () => {
-  const report = srcFaults("/\\example.com/a.js", "\\\\example.com/a.js", "https:", "https://");
-  expect(report).toContain("declares 4 script fields that cannot be loaded from");
-  expect(report).toContain('scripts[0] — "src" — "/\\\\example.com/a.js" — not an https: URL');
-  expect(report).toContain('scripts[1] — "src" — "\\\\\\\\example.com/a.js" — not an https: URL');
+const SRC_SCHEME_REASON =
+  "not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach";
+
+test("a backslash that a browser reads as a second slash, or an https: URL with no host, is refused", () => {
+  expect(srcFaults("/\\example.com/a.js", "\\\\example.com/a.js", "https:", "https://")).toBe(
+    [
+      "Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      `  scripts[0] — "src" — "/\\\\example.com/a.js" — ${SRC_SCHEME_REASON} — ${SRC_FIX}`,
+      `  scripts[1] — "src" — "\\\\\\\\example.com/a.js" — ${SRC_SCHEME_REASON} — ${SRC_FIX}`,
+      `  scripts[2] — "src" — "https:" — ${SRC_SCHEME_REASON} — ${SRC_FIX}`,
+      `  scripts[3] — "src" — "https://" — ${SRC_SCHEME_REASON} — ${SRC_FIX}`,
+    ].join("\n"),
+  );
 });
 
-test("whitespace or a control character a browser strips before it reads the scheme is refused", () => {
+test("an https: URL with a user name or password is refused, and the message does not repeat them", () => {
+  expect(srcFaults("https://user:pw@example.com/a.js", "https://user@example.com/a.js")).toBe(
+    [
+      "Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:",
+      '  scripts[0] — "src" — "https://…@example.com/a.js" — an https: URL with a user name or password, which every page that loads the script would publish and a browser may refuse to load — drop the user name and password',
+      '  scripts[1] — "src" — "https://…@example.com/a.js" — an https: URL with a user name or password, which every page that loads the script would publish and a browser may refuse to load — drop the user name and password',
+    ].join("\n"),
+  );
+});
+
+test("whitespace or a control character a browser strips, drops or encodes is refused", () => {
   const report = srcFaults(" javascript:alert(1)", "java\tscript:alert(1)", "/x.js\n", "/\t/example.com/a.js");
   const reason =
-    "a source holding whitespace or a control character, which a browser strips or drops before it reads the URL — delete it, or percent-encode it if the URL needs it";
+    "a source holding whitespace or a control character, which a browser strips, drops or encodes before it reads the URL — delete it, or percent-encode it if the URL needs it";
   expect(report).toBe(
     [
       "Script settings: declares 4 script fields that cannot be loaded from — declare each as the lines that name it say:",

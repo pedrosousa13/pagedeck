@@ -59,9 +59,10 @@ applying the day the tag was reissued.
 `src` is an `https:` URL, such as `"https://example.com/gtm.js"`, or a path on
 your own site that starts with a single `/`, such as `"/metrics.js"`. Anything
 else fails the build: `http:`, `data:` and `javascript:` sources, a
-protocol-relative `"//example.com/gtm.js"`, a relative `"metrics.js"`, and a
-source holding whitespace or a control character, which a browser strips before
-it reads the scheme. A `data:` source on the `worker` strategy would run inside
+protocol-relative `"//example.com/gtm.js"`, a relative `"metrics.js"`, an
+`https:` URL with a user name or password in it, and a source holding
+whitespace or a control character, which a browser strips, drops or encodes
+before it reads the URL. A `data:` source on the `worker` strategy would run inside
 the runtime's worker, where the page's Content-Security-Policy does not reach.
 
 ```

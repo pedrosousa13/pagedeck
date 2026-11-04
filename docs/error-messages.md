@@ -40,7 +40,7 @@ calls `beaconFaultReport` and asserts this document holds what came back, so
 those four are pinned whole rather than around their holes.
 
 **What a template interpolates is not checked, and that is most of what is
-below**: the 269 checked messages pin 40463 of the 114389 fenced characters, and
+below**: the 269 checked messages pin 40463 of the 114616 fenced characters, and
 the rest is values. An enumerated list a message fills a hole with is a value
 like any other: the two stale field lists #440 corrected were exactly that,
 and neither test would have found them.
@@ -1272,14 +1272,18 @@ A source that is a string is still refused unless it is an `https:` URL or a
 path that starts with a single `/` (#292). A `data:` source on the `worker`
 strategy would run inside the runtime's worker, where the page's CSP does not
 reach, and an `http:` or protocol-relative one loads without HTTPS. A source
-holding whitespace or a control character is refused before its scheme is read,
-because a browser strips or drops those first, and `"java\tscript:"` is
-`javascript:` to it:
+holding whitespace or a control character is refused before its scheme is read:
+a browser strips those at the ends, drops a tab or newline anywhere, so
+`"java\tscript:"` is `javascript:` to it, and percent-encodes the rest. An
+`https:` URL with a user name or password is refused too, because every page
+that loads the script would publish them, and the message quotes the URL with
+them cut, as rule 6 asks:
 
 ```
-Script settings: declares 2 script fields that cannot be loaded from — declare each as the lines that name it say:
+Script settings: declares 3 script fields that cannot be loaded from — declare each as the lines that name it say:
   scripts[0] — "src" — "data:text/javascript,alert(1)" — not an https: URL or a path on this site, so the script would load from where the page's CSP or HTTPS does not reach — write an https: URL or a path that starts with a single "/", such as "https://example.com/analytics.js" or "/analytics.js"
-  scripts[1] — "src" — "java\tscript:alert(1)" — a source holding whitespace or a control character, which a browser strips or drops before it reads the URL — delete it, or percent-encode it if the URL needs it
+  scripts[1] — "src" — "java\tscript:alert(1)" — a source holding whitespace or a control character, which a browser strips, drops or encodes before it reads the URL — delete it, or percent-encode it if the URL needs it
+  scripts[2] — "src" — "https://…@example.com/a.js" — an https: URL with a user name or password, which every page that loads the script would publish and a browser may refuse to load — drop the user name and password
 ```
 
 A list entry that is not a declaration at all is a paragraph of its own rather
