@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { readFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
@@ -166,6 +166,36 @@ async function run(verb: string): Promise<void> {
   await execFileAsync(process.execPath, [BIN, verb], { cwd: SITE });
 }
 
+/** `pagedeck dev` over the same site, which serves the runtime's files itself (#282). */
+async function startDev(): Promise<{ origin: string; stop(): Promise<void> }> {
+  const child = spawn(process.execPath, [BIN, "dev", "--port", "0"], { cwd: SITE });
+  const stop = (): Promise<void> =>
+    new Promise((done) => {
+      if (child.exitCode !== null || child.signalCode !== null) done();
+      else {
+        child.on("exit", () => done());
+        child.kill("SIGTERM");
+      }
+    });
+  const origin = await new Promise<string>((resolve, reject) => {
+    let out = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      out += chunk;
+      const found = /at (http:\/\/[^\s]+)/.exec(out);
+      if (found !== null) resolve(found[1] as string);
+    });
+    child.on("exit", (code) => {
+      reject(
+        new Error(
+          `Consent worker harness: pagedeck dev exited with ${String(code)} before it was listening — it wrote:\n${out}`,
+        ),
+      );
+    });
+  });
+  return { origin, stop };
+}
+
 let browser: Browser;
 let vendor: Served | undefined;
 let site: Served | undefined;
@@ -203,6 +233,7 @@ afterAll(async () => {
 
 async function open(
   grantedAtLoad = false,
+  at: string = site?.origin ?? "",
 ): Promise<{ page: BrowserPage; errors: string[]; finish(): Promise<void> }> {
   vendorRequests.length = 0;
   const context = await browser.newContext();
@@ -214,7 +245,7 @@ async function open(
   }
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
-  await page.goto(`${site?.origin ?? ""}/`);
+  await page.goto(`${at}/`);
   return { page, errors, finish: () => context.close() };
 }
 
@@ -322,3 +353,27 @@ test("a category granted when the page loads runs the held script in the worker,
   expect(errors).toEqual([]);
   await finish();
 });
+
+test("under pagedeck dev, Partytown registers its service worker and the worker script reports from the worker", async () => {
+  const dev = await startDev();
+  try {
+    const { page, errors, finish } = await open(false, dev.origin);
+    await workerRan();
+
+    expect(requested("tags")).not.toContain("/hit?script=tags&where=main");
+    const lib = await page.evaluate(
+      () => (globalThis as { partytown?: { lib?: string } }).partytown?.lib ?? "",
+    );
+    expect(lib).toMatch(/^\/script-runtime\/[0-9a-f]{8}\/$/);
+    const scopes = await page.evaluate(async () =>
+      (await navigator.serviceWorker.getRegistrations()).map(
+        (registration) => new URL(registration.scope).pathname,
+      ),
+    );
+    expect(scopes).toEqual([lib]);
+    expect(errors).toEqual([]);
+    await finish();
+  } finally {
+    await dev.stop();
+  }
+}, 120_000);

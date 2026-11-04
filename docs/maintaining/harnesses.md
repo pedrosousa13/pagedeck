@@ -117,7 +117,7 @@ from them.
 | `pnpm build && pnpm test:hydrated-harness` | `packages/core/src/hydrated.harness.ts` | a `load` island's marker carries `data-pagedeck-hydrated` once it commits, an `idle` island's only after its trigger, and an island whose module fails to load never does (#139) |
 | `pnpm build && pnpm test:hydration-task-harness` | `packages/core/src/hydration-task.harness.ts` | at 4x CPU slowdown, a 5000-row `load` island hydrates in tasks each shorter than half the hydration, because the runtime hydrates in a transition (#97) |
 | `pnpm test:consent-facade-harness` | `packages/core/src/consent-facade.harness.ts` | consent moves a facade's `data-pagedeck-consent` without a reload, and a denied press loads nothing (#460) |
-| `pnpm build && pnpm test:consent-worker-harness` | `packages/script-worker/src/consent-worker.harness.ts` | under Partytown, a categorized `worker` script makes no request before a grant, runs in the worker after it or when granted at load, and never loads while denied (#281) |
+| `pnpm build && pnpm test:consent-worker-harness` | `packages/script-worker/src/consent-worker.harness.ts` | under Partytown, a categorized `worker` script makes no request before a grant, runs in the worker after it or when granted at load, and never loads while denied (#281); under `pagedeck dev`, Partytown registers its service worker and a `worker` script runs in the worker (#282) |
 | `pnpm test:view-transitions-harness` | `packages/core/src/view-transitions.harness.ts` | with `viewTransitions: true`, following a link runs a cross-document view transition with no motion preference and none under `prefers-reduced-motion: reduce` (#121) |
 | `pnpm build && pnpm test:island-browsers-harness` (needs `npx playwright install chromium firefox webkit`) | `packages/create-pagedeck/src/island-browsers.harness.ts` | the starter's counter island hydrates and counts clicks in Chromium, Firefox and WebKit (#161) |
 | `pnpm build && pnpm test:app-form-harness` | `packages/app-example/src/app-form.harness.ts` | the companion-app form, served by `wrangler dev`, announces success, refusal, a held request, a dropped request and a non-JSON failure, sends one request for a double submit, keeps the address for a retry, and posts without JavaScript or before hydration to a page whose URL holds no address (#159) |
@@ -128,7 +128,7 @@ so build first; none can detect a stale `dist`. The consent facade and view
 transitions harnesses drive `runCli` in process and need no build. The consent
 worker harness spawns `pagedeck` over a site that imports
 `@pagedeck/script-worker` by name, so build first. It serves the build and a
-stub vendor on two local origins and counts the vendor's requests on the
+stub vendor on two local origins, then runs `pagedeck dev` over the same site and counts the vendor's requests on the
 server, since a request from Partytown's worker never reaches the page. The island
 browsers harness spawns `pagedeck` over a copy of the starter template, so
 build first; `ci.yml`'s `browsers` job runs it on every push. The app
